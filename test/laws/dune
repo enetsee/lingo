@@ -1,0 +1,23 @@
+(library
+ (name lingo_witness)
+ (modules witnesses)
+ (libraries lingo.core lingo_grammars redfa))
+
+(tests
+ (names law_validate law_first_follow law_manifest law_facts law_packaging)
+ (modules
+  law_validate
+  law_first_follow
+  law_manifest
+  law_facts
+  law_packaging
+  naive_first
+  corpus)
+ ; law_packaging reads these back, so they must be in the sandbox. A dep it
+ ; cannot see is a file it scans zero of, which is why the test asserts it
+ ; scanned something.
+ (deps
+  %{workspace_root}/dune-project
+  (source_tree %{workspace_root}/grammars)
+  (source_tree %{workspace_root}/lib))
+ (libraries lingo.core lingo_grammars lingo_witness redfa str))

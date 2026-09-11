@@ -1,0 +1,3 @@
+(library
+ (name lingo_grammars)
+ (libraries lingo.grammar redfa))

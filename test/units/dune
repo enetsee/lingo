@@ -1,0 +1,3 @@
+(tests
+ (names sexp_facts mangle_test pratt_desugar)
+ (libraries lingo.core lingo_grammars))

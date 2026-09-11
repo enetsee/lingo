@@ -1,0 +1,4 @@
+(library
+ (name grammar)
+ (public_name lingo.grammar)
+ (libraries redfa))
