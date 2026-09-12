@@ -463,6 +463,9 @@ let all : (string * Grammar.t) list =
     take the shapes nearest to each rejection and stop short of them. *)
 let accepted : (string * Grammar.t) list =
   [ "sexp", Lingo_grammars.Sexp_grammar.grammar
+  ; "calc", Lingo_grammars.Calc_grammar.grammar
+  ; "rassoc", Lingo_grammars.Rassoc_grammar.grammar
+  ; "json", Lingo_grammars.Json_grammar.grammar
   ; ( "delimited-with-sep"
     , only
         [ prod "Root" [ child_rep "e" (Rule "Item") ]
