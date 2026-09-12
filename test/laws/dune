@@ -19,5 +19,14 @@
  (deps
   %{workspace_root}/dune-project
   (source_tree %{workspace_root}/grammars)
+  (source_tree %{workspace_root}/runtime)
   (source_tree %{workspace_root}/lib))
  (libraries lingo.core lingo_grammars lingo_witness redfa str))
+
+; law_runtime links lingo_runtime and nothing else, which is the claim as well
+; as the convenience: the runtime has to be usable without the generator.
+
+(tests
+ (names law_runtime)
+ (modules law_runtime)
+ (libraries lingo_runtime siesta))

@@ -28,18 +28,16 @@
  (synopsis "Runtime linked by lingo-generated parsers and formatters")
  (description
   "The cursor, builder, diagnostics, recovery, and the table-driven plan and layout engines that generated code calls into. Depends on siesta and handsome and nothing else of ours, so linking a generated parser does not pull a code generator into the build graph.")
+ ; The diagnostic list is a Dynarray, which arrived in OCaml 5.2. handsome is
+ ; declared and not yet linked: the layout engine is Phase 3, and it is the
+ ; only part of the runtime that wants a document algebra.
  (depends
   (ocaml
-   (>= 5.0))
+   (>= 5.2))
   siesta
   handsome
   (alcotest :with-test)
-  (odoc :with-doc))
- ; Declared, not yet populated: the cursor, builder, diagnostics and recovery
- ; port is Phase 2 work, alongside the parser that calls them (03-BUILD.md §7).
- ; The stanza exists now so the dependency set is on record and the
- ; "never depends on lingo" rule is enforceable before there is code to break it.
- (allow_empty))
+  (odoc :with-doc)))
 
 (package
  (name lingo)

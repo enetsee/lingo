@@ -13,10 +13,10 @@
       (d) [Facts.t] has one constructor. Every value in facts.mli whose result
           mentions [t] is [of_grammar].
 
-      Mechanism. (a) reads the dune-project stanza, so it checks the
-      declaration. That is what there is to check today: the runtime holds no
-      code, so the edge cannot exist. The check is written now so it is in
-      place when the port lands.
+      Mechanism. (a) reads two things. The package stanza in dune-project is
+      the declaration. The dune stanzas under runtime/ are what would create
+      the edge, and they are read as an allowed set rather than searched for
+      [lingo], so a dependency nobody meant to add is reported as well.
 
       (b) is structural in four places and a grep for the rest.
         - a kind integer is minted in [Kind] and an emitted name in
@@ -38,7 +38,11 @@
       Falsification. Every mutation below was applied, run and reverted.
 
         M1  Add [lingo] to lingo_runtime's depends in dune-project.
-            -> this law, part (a).
+            -> this law, part (a), on the package stanza.
+        M1b Add [lingo.core] to the libraries in runtime/dune.
+            -> this law, part (a), on the link graph, naming the file and the
+               library. Run again with [lingo.grammar] in its place, with the
+               same result.
         M2  Add the text [Core.Internal] to grammars/sexp_grammar.ml, in a
             comment, so the file still compiles.
             -> this law, part (b), naming the file and the needle.
@@ -47,9 +51,10 @@
             Core.Internal.Stage.shape n], no longer compiles: grammars/ links
             lingo.grammar and redfa, so [Core] is unbound there. That is a
             stronger guarantee than the grep, and the dune stanza is what
-            provides it. Part (b) will earn a real leak to catch when
-            runtime/ and editors/ hold code, since both link lingo.core.
-            The comment is what keeps the mechanism falsifiable until then.
+            provides it. runtime/ holds code now and cannot link lingo.core
+            either, so the same argument covers it. editors/ will link it,
+            and that is where part (b) earns a real leak to catch. The
+            comment is what keeps the mechanism falsifiable until then.
         M3  Add [primary_root : t -> string] to Grammar, with its
             implementation.
             -> this law, part (c).
@@ -69,12 +74,12 @@
       these two catch someone who supplies the implementation as well. Both
       were re-run that way.
 
-      Coverage. (a) covers the declaration. (b) covers the .ml and .mli files
-      outside lib/core, of which there is one: the sexp grammar. runtime/ and
-      editors/ hold no code and this suite scans itself out. (c) and (d) read
-      the interfaces, and would miss a module handing out what they forbid by
-      another route; core.mli decides that, and these two do not read
-      it.
+      Coverage. (a) covers the package stanza and every dune file under
+      runtime/. (b) covers the .ml and .mli files under grammars/, runtime/
+      and editors/, which is where a module outside lib/core can live;
+      editors/ is empty and this suite scans itself out. (c) and (d) read the
+      interfaces, and would miss a module handing out what they forbid by
+      another route; core.mli decides that, and these two do not read it.
    -------------------------------------------------------------------------- *)
 
 let failures = ref 0
@@ -111,6 +116,16 @@ let root =
   match up (Sys.getcwd ()) with
   | Some d -> d
   | None -> Sys.getcwd ()
+;;
+
+(* Paths print relative to the workspace root. A test runs in a dune sandbox,
+   so the absolute path names a directory the reader has no reason to open. *)
+let rel p =
+  let r = root ^ Filename.dir_sep in
+  let n = String.length r in
+  if String.length p > n && String.sub p 0 n = r
+  then String.sub p n (String.length p - n)
+  else p
 ;;
 
 let contains hay needle =
@@ -171,10 +186,79 @@ let () =
       then
         fail
           "lingo_runtime depends on lingo, which is the one rule a stanza must not break"
-      else
-        pass
-          "lingo_runtime does not depend on lingo (declaration checked; no runtime code \
-           yet)")
+      else pass "lingo_runtime's package stanza does not depend on lingo")
+;;
+
+(* (a), the other half. The package stanza is the declaration; a dune stanza
+   under runtime/ is what would actually create the edge, now that there is
+   code there to create it with. Reading the allowed set rather than looking
+   for lingo also reports a dependency nobody meant to add. *)
+let allowed_runtime_libraries = [ "siesta"; "handsome" ]
+
+let libraries_in (s : string) : string list =
+  let n = String.length s in
+  let marker = "(libraries" in
+  let ml = String.length marker in
+  let rec matching j depth =
+    if j >= n
+    then j
+    else (
+      match s.[j] with
+      | '(' -> matching (j + 1) (depth + 1)
+      | ')' -> if depth = 1 then j else matching (j + 1) (depth - 1)
+      | _ -> matching (j + 1) depth)
+  in
+  let rec scan i acc =
+    if i + ml > n
+    then acc
+    else if String.sub s i ml = marker
+    then (
+      let stop = matching (i + 1) 1 in
+      let body = String.sub s (i + ml) (stop - i - ml) in
+      let words =
+        String.split_on_char '\n' body
+        |> List.concat_map (String.split_on_char ' ')
+        |> List.map String.trim
+        |> List.filter (fun w -> w <> "")
+      in
+      scan stop (acc @ words))
+    else scan (i + 1) acc
+  in
+  scan 0 []
+;;
+
+let () =
+  let dir = Filename.concat root "runtime" in
+  let dunes =
+    if Sys.file_exists dir
+    then
+      Array.to_list (Sys.readdir dir)
+      |> List.filter (fun e -> e = "dune")
+      |> List.map (Filename.concat dir)
+    else []
+  in
+  let bad = ref 0 in
+  List.iter
+    (fun p ->
+       List.iter
+         (fun lib ->
+            if not (List.mem lib allowed_runtime_libraries)
+            then (
+              incr bad;
+              fail "%s links %s; the runtime links siesta and handsome alone" (rel p) lib))
+         (libraries_in (read p)))
+    dunes;
+  if dunes = []
+  then
+    fail
+      "no dune file found under %s, so the link graph was not read; check the deps \
+       stanza in test/laws/dune"
+      (Filename.concat root "runtime")
+  else if !bad = 0
+  then
+    pass
+      "runtime/ links siesta and handsome alone (%d dune files read)"
+      (List.length dunes)
 ;;
 
 (* (b) *)
@@ -218,7 +302,7 @@ let () =
             if contains s needle
             then (
               incr bad;
-              fail "%s uses %s, which %s, outside lingo.core" p needle why))
+              fail "%s uses %s, which %s, outside lingo.core" (rel p) needle why))
          minting)
     scanned;
   (* Instrument the instrument. A grep over an empty file list is a test that
@@ -233,8 +317,8 @@ let () =
   else if !bad = 0
   then
     pass
-      "no module outside lingo.core derives facts (%d files scanned; runtime/ and \
-       editors/ hold no code yet, so the scan is over grammars/ alone)"
+      "no module outside lingo.core derives facts (%d files scanned under grammars/, \
+       runtime/ and editors/)"
       (List.length scanned)
 ;;
 
