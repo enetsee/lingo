@@ -1,5 +1,5 @@
-module Kind = Kind
-module Message = Message
+module Kind = Ir.Kind
+module Message = Ir.Message
 module Token = Token
 module Diagnostic = Diagnostic
 module Cursor = Cursor

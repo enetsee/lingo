@@ -9,6 +9,6 @@
 
 type t = int
 
-(** No token. {!Cursor.current} answers with this past the end of the input,
-    so a dispatch over kinds needs no separate test for the end. *)
+(** No token. A cursor answers with this past the end of the input, so a
+    dispatch over kinds needs no separate test for the end. *)
 val none : t

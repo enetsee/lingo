@@ -19,8 +19,7 @@
 ;
 ; The one rule a stanza must not break: lingo_runtime NEVER depends on lingo.
 ; Generated code links the runtime, and that is what keeps ppxlib and yojson
-; out of a consumer's build graph.  test/laws/law_packaging.ml reads these
-; stanzas back and fails if the edge appears.
+; out of a consumer's build graph.
 ; ---------------------------------------------------------------------------
 
 (package
@@ -29,8 +28,8 @@
  (description
   "The cursor, builder, diagnostics, recovery, and the table-driven plan and layout engines that generated code calls into. Depends on siesta and handsome and nothing else of ours, so linking a generated parser does not pull a code generator into the build graph.")
  ; The diagnostic list is a Dynarray, which arrived in OCaml 5.2. handsome is
- ; declared and not yet linked: the layout engine is Phase 3, and it is the
- ; only part of the runtime that wants a document algebra.
+ ; declared and not yet linked. The layout engine is the only part of the
+ ; runtime that wants a document algebra, and it is not written.
  (depends
   (ocaml
    (>= 5.2))
@@ -67,5 +66,6 @@
   yojson
   (alcotest :with-test)
   (odoc :with-doc))
- ; Declared, not yet populated: Phase 6.
+ ; Declared and empty. The TextMate and tree-sitter backends go here, and
+ ; yojson is theirs alone, which is why they are a package of their own.
  (allow_empty))

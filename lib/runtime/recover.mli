@@ -5,8 +5,10 @@
 
     A balanced skip is the other half. It reads the grammar's delimiter pairs
     and its error kind, so the OCaml emitter writes it with those as
-    constants and the interpreter brings its own. The Phase 2 differential
-    compares those two, which it could not do with one shared copy. *)
+    constants and the interpreter brings its own. The two are then separate
+    implementations and a differential test compares them. One shared copy
+    would put recovery outside that comparison, and recovery is where this
+    project's hard bugs have lived. *)
 
 (** [expect ?at_child ?hole_kind ?placeholder c k id] consumes a token of
     kind [k] where the cursor is on one. Otherwise it reports [k] missing and
@@ -24,9 +26,9 @@
     materialised stray semicolon would be bytes the source never had. *)
 val expect
   :  ?at_child:string
-  -> ?hole_kind:Kind.t
-  -> ?placeholder:Kind.t
+  -> ?hole_kind:Ir.Kind.t
+  -> ?placeholder:Ir.Kind.t
   -> Cursor.t
-  -> Kind.t
-  -> Message.id
+  -> Ir.Kind.t
+  -> Ir.Message.id
   -> unit

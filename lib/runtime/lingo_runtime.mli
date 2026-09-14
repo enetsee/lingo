@@ -30,10 +30,14 @@
 
     Two things follow. Generated code stays real code rather than a table
     walk. And the interpreter and the emitted parser stay separate
-    implementations, which is what the Phase 2 differential compares. *)
+    implementations, so a differential test has two of them to compare. *)
 
-module Kind = Kind
-module Message = Message
+(** Generated code names a kind on almost every line and a message wherever
+    it reports something, so both are reachable from here rather than through
+    [lingo_runtime.ir]. The plan is not: generated code never names one. *)
+
+module Kind = Ir.Kind
+module Message = Ir.Message
 module Token = Token
 module Diagnostic = Diagnostic
 module Cursor = Cursor

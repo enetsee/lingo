@@ -1,7 +1,7 @@
 (** What a parse reports about input it could not read.
 
     A diagnostic is anchored by a byte range over the input, so a consumer
-    places one without walking the tree. It carries a {!Message.id} and not
+    places one without walking the tree. It carries a {!Ir.Message.id} and not
     the text. {!Message} says why.
 
     A recovery node resolves to its diagnostic in one step.
@@ -17,16 +17,16 @@ type missing =
   { at_child : string option
     (** The child's name, where the parser was filling a named position.
           This is a string because the runtime holds no name types. *)
-  ; expected : Message.id
-  ; expected_kinds : Kind.t list
-  ; hole_kind : Kind.t option
+  ; expected : Ir.Message.id
+  ; expected_kinds : Ir.Kind.t list
+  ; hole_kind : Ir.Kind.t option
     (** The typed hole this gap lowers to, where the grammar declares
           one. *)
   }
 
 type kind =
   | Missing of missing
-  | Extra of Message.id (** Input the parse read and the grammar does not want. *)
+  | Extra of Ir.Message.id (** Input the parse read and the grammar does not want. *)
   | Unexpected (** Input a recovery skipped. *)
 
 type t =

@@ -41,21 +41,21 @@ let create ?(cache = Siesta.Cache.create ()) ~trivia_kinds tokens =
 
 let position (c : t) = c.pos
 
-let is_trivia (c : t) (k : Kind.t) =
+let is_trivia (c : t) (k : Ir.Kind.t) =
   k >= 0 && k < Array.length c.trivia_lookup && c.trivia_lookup.(k)
 ;;
 
 let peek_idx (c : t) = c.next_meaningful.(c.pos)
 
-let current (c : t) : Kind.t =
+let current (c : t) : Ir.Kind.t =
   let i = peek_idx c in
-  if i >= Array.length c.tokens then Kind.none else c.tokens.(i).kind
+  if i >= Array.length c.tokens then Ir.Kind.none else c.tokens.(i).kind
 ;;
 
 let eof (c : t) = peek_idx c >= Array.length c.tokens
-let at (c : t) (k : Kind.t) = current c = k
+let at (c : t) (k : Ir.Kind.t) = current c = k
 
-let peek_meaningful_at (c : t) ~(n : int) : Kind.t =
+let peek_meaningful_at (c : t) ~(n : int) : Ir.Kind.t =
   let total = Array.length c.tokens in
   let j = ref (peek_idx c) in
   let remaining = ref n in
@@ -63,7 +63,7 @@ let peek_meaningful_at (c : t) ~(n : int) : Kind.t =
     j := c.next_meaningful.(!j + 1);
     decr remaining
   done;
-  if !j >= total then Kind.none else c.tokens.(!j).kind
+  if !j >= total then Ir.Kind.none else c.tokens.(!j).kind
 ;;
 
 let range (c : t) =

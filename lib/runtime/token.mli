@@ -5,6 +5,6 @@
     can rebuild the input. *)
 
 type t =
-  { kind : Kind.t
+  { kind : Ir.Kind.t
   ; text : string
   }

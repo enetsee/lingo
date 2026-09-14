@@ -1,13 +1,13 @@
 type missing =
   { at_child : string option
-  ; expected : Message.id
-  ; expected_kinds : Kind.t list
-  ; hole_kind : Kind.t option
+  ; expected : Ir.Message.id
+  ; expected_kinds : Ir.Kind.t list
+  ; hole_kind : Ir.Kind.t option
   }
 
 type kind =
   | Missing of missing
-  | Extra of Message.id
+  | Extra of Ir.Message.id
   | Unexpected
 
 type t =
@@ -26,7 +26,7 @@ let pp fmt (d : t) =
       "@[<h>%d-%d missing %a%a%a@]"
       lo
       hi
-      Message.pp
+      Ir.Message.pp
       m.expected
       (fun fmt -> function
          | None -> ()
@@ -43,7 +43,7 @@ let pp fmt (d : t) =
                 Format.pp_print_int)
              ks)
       m.expected_kinds
-  | Extra id -> Format.fprintf fmt "@[<h>%d-%d extra %a@]" lo hi Message.pp id
+  | Extra id -> Format.fprintf fmt "@[<h>%d-%d extra %a@]" lo hi Ir.Message.pp id
   | Unexpected -> Format.fprintf fmt "@[<h>%d-%d unexpected@]" lo hi
 ;;
 

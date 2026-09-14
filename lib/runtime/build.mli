@@ -17,7 +17,7 @@ val mark : Cursor.t -> Siesta.Builder.checkpoint
 
 (** Opens a node. [?payload] stamps a diagnostic id on it; see
     {!Cursor.report_id}. *)
-val start_node : ?payload:int -> Cursor.t -> Kind.t -> unit
+val start_node : ?payload:int -> Cursor.t -> Ir.Kind.t -> unit
 
 (** Opens a node around everything emitted into the open frame since the
     checkpoint. A left-associative operator wraps its left side this way,
@@ -26,7 +26,7 @@ val start_node_at
   :  ?payload:int
   -> Cursor.t
   -> Siesta.Builder.checkpoint
-  -> Kind.t
+  -> Ir.Kind.t
   -> unit
 
 val finish_node : Cursor.t -> unit
@@ -37,7 +37,7 @@ val finish_node : Cursor.t -> unit
     A production that lost its closing delimiter to recovery otherwise looks
     the same as one that has it, and every consumer has to work the
     difference out again. *)
-val missing_node : ?payload:int -> Cursor.t -> Kind.t -> unit
+val missing_node : ?payload:int -> Cursor.t -> Ir.Kind.t -> unit
 
 (** The root and the diagnostics, in the order they were reported. A 1-based
     id from {!Cursor.report_id} is that diagnostic's place in the list.

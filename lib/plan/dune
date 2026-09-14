@@ -1,0 +1,4 @@
+(library
+ (name plan)
+ (public_name lingo.plan)
+ (libraries ir))

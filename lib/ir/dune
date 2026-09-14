@@ -1,0 +1,3 @@
+(library
+ (name ir)
+ (public_name lingo_runtime.ir))

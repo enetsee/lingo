@@ -30,23 +30,23 @@ type t
     subtrees between parses. An editor re-parsing on every keystroke wants
     that. A tool that parses once and drops the tree should pass
     [Siesta.Cache.create_plain ()] and skip the hashing. *)
-val create : ?cache:Siesta.Cache.t -> trivia_kinds:Kind.t list -> Token.t array -> t
+val create : ?cache:Siesta.Cache.t -> trivia_kinds:Ir.Kind.t list -> Token.t array -> t
 
 (** {1 Reading} *)
 
 (** The index into the token array. It counts trivia. *)
 val position : t -> int
 
-(** The kind under the cursor, past any trivia. {!Kind.none} at the end of
+(** The kind under the cursor, past any trivia. {!Ir.Kind.none} at the end of
     the input. *)
-val current : t -> Kind.t
+val current : t -> Ir.Kind.t
 
-val at : t -> Kind.t -> bool
+val at : t -> Ir.Kind.t -> bool
 val eof : t -> bool
 
 (** [peek_meaningful_at c ~n] is the kind [n] meaningful tokens further on.
-    [n = 0] is {!current}. {!Kind.none} past the end of the input. *)
-val peek_meaningful_at : t -> n:int -> Kind.t
+    [n = 0] is {!current}. {!Ir.Kind.none} past the end of the input. *)
+val peek_meaningful_at : t -> n:int -> Ir.Kind.t
 
 (** The byte range of the token {!current} answers for, half open. Leading
     trivia sits outside it, so a diagnostic points at the token rather than
@@ -54,7 +54,7 @@ val peek_meaningful_at : t -> n:int -> Kind.t
     there is no token left. *)
 val range : t -> int * int
 
-val is_trivia : t -> Kind.t -> bool
+val is_trivia : t -> Ir.Kind.t -> bool
 
 (** {1 Consuming} *)
 

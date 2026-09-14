@@ -3,17 +3,17 @@ let mark (c : Cursor.t) =
   Siesta.Builder.checkpoint (Cursor.builder c)
 ;;
 
-let start_node ?payload (c : Cursor.t) (k : Kind.t) =
+let start_node ?payload (c : Cursor.t) (k : Ir.Kind.t) =
   Siesta.Builder.start_node ?payload (Cursor.builder c) k
 ;;
 
-let start_node_at ?payload (c : Cursor.t) cp (k : Kind.t) =
+let start_node_at ?payload (c : Cursor.t) cp (k : Ir.Kind.t) =
   Siesta.Builder.start_node_at ?payload (Cursor.builder c) cp k
 ;;
 
 let finish_node (c : Cursor.t) = Siesta.Builder.finish_node (Cursor.builder c)
 
-let missing_node ?payload (c : Cursor.t) (k : Kind.t) =
+let missing_node ?payload (c : Cursor.t) (k : Ir.Kind.t) =
   start_node ?payload c k;
   finish_node c
 ;;

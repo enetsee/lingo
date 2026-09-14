@@ -1,7 +1,6 @@
 (* -- JSON ---------------------------------------------------------------------
 
-   This is the grammar the Phase 2 gate is measured on. It carries four
-   shapes the others here do not:
+   JSON carries four shapes the others here do not:
 
    - [Value] is an alternative over five tokens and two rules, so dispatch
      is a cascade over mixed kinds;
