@@ -1,0 +1,6 @@
+; The only ppxlib user. Generated code links lingo_runtime, never this.
+
+(library
+ (name ocaml)
+ (public_name lingo.ocaml)
+ (libraries ppxlib))

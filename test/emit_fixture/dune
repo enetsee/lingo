@@ -1,0 +1,6 @@
+; The structure law_emit round-trips and test/expect/emit.expected pins. One
+; copy, because the two claims have to be about the same source.
+
+(library
+ (name fixture)
+ (libraries lingo.ocaml ppxlib))

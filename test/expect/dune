@@ -21,6 +21,21 @@
   lex
   siesta))
 
+(executable
+ (name dump_emit)
+ (modules dump_emit)
+ (libraries lingo.ocaml fixture))
+
+(rule
+ (with-stdout-to
+  emit.actual
+  (run ./dump_emit.exe)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff emit.expected emit.actual)))
+
 (rule
  (with-stdout-to
   sexp.plan.actual

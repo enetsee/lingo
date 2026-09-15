@@ -28,6 +28,11 @@
  (libraries lingo.plan lingo_runtime.ir))
 
 (tests
+ (names law_emit)
+ (modules law_emit)
+ (libraries lingo.ocaml fixture ppxlib))
+
+(tests
  (names law_lower)
  (modules law_lower)
  (libraries lingo.plan lingo.core lingo_grammars lingo_runtime.ir))
