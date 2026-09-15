@@ -71,6 +71,19 @@ val bump : t -> unit
 (** Records a diagnostic over {!range}. *)
 val report : t -> Diagnostic.kind -> unit
 
+(** The byte offset just past everything the parse has taken. Read it before
+    and after consuming, and the two offsets bracket what was read. *)
+val offset : t -> int
+
+(** Records a diagnostic over a range the caller worked out, rather than over
+    {!range}.
+
+    Use it to report on input the parse has already taken, because {!range}
+    answers for the token under the cursor and the cursor has moved past it. A
+    trailing separator is the case that needs this: a parse knows the
+    separator was trailing only once it has read what follows. *)
+val report_at : t -> int * int -> Diagnostic.kind -> unit
+
 (** The same, answering with the diagnostic's 1-based id. Stamp that id on
     the recovery node as its payload, and a consumer walking the tree gets
     from a node to its diagnostic in one step.
@@ -103,3 +116,17 @@ val while_progress : t -> (unit -> bool) -> (unit -> unit) -> unit
 
 val builder : t -> Siesta.Builder.t
 val diagnostics : t -> Diagnostic.t list
+
+(** How many frames are open. It is [0] before the first node is started, and
+    again once the last one closes.
+
+    {!Build.start_node} reads it to tell the root from every other node. At
+    the root nothing is open yet, so leading trivia has nowhere to go but
+    inside the root itself.
+
+    {!Build} keeps it, through {!entered} and {!left}. Nothing else should
+    call those two. *)
+val depth : t -> int
+
+val entered : t -> unit
+val left : t -> unit

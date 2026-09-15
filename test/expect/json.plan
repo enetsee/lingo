@@ -46,12 +46,11 @@
           (recover)
           (at-child value)
           (message 0)
-          (expected 5 6 7 8 10 14 15)
           (hole 17)
           (placeholder 17)
           (resume)
           (call 1))
-        drain
+        (drain (message 1))
         close))
     (rule
       Value
@@ -66,7 +65,6 @@
           (recover 9 11 12)
           (at-child kind)
           (message 0)
-          (expected 5 6 7 8 10 14 15)
           (hole 18)
           (placeholder 18)
           (resume)
@@ -87,14 +85,13 @@
       (boundary false)
       (seq
         (open 2)
-        (expect 15 (message 1) (at-child key) (hole 19) (placeholder))
-        (expect 13 (message 2) (at-child colon) (hole 19) (placeholder))
+        (expect 15 (message 2) (at-child key) (hole 19) (placeholder))
+        (expect 13 (message 3) (at-child colon) (hole 19) (placeholder))
         (commit
           (first 5 6 7 8 10 14 15)
           (recover 9 12)
           (at-child value)
-          (message 3)
-          (expected 5 6 7 8 10 14 15)
+          (message 4)
           (hole 19)
           (placeholder 19)
           (resume)
@@ -108,12 +105,12 @@
       (boundary false)
       (seq
         (open 3)
-        (expect 8 (message 6) (at-child) (hole) (placeholder))
+        (expect 8 (message 7) (at-child) (hole) (placeholder))
         (loop
           0
           (state (accepts ((on 15) 1)) (exit may) (call 2))
           (state (accepts ((on 12) 2)) (exit may) bump)
-          (state (accepts ((on 15) 1)) (exit may (message 4)) (call 2)))
+          (state (accepts ((on 15) 1)) (exit may (message 6)) (call 2)))
         trivia
         (expect 9 (message 5) (at-child) (hole) (placeholder 9))
         close))
@@ -125,26 +122,27 @@
       (boundary false)
       (seq
         (open 4)
-        (expect 10 (message 8) (at-child) (hole) (placeholder))
+        (expect 10 (message 9) (at-child) (hole) (placeholder))
         (loop
           0
           (state (accepts ((on 5 6 7 8 10 14 15) 1)) (exit may) (call 1))
           (state (accepts ((on 12) 2)) (exit may) bump)
           (state
             (accepts ((on 5 6 7 8 10 14 15) 1))
-            (exit may (message 4))
+            (exit may (message 6))
             (call 1)))
         trivia
-        (expect 11 (message 7) (at-child) (hole) (placeholder 11))
+        (expect 11 (message 8) (at-child) (hole) (placeholder 11))
         close)))
   (blocks))
 ; -- messages -----------------------------------------------------
 ;   0 expected "true" or "false" or "null" or "{" or "[" or number or string
-;   1 expected string
-;   2 expected ':' after object key
-;   3 expected a JSON value
-;   4 a trailing ","
+;   1 trailing tokens
+;   2 expected string
+;   3 expected ':' after object key
+;   4 expected a JSON value
 ;   5 expected "}"
-;   6 expected "{"
-;   7 expected "]"
-;   8 expected "["
+;   6 a trailing ","
+;   7 expected "{"
+;   8 expected "]"
+;   9 expected "["

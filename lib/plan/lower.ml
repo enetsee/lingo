@@ -96,13 +96,15 @@ let instr_of_child
   : Ir.Plan.instr
   =
   let first = child_first facts child in
-  let at_child = Core.Grammar.Name.Child.to_string child.child_name in
-  let id = message facts msgs rule_def child first in
   match child.modifier with
+  (* Neither of these reports, so neither asks for a message. Asking here
+     would put wording in the catalogue that no instruction ever names. *)
   | Core.Grammar.Optional ->
     Ir.Plan.Alt { arms = [| kset first, body_of_alts facts child.alts |] }
   | Core.Grammar.Repeated -> repetition (kset first) (body_of_alts facts child.alts)
   | Core.Grammar.Required ->
+    let at_child = Core.Grammar.Name.Child.to_string child.child_name in
+    let id = message facts msgs rule_def child first in
     (match child.alts with
      | [| kind |] when facts.kind_rule.(Core.Kind.to_int kind) < 0 ->
        Ir.Plan.Expect
@@ -123,7 +125,6 @@ let instr_of_child
          ; recover = kset recover
          ; at_child
          ; message = id
-         ; expected = kset first
          ; hole = Option.map Core.Kind.to_int rule_def.hole
          ; placeholder =
              (match rule_def.hole with
@@ -226,15 +227,24 @@ let resume_after (facts : Core.Facts.t) (rule_def : Core.Rule.def) (index : int)
 ;;
 
 (* Answers what the rule's own frame contributes to the recovery set it passes
-   down: its closer, and its separator where it has one. *)
-let adds_of ({ frame; _ } : Core.Rule.def) : Core.Kind.Set.t =
-  match frame with
-  | Core.Rule.Plain | Core.Rule.Committed _ -> Core.Kind.Set.empty
-  | Core.Rule.Separated s -> Core.Kind.Set.singleton s.sep_tok
-  | Core.Rule.Delimited d ->
-    let kind_set = Core.Kind.Set.singleton d.close in
-    Option.fold d.sep ~none:kind_set ~some:(fun (sep : Core.Rule.sep) ->
-      Core.Kind.Set.add sep.sep_tok kind_set)
+   down: its closer, its separator where it has one, and its resync anchors.
+
+   An anchor is a token that ends this rule's body early, over and above the
+   closer. It belongs here for the same reason the closer does. A production
+   holding a function body declares [with_resync_to \[ "def" \]] so a broken
+   expression inside stops at the [def] that starts the next declaration,
+   rather than eating it and turning one diagnostic into two. *)
+let adds_of ({ frame; resync; _ } : Core.Rule.def) : Core.Kind.Set.t =
+  let framing =
+    match frame with
+    | Core.Rule.Plain | Core.Rule.Committed _ -> Core.Kind.Set.empty
+    | Core.Rule.Separated s -> Core.Kind.Set.singleton s.sep_tok
+    | Core.Rule.Delimited d ->
+      let kind_set = Core.Kind.Set.singleton d.close in
+      Option.fold d.sep ~none:kind_set ~some:(fun (sep : Core.Rule.sep) ->
+        Core.Kind.Set.add sep.sep_tok kind_set)
+  in
+  Core.Kind.Set.union framing resync
 ;;
 
 let boundary_of ({ frame; _ } : Core.Rule.def) : bool =
@@ -243,6 +253,37 @@ let boundary_of ({ frame; _ } : Core.Rule.def) : bool =
   | Core.Rule.Committed c -> c.boundary
   | Core.Rule.Delimited d -> d.boundary
   | Core.Rule.Separated s -> s.boundary
+;;
+
+(* Everything inside a delimited frame: the body, then the closer. The opener
+   is the caller's, because a production takes it as its first token and a
+   postfix operator took it as its lead.
+
+   A missing close is recorded as a node of the close's own kind. The formatter
+   materialises that node, so one pass closes every level that is open. Without
+   it the formatter emits the enclosing group's close instead, and each reparse
+   adds one more. *)
+let delimited_tail
+      (facts : Core.Facts.t)
+      (msgs : Messages.Builder.t)
+      (rule_def : Core.Rule.def)
+      resume_of
+      (close : Core.Kind.t)
+      (sep : Core.Rule.sep option)
+  : Ir.Plan.instr list
+  =
+  body_instrs facts msgs rule_def sep resume_of
+  @ [ Ir.Plan.Expect
+        { tok = Core.Kind.to_int close
+        ; message =
+            Messages.Builder.intern
+              msgs
+              (default_text facts (Core.Kind.Set.singleton close))
+        ; at_child = None
+        ; hole = None
+        ; placeholder = Some (Core.Kind.to_int close)
+        }
+    ]
 ;;
 
 let rule_of
@@ -281,14 +322,8 @@ let rule_of
           Some { Core.Rule.sep_tok = s.sep_tok; trailing = s.trailing }
         | Core.Rule.Plain | Core.Rule.Committed _ -> None
       in
-      let inside = body_instrs facts msgs rule_def sep resume_of in
       (match rule_def.frame with
        | Core.Rule.Delimited d ->
-         let id =
-           Messages.Builder.intern
-             msgs
-             (default_text facts (Core.Kind.Set.singleton d.close))
-         in
          before
          @ [ Ir.Plan.Expect
                { tok = Core.Kind.to_int d.open_
@@ -301,21 +336,9 @@ let rule_of
                ; placeholder = None
                }
            ]
-         @ inside
-         (* Record a missing close as a node of the close's own kind. The
-            formatter materialises that node, so one pass closes every level
-            that is open. Without it the formatter emits the enclosing
-            group's close instead, and each reparse adds one more. *)
-         @ [ Ir.Plan.Expect
-               { tok = Core.Kind.to_int d.close
-               ; message = id
-               ; at_child = None
-               ; hole = None
-               ; placeholder = Some (Core.Kind.to_int d.close)
-               }
-           ]
+         @ delimited_tail facts msgs rule_def resume_of d.close sep
        | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Separated _ ->
-         before @ inside)
+         before @ body_instrs facts msgs rule_def sep resume_of)
   in
   let wrapped =
     match rule_def.origin with
@@ -324,7 +347,11 @@ let rule_of
       (* A root drains what is left of the input. Without that, trivia past
          the last child falls off the end and is lost, and any meaningful
          token still there is dropped with it. *)
-      let tail = if is_root then [ Ir.Plan.Drain ] else [] in
+      let tail =
+        if is_root
+        then [ Ir.Plan.Drain (Messages.Builder.intern msgs "trailing tokens") ]
+        else []
+      in
       (Ir.Plan.Open (Core.Kind.to_int rule_def.kind) :: inner) @ tail @ [ Ir.Plan.Close ]
   in
   { name = Core.Grammar.Name.Rule.to_string rule_def.name
@@ -341,7 +368,7 @@ let rule_of
 
 (* -- an expression block --------------------------------------------------- *)
 
-(* The kind of the node a role builds. An inactive role mints no rule, which
+(* The kind of the node a role builds. An inactive role has no rule, which
    is what the [option] on a block's prefix and infix kinds is for. *)
 let role_kind (f : Core.Facts.t) (block_rule : Core.Rule.id) (want : Core.Role.t) =
   Array.find_map f.rules ~f:(fun (r : Core.Rule.def) ->
@@ -356,31 +383,42 @@ let first_of_alts (f : Core.Facts.t) (alts : Core.Kind.t array) =
     (List.map (Array.to_list alts) ~f:(fun a -> Core.Facts.first_of_kind f a))
 ;;
 
-let content_of (f : Core.Facts.t) msgs (c : Core.Block.content) : Ir.Plan.instr =
-  match c with
-  | Core.Block.One alts -> body_of_alts f alts
-  | Core.Block.Many m ->
-    let first = kset (first_of_alts f m.elem) in
-    let body = body_of_alts f m.elem in
-    (match m.sep with
-     | None -> repetition first body
-     | Some s ->
-       let sep = Core.Kind.to_int s.sep_tok
-       and after_sep = trailing_exit f msgs s in
-       Ir.Plan.Seq [| separated_loop first sep body after_sep; Ir.Plan.Trivia |])
-;;
+(* A postfix operator's body. The Pratt loop takes the lead token before this
+   runs, so an enclosed form starts after its opener.
 
-let postfix_of (f : Core.Facts.t) msgs (p : Core.Block.postfix) : Ir.Plan.postfix =
+   The shapes come from the rule the block desugared to. That rule carries the
+   child names, the messages and the frame, so a postfix body lowers through
+   the same path a production's body does. *)
+let postfix_of (facts : Core.Facts.t) (msgs : Messages.Builder.t) (p : Core.Block.postfix)
+  : Ir.Plan.postfix
+  =
+  let rule_def = Core.Facts.rule facts p.p_rule in
+  let resume_of = resume_after facts rule_def in
   { lead = Core.Kind.to_int p.p_lead
   ; bp = p.p_bp
-  ; kind = Core.Kind.to_int (Core.Facts.rule f p.p_rule).kind
+  ; kind = Core.Kind.to_int rule_def.kind
   ; body =
       (match p.p_body with
-       | Core.Block.Nothing -> Ir.Plan.Nothing
-       | Core.Block.Then alts -> Ir.Plan.Then (kset (first_of_alts f alts))
+       (* The lead token is the whole operator. *)
+       | Core.Block.Nothing -> Ir.Plan.Seq [||]
+       (* The child that follows the lead is the rule's last one. *)
+       | Core.Block.Then _ ->
+         let index = Array.length rule_def.children - 1 in
+         instr_of_child
+           facts
+           msgs
+           rule_def
+           index
+           (resume_of index)
+           rule_def.children.(index)
        | Core.Block.Enclosed e ->
-         Ir.Plan.Enclosed
-           { close = Core.Kind.to_int e.close; body = content_of f msgs e.content })
+         let sep =
+           match e.content with
+           | Core.Block.One _ -> None
+           | Core.Block.Many m -> m.sep
+         in
+         Ir.Plan.Seq
+           (Array.of_list (delimited_tail facts msgs rule_def resume_of e.close sep)))
   }
 ;;
 

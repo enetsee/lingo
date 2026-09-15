@@ -1,0 +1,166 @@
+; -- kinds --------------------------------------------------------
+;   0 N_FILE
+;   1 N_FIELD
+;   2 T_LPAREN
+;   3 T_RPAREN
+;   4 T_LBRACKET
+;   5 T_RBRACKET
+;   6 T_LBRACE
+;   7 T_RBRACE
+;   8 T_DOT
+;   9 T_COMMA
+;  10 T_QUESTION
+;  11 T_PLUS
+;  12 T_INT
+;  13 T_NAME
+;  14 T_WS
+;  15 N_EXPR
+;  16 N_EXPR_BIN
+;  17 N_EXPR_PREFIX
+;  18 N_EXPR_POSTFIX_TRY
+;  19 N_EXPR_POSTFIX_FIELD
+;  20 N_EXPR_POSTFIX_INDEX
+;  21 N_EXPR_POSTFIX_BLOCK
+;  22 N_EXPR_POSTFIX_CALL
+;  23 N_FILE_HOLE
+;  24 N_FIELD_HOLE
+;  25 N_EXPR_HOLE
+;  26 T_ERROR
+;  27 N_ERROR
+;  28 N_MISSING
+;  29 T_UNTERMINATED
+
+(plan
+  (error-kind 27)
+  (missing-kind 28)
+  (trivia 14)
+  (pairs (2 3) (4 5) (6 7))
+  (roots 0)
+  (rules
+    (rule
+      File
+      (kind 0)
+      (first 12 13)
+      (adds)
+      (boundary false)
+      (seq
+        (open 0)
+        (commit
+          (first 12 13)
+          (recover)
+          (at-child expr)
+          (message 0)
+          (hole 23)
+          (placeholder 23)
+          (resume)
+          (call 2))
+        (drain (message 1))
+        close))
+    (rule
+      Field
+      (kind 1)
+      (first 13)
+      (adds)
+      (boundary false)
+      (seq
+        (open 1)
+        (expect 13 (message 2) (at-child name) (hole 24) (placeholder))
+        close))
+    (rule
+      Expr
+      (kind 15)
+      (first 12 13)
+      (adds)
+      (boundary false)
+      (seq (pratt 0 0)))
+    (rule ExprBin (kind 16) (first) (adds) (boundary false) (seq))
+    (rule ExprPostfixTry (kind 18) (first) (adds) (boundary false) (seq))
+    (rule ExprPostfixField (kind 19) (first) (adds) (boundary false) (seq))
+    (rule ExprPostfixIndex (kind 20) (first) (adds 5) (boundary false) (seq))
+    (rule ExprPostfixBlock (kind 21) (first) (adds 7) (boundary false) (seq))
+    (rule
+      ExprPostfixCall
+      (kind 22)
+      (first)
+      (adds 3 9)
+      (boundary false)
+      (seq)))
+  (blocks
+    (block
+      (base-kind 15)
+      (prefix-kind)
+      (infix-kind 16)
+      (hole-kind 25)
+      (expected 12 13)
+      (message 0)
+      (infix (11 10 11))
+      (prefix)
+      (postfix
+        (postfix 10 90 18 (seq))
+        (postfix
+          8
+          90
+          19
+          (commit
+            (first 13)
+            (recover 2 3 4 5 6 7 8 9 10 11)
+            (at-child rhs)
+            (message 2)
+            (hole)
+            (placeholder 28)
+            (resume)
+            (call 1)))
+        (postfix
+          4
+          90
+          20
+          (seq
+            (commit
+              (first 12 13)
+              (recover 2 3 4 5 6 7 8 9 10 11)
+              (at-child body)
+              (message 0)
+              (hole)
+              (placeholder 28)
+              (resume 5)
+              (call 2))
+            (expect 5 (message 3) (at-child) (hole) (placeholder 5))))
+        (postfix
+          6
+          90
+          21
+          (seq
+            (commit
+              (first 12 13)
+              (recover 2 3 4 5 6 7 8 9 10 11)
+              (at-child body)
+              (message 0)
+              (hole)
+              (placeholder 28)
+              (resume 7)
+              (call 2))
+            (expect 7 (message 4) (at-child) (hole) (placeholder 7))))
+        (postfix
+          2
+          90
+          22
+          (seq
+            (loop
+              0
+              (state (accepts ((on 12 13) 1)) (exit may) (call 2))
+              (state (accepts ((on 9) 2)) (exit may) bump)
+              (state
+                (accepts ((on 12 13) 1))
+                (exit may (message 6))
+                (call 2)))
+            trivia
+            (expect 3 (message 5) (at-child) (hole) (placeholder 3)))))
+      (atoms ((on 12) token) ((on 13) token)))))
+; -- messages -----------------------------------------------------
+;   0 expected int or name
+;   1 trailing tokens
+;   2 expected name
+;   3 expected "]"
+;   4 expected "}"
+;   5 expected ")"
+;   6 a trailing ","

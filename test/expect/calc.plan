@@ -40,12 +40,11 @@
           (recover)
           (at-child expr)
           (message 0)
-          (expected 2 5 8)
           (hole 13)
           (placeholder 13)
           (resume)
           (call 2))
-        drain
+        (drain (message 1))
         close))
     (rule
       Parens
@@ -55,18 +54,17 @@
       (boundary false)
       (seq
         (open 1)
-        (expect 2 (message 2) (at-child) (hole) (placeholder))
+        (expect 2 (message 3) (at-child) (hole) (placeholder))
         (commit
           (first 2 5 8)
           (recover 3 4 5 6 7)
           (at-child inner)
           (message 0)
-          (expected 2 5 8)
           (hole 14)
           (placeholder 14)
           (resume 3)
           (call 2))
-        (expect 3 (message 1) (at-child) (hole) (placeholder 3))
+        (expect 3 (message 2) (at-child) (hole) (placeholder 3))
         close))
     (rule
       Expr
@@ -84,13 +82,14 @@
       (infix-kind 11)
       (hole-kind 15)
       (expected 2 8)
-      (message 3)
+      (message 4)
       (infix (4 10 11) (5 10 11) (6 20 21) (7 20 21))
       (prefix (5 50))
       (postfix)
       (atoms ((on 8) token) ((on 2) (rule 1))))))
 ; -- messages -----------------------------------------------------
 ;   0 expected "(" or "-" or int
-;   1 expected ")"
-;   2 expected "("
-;   3 expected "(" or int
+;   1 trailing tokens
+;   2 expected ")"
+;   3 expected "("
+;   4 expected "(" or int

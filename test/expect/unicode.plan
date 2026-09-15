@@ -1,0 +1,64 @@
+; -- kinds --------------------------------------------------------
+;   0 N_FILE
+;   1 N_DOC
+;   2 T_LAQUO
+;   3 T_RAQUO
+;   4 T_ARROW
+;   5 T_WORD
+;   6 T_WS
+;   7 N_FILE_HOLE
+;   8 N_DOC_HOLE
+;   9 T_ERROR
+;  10 N_ERROR
+;  11 N_MISSING
+;  12 T_UNTERMINATED
+
+(plan
+  (error-kind 10)
+  (missing-kind 11)
+  (trivia 6)
+  (pairs (2 3))
+  (roots 0)
+  (rules
+    (rule
+      File
+      (kind 0)
+      (first 2)
+      (adds)
+      (boundary false)
+      (seq
+        (open 0)
+        (commit
+          (first 2)
+          (recover)
+          (at-child doc)
+          (message 0)
+          (hole 7)
+          (placeholder 7)
+          (resume)
+          (call 1))
+        (drain (message 1))
+        close))
+    (rule
+      Doc
+      (kind 1)
+      (first 2)
+      (adds 3 4)
+      (boundary false)
+      (seq
+        (open 1)
+        (expect 2 (message 0) (at-child) (hole) (placeholder))
+        (loop
+          0
+          (state (accepts ((on 5) 1)) (exit may) bump)
+          (state (accepts ((on 4) 2)) (exit may) bump)
+          (state (accepts ((on 5) 1)) (exit may (message 3)) bump))
+        trivia
+        (expect 3 (message 2) (at-child) (hole) (placeholder 3))
+        close)))
+  (blocks))
+; -- messages -----------------------------------------------------
+;   0 expected "«"
+;   1 trailing tokens
+;   2 expected "»"
+;   3 a trailing "→"

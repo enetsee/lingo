@@ -19,6 +19,9 @@ let grammars =
   ; "json", Lingo_grammars.Json_grammar.grammar
   ; "calc", Lingo_grammars.Calc_grammar.grammar
   ; "rassoc", Lingo_grammars.Rassoc_grammar.grammar
+  ; "postfix", Lingo_grammars.Postfix_grammar.grammar
+  ; "shapes", Lingo_grammars.Shapes_grammar.grammar
+  ; "unicode", Lingo_grammars.Unicode_grammar.grammar
   ]
 ;;
 

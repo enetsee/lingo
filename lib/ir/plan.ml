@@ -25,7 +25,6 @@ type instr =
       ; recover : Kind.t array
       ; at_child : string
       ; message : Message.id
-      ; expected : Kind.t array
       ; hole : Kind.t option
       ; placeholder : Kind.t
       ; resume : Kind.t array option
@@ -35,7 +34,7 @@ type instr =
       { states : loop_state array
       ; entry : int
       }
-  | Drain
+  | Drain of Message.id
 
 and loop_state =
   { accepts : (Kind.t array * int) array
@@ -44,23 +43,14 @@ and loop_state =
   }
 
 and exit_policy =
-  | Cannot_exit
   | May_exit
   | May_exit_reporting of Message.id
-
-type postfix_body =
-  | Nothing
-  | Then of Kind.t array
-  | Enclosed of
-      { close : Kind.t
-      ; body : instr
-      }
 
 type postfix =
   { lead : Kind.t
   ; bp : int
   ; kind : Kind.t
-  ; body : postfix_body
+  ; body : instr
   }
 
 type atom =

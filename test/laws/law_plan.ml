@@ -21,9 +21,9 @@
       reader defaults would have to be dropped and defaulted to the same
       value to stay hidden.
 
-      Coverage. One plan, and twenty-two broken ones. The plan's loop reaches
-      all three exit policies: its body holds at least one element, it may end
-      after one, and ending after a separator reports the separator as extra. The round-trip says
+      Coverage. One plan, and twenty-one broken ones. The plan's loop reaches
+      both exit policies: it may end after an element, and ending after a
+      separator reports the separator as extra. The round-trip says
       nothing about a plan no [of_facts] would build, and [of_facts] does not
       exist yet: the goldens over the example grammars land with it. It is
       stated over plans that pass [check], because an empty [resume] set and
@@ -157,14 +157,15 @@ let file : Ir.Plan.rule =
   ; adds = [||]
   ; boundary = false
   ; body =
-      Ir.Plan.Seq [| Ir.Plan.Open n_file; Ir.Plan.Call 1; Ir.Plan.Drain; Ir.Plan.Close |]
+      Ir.Plan.Seq
+        [| Ir.Plan.Open n_file; Ir.Plan.Call 1; Ir.Plan.Drain (msg 5); Ir.Plan.Close |]
   }
 ;;
 
 (* A delimited body with a separator is three positions, and they admit
-   different things. The states are what say so, and this one reaches all
-   three exit policies: the body holds at least one element, it may end after
-   one, and ending after a separator reports the separator as extra. *)
+   different things. The states are what say so, and this one reaches both
+   exit policies: the body may end after an element, and ending after a
+   separator reports the separator as extra. *)
 let list_rule : Ir.Plan.rule =
   { name = "List"
   ; kind = n_list
@@ -179,7 +180,7 @@ let list_rule : Ir.Plan.rule =
              { entry = 0
              ; states =
                  [| { accepts = [| [| k_lbrack; k_word |], 1 |]
-                    ; exit = Ir.Plan.Cannot_exit
+                    ; exit = Ir.Plan.May_exit
                     ; emits = Ir.Plan.Call 2
                     }
                   ; { accepts = [| [| k_comma |], 2 |]
@@ -226,7 +227,6 @@ let item : Ir.Plan.rule =
                              ; at_child =
                                  "the \"inner\" expression,\nna\239vely\t\r \\ \001 \127"
                              ; message = msg 2
-                             ; expected = [| k_lparen; k_word |]
                              ; hole = Some n_hole
                              ; placeholder = n_hole
                              ; resume = Some [| k_rbrack |]
@@ -263,15 +263,19 @@ let block : Ir.Plan.block =
   { infix = [| k_plus, (10, 11) |]
   ; prefix = [| k_minus, 50 |]
   ; postfix =
+      (* The three shapes a postfix body takes: an enclosed one, a child after
+         the lead, and a lead that is the whole operator. *)
       [| { lead = k_lbrack
          ; bp = 90
          ; kind = n_index
          ; body =
-             Ir.Plan.Enclosed
-               { close = k_rbrack; body = Ir.Plan.Pratt { block = 0; min_bp = 0 } }
+             Ir.Plan.Seq
+               [| Ir.Plan.Pratt { block = 0; min_bp = 0 }
+                ; expect k_rbrack ~placeholder:k_rbrack
+               |]
          }
-       ; { lead = k_dot; bp = 80; kind = n_access; body = Ir.Plan.Then [| k_word |] }
-       ; { lead = k_question; bp = 85; kind = n_try; body = Ir.Plan.Nothing }
+       ; { lead = k_dot; bp = 80; kind = n_access; body = Ir.Plan.Bump }
+       ; { lead = k_question; bp = 85; kind = n_try; body = Ir.Plan.Seq [||] }
       |]
   ; atoms = [| [| k_word |], Ir.Plan.Atom_token; [| k_lparen |], Ir.Plan.Atom_rule 3 |]
   ; base_kind = n_base
@@ -437,12 +441,8 @@ let broken =
         blocks =
           [| { block with
                postfix =
-                 [| { lead = k_dot
-                    ; bp = 80
-                    ; kind = n_access
-                    ; body = Ir.Plan.Then [| k_word |]
-                    }
-                  ; { lead = k_dot; bp = 85; kind = n_try; body = Ir.Plan.Nothing }
+                 [| { lead = k_dot; bp = 80; kind = n_access; body = Ir.Plan.Bump }
+                  ; { lead = k_dot; bp = 85; kind = n_try; body = Ir.Plan.Seq [||] }
                  |]
              }
           |]
@@ -461,21 +461,6 @@ let broken =
     , function
       | Check.Loop_state_out_of_range _ -> true
       | _ -> false )
-  ; ( "a loop no state ends"
-    , with_body
-        (open_
-           (Ir.Plan.Loop
-              { entry = 0
-              ; states =
-                  [| { accepts = [| [| k_word |], 0 |]
-                     ; exit = Ir.Plan.Cannot_exit
-                     ; emits = Ir.Plan.Bump
-                     }
-                  |]
-              }))
-    , function
-      | Check.Loop_never_exits _ -> true
-      | _ -> false )
   ; ( "a resume set with nothing in it"
     , with_body
         (open_
@@ -484,7 +469,6 @@ let broken =
               ; recover = [||]
               ; at_child = "x"
               ; message = msg 1
-              ; expected = [| k_word |]
               ; hole = None
               ; placeholder = n_hole
               ; resume = Some [||]

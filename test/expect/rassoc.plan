@@ -35,12 +35,11 @@
           (recover)
           (at-child expr)
           (message 0)
-          (expected 3 4)
           (hole 9)
           (placeholder 9)
           (resume)
           (call 1))
-        drain
+        (drain (message 1))
         close))
     (rule
       Expr
@@ -58,11 +57,12 @@
       (infix-kind 7)
       (hole-kind 10)
       (expected 4)
-      (message 1)
+      (message 2)
       (infix (1 10 11) (2 30 30))
       (prefix (3 50))
       (postfix)
       (atoms ((on 4) token)))))
 ; -- messages -----------------------------------------------------
 ;   0 expected "-" or int
-;   1 expected int
+;   1 trailing tokens
+;   2 expected int

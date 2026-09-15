@@ -27,7 +27,6 @@ type problem =
       { at : string
       ; state : int
       }
-  | Loop_never_exits of { at : string }
   | Pairs_unordered of { at : string }
   | Empty_resume of { at : string }
   | Unbalanced of
@@ -55,7 +54,6 @@ let pp_problem fmt = function
     Format.fprintf fmt "%s: an earlier arm of this dispatch takes the kind %d" at kind
   | Loop_state_out_of_range { at; state } ->
     Format.fprintf fmt "%s: no loop state %d" at state
-  | Loop_never_exits { at } -> Format.fprintf fmt "%s: no state ends the loop" at
   | Empty_resume { at } -> Format.fprintf fmt "%s: an empty resume set; write none" at
   | Unbalanced { at; depth } ->
     Format.fprintf fmt "%s: open and close leave a depth of %d" at depth
@@ -122,7 +120,7 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
       kind at k;
       1, 0
     | Close -> -1, -1
-    | Trivia | Bump | Drain -> 0, 0
+    | Trivia | Bump | Drain _ -> 0, 0
     | Expect e ->
       kind at e.tok;
       opt_kind at e.hole;
@@ -148,7 +146,6 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
     | Commit c ->
       kinds (sub at "first") c.first;
       kinds (sub at "recover") c.recover;
-      kinds (sub at "expected") c.expected;
       opt_kind at c.hole;
       kind at c.placeholder;
       (match c.resume with
@@ -161,12 +158,6 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
       let n = Array.length l.states in
       if l.entry < 0 || l.entry >= n
       then report (Loop_state_out_of_range { at; state = l.entry });
-      if
-        Array.for_all l.states ~f:(fun (s : Ir.Plan.loop_state) ->
-          match s.exit with
-          | Ir.Plan.Cannot_exit -> true
-          | Ir.Plan.May_exit | Ir.Plan.May_exit_reporting _ -> false)
-      then report (Loop_never_exits { at });
       Array.iteri l.states ~f:(fun si (s : Ir.Plan.loop_state) ->
         let at = sub at (Printf.sprintf "state %d" si) in
         let takes = taker () in
@@ -226,12 +217,7 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
       kind at q.lead;
       kind at q.kind;
       takes_postfix at [| q.lead |];
-      match q.body with
-      | Ir.Plan.Nothing -> ()
-      | Ir.Plan.Then ks -> kinds at ks
-      | Ir.Plan.Enclosed e ->
-        kind at e.close;
-        balanced at e.body));
+      balanced at q.body));
   Array.iteri p.roots ~f:(fun i r ->
     if r < 0 || r >= n_rules
     then report (Rule_out_of_range { at = Printf.sprintf "root %d" i; id = r }));

@@ -38,7 +38,6 @@ type problem =
       { at : string
       ; state : int
       }
-  | Loop_never_exits of { at : string } (** No state of the loop may end it. *)
   | Pairs_unordered of { at : string }
   (** The delimiter pairs are not ascending, or one appears twice. A balanced
       skip reads them as a table, and the printed form follows from their

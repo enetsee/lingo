@@ -1,0 +1,137 @@
+; -- kinds --------------------------------------------------------
+;   0 N_PROGRAM
+;   1 N_DECL
+;   2 N_LET
+;   3 N_INIT
+;   4 N_NAMES
+;   5 N_BLOCK
+;   6 T_LET
+;   7 T_LBRACE
+;   8 T_RBRACE
+;   9 T_SEMI
+;  10 T_COMMA
+;  11 T_EQUALS
+;  12 T_NAME
+;  13 T_WS
+;  14 N_PROGRAM_HOLE
+;  15 N_DECL_HOLE
+;  16 N_LET_HOLE
+;  17 N_INIT_HOLE
+;  18 N_NAMES_HOLE
+;  19 N_BLOCK_HOLE
+;  20 T_ERROR
+;  21 N_ERROR
+;  22 N_MISSING
+;  23 T_UNTERMINATED
+
+(plan
+  (error-kind 21)
+  (missing-kind 22)
+  (trivia 13)
+  (pairs (7 8))
+  (roots 0)
+  (rules
+    (rule
+      Program
+      (kind 0)
+      (first 6 7)
+      (adds)
+      (boundary false)
+      (seq
+        (open 0)
+        (seq
+          (loop 0 (state (accepts ((on 6 7) 0)) (exit may) (call 1)))
+          trivia)
+        (drain (message 0))
+        close))
+    (rule
+      Decl
+      (kind 1)
+      (first 6 7)
+      (adds)
+      (boundary false)
+      (seq
+        (open 1)
+        (commit
+          (first 6 7)
+          (recover 6 7 8 9)
+          (at-child decl)
+          (message 1)
+          (hole 15)
+          (placeholder 15)
+          (resume)
+          (alt ((on 6) (call 2)) ((on 7) (call 5))))
+        close))
+    (rule
+      Let
+      (kind 2)
+      (first 6)
+      (adds)
+      (boundary false)
+      (seq
+        (open 2)
+        (expect 6 (message 2) (at-child kw) (hole 16) (placeholder))
+        (expect 12 (message 3) (at-child name) (hole 16) (placeholder))
+        (alt ((on 11) (call 3)))
+        close))
+    (rule
+      Init
+      (kind 3)
+      (first 11)
+      (adds)
+      (boundary false)
+      (seq
+        (open 3)
+        (expect 11 (message 4) (at-child eq) (hole 17) (placeholder))
+        (commit
+          (first 12)
+          (recover 6 7 8 9)
+          (at-child value)
+          (message 3)
+          (hole 17)
+          (placeholder 17)
+          (resume)
+          (call 4))
+        close))
+    (rule
+      Names
+      (kind 4)
+      (first 12)
+      (adds 10)
+      (boundary false)
+      (seq
+        (open 4)
+        (loop
+          0
+          (state (accepts ((on 12) 1)) (exit may) bump)
+          (state (accepts ((on 10) 2)) (exit may) bump)
+          (state (accepts ((on 12) 1)) (exit may (message 5)) bump))
+        trivia
+        close))
+    (rule
+      Block
+      (kind 5)
+      (first 7)
+      (adds 6 8 9)
+      (boundary true)
+      (seq
+        (open 5)
+        (expect 7 (message 7) (at-child) (hole) (placeholder))
+        (loop
+          0
+          (state (accepts ((on 6 7) 1)) (exit may) (call 1))
+          (state (accepts ((on 9) 2)) (exit may) bump)
+          (state (accepts ((on 6 7) 1)) (exit may) (call 1)))
+        trivia
+        (expect 8 (message 6) (at-child) (hole) (placeholder 8))
+        close)))
+  (blocks))
+; -- messages -----------------------------------------------------
+;   0 trailing tokens
+;   1 expected "let" or "{"
+;   2 expected "let"
+;   3 expected name
+;   4 expected "="
+;   5 a trailing ","
+;   6 expected "}"
+;   7 expected "{"

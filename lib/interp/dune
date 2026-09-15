@@ -1,0 +1,4 @@
+(library
+ (name interp)
+ (public_name lingo.interp)
+ (libraries ir lingo_runtime siesta))

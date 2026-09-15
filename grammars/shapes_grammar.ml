@@ -1,0 +1,86 @@
+(* -- production shapes --------------------------------------------------------
+
+   The production framings the other grammars here leave out. Each one is a
+   different body loop or a different recovery set, and none of them is
+   reachable through sexp, json, calc or rassoc.
+
+   - [Program] is a root with a repeated child and no frame, so the body loop
+     has no closer to stop at and ends on a kind its element cannot start
+     with;
+   - [Names] is [with_separator]: a separated list with nothing around it;
+   - [Block] is delimited, committed and a boundary, so a failure inside it
+     resumes on its own [rbrace] rather than on a caller's delimiter;
+   - [Block] declares a resync anchor, so a broken item inside it stops at the
+     [let] that starts the next declaration instead of eating it;
+   - [Let] has an optional child, which is silent when absent where a required
+     one reports;
+   - [Block]'s separator allows a trailing one, where json's forbids it. The
+     two answers need two grammars, because the policy is per production.
+
+   There is no expression block. grammars/calc_grammar.ml, rassoc and postfix
+   carry those, and a failure here should have one cause.
+   -------------------------------------------------------------------------- *)
+
+open Grammar
+
+let grammar : t =
+  let letter = Redfa.Regex.range_char ~lo:'a' ~hi:'z' in
+  let tokens =
+    [ kw "let"
+    ; punct_tight ~name:"lbrace" "{"
+    ; punct_tight ~name:"rbrace" "}"
+    ; punct_tight ~name:"semi" ";"
+    ; punct_tight ~name:"comma" ","
+    ; punct ~name:"equals" "="
+    ; pat "name" (Redfa.Regex.plus letter)
+    ; pat
+        ~trivia:Reformat
+        "ws"
+        Redfa.Regex.(plus (chars_of_char_list [ ' '; '\t'; '\n'; '\r' ]))
+    ]
+  in
+  (* A repeated child with no frame around it. The loop ends where the cursor
+     is on something no declaration starts with. *)
+  let program = prod "Program" [ child_rep "decls" (Rule "Decl") ] in
+  let decl =
+    prod "Decl" [ child_alt_rules ~modifier:Required "decl" [ "Let"; "Block" ] ]
+  in
+  (* The initialiser is optional, so its absence is silent.
+
+     The wording on it is deliberately inert. An optional child never reports,
+     so nothing names this entry, and a lowering that asked for one for every
+     child would leave it in the catalogue with no instruction pointing at it.
+     [Messages.Builder.intern] dedupes, so only a wording nothing else uses
+     makes that visible. test/laws/law_lower.ml part (c) is the reader. *)
+  let let_ =
+    prod
+      "Let"
+      [ child_req "kw" (Token "let")
+      ; child_req "name" (Token "name")
+      ; child_opt "init" (Rule "Init")
+      ]
+    |> with_messages [ "init", "an initialiser, if there is one" ]
+  in
+  let init =
+    prod "Init" [ child_req "eq" (Token "equals"); child_req "value" (Rule "Names") ]
+  in
+  (* A separated list with nothing around it. Its first element is required
+     whatever the child slot says, so the loop differs from a delimited one. *)
+  let names =
+    prod "Names" [ child_rep "items" (Token "name") ]
+    |> with_separator ~sep:"comma" ~trailing_sep:Never
+  in
+  (* Committed and a boundary, so a failure inside resumes on this rule's own
+     delimiters. The anchor keeps a broken item from eating the next [let]. *)
+  let block =
+    prod "Block" [ child_rep "items" (Rule "Decl") ]
+    |> with_delimited_sep
+         ~open_tok:"lbrace"
+         ~close_tok:"rbrace"
+         ~sep:"semi"
+         ~trailing_sep:Always
+         ~boundary:true
+    |> with_resync_to [ "let" ]
+  in
+  create ~tokens ~roots:[ "Program" ] [ program; decl; let_; init; names; block ]
+;;

@@ -8,6 +8,7 @@ type t =
   ; next_meaningful : int array
   ; builder : Siesta.Builder.t
   ; diags : Diagnostic.t Dynarray.t
+  ; mutable depth : int
   }
 
 (* [next_meaningful.(i)] is the smallest [j >= i] that is either the end of
@@ -36,6 +37,7 @@ let create ?(cache = Siesta.Cache.create ()) ~trivia_kinds tokens =
   ; next_meaningful
   ; builder = Siesta.Builder.create ~cache ()
   ; diags = Dynarray.create ()
+  ; depth = 0
   }
 ;;
 
@@ -103,6 +105,12 @@ let report (c : t) (kind : Diagnostic.kind) =
   Dynarray.add_last c.diags { Diagnostic.range = range c; kind }
 ;;
 
+let offset (c : t) = c.offset
+
+let report_at (c : t) (range : int * int) (kind : Diagnostic.kind) =
+  Dynarray.add_last c.diags { Diagnostic.range; kind }
+;;
+
 let report_id (c : t) (kind : Diagnostic.kind) =
   let r = range c in
   let n = Dynarray.length c.diags in
@@ -129,4 +137,7 @@ let while_progress (c : t) cond body =
 ;;
 
 let builder (c : t) = c.builder
+let depth (c : t) = c.depth
+let entered (c : t) = c.depth <- c.depth + 1
+let left (c : t) = c.depth <- c.depth - 1
 let diagnostics (c : t) = Dynarray.to_list c.diags

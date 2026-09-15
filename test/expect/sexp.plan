@@ -35,12 +35,11 @@
           (recover)
           (at-child root)
           (message 0)
-          (expected 3 5 6)
           (hole 8)
           (placeholder 8)
           (resume)
           (call 1))
-        drain
+        (drain (message 1))
         close))
     (rule
       Sexp
@@ -55,7 +54,6 @@
           (recover 3 4 5 6)
           (at-child kind)
           (message 0)
-          (expected 3 5 6)
           (hole 9)
           (placeholder 9)
           (resume)
@@ -69,14 +67,15 @@
       (boundary false)
       (seq
         (open 2)
-        (expect 3 (message 2) (at-child) (hole) (placeholder))
+        (expect 3 (message 3) (at-child) (hole) (placeholder))
         (seq
           (loop 0 (state (accepts ((on 3 5 6) 0)) (exit may) (call 1)))
           trivia)
-        (expect 4 (message 1) (at-child) (hole) (placeholder 4))
+        (expect 4 (message 2) (at-child) (hole) (placeholder 4))
         close)))
   (blocks))
 ; -- messages -----------------------------------------------------
 ;   0 expected "(" or ident or number
-;   1 expected ")"
-;   2 expected "("
+;   1 trailing tokens
+;   2 expected ")"
+;   3 expected "("

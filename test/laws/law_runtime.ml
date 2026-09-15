@@ -10,6 +10,10 @@
           it is not, it reports one diagnostic and leaves the cursor where it
           was. A placeholder puts a childless node in the tree carrying that
           diagnostic's id.
+      (f) [Cursor.offset] is the byte length of everything the parse has
+          taken, and [Cursor.report_at] records the range it is given. So a
+          parse can read the offset before and after taking input, and report
+          over exactly the bytes it read.
 
       Mechanism. (a) and (b) are oracles over random token streams driven by a
       random walk over the builder. The walk is not a parse of anything. It
@@ -73,6 +77,17 @@
             position test.
             -> part (c). The idle body runs to the law's ceiling of 1000
                rather than once.
+        M9  In [Cursor.report_at], record [Cursor.range] instead of the range
+            it was given.
+            -> part (f), all 288 spans. The cursor has moved past what the
+               span covers by the time the report happens, which is why the
+               function exists.
+        M10 In [Cursor.emit_token], advance the offset by one byte rather
+            than by the token's length.
+            -> part (f), both halves: the offset disagreed at 4271 of 8135
+               steps, and 156 of 288 spans named the wrong bytes. The spans
+               that still passed are the ones whose tokens are all one byte
+               long.
 
       Part (b) holds by construction in two of its three halves. Nothing in
       the runtime moves the cursor backwards, and both sites that advance it
@@ -81,7 +96,8 @@
       is the half this check earns: a cursor that stops advancing.
 
       Coverage. Two runs of 600 random streams, one seed for parts (a) and
-      (b) and another for (e), over 9 token kinds with one of them trivia.
+      (b) and another for (e), plus 400 for part (f), over 9 token kinds with
+      one of them trivia.
       Counts print beside each result. Every builder event has a counter, and
       the law fails where one reads zero. The balanced skip is not covered
       here, because the runtime no longer holds one.
@@ -263,18 +279,27 @@ let () =
   let backwards = ref 0 in
   let overrun = ref 0 in
   let stuck = ref 0 in
+  let off_wrong = ref 0 in
   let tokens_seen = ref 0 in
   for _ = 1 to streams do
     let tokens = random_stream rng in
     let n = Array.length tokens in
     tokens_seen := !tokens_seen + n;
     let c = new_cursor tokens in
+    (* The byte length of the first [i] tokens. [Cursor.offset] is maintained
+       a token at a time as the parse takes them, and this reads it off the
+       array instead. *)
+    let prefix = Array.make (n + 1) 0 in
+    for i = 0 to n - 1 do
+      prefix.(i + 1) <- prefix.(i) + String.length tokens.(i).Token.text
+    done;
     let last = ref 0 in
     let watch c =
       let p = Cursor.position c in
       incr steps;
       if p < !last then incr backwards;
       if p > n then incr overrun;
+      if p <= n && Cursor.offset c <> prefix.(p) then incr off_wrong;
       last := p
     in
     Build.start_node c k_file;
@@ -323,10 +348,83 @@ let () =
       "(b) the drain hit its ceiling on %d of %d streams, so the cursor stopped advancing"
       !stuck
       streams
+  else if !off_wrong > 0
+  then
+    fail
+      "(f) the offset disagreed with the tokens taken at %d of %d steps"
+      !off_wrong
+      !steps
   else
     pass
-      "the cursor moves forward only, over %d steps, and every drain reached the end"
+      "the cursor moves forward only over %d steps, every drain reached the end, and the \
+       offset tracked the tokens taken"
       !steps
+;;
+
+(* -- (f) report_at ---------------------------------------------------------- *)
+
+(* A parse that reports on input it has already taken reads the offset before
+   and after, and reports over the two. So the diagnostic has to come back
+   carrying exactly those bytes.
+
+   The oracle joins the texts of the tokens the walk consumed between the two
+   reads. That is a different route to the same span: the cursor counts bytes
+   as it emits them, and this counts them off the array afterwards. Leading
+   trivia is left out, because the start comes from [Cursor.range], which
+   looks past it. *)
+let () =
+  let rng = Random.State.make [| 20260915 |] in
+  let streams = 400 in
+  let spans = ref 0 in
+  let wrong = ref 0 in
+  for _ = 1 to streams do
+    let tokens = random_stream rng in
+    let n = Array.length tokens in
+    let c = new_cursor tokens in
+    Build.start_node c k_file;
+    for _ = 1 to Random.State.int rng (n + 1) do
+      Cursor.bump c
+    done;
+    let want =
+      if Cursor.eof c
+      then None
+      else (
+        let lo = fst (Cursor.range c) in
+        (* The first meaningful token at or after the cursor. [lo] starts
+           there, so the oracle has to as well. *)
+        let from = ref (Cursor.position c) in
+        while !from < n && Cursor.is_trivia c tokens.(!from).Token.kind do
+          incr from
+        done;
+        let first = !from in
+        for _ = 1 to 1 + Random.State.int rng 4 do
+          Cursor.bump c
+        done;
+        let hi = Cursor.offset c in
+        Cursor.report_at c (lo, hi) Diagnostic.Unexpected;
+        incr spans;
+        let stop = Cursor.position c in
+        let texts = List.init (stop - first) (fun i -> tokens.(first + i).Token.text) in
+        Some ((lo, hi), String.concat "" texts))
+    in
+    ignore (drain c ~n);
+    Build.finish_node c;
+    let root, diags = Build.finish c in
+    let source = Siesta.Green.to_source root in
+    match want, List.rev diags with
+    | None, _ -> ()
+    | Some ((lo, hi), text), last :: _ ->
+      if last.Diagnostic.range <> (lo, hi)
+      then incr wrong
+      else if not (String.equal (String.sub source lo (hi - lo)) text)
+      then incr wrong
+    | Some _, [] -> incr wrong
+  done;
+  if !spans = 0
+  then fail "(f) no stream reported a span, so this says nothing"
+  else if !wrong > 0
+  then fail "(f) %d of %d spans did not name the bytes the parse took" !wrong !spans
+  else pass "report_at names the bytes the parse took, over %d spans" !spans
 ;;
 
 (* -- (c) while_progress stops ---------------------------------------------- *)

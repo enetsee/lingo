@@ -1,5 +1,5 @@
-; The lowering's output, pinned. Each grammar is its own file, so a change to
-; one does not move the bytes of the other three.
+; The lowering's output, recorded. Each grammar is its own file, so a change to
+; one does not move the bytes of the others.
 
 (executable
  (name dump_plan)
@@ -27,6 +27,21 @@
   (run ./dump_plan.exe rassoc)))
 
 (rule
+ (with-stdout-to
+  postfix.plan.actual
+  (run ./dump_plan.exe postfix)))
+
+(rule
+ (with-stdout-to
+  shapes.plan.actual
+  (run ./dump_plan.exe shapes)))
+
+(rule
+ (with-stdout-to
+  unicode.plan.actual
+  (run ./dump_plan.exe unicode)))
+
+(rule
  (alias runtest)
  (action
   (diff sexp.plan sexp.plan.actual)))
@@ -45,3 +60,18 @@
  (alias runtest)
  (action
   (diff rassoc.plan rassoc.plan.actual)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.plan postfix.plan.actual)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.plan shapes.plan.actual)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.plan unicode.plan.actual)))

@@ -23,7 +23,7 @@ let rec sexp_of_instr (i : Ir.Plan.instr) : Sexp.t =
   | Close -> atom "close"
   | Trivia -> atom "trivia"
   | Bump -> atom "bump"
-  | Drain -> atom "drain"
+  | Drain m -> keyed "drain" [ msg m ]
   | Open k -> keyed "open" [ num k ]
   | Call r -> keyed "call" [ num r ]
   | Seq xs -> keyed "seq" (List.map (Array.to_list xs) ~f:sexp_of_instr)
@@ -53,7 +53,6 @@ let rec sexp_of_instr (i : Ir.Plan.instr) : Sexp.t =
       ; ints "recover" c.recover
       ; keyed "at-child" [ atom c.at_child ]
       ; msg c.message
-      ; ints "expected" c.expected
       ; kopt "hole" c.hole
       ; keyed "placeholder" [ num c.placeholder ]
       ; (match c.resume with
@@ -75,7 +74,6 @@ let rec sexp_of_instr (i : Ir.Plan.instr) : Sexp.t =
            ; keyed
                "exit"
                (match s.exit with
-                | Ir.Plan.Cannot_exit -> [ atom "cannot" ]
                 | Ir.Plan.May_exit -> [ atom "may" ]
                 | Ir.Plan.May_exit_reporting m -> [ atom "may"; msg m ])
            ; sexp_of_instr s.emits
@@ -83,16 +81,7 @@ let rec sexp_of_instr (i : Ir.Plan.instr) : Sexp.t =
 ;;
 
 let sexp_of_postfix (q : Ir.Plan.postfix) : Sexp.t =
-  keyed
-    "postfix"
-    [ num q.lead
-    ; num q.bp
-    ; num q.kind
-    ; (match q.body with
-       | Ir.Plan.Nothing -> keyed "nothing" []
-       | Ir.Plan.Then ks -> ints "then" ks
-       | Ir.Plan.Enclosed e -> keyed "enclosed" [ num e.close; sexp_of_instr e.body ])
-    ]
+  keyed "postfix" [ num q.lead; num q.bp; num q.kind; sexp_of_instr q.body ]
 ;;
 
 let sexp_of_block (b : Ir.Plan.block) : Sexp.t =
@@ -209,9 +198,9 @@ let rec instr_of_sexp (s : Sexp.t) : Ir.Plan.instr =
   | Sexp.Atom "close" -> Close
   | Sexp.Atom "trivia" -> Trivia
   | Sexp.Atom "bump" -> Bump
-  | Sexp.Atom "drain" -> Drain
   | Sexp.List (Sexp.Atom "seq" :: xs) ->
     Seq (Array.of_list (List.map xs ~f:instr_of_sexp))
+  | Sexp.List [ Sexp.Atom "drain"; m ] -> Drain (msg_of m)
   | Sexp.List [ Sexp.Atom "open"; k ] -> Open (as_int k)
   | Sexp.List [ Sexp.Atom "call"; r ] -> Call (as_int r)
   | Sexp.List [ Sexp.Atom "pratt"; b; bp ] ->
@@ -237,14 +226,12 @@ let rec instr_of_sexp (s : Sexp.t) : Ir.Plan.instr =
                | Sexp.List [ on; body ] -> ints_of "on" on, instr_of_sexp body
                | _ -> bad "an alt arm is (on body): %s" (show arm)))
       }
-  | Sexp.List
-      [ Sexp.Atom "commit"; first; recover; ac; m; expected; hole; ph; resume; body ] ->
+  | Sexp.List [ Sexp.Atom "commit"; first; recover; ac; m; hole; ph; resume; body ] ->
     Commit
       { first = ints_of "first" first
       ; recover = ints_of "recover" recover
       ; at_child = as_atom (one "at-child" ac)
       ; message = msg_of m
-      ; expected = ints_of "expected" expected
       ; hole = kopt_of "hole" hole
       ; placeholder = as_int (one "placeholder" ph)
       ; resume =
@@ -269,13 +256,9 @@ let rec instr_of_sexp (s : Sexp.t) : Ir.Plan.instr =
                           | _ -> bad "an accepts arm is (on state): %s" (show a)))
                  ; exit =
                      (match key "exit" exit_ with
-                      | [ Sexp.Atom "cannot" ] -> Ir.Plan.Cannot_exit
                       | [ Sexp.Atom "may" ] -> Ir.Plan.May_exit
                       | [ Sexp.Atom "may"; m ] -> Ir.Plan.May_exit_reporting (msg_of m)
-                      | _ ->
-                        bad
-                          "an exit is cannot, may, or may with a message: %s"
-                          (show exit_))
+                      | _ -> bad "an exit is may, or may with a message: %s" (show exit_))
                  ; emits = instr_of_sexp emits
                  }
                | _ -> bad "a loop state is (state accepts exit emits): %s" (show st)))
@@ -286,17 +269,7 @@ let rec instr_of_sexp (s : Sexp.t) : Ir.Plan.instr =
 let postfix_of_sexp (s : Sexp.t) : Ir.Plan.postfix =
   match key "postfix" s with
   | [ lead; bp; kind; body ] ->
-    { lead = as_int lead
-    ; bp = as_int bp
-    ; kind = as_int kind
-    ; body =
-        (match body with
-         | Sexp.List [ Sexp.Atom "nothing" ] -> Ir.Plan.Nothing
-         | Sexp.List (Sexp.Atom "then" :: _) -> Ir.Plan.Then (ints_of "then" body)
-         | Sexp.List [ Sexp.Atom "enclosed"; close; inner ] ->
-           Ir.Plan.Enclosed { close = as_int close; body = instr_of_sexp inner }
-         | _ -> bad "not a postfix body: %s" (show body))
-    }
+    { lead = as_int lead; bp = as_int bp; kind = as_int kind; body = instr_of_sexp body }
   | _ -> bad "a postfix is (postfix lead bp kind body): %s" (show s)
 ;;
 

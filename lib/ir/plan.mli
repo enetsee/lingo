@@ -54,11 +54,15 @@ type instr =
           so the checker rejects a grammar where a later arm is
           unreachable rather than leaving it to be discovered here. *)
   | Commit of
-      { first : Kind.t array (** What can start the child. *)
+      { first : Kind.t array
+        (** What can start the child, and what the diagnostic reports as
+              the kinds that would have satisfied the position. Those are one
+              question: a set that dispatches and a set that reports would
+              have to differ for a parse to take a child it then said was not
+              wanted. *)
       ; recover : Kind.t array (** The local half; see above. *)
       ; at_child : string
       ; message : Message.id
-      ; expected : Kind.t array (** What the diagnostic reports. *)
       ; hole : Kind.t option
       ; placeholder : Kind.t (** The node that stands in for the child. *)
       ; resume : Kind.t array option
@@ -79,10 +83,14 @@ type instr =
           element. After a separator an element alone. One record with one
           continuation gets two of those three wrong, so the states are
           written out. *)
-  | Drain
-  (** Sweep what is left of the input into the open node, with one
-          [Extra] diagnostic where any of it was meaningful. The root uses
-          this, and nothing else does. *)
+  | Drain of Message.id
+  (** Sweep what is left of the input into the open node, and report one
+          [Extra] over it where any of it was meaningful. The root uses this,
+          and nothing else does.
+
+          Trivia past the last child would otherwise fall off the end of the
+          input and be lost, and a meaningful token still there would be
+          dropped with it. *)
 
 and loop_state =
   { accepts : (Kind.t array * int) array
@@ -92,7 +100,11 @@ and loop_state =
   ; emits : instr (** What a transition out of this state runs. *)
   }
 
-(** Whether the loop may end at a state, and what ending there reports.
+(** What ending the loop at a state reports.
+
+    Every state may end a loop. A body that needs an element before it can end
+    does not say so here: that element is a {!Commit} in front of the loop,
+    and a commit already carries what to report where its child is missing.
 
     A body can end at its separator even where the author forbade a trailing
     one. The parser still takes the separator, because it is bytes the source
@@ -102,28 +114,24 @@ and loop_state =
     knows the separator was trailing once it sees that the next token ends the
     body. *)
 and exit_policy =
-  | Cannot_exit (** The loop may not end here. *)
   | May_exit
   | May_exit_reporting of Message.id
   (** End here, with one [Extra] diagnostic over what the last transition
           took. *)
 
-(** What an expression block builds on top of an atom. *)
-type postfix_body =
-  | Nothing (** [x?] *)
-  | Then of Kind.t array (** [x.f], and these are what [f] can start with. *)
-  | Enclosed of
-      { close : Kind.t
-      ; body : instr
-      }
-  (** [x\[i\]], [x { b }] and [x(a, b)]. The lead token opened the
-          pair, [body] reads what is inside, and [close] shuts it. *)
-
 type postfix =
   { lead : Kind.t
   ; bp : int
   ; kind : Kind.t (** The node this operator builds. *)
-  ; body : postfix_body
+  ; body : instr
+    (** What runs after the lead token. Empty for [x?], where the lead is
+          the whole operator.
+
+          The five familiar forms differ only in this, so they are one shape
+          here. [x.f] is a {!Commit} over the child that follows. [x\[i\]],
+          [x { b }] and [x(a, b)] each take their opener as the lead, then run
+          their body and expect their closer, which is what a delimited
+          production does once its opener is read. *)
   }
 
 (** What an atom is, once the dispatch has chosen it. *)

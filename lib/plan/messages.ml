@@ -6,10 +6,6 @@ let entries ({ entries } : t) = entries
 let count ({ entries } : t) = Array.length entries
 let text ({ entries } : t) (id : Ir.Message.id) = entries.(Ir.Message.to_int id)
 
-let pp fmt ({ entries } : t) =
-  Array.iteri entries ~f:(fun i s -> Format.fprintf fmt "@[<h>%d %S@]@," i s)
-;;
-
 module Builder = struct
   type t =
     { seen : (string, Ir.Message.id) Hashtbl.t
