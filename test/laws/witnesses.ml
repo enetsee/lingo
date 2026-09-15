@@ -144,6 +144,25 @@ let unknown_message_child =
     ]
 ;;
 
+(* A wording for a child that never reports. The child is repeated rather than
+   optional so that [Root] stays non-nullable, which keeps the shape stage
+   quiet. *)
+let unused_message_child =
+  only
+    [ prod "Root" [ child_req "x" (Token "ta"); child_rep "y" (Token "tb") ]
+      |> with_messages [ "y", "expected something" ]
+    ]
+;;
+
+(* A recovery set on a child that never recovers, for the same reason. *)
+let unused_recover_to =
+  only
+    [ prod
+        "Root"
+        [ child_req "x" (Token "ta"); child_rep ~recover_to:[ "tb" ] "y" (Token "tb") ]
+    ]
+;;
+
 let empty_alternatives = only [ prod "Root" [ child_alt ~modifier:Required "x" [] ] ]
 let unknown_root = only ~roots:[ "Nope" ] [ clean_root ]
 let dup_root = only ~roots:[ "Root"; "Root" ] [ clean_root ]
@@ -426,6 +445,8 @@ let all : (string * Grammar.t) list =
   ; "unknown-resync-anchor", unknown_resync_anchor
   ; "unknown-identity-child", unknown_identity_child
   ; "unknown-message-child", unknown_message_child
+  ; "unused-message-child", unused_message_child
+  ; "unused-recover-to", unused_recover_to
   ; "empty-alternatives", empty_alternatives
   ; "no-roots", no_roots
   ; "root-is-block", root_is_block

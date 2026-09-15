@@ -11,23 +11,24 @@
 ;   9 T_SEMI
 ;  10 T_COMMA
 ;  11 T_EQUALS
-;  12 T_NAME
-;  13 T_WS
-;  14 N_PROGRAM_HOLE
-;  15 N_DECL_HOLE
-;  16 N_LET_HOLE
-;  17 N_INIT_HOLE
-;  18 N_NAMES_HOLE
-;  19 N_BLOCK_HOLE
-;  20 T_ERROR
-;  21 N_ERROR
-;  22 N_MISSING
-;  23 T_UNTERMINATED
+;  12 T_AT
+;  13 T_NAME
+;  14 T_WS
+;  15 N_PROGRAM_HOLE
+;  16 N_DECL_HOLE
+;  17 N_LET_HOLE
+;  18 N_INIT_HOLE
+;  19 N_NAMES_HOLE
+;  20 N_BLOCK_HOLE
+;  21 T_ERROR
+;  22 N_ERROR
+;  23 N_MISSING
+;  24 T_UNTERMINATED
 
 (plan
-  (error-kind 21)
-  (missing-kind 22)
-  (trivia 13)
+  (error-kind 22)
+  (missing-kind 23)
+  (trivia 14)
   (pairs (7 8))
   (roots 0)
   (rules
@@ -57,8 +58,8 @@
           (recover 6 7 8 9)
           (at-child decl)
           (message 1)
-          (hole 15)
-          (placeholder 15)
+          (hole 16)
+          (placeholder 16)
           (resume)
           (alt ((on 6) (call 2)) ((on 7) (call 5))))
         close))
@@ -70,8 +71,9 @@
       (boundary false)
       (seq
         (open 2)
-        (expect 6 (message 2) (at-child kw) (hole 16) (placeholder))
-        (expect 12 (message 3) (at-child name) (hole 16) (placeholder))
+        (expect 6 (message 2) (at-child kw) (hole 17) (placeholder))
+        (expect 13 (message 3) (at-child name) (hole 17) (placeholder))
+        (alt ((on 12) bump))
         (alt ((on 11) (call 3)))
         close))
     (rule
@@ -82,30 +84,30 @@
       (boundary false)
       (seq
         (open 3)
-        (expect 11 (message 4) (at-child eq) (hole 17) (placeholder))
+        (expect 11 (message 4) (at-child eq) (hole 18) (placeholder))
         (commit
-          (first 12)
+          (first 13)
           (recover 6 7 8 9)
           (at-child value)
           (message 3)
-          (hole 17)
-          (placeholder 17)
+          (hole 18)
+          (placeholder 18)
           (resume)
           (call 4))
         close))
     (rule
       Names
       (kind 4)
-      (first 12)
+      (first 13)
       (adds 10)
       (boundary false)
       (seq
         (open 4)
         (loop
           0
-          (state (accepts ((on 12) 1)) (exit may) bump)
+          (state (accepts ((on 13) 1)) (exit may) bump)
           (state (accepts ((on 10) 2)) (exit may) bump)
-          (state (accepts ((on 12) 1)) (exit may (message 5)) bump))
+          (state (accepts ((on 13) 1)) (exit may (message 5)) bump))
         trivia
         close))
     (rule

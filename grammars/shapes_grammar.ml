@@ -12,8 +12,8 @@
      resumes on its own [rbrace] rather than on a caller's delimiter;
    - [Block] declares a resync anchor, so a broken item inside it stops at the
      [let] that starts the next declaration instead of eating it;
-   - [Let] has an optional child, which is silent when absent where a required
-     one reports;
+   - [Let] has optional children, which are silent when absent where a
+     required one reports;
    - [Block]'s separator allows a trailing one, where json's forbids it. The
      two answers need two grammars, because the policy is per production.
 
@@ -32,6 +32,7 @@ let grammar : t =
     ; punct_tight ~name:"semi" ";"
     ; punct_tight ~name:"comma" ","
     ; punct ~name:"equals" "="
+    ; punct_tight ~name:"at" "@"
     ; pat "name" (Redfa.Regex.plus letter)
     ; pat
         ~trivia:Reformat
@@ -45,21 +46,22 @@ let grammar : t =
   let decl =
     prod "Decl" [ child_alt_rules ~modifier:Required "decl" [ "Let"; "Block" ] ]
   in
-  (* The initialiser is optional, so its absence is silent.
+  (* Both trailing children are optional, so their absence is silent.
 
-     The wording on it is deliberately inert. An optional child never reports,
-     so nothing names this entry, and a lowering that asked for one for every
-     child would leave it in the catalogue with no instruction pointing at it.
-     [Messages.Builder.intern] dedupes, so only a wording nothing else uses
-     makes that visible. test/laws/law_lower.ml part (c) is the reader. *)
+     [at] appears in this grammar and nowhere else in it, so the wording the
+     lowering would give the [marker] child is a wording no other position
+     shares. That matters to test/laws/law_lower.ml part (c): the catalogue
+     dedupes on the text, so a lowering that asked for a message at a child
+     that never reports would hide the spare entry behind a live one
+     everywhere the wording is shared. Here it cannot hide. *)
   let let_ =
     prod
       "Let"
       [ child_req "kw" (Token "let")
       ; child_req "name" (Token "name")
+      ; child_opt "marker" (Token "at")
       ; child_opt "init" (Rule "Init")
       ]
-    |> with_messages [ "init", "an initialiser, if there is one" ]
   in
   let init =
     prod "Init" [ child_req "eq" (Token "equals"); child_req "value" (Rule "Names") ]

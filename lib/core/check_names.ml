@@ -211,6 +211,15 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
       let acc =
         List.fold_left prod.children ~init:acc ~f:(fun acc (c : Grammar.child) ->
           let where = Error.At_child { production = pn; child = c.name } in
+          (* A recovery set replaces what the parse resumes on where a child
+             cannot be read. An optional child's absence is silent and a
+             repeated one just ends its loop, so neither has that moment. *)
+          let acc =
+            match c.modifier, c.c_parse.recover_to with
+            | (Grammar.Optional | Grammar.Repeated), Some _ ->
+              Error.make ~detail:(Error.Unused_recover_to { name = c.name }) where :: acc
+            | (Grammar.Optional | Grammar.Repeated | Grammar.Required), _ -> acc
+          in
           match c.sym with
           | Single s -> sym_error names where s acc
           | Alternatives [] -> Error.make ~detail:Error.Empty_alternatives where :: acc
@@ -228,13 +237,23 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
       in
       let acc =
         List.fold_left prod.error_messages ~init:acc ~f:(fun acc (nm, _msg) ->
-          if List.mem nm ~set:child_names
-          then acc
-          else
+          match
+            List.find_opt prod.children ~f:(fun (c : Grammar.child) ->
+              Grammar.Name.Child.equal c.name nm)
+          with
+          | None ->
             Error.make
               ~detail:(Error.Unknown_message_child { name = nm })
               (Error.At_production pn)
-            :: acc)
+            :: acc
+          (* Only a required child reports, so only a required child has
+             wording to replace. *)
+          | Some { modifier = Grammar.Optional | Grammar.Repeated; _ } ->
+            Error.make
+              ~detail:(Error.Unused_message_child { name = nm })
+              (Error.At_child { production = pn; child = nm })
+            :: acc
+          | Some { modifier = Grammar.Required; _ } -> acc)
       in
       let acc =
         match prod.framing with
