@@ -21,7 +21,9 @@
       reader defaults would have to be dropped and defaulted to the same
       value to stay hidden.
 
-      Coverage. One plan, and twenty-two broken ones. The round-trip says
+      Coverage. One plan, and twenty-two broken ones. The plan's loop reaches
+      all three exit policies: its body holds at least one element, it may end
+      after one, and ending after a separator reports the separator as extra. The round-trip says
       nothing about a plan no [of_facts] would build, and [of_facts] does not
       exist yet: the goldens over the example grammars land with it. It is
       stated over plans that pass [check], because an empty [resume] set and
@@ -84,9 +86,13 @@
                \0". The child name holds a byte below 32 and byte 127, and
                the printer has no other way to write either.
 
+        M13 In [Text], print a [May_exit_reporting] exit as a bare [may].
+            -> part (a), both round trips. The plans differ and the output
+               still parses, so a reader-side check alone would miss it.
+
       One that reddens nothing, recorded as a finding.
 
-        M13 In [Sexp.pp], quote with [%S] again, which is what it did before.
+        M14 In [Sexp.pp], quote with [%S] again, which is what it did before.
             -> nothing reddens. [%S] writes a byte above 127 as [\ddd], and
                the reader takes that now, so the two agree either way. The
                defect this fixed was in the reader. The writer is here so a
@@ -156,7 +162,9 @@ let file : Ir.Plan.rule =
 ;;
 
 (* A delimited body with a separator is three positions, and they admit
-   different things. The states are what say so. *)
+   different things. The states are what say so, and this one reaches all
+   three exit policies: the body holds at least one element, it may end after
+   one, and ending after a separator reports the separator as extra. *)
 let list_rule : Ir.Plan.rule =
   { name = "List"
   ; kind = n_list
@@ -171,15 +179,15 @@ let list_rule : Ir.Plan.rule =
              { entry = 0
              ; states =
                  [| { accepts = [| [| k_lbrack; k_word |], 1 |]
-                    ; can_exit = true
+                    ; exit = Ir.Plan.Cannot_exit
                     ; emits = Ir.Plan.Call 2
                     }
                   ; { accepts = [| [| k_comma |], 2 |]
-                    ; can_exit = true
+                    ; exit = Ir.Plan.May_exit
                     ; emits = Ir.Plan.Bump
                     }
                   ; { accepts = [| [| k_lbrack; k_word |], 1 |]
-                    ; can_exit = false
+                    ; exit = Ir.Plan.May_exit_reporting (msg 4)
                     ; emits = Ir.Plan.Call 2
                     }
                  |]
@@ -392,7 +400,7 @@ let broken =
               { entry = 0
               ; states =
                   [| { accepts = [| [| k_word |], 0; [| k_word |], 0 |]
-                     ; can_exit = true
+                     ; exit = Ir.Plan.May_exit
                      ; emits = Ir.Plan.Bump
                      }
                   |]
@@ -447,7 +455,8 @@ let broken =
         (open_
            (Ir.Plan.Loop
               { entry = 9
-              ; states = [| { accepts = [||]; can_exit = true; emits = Ir.Plan.Bump } |]
+              ; states =
+                  [| { accepts = [||]; exit = Ir.Plan.May_exit; emits = Ir.Plan.Bump } |]
               }))
     , function
       | Check.Loop_state_out_of_range _ -> true
@@ -459,7 +468,7 @@ let broken =
               { entry = 0
               ; states =
                   [| { accepts = [| [| k_word |], 0 |]
-                     ; can_exit = false
+                     ; exit = Ir.Plan.Cannot_exit
                      ; emits = Ir.Plan.Bump
                      }
                   |]

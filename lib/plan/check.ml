@@ -83,11 +83,13 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
     if not !ordered then report (Kinds_unordered { at; kinds = Array.to_list ks })
   in
   let kind at k = if k < 0 then report (Negative_kind { at; kind = k }) in
-  (* Every dispatch in a plan is an ordered cascade, and the first entry whose
-     set holds the kind under the cursor is the one that runs. So a kind an
-     earlier entry already takes never reaches a later one, and the later entry
-     is dead code on it. [taker ()] is called once per cascade and its answer
-     once per entry, in order. *)
+  (* Every dispatch in a plan is an ordered cascade. The entry that runs is the
+     first one whose set holds the kind under the cursor. So a kind an earlier
+     entry already takes never reaches a later one, and the later entry is dead
+     code on that kind.
+
+     Call [taker ()] once per cascade. Call what it answers once per entry, in
+     the order the entries are written. *)
   let taker () =
     let seen = Hashtbl.create 16 in
     fun at (ks : Ir.Kind.t array) ->
@@ -159,7 +161,11 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
       let n = Array.length l.states in
       if l.entry < 0 || l.entry >= n
       then report (Loop_state_out_of_range { at; state = l.entry });
-      if not (Array.exists l.states ~f:(fun (s : Ir.Plan.loop_state) -> s.can_exit))
+      if
+        Array.for_all l.states ~f:(fun (s : Ir.Plan.loop_state) ->
+          match s.exit with
+          | Ir.Plan.Cannot_exit -> true
+          | Ir.Plan.May_exit | Ir.Plan.May_exit_reporting _ -> false)
       then report (Loop_never_exits { at });
       Array.iteri l.states ~f:(fun si (s : Ir.Plan.loop_state) ->
         let at = sub at (Printf.sprintf "state %d" si) in

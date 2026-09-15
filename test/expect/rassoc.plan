@@ -1,0 +1,68 @@
+; -- kinds --------------------------------------------------------
+;   0 N_FILE
+;   1 T_PLUS
+;   2 T_CARET
+;   3 T_MINUS
+;   4 T_INT
+;   5 T_WS
+;   6 N_EXPR
+;   7 N_EXPR_BIN
+;   8 N_EXPR_PREFIX
+;   9 N_FILE_HOLE
+;  10 N_EXPR_HOLE
+;  11 T_ERROR
+;  12 N_ERROR
+;  13 N_MISSING
+;  14 T_UNTERMINATED
+
+(plan
+  (error-kind 12)
+  (missing-kind 13)
+  (trivia 5)
+  (pairs)
+  (roots 0)
+  (rules
+    (rule
+      File
+      (kind 0)
+      (first 3 4)
+      (adds)
+      (boundary false)
+      (seq
+        (open 0)
+        (commit
+          (first 3 4)
+          (recover)
+          (at-child expr)
+          (message 0)
+          (expected 3 4)
+          (hole 9)
+          (placeholder 9)
+          (resume)
+          (call 1))
+        drain
+        close))
+    (rule
+      Expr
+      (kind 6)
+      (first 3 4)
+      (adds)
+      (boundary false)
+      (seq (pratt 0 0)))
+    (rule ExprBin (kind 7) (first) (adds) (boundary false) (seq))
+    (rule ExprPrefix (kind 8) (first) (adds) (boundary false) (seq)))
+  (blocks
+    (block
+      (base-kind 6)
+      (prefix-kind 8)
+      (infix-kind 7)
+      (hole-kind 10)
+      (expected 4)
+      (message 1)
+      (infix (1 10 11) (2 30 30))
+      (prefix (3 50))
+      (postfix)
+      (atoms ((on 4) token)))))
+; -- messages -----------------------------------------------------
+;   0 expected "-" or int
+;   1 expected int

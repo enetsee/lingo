@@ -88,9 +88,25 @@ and loop_state =
   { accepts : (Kind.t array * int) array
     (** On a kind in the set, run {!loop_state.emits} and move to that
           state. *)
-  ; can_exit : bool (** Whether the loop may end here. *)
+  ; exit : exit_policy
   ; emits : instr (** What a transition out of this state runs. *)
   }
+
+(** Whether the loop may end at a state, and what ending there reports.
+
+    A body can end at its separator even where the author forbade a trailing
+    one. The parser still takes the separator, because it is bytes the source
+    had, and it reports the diagnostic to say the separator does not belong.
+
+    The report hangs off the exit rather than off a transition. A parser only
+    knows the separator was trailing once it sees that the next token ends the
+    body. *)
+and exit_policy =
+  | Cannot_exit (** The loop may not end here. *)
+  | May_exit
+  | May_exit_reporting of Message.id
+  (** End here, with one [Extra] diagnostic over what the last transition
+          took. *)
 
 (** What an expression block builds on top of an atom. *)
 type postfix_body =

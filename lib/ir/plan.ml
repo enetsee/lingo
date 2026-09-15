@@ -1,6 +1,6 @@
-(* A new constructor here goes into law_plan's plan as well. That plan is
-   what the round trip runs over, so an instruction it never holds is one
-   the printer and the reader are never checked on. *)
+(* Add a new constructor here to law_plan's plan as well. The round trip runs
+   over that plan, so the printer and the reader are never checked on an
+   instruction it does not hold. *)
 type instr =
   | Seq of instr array
   | Open of Kind.t
@@ -39,9 +39,14 @@ type instr =
 
 and loop_state =
   { accepts : (Kind.t array * int) array
-  ; can_exit : bool
+  ; exit : exit_policy
   ; emits : instr
   }
+
+and exit_policy =
+  | Cannot_exit
+  | May_exit
+  | May_exit_reporting of Message.id
 
 type postfix_body =
   | Nothing

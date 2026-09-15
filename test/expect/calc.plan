@@ -1,0 +1,96 @@
+; -- kinds --------------------------------------------------------
+;   0 N_FILE
+;   1 N_PARENS
+;   2 T_LPAREN
+;   3 T_RPAREN
+;   4 T_PLUS
+;   5 T_MINUS
+;   6 T_STAR
+;   7 T_SLASH
+;   8 T_INT
+;   9 T_WS
+;  10 N_EXPR
+;  11 N_EXPR_BIN
+;  12 N_EXPR_PREFIX
+;  13 N_FILE_HOLE
+;  14 N_PARENS_HOLE
+;  15 N_EXPR_HOLE
+;  16 T_ERROR
+;  17 N_ERROR
+;  18 N_MISSING
+;  19 T_UNTERMINATED
+
+(plan
+  (error-kind 17)
+  (missing-kind 18)
+  (trivia 9)
+  (pairs (2 3))
+  (roots 0)
+  (rules
+    (rule
+      File
+      (kind 0)
+      (first 2 5 8)
+      (adds)
+      (boundary false)
+      (seq
+        (open 0)
+        (commit
+          (first 2 5 8)
+          (recover)
+          (at-child expr)
+          (message 0)
+          (expected 2 5 8)
+          (hole 13)
+          (placeholder 13)
+          (resume)
+          (call 2))
+        drain
+        close))
+    (rule
+      Parens
+      (kind 1)
+      (first 2)
+      (adds 3)
+      (boundary false)
+      (seq
+        (open 1)
+        (expect 2 (message 2) (at-child) (hole) (placeholder))
+        (commit
+          (first 2 5 8)
+          (recover 3 4 5 6 7)
+          (at-child inner)
+          (message 0)
+          (expected 2 5 8)
+          (hole 14)
+          (placeholder 14)
+          (resume 3)
+          (call 2))
+        (expect 3 (message 1) (at-child) (hole) (placeholder 3))
+        close))
+    (rule
+      Expr
+      (kind 10)
+      (first 2 5 8)
+      (adds)
+      (boundary false)
+      (seq (pratt 0 0)))
+    (rule ExprBin (kind 11) (first) (adds) (boundary false) (seq))
+    (rule ExprPrefix (kind 12) (first) (adds) (boundary false) (seq)))
+  (blocks
+    (block
+      (base-kind 10)
+      (prefix-kind 12)
+      (infix-kind 11)
+      (hole-kind 15)
+      (expected 2 8)
+      (message 3)
+      (infix (4 10 11) (5 10 11) (6 20 21) (7 20 21))
+      (prefix (5 50))
+      (postfix)
+      (atoms ((on 8) token) ((on 2) (rule 1))))))
+; -- messages -----------------------------------------------------
+;   0 expected "(" or "-" or int
+;   1 expected ")"
+;   2 expected "("
+;   3 expected "(" or int

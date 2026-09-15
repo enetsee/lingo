@@ -72,7 +72,12 @@ let rec sexp_of_instr (i : Ir.Plan.instr) : Sexp.t =
                "accepts"
                (List.map (Array.to_list s.accepts) ~f:(fun (on, target) ->
                   Sexp.List [ ints "on" on; num target ]))
-           ; flag "exit" s.can_exit
+           ; keyed
+               "exit"
+               (match s.exit with
+                | Ir.Plan.Cannot_exit -> [ atom "cannot" ]
+                | Ir.Plan.May_exit -> [ atom "may" ]
+                | Ir.Plan.May_exit_reporting m -> [ atom "may"; msg m ])
            ; sexp_of_instr s.emits
            ]))
 ;;
@@ -262,7 +267,15 @@ let rec instr_of_sexp (s : Sexp.t) : Ir.Plan.instr =
                           match a with
                           | Sexp.List [ on; target ] -> ints_of "on" on, as_int target
                           | _ -> bad "an accepts arm is (on state): %s" (show a)))
-                 ; can_exit = flag_of "exit" exit_
+                 ; exit =
+                     (match key "exit" exit_ with
+                      | [ Sexp.Atom "cannot" ] -> Ir.Plan.Cannot_exit
+                      | [ Sexp.Atom "may" ] -> Ir.Plan.May_exit
+                      | [ Sexp.Atom "may"; m ] -> Ir.Plan.May_exit_reporting (msg_of m)
+                      | _ ->
+                        bad
+                          "an exit is cannot, may, or may with a message: %s"
+                          (show exit_))
                  ; emits = instr_of_sexp emits
                  }
                | _ -> bad "a loop state is (state accepts exit emits): %s" (show st)))

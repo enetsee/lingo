@@ -18,6 +18,8 @@ type t =
   | Prefix (** A prefix application. *)
   | Postfix of int (** An index into {!Grammar.expr_def.postfix}. *)
 
+val equal : t -> t -> bool
+
 (** Every role the block declares, in kind-numbering order. *)
 val of_block : Grammar.expr_def -> t list
 

@@ -1,0 +1,150 @@
+; -- kinds --------------------------------------------------------
+;   0 N_FILE
+;   1 N_VALUE
+;   2 N_MEMBER
+;   3 N_OBJECT
+;   4 N_ARRAY
+;   5 T_TRUE
+;   6 T_FALSE
+;   7 T_NULL
+;   8 T_LBRACE
+;   9 T_RBRACE
+;  10 T_LBRACKET
+;  11 T_RBRACKET
+;  12 T_COMMA
+;  13 T_COLON
+;  14 T_NUMBER
+;  15 T_STRING
+;  16 T_WS
+;  17 N_FILE_HOLE
+;  18 N_VALUE_HOLE
+;  19 N_MEMBER_HOLE
+;  20 N_OBJECT_HOLE
+;  21 N_ARRAY_HOLE
+;  22 T_ERROR
+;  23 N_ERROR
+;  24 N_MISSING
+;  25 T_UNTERMINATED
+
+(plan
+  (error-kind 23)
+  (missing-kind 24)
+  (trivia 16)
+  (pairs (8 9) (10 11))
+  (roots 0)
+  (rules
+    (rule
+      File
+      (kind 0)
+      (first 5 6 7 8 10 14 15)
+      (adds)
+      (boundary false)
+      (seq
+        (open 0)
+        (commit
+          (first 5 6 7 8 10 14 15)
+          (recover)
+          (at-child value)
+          (message 0)
+          (expected 5 6 7 8 10 14 15)
+          (hole 17)
+          (placeholder 17)
+          (resume)
+          (call 1))
+        drain
+        close))
+    (rule
+      Value
+      (kind 1)
+      (first 5 6 7 8 10 14 15)
+      (adds)
+      (boundary false)
+      (seq
+        (open 1)
+        (commit
+          (first 5 6 7 8 10 14 15)
+          (recover 9 11 12)
+          (at-child kind)
+          (message 0)
+          (expected 5 6 7 8 10 14 15)
+          (hole 18)
+          (placeholder 18)
+          (resume)
+          (alt
+            ((on 5) bump)
+            ((on 6) bump)
+            ((on 7) bump)
+            ((on 14) bump)
+            ((on 15) bump)
+            ((on 8) (call 3))
+            ((on 10) (call 4))))
+        close))
+    (rule
+      Member
+      (kind 2)
+      (first 15)
+      (adds)
+      (boundary false)
+      (seq
+        (open 2)
+        (expect 15 (message 1) (at-child key) (hole 19) (placeholder))
+        (expect 13 (message 2) (at-child colon) (hole 19) (placeholder))
+        (commit
+          (first 5 6 7 8 10 14 15)
+          (recover 9 12)
+          (at-child value)
+          (message 3)
+          (expected 5 6 7 8 10 14 15)
+          (hole 19)
+          (placeholder 19)
+          (resume)
+          (call 1))
+        close))
+    (rule
+      Object
+      (kind 3)
+      (first 8)
+      (adds 9 12)
+      (boundary false)
+      (seq
+        (open 3)
+        (expect 8 (message 6) (at-child) (hole) (placeholder))
+        (loop
+          0
+          (state (accepts ((on 15) 1)) (exit may) (call 2))
+          (state (accepts ((on 12) 2)) (exit may) bump)
+          (state (accepts ((on 15) 1)) (exit may (message 4)) (call 2)))
+        trivia
+        (expect 9 (message 5) (at-child) (hole) (placeholder 9))
+        close))
+    (rule
+      Array
+      (kind 4)
+      (first 10)
+      (adds 11 12)
+      (boundary false)
+      (seq
+        (open 4)
+        (expect 10 (message 8) (at-child) (hole) (placeholder))
+        (loop
+          0
+          (state (accepts ((on 5 6 7 8 10 14 15) 1)) (exit may) (call 1))
+          (state (accepts ((on 12) 2)) (exit may) bump)
+          (state
+            (accepts ((on 5 6 7 8 10 14 15) 1))
+            (exit may (message 4))
+            (call 1)))
+        trivia
+        (expect 11 (message 7) (at-child) (hole) (placeholder 11))
+        close)))
+  (blocks))
+; -- messages -----------------------------------------------------
+;   0 expected "true" or "false" or "null" or "{" or "[" or number or string
+;   1 expected string
+;   2 expected ':' after object key
+;   3 expected a JSON value
+;   4 a trailing ","
+;   5 expected "}"
+;   6 expected "{"
+;   7 expected "]"
+;   8 expected "["

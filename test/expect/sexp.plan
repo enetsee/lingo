@@ -1,0 +1,82 @@
+; -- kinds --------------------------------------------------------
+;   0 N_FILE
+;   1 N_SEXP
+;   2 N_GROUP
+;   3 T_LPAREN
+;   4 T_RPAREN
+;   5 T_IDENT
+;   6 T_NUMBER
+;   7 T_WS
+;   8 N_FILE_HOLE
+;   9 N_SEXP_HOLE
+;  10 N_GROUP_HOLE
+;  11 T_ERROR
+;  12 N_ERROR
+;  13 N_MISSING
+;  14 T_UNTERMINATED
+
+(plan
+  (error-kind 12)
+  (missing-kind 13)
+  (trivia 7)
+  (pairs (3 4))
+  (roots 0)
+  (rules
+    (rule
+      File
+      (kind 0)
+      (first 3 5 6)
+      (adds)
+      (boundary false)
+      (seq
+        (open 0)
+        (commit
+          (first 3 5 6)
+          (recover)
+          (at-child root)
+          (message 0)
+          (expected 3 5 6)
+          (hole 8)
+          (placeholder 8)
+          (resume)
+          (call 1))
+        drain
+        close))
+    (rule
+      Sexp
+      (kind 1)
+      (first 3 5 6)
+      (adds)
+      (boundary false)
+      (seq
+        (open 1)
+        (commit
+          (first 3 5 6)
+          (recover 3 4 5 6)
+          (at-child kind)
+          (message 0)
+          (expected 3 5 6)
+          (hole 9)
+          (placeholder 9)
+          (resume)
+          (alt ((on 5) bump) ((on 6) bump) ((on 3) (call 2))))
+        close))
+    (rule
+      Group
+      (kind 2)
+      (first 3)
+      (adds 4)
+      (boundary false)
+      (seq
+        (open 2)
+        (expect 3 (message 2) (at-child) (hole) (placeholder))
+        (seq
+          (loop 0 (state (accepts ((on 3 5 6) 0)) (exit may) (call 1)))
+          trivia)
+        (expect 4 (message 1) (at-child) (hole) (placeholder 4))
+        close)))
+  (blocks))
+; -- messages -----------------------------------------------------
+;   0 expected "(" or ident or number
+;   1 expected ")"
+;   2 expected "("

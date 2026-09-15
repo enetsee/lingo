@@ -1,0 +1,47 @@
+; The lowering's output, pinned. Each grammar is its own file, so a change to
+; one does not move the bytes of the other three.
+
+(executable
+ (name dump_plan)
+ (modules dump_plan)
+ (libraries lingo.plan lingo.core lingo_grammars lingo_runtime.ir))
+
+(rule
+ (with-stdout-to
+  sexp.plan.actual
+  (run ./dump_plan.exe sexp)))
+
+(rule
+ (with-stdout-to
+  json.plan.actual
+  (run ./dump_plan.exe json)))
+
+(rule
+ (with-stdout-to
+  calc.plan.actual
+  (run ./dump_plan.exe calc)))
+
+(rule
+ (with-stdout-to
+  rassoc.plan.actual
+  (run ./dump_plan.exe rassoc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.plan sexp.plan.actual)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.plan json.plan.actual)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.plan calc.plan.actual)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.plan rassoc.plan.actual)))

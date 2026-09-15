@@ -14,4 +14,6 @@
     knows which of the two they are looking at. *)
 
 module Check = Check
+module Lower = Lower
+module Messages = Messages
 module Text = Text

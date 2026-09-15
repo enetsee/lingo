@@ -4,6 +4,13 @@ type t =
   | Prefix
   | Postfix of int
 
+let equal (t1 : t) (t2 : t) =
+  match t1, t2 with
+  | Base, Base | Bin, Bin | Prefix, Prefix -> true
+  | Postfix i, Postfix j -> Int.equal i j
+  | _ -> false
+;;
+
 let of_block (e : Grammar.expr_def) : t list =
   [ Base; Bin; Prefix ] @ List.mapi (fun i _ -> Postfix i) e.postfix
 ;;
