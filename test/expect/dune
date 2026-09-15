@@ -6,6 +6,21 @@
  (modules dump_plan)
  (libraries lingo.plan lingo.core lingo_grammars lingo_runtime.ir))
 
+; The trees and diagnostics a parse makes of a broken input. [lex] is the
+; laws' own, over the facts' automaton, so a grammar needs no lexer of its own.
+
+(executable
+ (name dump_parse)
+ (modules dump_parse)
+ (libraries
+  lingo.plan
+  lingo.interp
+  lingo.core
+  lingo_grammars
+  lingo_runtime
+  lex
+  siesta))
+
 (rule
  (with-stdout-to
   sexp.plan.actual
@@ -75,3 +90,53 @@
  (alias runtest)
  (action
   (diff unicode.plan unicode.plan.actual)))
+
+(rule
+ (with-stdout-to
+  sexp.parse.actual
+  (run ./dump_parse.exe sexp)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.parse sexp.parse.actual)))
+
+(rule
+ (with-stdout-to
+  json.parse.actual
+  (run ./dump_parse.exe json)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.parse json.parse.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.parse.actual
+  (run ./dump_parse.exe shapes)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.parse shapes.parse.actual)))
+
+(rule
+ (with-stdout-to
+  calc.parse.actual
+  (run ./dump_parse.exe calc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.parse calc.parse.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.parse.actual
+  (run ./dump_parse.exe postfix)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.parse postfix.parse.actual)))

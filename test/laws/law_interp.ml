@@ -89,10 +89,45 @@
                The parse raises either way; what the check buys is a message
                about the entry rather than about the builder.
 
-      One that reddens nothing, recorded as a finding.
+        M8  In [Interp.loop], end the body where no state accepts, instead of
+            recovering.
+            -> part (d), ["loop-recover"] reads zero. This is the arm pigeon
+               has and this loop did not: a body that meets a token it cannot
+               use sweeps it into an error node and carries on, rather than
+               ending and leaving the rest to the caller. On json's
+               ["\[1 : 2\]"] the old shape lost the [2] altogether.
+        M9  In [Interp.loop], sweep where a position is missing something,
+            instead of reporting it.
+            -> part (d), ["loop-missing"] reads zero, and json's ["\[1 2\]"]
+               parses with no diagnostic at all: the separator that is not
+               there goes unreported and the second element is swept away.
+               Silent acceptance of input the grammar rejects is the worst
+               shape a parse can take, which is why the two cases are told
+               apart rather than both recovered.
+        M10 In [Lower.ends_on_of], leave the resync anchors out of what ends a
+            body.
+            -> nothing here, and four hunks in test/expect/*.parse. shapes'
+               ["{ let a end }"] sweeps the [end] up and carries on to the
+               closer, which is what declaring an anchor is meant to stop.
+        M11 In [Lower.repeat_ends_on_of], give a root's repeated body [None]
+            so it ends where no element can start.
+            -> nothing here, and four hunks in test/expect/*.parse. A stray
+               token between two declarations loses every declaration after
+               it.
+        M12 In [Interp.loop], parse an element without the body's stopping
+            points.
+            -> nothing here, and two hunks in test/expect/*.parse. A failure
+               nested inside an element escapes past the start of the next
+               one.
+
+      Three that redden nothing here, and are read elsewhere. Parts (a) to (f)
+      say what holds for every input; none of them reads the shape of what
+      recovery built. test/expect/*.parse is that reader, and M10, M11 and M12
+      are the mutations that show it.
 
         M3  In [Lower.repetition], drop the [Trivia] after the loop.
-            -> nothing reddens. The sweep matters for where trivia lands and
+            -> nothing here, and four hunks in test/expect/*.parse. The sweep
+               matters for where trivia lands and
                not for whether it lands: a delimited body's close takes the
                trivia before it either way, because taking a token takes the
                trivia in front of it too. So the bytes still reach the tree,
@@ -101,7 +136,8 @@
                Which frame is a claim about the tree's shape. Part (e) makes
                one such claim and this is not it: the trivia lands in the
                enclosing frame either way, and part (e) only forbids it
-               starting a node. An expect test over the trees would catch it.
+               starting a node. test/expect/*.parse reads it now, and this
+               mutation moves four hunks there.
    -------------------------------------------------------------------------- *)
 
 let failures = ref 0
@@ -193,7 +229,25 @@ let corpus =
         ; "let a  "
         ; ""
         ]
-    ; broken = [ "let"; "{"; "{ let }"; "let a ="; "{ let a; ; }"; "}" ]
+        (* The last two turn on the resync anchor. [end] starts nothing, so a
+         body without an anchor would sweep it up; [Block] declares it, so the
+         body stops there instead. *)
+    ; broken =
+        [ "let"
+        ; "{"
+        ; "{ let }"
+        ; "let a ="
+        ; "{ let a; ; }"
+        ; "}"
+        ; "{ let a end"
+        ; "{ let a end }"
+          (* A root of repeated items recovers to the end of the input, so a
+             stray token between two declarations costs a diagnostic rather
+             than every declaration after it. *)
+        ; "let a ; let b"
+        ; "@ let a"
+        ; "let a ; ; let b"
+        ]
     }
   ]
 ;;
@@ -222,6 +276,8 @@ let forms =
   ; "commit"
   ; "loop"
   ; "exit-reporting"
+  ; "loop-recover"
+  ; "loop-missing"
   ; "postfix"
   ; "prefix"
   ; "infix"

@@ -32,19 +32,18 @@
  (modules law_lower)
  (libraries lingo.plan lingo.core lingo_grammars lingo_runtime.ir))
 
-; law_interp drives the interpreter over every grammar in the corpus. [lex]
-; turns source into tokens through the facts' own automaton, so adding a
-; grammar needs no lexer written for it.
+; law_interp drives the interpreter over every grammar in the corpus. It lexes
+; through test/lex, which reads the facts' own automaton, so adding a grammar
+; needs no lexer written for it.
 
 (tests
  (names law_interp)
- (modules law_interp lex)
+ (modules law_interp)
  (libraries
   lingo.plan
   lingo.interp
   lingo.core
   lingo_grammars
   lingo_runtime
-  redfa
-  ucharset
+  lex
   siesta))

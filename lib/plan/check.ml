@@ -158,6 +158,7 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
       let n = Array.length l.states in
       if l.entry < 0 || l.entry >= n
       then report (Loop_state_out_of_range { at; state = l.entry });
+      Option.iter (fun ks -> kinds (sub at "ends-on") ks) l.ends_on;
       Array.iteri l.states ~f:(fun si (s : Ir.Plan.loop_state) ->
         let at = sub at (Printf.sprintf "state %d" si) in
         let takes = taker () in
@@ -168,6 +169,12 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
           takes at on;
           if target < 0 || target >= n
           then report (Loop_state_out_of_range { at; state = target }));
+        Option.iter
+          (fun (m : Ir.Plan.missing) ->
+             kind (sub at "missing") m.tok;
+             if m.goto < 0 || m.goto >= n
+             then report (Loop_state_out_of_range { at; state = m.goto }))
+          s.when_missing;
         balanced (sub at "emits") s.emits);
       0, 0
   and balanced at i =

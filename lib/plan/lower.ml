@@ -73,12 +73,23 @@ and body_of_alt (facts : Core.Facts.t) (kind : Core.Kind.t) : Ir.Plan.instr =
 (* A repeated child as a one-state loop. The trivia sweep keeps the space 
    between the last element and whatever closes the body from leaking up to the 
    next thing that skips trivia. *)
-let repetition (first : Ir.Kind.t array) (body : Ir.Plan.instr) : Ir.Plan.instr =
+let repetition
+      (first : Ir.Kind.t array)
+      (body : Ir.Plan.instr)
+      (ends_on : Ir.Kind.t array option)
+  : Ir.Plan.instr
+  =
   Ir.Plan.Seq
     [| Ir.Plan.Loop
          { entry = 0
+         ; ends_on
          ; states =
-             [| { accepts = [| first, 0 |]; exit = Ir.Plan.May_exit; emits = body } |]
+             [| { accepts = [| first, 0 |]
+                ; exit = Ir.Plan.May_exit
+                ; when_missing = None
+                ; emits = body
+                }
+             |]
          }
      ; Ir.Plan.Trivia
     |]
@@ -92,6 +103,7 @@ let instr_of_child
       (rule_def : Core.Rule.def)
       (index : int)
       (resume : Ir.Kind.t array option)
+      (repeat_ends_on : Ir.Kind.t array option)
       (child : Core.Rule.child)
   : Ir.Plan.instr
   =
@@ -101,7 +113,11 @@ let instr_of_child
      would put wording in the catalogue that no instruction ever names. *)
   | Core.Grammar.Optional ->
     Ir.Plan.Alt { arms = [| kset first, body_of_alts facts child.alts |] }
-  | Core.Grammar.Repeated -> repetition (kset first) (body_of_alts facts child.alts)
+  (* A repeated child outside a frame ends where no element can start. Only a
+     frame's own body recovers, because only a frame has a closer to stop at.
+     See [body_instrs]. *)
+  | Core.Grammar.Repeated ->
+    repetition (kset first) (body_of_alts facts child.alts) repeat_ends_on
   | Core.Grammar.Required ->
     let at_child = Core.Grammar.Name.Child.to_string child.child_name in
     let id = message facts msgs rule_def child first in
@@ -156,14 +172,32 @@ let separated_loop
       (sep : Ir.Kind.t)
       (body : Ir.Plan.instr)
       (after_sep : Ir.Plan.exit_policy)
+      (ends_on : Ir.Kind.t array option)
+      (no_sep : Ir.Message.id)
   : Ir.Plan.instr
   =
   Ir.Plan.Loop
     { entry = 0
+    ; ends_on
     ; states =
-        [| { accepts = [| elem_first, 1 |]; exit = Ir.Plan.May_exit; emits = body }
-         ; { accepts = [| [| sep |], 2 |]; exit = Ir.Plan.May_exit; emits = Ir.Plan.Bump }
-         ; { accepts = [| elem_first, 1 |]; exit = after_sep; emits = body }
+        [| { accepts = [| elem_first, 1 |]
+           ; exit = Ir.Plan.May_exit
+           ; when_missing = None
+           ; emits = body
+           }
+           (* Just past an element. A separator is what carries the body on, so
+              a body that has none here is missing one rather than holding
+              junk, and [goto] is where taking one would have led. *)
+         ; { accepts = [| [| sep |], 2 |]
+           ; exit = Ir.Plan.May_exit
+           ; when_missing = Some { tok = sep; message = no_sep; goto = 2 }
+           ; emits = Ir.Plan.Bump
+           }
+         ; { accepts = [| elem_first, 1 |]
+           ; exit = after_sep
+           ; when_missing = None
+           ; emits = body
+           }
         |]
     }
 ;;
@@ -183,26 +217,79 @@ let trailing_exit (facts : Core.Facts.t) (msgs : Messages.Builder.t) (sep : Core
 (* Lowers the children a frame wraps. A separator only applies to a repeated
    child. So where the body is a sequence of required children, it lowers the
    way a plain body does. *)
+(* What ends a body rather than being recovered past: the frame's closer, and
+   the anchors the grammar declared. Everything else a body meets and cannot
+   use is swept into an error node, and the body carries on.
+
+   A separated list answers [None]. It has no closer, so it ends where the
+   cursor leaves the separator and what follows is the caller's business. *)
+let ends_on_of (rule_def : Core.Rule.def) : Ir.Kind.t array option =
+  match rule_def.frame with
+  | Core.Rule.Delimited d -> Some (kset (Core.Kind.Set.add d.close rule_def.resync))
+  | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Separated _ -> None
+;;
+
+(* A root whose last child is repeated is a file of items, and it has no
+   closer. Such a body recovers to the end of the input rather than ending at
+   the first token it cannot use, so one stray token at the top level costs a
+   diagnostic instead of every item after it.
+
+   [Some [||]] is what says so: recover, and let nothing but the end of the
+   input end it. *)
+let repeat_ends_on_of (rule_def : Core.Rule.def) ~(is_root : bool) (index : int) =
+  let last = Array.length rule_def.children - 1 in
+  match is_root && index = last && index >= 0 with
+  | true ->
+    (match rule_def.children.(index).modifier with
+     | Core.Grammar.Repeated -> Some [||]
+     | Core.Grammar.Required | Core.Grammar.Optional -> None)
+  | false -> None
+;;
+
 let body_instrs
       (facts : Core.Facts.t)
       (msgs : Messages.Builder.t)
       (rule_def : Core.Rule.def)
       (sep_opt : Core.Rule.sep option)
       (resume_of : int -> int array option)
+      (is_root : bool)
   : Ir.Plan.instr list
   =
   let body = Core.Rule.body_children rule_def in
   match sep_opt, body with
   | Some sep, [ ({ modifier = Core.Grammar.Repeated; _ } as child) ] ->
     let elem_first = kset (child_first facts child)
-    and sep = Core.Kind.to_int sep.sep_tok
+    and sep_kind = Core.Kind.to_int sep.sep_tok
     and body = body_of_alts facts child.alts
     and after_sep = trailing_exit facts msgs sep in
-    [ separated_loop elem_first sep body after_sep; Ir.Plan.Trivia ]
+    let no_sep =
+      Messages.Builder.intern
+        msgs
+        (default_text facts (Core.Kind.Set.singleton sep.sep_tok))
+    in
+    [ separated_loop elem_first sep_kind body after_sep (ends_on_of rule_def) no_sep
+    ; Ir.Plan.Trivia
+    ]
+  (* A delimited body with no separator. It recovers like the separated one,
+     because it has the same closer to stop at. *)
+  | None, [ ({ modifier = Core.Grammar.Repeated; _ } as child) ]
+    when ends_on_of rule_def <> None ->
+    [ repetition
+        (kset (child_first facts child))
+        (body_of_alts facts child.alts)
+        (ends_on_of rule_def)
+    ]
   | _ ->
     List.mapi body ~f:(fun i c ->
       let index = rule_def.body_from + i in
-      instr_of_child facts msgs rule_def index (resume_of index) c)
+      instr_of_child
+        facts
+        msgs
+        rule_def
+        index
+        (resume_of index)
+        (repeat_ends_on_of rule_def ~is_root index)
+        c)
 ;;
 
 (* -- a rule ---------------------------------------------------------------- *)
@@ -234,7 +321,7 @@ let resume_after (facts : Core.Facts.t) (rule_def : Core.Rule.def) (index : int)
    holding a function body declares [with_resync_to \[ "def" \]] so a broken
    expression inside stops at the [def] that starts the next declaration,
    rather than eating it and turning one diagnostic into two. *)
-let adds_of ({ frame; resync; _ } : Core.Rule.def) : Core.Kind.Set.t =
+let adds_of ({ frame; _ } : Core.Rule.def) : Core.Kind.Set.t =
   let framing =
     match frame with
     | Core.Rule.Plain | Core.Rule.Committed _ -> Core.Kind.Set.empty
@@ -244,7 +331,7 @@ let adds_of ({ frame; resync; _ } : Core.Rule.def) : Core.Kind.Set.t =
       Option.fold d.sep ~none:kind_set ~some:(fun (sep : Core.Rule.sep) ->
         Core.Kind.Set.add sep.sep_tok kind_set)
   in
-  Core.Kind.Set.union framing resync
+  framing
 ;;
 
 let boundary_of ({ frame; _ } : Core.Rule.def) : bool =
@@ -272,7 +359,7 @@ let delimited_tail
       (sep : Core.Rule.sep option)
   : Ir.Plan.instr list
   =
-  body_instrs facts msgs rule_def sep resume_of
+  body_instrs facts msgs rule_def sep resume_of false
   @ [ Ir.Plan.Expect
         { tok = Core.Kind.to_int close
         ; message =
@@ -313,6 +400,7 @@ let rule_of
             rule_def
             index
             (resume_of index)
+            None
             rule_def.children.(index))
       in
       let sep =
@@ -338,7 +426,7 @@ let rule_of
            ]
          @ delimited_tail facts msgs rule_def resume_of d.close sep
        | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Separated _ ->
-         before @ body_instrs facts msgs rule_def sep resume_of)
+         before @ body_instrs facts msgs rule_def sep resume_of is_root)
   in
   let wrapped =
     match rule_def.origin with
@@ -410,6 +498,7 @@ let postfix_of (facts : Core.Facts.t) (msgs : Messages.Builder.t) (p : Core.Bloc
            rule_def
            index
            (resume_of index)
+           None
            rule_def.children.(index)
        | Core.Block.Enclosed e ->
          let sep =

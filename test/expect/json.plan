@@ -105,12 +105,21 @@
       (boundary false)
       (seq
         (open 3)
-        (expect 8 (message 7) (at-child) (hole) (placeholder))
+        (expect 8 (message 8) (at-child) (hole) (placeholder))
         (loop
           0
-          (state (accepts ((on 15) 1)) (exit may) (call 2))
-          (state (accepts ((on 12) 2)) (exit may) bump)
-          (state (accepts ((on 15) 1)) (exit may (message 6)) (call 2)))
+          (ends-on (kinds 9))
+          (state (accepts ((on 15) 1)) (exit may) (missing) (call 2))
+          (state
+            (accepts ((on 12) 2))
+            (exit may)
+            (missing 12 (message 7) 2)
+            bump)
+          (state
+            (accepts ((on 15) 1))
+            (exit may (message 6))
+            (missing)
+            (call 2)))
         trivia
         (expect 9 (message 5) (at-child) (hole) (placeholder 9))
         close))
@@ -122,17 +131,27 @@
       (boundary false)
       (seq
         (open 4)
-        (expect 10 (message 9) (at-child) (hole) (placeholder))
+        (expect 10 (message 10) (at-child) (hole) (placeholder))
         (loop
           0
-          (state (accepts ((on 5 6 7 8 10 14 15) 1)) (exit may) (call 1))
-          (state (accepts ((on 12) 2)) (exit may) bump)
+          (ends-on (kinds 11))
+          (state
+            (accepts ((on 5 6 7 8 10 14 15) 1))
+            (exit may)
+            (missing)
+            (call 1))
+          (state
+            (accepts ((on 12) 2))
+            (exit may)
+            (missing 12 (message 7) 2)
+            bump)
           (state
             (accepts ((on 5 6 7 8 10 14 15) 1))
             (exit may (message 6))
+            (missing)
             (call 1)))
         trivia
-        (expect 11 (message 8) (at-child) (hole) (placeholder 11))
+        (expect 11 (message 9) (at-child) (hole) (placeholder 11))
         close)))
   (blocks))
 ; -- messages -----------------------------------------------------
@@ -143,6 +162,7 @@
 ;   4 expected a JSON value
 ;   5 expected "}"
 ;   6 a trailing ","
-;   7 expected "{"
-;   8 expected "]"
-;   9 expected "["
+;   7 expected ","
+;   8 expected "{"
+;   9 expected "]"
+;  10 expected "["

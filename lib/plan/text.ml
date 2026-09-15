@@ -64,6 +64,9 @@ let rec sexp_of_instr (i : Ir.Plan.instr) : Sexp.t =
     keyed
       "loop"
       (num l.entry
+       :: (match l.ends_on with
+           | None -> keyed "ends-on" []
+           | Some ks -> keyed "ends-on" [ ints "kinds" ks ])
        :: List.map (Array.to_list l.states) ~f:(fun (s : Ir.Plan.loop_state) ->
          keyed
            "state"
@@ -76,6 +79,9 @@ let rec sexp_of_instr (i : Ir.Plan.instr) : Sexp.t =
                (match s.exit with
                 | Ir.Plan.May_exit -> [ atom "may" ]
                 | Ir.Plan.May_exit_reporting m -> [ atom "may"; msg m ])
+           ; (match s.when_missing with
+              | None -> keyed "missing" []
+              | Some m -> keyed "missing" [ num m.tok; msg m.message; num m.goto ])
            ; sexp_of_instr s.emits
            ]))
 ;;
@@ -240,14 +246,19 @@ let rec instr_of_sexp (s : Sexp.t) : Ir.Plan.instr =
            | ks -> Some (Array.of_list (List.map ks ~f:as_int)))
       ; body = instr_of_sexp body
       }
-  | Sexp.List (Sexp.Atom "loop" :: entry :: states) ->
+  | Sexp.List (Sexp.Atom "loop" :: entry :: ends :: states) ->
     Loop
       { entry = as_int entry
+      ; ends_on =
+          (match key "ends-on" ends with
+           | [] -> None
+           | [ ks ] -> Some (ints_of "kinds" ks)
+           | _ -> bad "(ends-on ...) takes at most one set: %s" (show ends))
       ; states =
           Array.of_list
             (List.map states ~f:(fun st ->
                match key "state" st with
-               | [ accepts; exit_; emits ] ->
+               | [ accepts; exit_; missing; emits ] ->
                  { Ir.Plan.accepts =
                      Array.of_list
                        (List.map (key "accepts" accepts) ~f:(fun a ->
@@ -259,9 +270,21 @@ let rec instr_of_sexp (s : Sexp.t) : Ir.Plan.instr =
                       | [ Sexp.Atom "may" ] -> Ir.Plan.May_exit
                       | [ Sexp.Atom "may"; m ] -> Ir.Plan.May_exit_reporting (msg_of m)
                       | _ -> bad "an exit is may, or may with a message: %s" (show exit_))
+                 ; when_missing =
+                     (match key "missing" missing with
+                      | [] -> None
+                      | [ tok; m; goto ] ->
+                        Some
+                          { Ir.Plan.tok = as_int tok
+                          ; message = msg_of m
+                          ; goto = as_int goto
+                          }
+                      | _ ->
+                        bad "a missing is (missing tok message goto): %s" (show missing))
                  ; emits = instr_of_sexp emits
                  }
-               | _ -> bad "a loop state is (state accepts exit emits): %s" (show st)))
+               | _ ->
+                 bad "a loop state is (state accepts exit missing emits): %s" (show st)))
       }
   | _ -> bad "not an instruction: %s" (show s)
 ;;

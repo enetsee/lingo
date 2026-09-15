@@ -178,17 +178,21 @@ let list_rule : Ir.Plan.rule =
          ; expect k_lparen
          ; Ir.Plan.Loop
              { entry = 0
+             ; ends_on = Some [| k_rparen |]
              ; states =
                  [| { accepts = [| [| k_lbrack; k_word |], 1 |]
                     ; exit = Ir.Plan.May_exit
+                    ; when_missing = None
                     ; emits = Ir.Plan.Call 2
                     }
                   ; { accepts = [| [| k_comma |], 2 |]
                     ; exit = Ir.Plan.May_exit
+                    ; when_missing = None
                     ; emits = Ir.Plan.Bump
                     }
                   ; { accepts = [| [| k_lbrack; k_word |], 1 |]
                     ; exit = Ir.Plan.May_exit_reporting (msg 4)
+                    ; when_missing = None
                     ; emits = Ir.Plan.Call 2
                     }
                  |]
@@ -402,9 +406,11 @@ let broken =
         (open_
            (Ir.Plan.Loop
               { entry = 0
+              ; ends_on = None
               ; states =
                   [| { accepts = [| [| k_word |], 0; [| k_word |], 0 |]
                      ; exit = Ir.Plan.May_exit
+                     ; when_missing = None
                      ; emits = Ir.Plan.Bump
                      }
                   |]
@@ -455,8 +461,14 @@ let broken =
         (open_
            (Ir.Plan.Loop
               { entry = 9
+              ; ends_on = None
               ; states =
-                  [| { accepts = [||]; exit = Ir.Plan.May_exit; emits = Ir.Plan.Bump } |]
+                  [| { accepts = [||]
+                     ; exit = Ir.Plan.May_exit
+                     ; when_missing = None
+                     ; emits = Ir.Plan.Bump
+                     }
+                  |]
               }))
     , function
       | Check.Loop_state_out_of_range _ -> true

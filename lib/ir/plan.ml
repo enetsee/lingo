@@ -33,13 +33,21 @@ type instr =
   | Loop of
       { states : loop_state array
       ; entry : int
+      ; ends_on : Kind.t array option
       }
   | Drain of Message.id
 
 and loop_state =
   { accepts : (Kind.t array * int) array
   ; exit : exit_policy
+  ; when_missing : missing option
   ; emits : instr
+  }
+
+and missing =
+  { tok : Kind.t
+  ; message : Message.id
+  ; goto : int
   }
 
 and exit_policy =

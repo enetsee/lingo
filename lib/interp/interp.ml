@@ -169,7 +169,7 @@ let rec exec
       if not rest_can_take then skip t.plan t.cursor (add_all recover cm.recover))
   | Loop l ->
     t.trace "loop";
-    loop t ~recover ~passed_down l.states l.entry
+    loop t ~recover ~passed_down l.states l.entry l.ends_on
 
 and call (t : t) (inbound : Ir.Kind.t list) (r : int) =
   let rule = t.plan.rules.(r) in
@@ -184,6 +184,7 @@ and loop
       ~(passed_down : Ir.Kind.t list)
       (states : Ir.Plan.loop_state array)
       (entry : int)
+      (ends_on : Ir.Kind.t array option)
   =
   let state = ref entry in
   (* The range of what the last transition took. Ending at a state that
@@ -193,20 +194,73 @@ and loop
     Array.find_map states.(!state).accepts ~f:(fun (on, dest) ->
       if holds_array on (Cursor.current t.cursor) then Some dest else None)
   in
-  (* A repeated child whose rule is nullable leaves the same kind under the
-     cursor at the same position, and so does a body that emits a hole and
-     takes nothing. The position test is what ends the loop in both cases. *)
-  Cursor.while_progress
-    t.cursor
-    (fun () -> target () <> None)
-    (fun () ->
-       match target () with
-       | None -> ()
-       | Some dest ->
-         let from = fst (Cursor.range t.cursor) in
-         exec t ~recover ~passed_down states.(!state).emits;
-         last_taken := Some (from, Cursor.offset t.cursor);
-         state := dest);
+  (* Where a body can carry on from: what ends it, what any of its states
+     could take next, and whatever the frames above are waiting for.
+
+     Two things read this. The sweep stops here, so a body that meets junk
+     picks up at its next element rather than running to the closer. And an
+     element is parsed with it, so a failure nested inside one stops at the
+     next element too rather than escaping further out. A body with no closer
+     has nothing else to offer, which is why a root needs it most. *)
+  let stop_on =
+    match ends_on with
+    | None -> []
+    | Some ks ->
+      Array.fold_left states ~init:(add_all recover ks) ~f:(fun acc st ->
+        Array.fold_left st.Ir.Plan.accepts ~init:acc ~f:(fun acc (on, _) ->
+          add_all acc on))
+  in
+  (* What ends the body is asked before what continues it. An anchor is a
+     token that ought to end the body even where an element could start with
+     one, which is the whole of what declaring an anchor buys. *)
+  let ending () =
+    match ends_on with
+    | None -> false
+    | Some ks -> Cursor.eof t.cursor || holds_array ks (Cursor.current t.cursor)
+  in
+  let running = ref true in
+  while !running do
+    let before = Cursor.position t.cursor in
+    if ending ()
+    then running := false
+    else (
+      match target () with
+      | Some dest ->
+        let from = fst (Cursor.range t.cursor) in
+        exec
+          t
+          ~recover
+          ~passed_down:(add_all passed_down (Array.of_list stop_on))
+          states.(!state).emits;
+        last_taken := Some (from, Cursor.offset t.cursor);
+        state := dest
+      | None ->
+        (* Nothing this position accepts, and the body is not ending. Either
+           something is missing here, or what is under the cursor is junk.
+
+           Some state accepting it is what tells the two apart. A body that
+           could take this token somewhere has a gap at this position; a body
+           that could take it nowhere is looking at junk. *)
+        let could_continue =
+          Array.exists states ~f:(fun (st : Ir.Plan.loop_state) ->
+            Array.exists st.accepts ~f:(fun (on, _) ->
+              holds_array on (Cursor.current t.cursor)))
+        in
+        (match states.(!state).when_missing, ends_on with
+         | Some m, _ when could_continue ->
+           t.trace "loop-missing";
+           Recover.expect t.cursor m.tok m.message;
+           state := m.goto
+         | (Some _ | None), None -> running := false
+         | (Some _ | None), Some _ ->
+           t.trace "loop-recover";
+           skip t.plan t.cursor stop_on;
+           (* The broken span is behind us, so the body starts again. Staying
+              in the state the failure left would keep a body that has just
+              thrown away a separator waiting for one. *)
+           state := entry));
+    if !running && Cursor.position t.cursor = before then running := false
+  done;
   match states.(!state).exit, !last_taken with
   | Ir.Plan.May_exit_reporting id, Some range ->
     t.trace "exit-reporting";

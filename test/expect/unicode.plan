@@ -50,9 +50,14 @@
         (expect 2 (message 0) (at-child) (hole) (placeholder))
         (loop
           0
-          (state (accepts ((on 5) 1)) (exit may) bump)
-          (state (accepts ((on 4) 2)) (exit may) bump)
-          (state (accepts ((on 5) 1)) (exit may (message 3)) bump))
+          (ends-on (kinds 3))
+          (state (accepts ((on 5) 1)) (exit may) (missing) bump)
+          (state
+            (accepts ((on 4) 2))
+            (exit may)
+            (missing 4 (message 4) 2)
+            bump)
+          (state (accepts ((on 5) 1)) (exit may (message 3)) (missing) bump))
         trivia
         (expect 3 (message 2) (at-child) (hole) (placeholder 3))
         close)))
@@ -62,3 +67,4 @@
 ;   1 trailing tokens
 ;   2 expected "»"
 ;   3 a trailing "→"
+;   4 expected "→"

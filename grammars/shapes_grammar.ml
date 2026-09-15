@@ -10,8 +10,8 @@
    - [Names] is [with_separator]: a separated list with nothing around it;
    - [Block] is delimited, committed and a boundary, so a failure inside it
      resumes on its own [rbrace] rather than on a caller's delimiter;
-   - [Block] declares a resync anchor, so a broken item inside it stops at the
-     [let] that starts the next declaration instead of eating it;
+   - [Block] declares a resync anchor, so a broken body stops at [end] rather
+     than sweeping it up and carrying on;
    - [Let] has optional children, which are silent when absent where a
      required one reports;
    - [Block]'s separator allows a trailing one, where json's forbids it. The
@@ -33,6 +33,7 @@ let grammar : t =
     ; punct_tight ~name:"comma" ","
     ; punct ~name:"equals" "="
     ; punct_tight ~name:"at" "@"
+    ; kw "end"
     ; pat "name" (Redfa.Regex.plus letter)
     ; pat
         ~trivia:Reformat
@@ -73,7 +74,13 @@ let grammar : t =
     |> with_separator ~sep:"comma" ~trailing_sep:Never
   in
   (* Committed and a boundary, so a failure inside resumes on this rule's own
-     delimiters. The anchor keeps a broken item from eating the next [let]. *)
+     delimiters.
+
+     [end] is the resync anchor. Nothing in this grammar starts with it, so
+     without the anchor a body would sweep it up and carry on; with it the body
+     stops there and the token is left to whatever encloses it. An anchor that
+     a body element could start with would end the body before it ever took
+     one, so it has to be a token like this. *)
   let block =
     prod "Block" [ child_rep "items" (Rule "Decl") ]
     |> with_delimited_sep
@@ -82,7 +89,7 @@ let grammar : t =
          ~sep:"semi"
          ~trailing_sep:Always
          ~boundary:true
-    |> with_resync_to [ "let" ]
+    |> with_resync_to [ "end" ]
   in
   create ~tokens ~roots:[ "Program" ] [ program; decl; let_; init; names; block ]
 ;;

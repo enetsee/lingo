@@ -12,23 +12,24 @@
 ;  10 T_COMMA
 ;  11 T_EQUALS
 ;  12 T_AT
-;  13 T_NAME
-;  14 T_WS
-;  15 N_PROGRAM_HOLE
-;  16 N_DECL_HOLE
-;  17 N_LET_HOLE
-;  18 N_INIT_HOLE
-;  19 N_NAMES_HOLE
-;  20 N_BLOCK_HOLE
-;  21 T_ERROR
-;  22 N_ERROR
-;  23 N_MISSING
-;  24 T_UNTERMINATED
+;  13 T_END
+;  14 T_NAME
+;  15 T_WS
+;  16 N_PROGRAM_HOLE
+;  17 N_DECL_HOLE
+;  18 N_LET_HOLE
+;  19 N_INIT_HOLE
+;  20 N_NAMES_HOLE
+;  21 N_BLOCK_HOLE
+;  22 T_ERROR
+;  23 N_ERROR
+;  24 N_MISSING
+;  25 T_UNTERMINATED
 
 (plan
-  (error-kind 22)
-  (missing-kind 23)
-  (trivia 14)
+  (error-kind 23)
+  (missing-kind 24)
+  (trivia 15)
   (pairs (7 8))
   (roots 0)
   (rules
@@ -41,7 +42,10 @@
       (seq
         (open 0)
         (seq
-          (loop 0 (state (accepts ((on 6 7) 0)) (exit may) (call 1)))
+          (loop
+            0
+            (ends-on (kinds))
+            (state (accepts ((on 6 7) 0)) (exit may) (missing) (call 1)))
           trivia)
         (drain (message 0))
         close))
@@ -58,8 +62,8 @@
           (recover 6 7 8 9)
           (at-child decl)
           (message 1)
-          (hole 16)
-          (placeholder 16)
+          (hole 17)
+          (placeholder 17)
           (resume)
           (alt ((on 6) (call 2)) ((on 7) (call 5))))
         close))
@@ -71,8 +75,8 @@
       (boundary false)
       (seq
         (open 2)
-        (expect 6 (message 2) (at-child kw) (hole 17) (placeholder))
-        (expect 13 (message 3) (at-child name) (hole 17) (placeholder))
+        (expect 6 (message 2) (at-child kw) (hole 18) (placeholder))
+        (expect 14 (message 3) (at-child name) (hole 18) (placeholder))
         (alt ((on 12) bump))
         (alt ((on 11) (call 3)))
         close))
@@ -84,48 +88,58 @@
       (boundary false)
       (seq
         (open 3)
-        (expect 11 (message 4) (at-child eq) (hole 18) (placeholder))
+        (expect 11 (message 4) (at-child eq) (hole 19) (placeholder))
         (commit
-          (first 13)
+          (first 14)
           (recover 6 7 8 9)
           (at-child value)
           (message 3)
-          (hole 18)
-          (placeholder 18)
+          (hole 19)
+          (placeholder 19)
           (resume)
           (call 4))
         close))
     (rule
       Names
       (kind 4)
-      (first 13)
+      (first 14)
       (adds 10)
       (boundary false)
       (seq
         (open 4)
         (loop
           0
-          (state (accepts ((on 13) 1)) (exit may) bump)
-          (state (accepts ((on 10) 2)) (exit may) bump)
-          (state (accepts ((on 13) 1)) (exit may (message 5)) bump))
+          (ends-on)
+          (state (accepts ((on 14) 1)) (exit may) (missing) bump)
+          (state
+            (accepts ((on 10) 2))
+            (exit may)
+            (missing 10 (message 6) 2)
+            bump)
+          (state (accepts ((on 14) 1)) (exit may (message 5)) (missing) bump))
         trivia
         close))
     (rule
       Block
       (kind 5)
       (first 7)
-      (adds 6 8 9)
+      (adds 8 9)
       (boundary true)
       (seq
         (open 5)
-        (expect 7 (message 7) (at-child) (hole) (placeholder))
+        (expect 7 (message 9) (at-child) (hole) (placeholder))
         (loop
           0
-          (state (accepts ((on 6 7) 1)) (exit may) (call 1))
-          (state (accepts ((on 9) 2)) (exit may) bump)
-          (state (accepts ((on 6 7) 1)) (exit may) (call 1)))
+          (ends-on (kinds 8 13))
+          (state (accepts ((on 6 7) 1)) (exit may) (missing) (call 1))
+          (state
+            (accepts ((on 9) 2))
+            (exit may)
+            (missing 9 (message 8) 2)
+            bump)
+          (state (accepts ((on 6 7) 1)) (exit may) (missing) (call 1)))
         trivia
-        (expect 8 (message 6) (at-child) (hole) (placeholder 8))
+        (expect 8 (message 7) (at-child) (hole) (placeholder 8))
         close)))
   (blocks))
 ; -- messages -----------------------------------------------------
@@ -135,5 +149,7 @@
 ;   3 expected name
 ;   4 expected "="
 ;   5 a trailing ","
-;   6 expected "}"
-;   7 expected "{"
+;   6 expected ","
+;   7 expected "}"
+;   8 expected ";"
+;   9 expected "{"

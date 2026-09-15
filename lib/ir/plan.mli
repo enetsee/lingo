@@ -74,6 +74,26 @@ type instr =
   | Loop of
       { states : loop_state array
       ; entry : int
+      ; ends_on : Kind.t array option
+        (** What ends the loop instead of being recovered past.
+
+              [None] ends the loop as soon as no state accepts. A separated
+              list ends that way: it runs while the cursor is on a separator,
+              and anything else is the caller's business.
+
+              [Some ks] recovers instead. A token no state accepts is swept
+              into an error node and the loop carries on, and only a kind in
+              [ks] or the end of the input ends it. A delimited body works
+              this way, so a stray token inside one costs a diagnostic rather
+              than the rest of the body: [\[1 : 2\]] keeps the [2].
+
+              [ks] holds the closer, and the resync anchors the grammar
+              declared. An anchor is a token that ought to end the body
+              rather than be recovered past, such as the keyword that starts
+              the next declaration.
+
+              [Some \[||\]] is not [None]. It recovers to the end of the
+              input, which is what a root wants. *)
       }
   (** A body of repeated elements, as an automaton.
 
@@ -92,12 +112,39 @@ type instr =
           input and be lost, and a meaningful token still there would be
           dropped with it. *)
 
+(** One position in a body, and everything that position decides.
+
+    Three questions, and a state answers all three. What continues the body
+    from here, in {!loop_state.accepts}. What ending here reports, in
+    {!loop_state.exit}. What this position wanted, where the body carries on
+    without it, in {!loop_state.when_missing}.
+
+    Whether the body ends at all is the loop's question rather than a state's,
+    and [Loop]'s [ends_on] answers it. *)
 and loop_state =
   { accepts : (Kind.t array * int) array
     (** On a kind in the set, run {!loop_state.emits} and move to that
           state. *)
   ; exit : exit_policy
+  ; when_missing : missing option
   ; emits : instr (** What a transition out of this state runs. *)
+  }
+
+(** What a position wanted, where nothing it accepts is under the cursor and
+    the body carries on anyway.
+
+    A separated body is the case. After an element the body wants a separator,
+    and [a b] has none. The separator is reported missing and the body carries
+    on at {!missing.goto}, which is where taking one would have led, so the
+    [b] is read as an element rather than swept away as junk.
+
+    A parser reaches for this only where some state of the loop could accept
+    what is under the cursor. Where none can, the input is junk rather than a
+    gap, and the body sweeps it up instead. *)
+and missing =
+  { tok : Kind.t (** The token this position wanted. *)
+  ; message : Message.id
+  ; goto : int (** Carry on in that state, as though the token had been there. *)
   }
 
 (** What ending the loop at a state reports.

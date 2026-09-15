@@ -69,7 +69,10 @@
         (open 2)
         (expect 3 (message 3) (at-child) (hole) (placeholder))
         (seq
-          (loop 0 (state (accepts ((on 3 5 6) 0)) (exit may) (call 1)))
+          (loop
+            0
+            (ends-on (kinds 4))
+            (state (accepts ((on 3 5 6) 0)) (exit may) (missing) (call 1)))
           trivia)
         (expect 4 (message 2) (at-child) (hole) (placeholder 4))
         close)))

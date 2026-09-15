@@ -1,0 +1,78 @@
+----------------------------------------------------------------------
+"let a ; let b"
+  N_PROGRAM
+    N_DECL
+      N_LET
+        "let"
+        " "
+        "a"
+    " "
+    N_ERROR
+      ";"
+    " "
+    N_DECL
+      N_LET
+        "let"
+        " "
+        "b"
+  6-7 unexpected
+----------------------------------------------------------------------
+"@ let a"
+  N_PROGRAM
+    N_ERROR
+      "@"
+    " "
+    N_DECL
+      N_LET
+        "let"
+        " "
+        "a"
+  0-1 unexpected
+----------------------------------------------------------------------
+"{ let a end }"
+  N_PROGRAM
+    N_DECL
+      N_BLOCK
+        "{"
+        " "
+        N_DECL
+          N_LET
+            "let"
+            " "
+            "a"
+        " "
+        T_RBRACE
+    N_ERROR
+      "end"
+      " "
+      "}"
+  8-11 missing -: expected "}"
+  8-13 unexpected
+----------------------------------------------------------------------
+"{ let a; }"
+  N_PROGRAM
+    N_DECL
+      N_BLOCK
+        "{"
+        " "
+        N_DECL
+          N_LET
+            "let"
+            " "
+            "a"
+        ";"
+        " "
+        "}"
+----------------------------------------------------------------------
+"{ let }"
+  N_PROGRAM
+    N_DECL
+      N_BLOCK
+        "{"
+        " "
+        N_DECL
+          N_LET
+            "let"
+            " "
+        "}"
+  6-7 missing name: expected name

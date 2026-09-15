@@ -147,11 +147,17 @@
           (seq
             (loop
               0
-              (state (accepts ((on 12 13) 1)) (exit may) (call 2))
-              (state (accepts ((on 9) 2)) (exit may) bump)
+              (ends-on (kinds 3))
+              (state (accepts ((on 12 13) 1)) (exit may) (missing) (call 2))
+              (state
+                (accepts ((on 9) 2))
+                (exit may)
+                (missing 9 (message 7) 2)
+                bump)
               (state
                 (accepts ((on 12 13) 1))
                 (exit may (message 6))
+                (missing)
                 (call 2)))
             trivia
             (expect 3 (message 5) (at-child) (hole) (placeholder 3)))))
@@ -164,3 +170,4 @@
 ;   4 expected "}"
 ;   5 expected ")"
 ;   6 a trailing ","
+;   7 expected ","

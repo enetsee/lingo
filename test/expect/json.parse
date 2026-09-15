@@ -1,0 +1,135 @@
+----------------------------------------------------------------------
+"[1, 2]"
+  N_FILE
+    N_VALUE
+      N_ARRAY
+        "["
+        N_VALUE
+          "1"
+        ","
+        " "
+        N_VALUE
+          "2"
+        "]"
+----------------------------------------------------------------------
+"[1 2]"
+  N_FILE
+    N_VALUE
+      N_ARRAY
+        "["
+        N_VALUE
+          "1"
+        " "
+        N_VALUE
+          "2"
+        "]"
+  3-4 missing -: expected ","
+----------------------------------------------------------------------
+"[1 : 2]"
+  N_FILE
+    N_VALUE
+      N_ARRAY
+        "["
+        N_VALUE
+          "1"
+        " "
+        N_ERROR
+          ":"
+        " "
+        N_VALUE
+          "2"
+        "]"
+  3-4 unexpected
+----------------------------------------------------------------------
+"[1, 2,]"
+  N_FILE
+    N_VALUE
+      N_ARRAY
+        "["
+        N_VALUE
+          "1"
+        ","
+        " "
+        N_VALUE
+          "2"
+        ","
+        "]"
+  5-6 extra: a trailing ","
+----------------------------------------------------------------------
+"[1"
+  N_FILE
+    N_VALUE
+      N_ARRAY
+        "["
+        N_VALUE
+          "1"
+        T_RBRACKET
+  2-2 missing -: expected "]"
+----------------------------------------------------------------------
+"{\"a\" 1}"
+  N_FILE
+    N_VALUE
+      N_OBJECT
+        "{"
+        N_MEMBER
+          "\"a\""
+          " "
+          N_VALUE
+            "1"
+        "}"
+  5-6 missing colon: expected ':' after object key
+----------------------------------------------------------------------
+"{\"a\": 1 \"b\": 2}"
+  N_FILE
+    N_VALUE
+      N_OBJECT
+        "{"
+        N_MEMBER
+          "\"a\""
+          ":"
+          " "
+          N_VALUE
+            "1"
+        " "
+        N_MEMBER
+          "\"b\""
+          ":"
+          " "
+          N_VALUE
+            "2"
+        "}"
+  8-11 missing -: expected ","
+----------------------------------------------------------------------
+"[{1 ]"
+  N_FILE
+    N_VALUE
+      N_ARRAY
+        "["
+        N_VALUE
+          N_OBJECT
+            "{"
+            T_RBRACE
+        T_RBRACKET
+    "1"
+    " "
+    "]"
+  2-3 missing -: expected "}"
+  2-3 missing -: expected ","
+  1-2 extra: a trailing ","
+  2-3 missing -: expected "]"
+  2-5 extra: trailing tokens
+----------------------------------------------------------------------
+"[1] junk"
+  N_FILE
+    N_VALUE
+      N_ARRAY
+        "["
+        N_VALUE
+          "1"
+        "]"
+    " "
+    "j"
+    "u"
+    "n"
+    "k"
+  4-8 extra: trailing tokens

@@ -110,6 +110,7 @@ let ids_in (p : Ir.Plan.t) =
            (match s.exit with
             | Ir.Plan.May_exit -> ()
             | Ir.Plan.May_exit_reporting id -> note id);
+           Option.iter (fun (m : Ir.Plan.missing) -> note m.message) s.when_missing;
            instr s.emits)
         l.states
   in
@@ -145,6 +146,7 @@ let forms =
   ; "loop"
   ; "may-exit"
   ; "may-exit-reporting"
+  ; "when-missing"
   ; "resume"
   ; "no-resume"
   ; "boundary"
@@ -185,6 +187,7 @@ let rec tally (i : Ir.Plan.instr) =
          (match s.exit with
           | Ir.Plan.May_exit -> saw "may-exit"
           | Ir.Plan.May_exit_reporting _ -> saw "may-exit-reporting");
+         if s.when_missing <> None then saw "when-missing";
          tally s.emits)
       l.states
 ;;

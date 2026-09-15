@@ -1,0 +1,7 @@
+; Source to tokens, over the facts' own automaton. The laws and the expect
+; tests both need it, and a copy in each would be two things that have to
+; agree.
+
+(library
+ (name lex)
+ (libraries lingo.core lingo_runtime redfa ucharset))

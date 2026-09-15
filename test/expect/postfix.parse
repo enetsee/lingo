@@ -1,0 +1,66 @@
+----------------------------------------------------------------------
+"a.b[2]?+1"
+  N_FILE
+    N_EXPR_BIN
+      N_EXPR_POSTFIX_TRY
+        N_EXPR_POSTFIX_INDEX
+          N_EXPR_POSTFIX_FIELD
+            N_EXPR
+              "a"
+            "."
+            N_FIELD
+              "b"
+          "["
+          N_EXPR
+            "2"
+          "]"
+        "?"
+      "+"
+      N_EXPR
+        "1"
+----------------------------------------------------------------------
+"a."
+  N_FILE
+    N_EXPR_POSTFIX_FIELD
+      N_EXPR
+        "a"
+      "."
+      N_MISSING
+  2-2 missing rhs: expected name
+----------------------------------------------------------------------
+"a(1"
+  N_FILE
+    N_EXPR_POSTFIX_CALL
+      N_EXPR
+        "a"
+      "("
+      N_EXPR
+        "1"
+      T_RPAREN
+  3-3 missing -: expected ")"
+----------------------------------------------------------------------
+"a(1,)"
+  N_FILE
+    N_EXPR_POSTFIX_CALL
+      N_EXPR
+        "a"
+      "("
+      N_EXPR
+        "1"
+      ","
+      ")"
+  3-4 extra: a trailing ","
+----------------------------------------------------------------------
+"a(1 2)"
+  N_FILE
+    N_EXPR_POSTFIX_CALL
+      N_EXPR
+        "a"
+      "("
+      N_EXPR
+        "1"
+      " "
+      N_EXPR
+        "2"
+      ")"
+  4-5 missing -: expected ","
