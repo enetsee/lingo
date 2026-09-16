@@ -37,8 +37,11 @@ let uchar_at (s : string) (i : int) =
   Uchar.to_int (Uchar.utf_decode_uchar d), Uchar.utf_decode_length d
 ;;
 
-(* Longest match from [pos], and the token it accepted. [None] where no token
-   starts here at all. *)
+(* Longest match from [pos]: the token it accepted, and where the scan
+   stopped. [None] where no token starts here at all.
+
+   The scan end tells a run that ended inside a lexeme from one that met a
+   character no state moves on. The two leave different tokens. *)
 let longest (f : Core.Facts.t) (dfa : Redfa.Dfa.t) (s : string) (pos : int) =
   let n = String.length s in
   let rec go i state found =
@@ -48,43 +51,46 @@ let longest (f : Core.Facts.t) (dfa : Redfa.Dfa.t) (s : string) (pos : int) =
       | Some _ | None -> found
     in
     if i >= n
-    then found
+    then found, i
     else (
       let code, width = uchar_at s i in
       match step dfa state code with
-      | None -> found
+      | None -> found, i
       | Some dest -> go (i + width) dest found)
   in
   go pos (Redfa.Dfa.initial dfa) None
 ;;
 
 (* Every byte of the input lands in exactly one token, so the tree can rebuild
-   it. A byte no token starts with becomes an error token of its own, which is
-   what keeps that true on input the grammar does not describe. *)
+   it. The two runs that match nothing keep that true on input the grammar
+   does not describe. *)
 let run (f : Core.Facts.t) (s : string) : Lingo_runtime.Token.t array =
   let out = Dynarray.create () in
   let n = String.length s in
   let i = ref 0 in
+  let push (kind : Core.Kind.t) (stop : int) =
+    Dynarray.add_last
+      out
+      { Lingo_runtime.Token.kind = Core.Kind.to_int kind
+      ; text = String.sub s !i (stop - !i)
+      };
+    i := stop
+  in
   while !i < n do
     match longest f f.lexer s !i with
-    | Some ((t : Core.Token.def), stop) ->
-      Dynarray.add_last
-        out
-        { Lingo_runtime.Token.kind = Core.Kind.to_int t.kind
-        ; text = String.sub s !i (stop - !i)
-        };
-      i := stop
-    | None ->
+    | Some ((t : Core.Token.def), stop), _ -> push t.kind stop
+    | None, scan_end when scan_end >= n ->
+      (* The input ended inside a lexeme: an unclosed string, an unclosed
+         block comment. Those bytes leave as one token spanning them, and it
+         takes the unterminated kind because nothing may follow it. Bytes
+         appended after it re-lex into the same lexeme. *)
+      push f.unterminated_kind n
+    | None, _ ->
       (* One codepoint, not one byte. Splitting a character across error
          tokens would put bytes in the tree that the input never had as
          separate characters. *)
       let _, width = uchar_at s !i in
-      Dynarray.add_last
-        out
-        { Lingo_runtime.Token.kind = Core.Kind.to_int f.error_token_kind
-        ; text = String.sub s !i width
-        };
-      i := !i + width
+      push f.error_token_kind (!i + width)
   done;
   Dynarray.to_array out
 ;;

@@ -21,6 +21,15 @@
   lex
   siesta))
 
+; The token automaton as an emitter reads it: the codespace by class, and one
+; row per state. The counts at the top are what says whether the partition
+; stayed coarse.
+
+(executable
+ (name dump_lexer)
+ (modules dump_lexer)
+ (libraries lingo.core lingo_grammars))
+
 (executable
  (name dump_emit)
  (modules dump_emit)
@@ -155,3 +164,73 @@
  (alias runtest)
  (action
   (diff postfix.parse postfix.parse.actual)))
+
+(rule
+ (with-stdout-to
+  sexp.lexer.actual
+  (run ./dump_lexer.exe sexp)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.lexer sexp.lexer.actual)))
+
+(rule
+ (with-stdout-to
+  json.lexer.actual
+  (run ./dump_lexer.exe json)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.lexer json.lexer.actual)))
+
+(rule
+ (with-stdout-to
+  calc.lexer.actual
+  (run ./dump_lexer.exe calc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.lexer calc.lexer.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.lexer.actual
+  (run ./dump_lexer.exe rassoc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.lexer rassoc.lexer.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.lexer.actual
+  (run ./dump_lexer.exe postfix)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.lexer postfix.lexer.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.lexer.actual
+  (run ./dump_lexer.exe shapes)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.lexer shapes.lexer.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.lexer.actual
+  (run ./dump_lexer.exe unicode)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.lexer unicode.lexer.actual)))

@@ -32,6 +32,9 @@ let grammars =
       ; "{\"a\": 1 \"b\": 2}"
       ; "[{1 ]"
       ; "[1] junk"
+        (* This one ends inside a string, so the lexer leaves one
+           unterminated token and nothing follows it. *)
+      ; "{\"a\": \"b"
       ] )
   ; ( "shapes"
     , Lingo_grammars.Shapes_grammar.grammar

@@ -3,4 +3,4 @@
 (library
  (name ocaml)
  (public_name lingo.ocaml)
- (libraries ppxlib))
+ (libraries ppxlib lingo.core))

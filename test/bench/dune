@@ -1,0 +1,9 @@
+; Not a test: no alias runs it. [dune exec test/bench/bench_lex.exe] does.
+;
+; Both shapes come from test/lex_emit, where a law checks them, so everything
+; timed here is also tested there.
+
+(executable
+ (name bench_lex)
+ (modules bench_lex)
+ (libraries emitted lex lingo.core lingo_grammars lingo_runtime unix))

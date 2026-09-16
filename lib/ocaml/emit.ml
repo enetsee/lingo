@@ -84,6 +84,7 @@ let eapply (fn : expr) (args : expr list) : expr =
 ;;
 
 let ecall (fn : label) (args : expr list) : expr = eapply (evar fn) args
+let econstraint (expr : expr) (type_ : ty) : expr = B.pexp_constraint expr type_
 let eand ~(left : expr) ~(right : expr) : expr = ecall "&&" [ left; right ]
 let eor ~(left : expr) ~(right : expr) : expr = ecall "||" [ left; right ]
 let enot (operand : expr) : expr = ecall "not" [ operand ]
@@ -170,6 +171,11 @@ let pvar (var_name : label) : pat = B.ppat_var (name var_name)
 let pany : pat = B.ppat_any
 let pint (n : int) : pat = B.pint n
 let pstr (s : label) : pat = B.pstring s
+let pchar (c : char) : pat = B.pchar c
+
+let pchar_range ~(lo : char) ~(hi : char) : pat =
+  B.ppat_interval (Pconst_char lo) (Pconst_char hi)
+;;
 
 let pconstruct (ctor : label) (args : pat list) : pat =
   let payload =

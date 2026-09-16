@@ -14,6 +14,14 @@
   corpus)
  (libraries lingo.core lingo_grammars lingo_witness redfa))
 
+; law_lexer reads the table [Core.Lexer] flattens the automaton into, against
+; the automaton itself. It needs no emitter and no compiler in the loop.
+
+(tests
+ (names law_lexer)
+ (modules law_lexer)
+ (libraries lingo.core lingo_grammars redfa ucharset))
+
 ; law_runtime links lingo_runtime and nothing else, which is the claim as well
 ; as the convenience: the runtime has to be usable without the generator.
 

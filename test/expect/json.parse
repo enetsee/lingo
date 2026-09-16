@@ -133,3 +133,20 @@
     "n"
     "k"
   4-8 extra: trailing tokens
+----------------------------------------------------------------------
+"{\"a\": \"b"
+  N_FILE
+    N_VALUE
+      N_OBJECT
+        "{"
+        N_MEMBER
+          "\"a\""
+          ":"
+          " "
+          N_MEMBER_HOLE
+          N_ERROR
+            "\"b"
+        T_RBRACE
+  6-8 missing value: expected a JSON value
+  6-8 unexpected
+  8-8 missing -: expected "}"

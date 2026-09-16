@@ -8,6 +8,7 @@ module Role = Role
 module Block = Block
 module Manifest = Manifest
 module Facts = Facts
+module Lexer = Lexer
 
 module Internal = struct
   module Stage = Stage

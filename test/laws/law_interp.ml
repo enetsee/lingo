@@ -176,8 +176,11 @@ let corpus =
     }
   ; { name = "json"
     ; grammar = Lingo_grammars.Json_grammar.grammar
-    ; good = [ "1"; "[1, 2]"; "{\"a\": 1}"; "[]"; "{}"; "[{\"a\": [1]}]"; "  [1]  " ]
-    ; broken = [ "[1, 2,]"; "[1 2]"; "{\"a\" 1}"; "[1"; "{"; "[1] junk" ]
+    ; good =
+        [ "1"; "[1, 2]"; "{\"a\": 1}"; "[]"; "{}"; "[{\"a\": [1]}]"; "  [1]  " ]
+        (* The last one ends inside a string. The lexer leaves those bytes as
+         one unterminated token, so the parse has something to report. *)
+    ; broken = [ "[1, 2,]"; "[1 2]"; "{\"a\" 1}"; "[1"; "{"; "[1] junk"; "{\"a\": \"b" ]
     }
   ; { name = "calc"
     ; grammar = Lingo_grammars.Calc_grammar.grammar

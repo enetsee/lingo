@@ -41,7 +41,8 @@
     {!Facts} holds the record and the queries over it. {!Kind}, {!Token},
     {!Rule}, {!Role} and {!Block} describe what is in it. {!Manifest} holds
     the identifiers a backend emits, and {!Mangle} the manglings behind
-    them.
+    them. {!Lexer} flattens the token automaton into the arrays an emitter
+    writes out.
 
     {1 What lives elsewhere}
 
@@ -61,6 +62,7 @@ module Role = Role
 module Block = Block
 module Manifest = Manifest
 module Facts = Facts
+module Lexer = Lexer
 
 (** The staged derivation and the checks over it.
 

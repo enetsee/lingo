@@ -68,6 +68,7 @@ let walk =
                    ; ecase ~guard:(ebool true) (pconstruct "Some" [ pvar "x" ]) (evar "x")
                    ; ecase (ptuple [ pvar "a"; pany ]) (evar "a")
                    ; ecase (pstr "done") eunit
+                   ; ecase (por (pchar 'a') [ pchar_range ~lo:'0' ~hi:'9' ]) eunit
                    ; ecase pany (ecall "helper" [ eunit ])
                    ])
               ~else_:
@@ -84,7 +85,11 @@ let walk =
           ] )
     ; ( "helper"
       , [ arg_any ]
-      , ethunk (elist [ earray [ eint 0; eint 1 ]; erecord [ "kind", evar "k" ] ]) )
+      , ethunk
+          (elist
+             [ econstraint (earray [ eint 0; eint 1 ]) (tcon "array" [ tcon "int" [] ])
+             ; erecord [ "kind", evar "k" ]
+             ]) )
     ]
 ;;
 

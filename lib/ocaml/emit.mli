@@ -69,6 +69,11 @@ val eapply_labelled : expr -> (Ppxlib.arg_label * expr) list -> expr
 (** [eapply (evar name) args], which is most calls. *)
 val ecall : string -> expr list -> expr
 
+(** [(e : t)], where the emitted code needs the type written down. An array
+    of [None] forces it: nothing else in the emitted module gives the array a
+    type, and a weak type variable does not compile. *)
+val econstraint : expr -> ty -> expr
+
 (** {2 Operators}
 
     [eand a b] is [a && b], [eequal a b] is [a = b], and so on. *)
@@ -125,6 +130,12 @@ val pany : pat
 val pint : int -> pat
 val pstr : string -> pat
 val pconstruct : string -> pat list -> pat
+val pchar : char -> pat
+
+(** [lo .. hi]. OCaml has interval patterns for characters and not for
+    integers, so a dispatch over bytes matches on the character. The compiler
+    turns a match over ranges into a decision tree. *)
+val pchar_range : lo:char -> hi:char -> pat
 
 (** A tuple, on the same terms as {!etuple}. *)
 val ptuple : pat list -> pat

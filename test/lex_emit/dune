@@ -1,0 +1,174 @@
+; The emitted lexers, in both shapes. They are generated here, compiled here,
+; and run against the lexer test/lex walks over the same automaton.
+
+(executable
+ (name gen)
+ (modules gen)
+ (libraries lingo.core lingo.ocaml lingo_grammars))
+
+(rule
+ (with-stdout-to
+  sexp_lexer.ml
+  (run ./gen.exe sexp table)))
+
+(rule
+ (with-stdout-to
+  sexp_lexer.mli
+  (run ./gen.exe sexp mli)))
+
+(rule
+ (with-stdout-to
+  sexp_match.ml
+  (run ./gen.exe sexp match)))
+
+(rule
+ (with-stdout-to
+  sexp_match.mli
+  (run ./gen.exe sexp mli)))
+
+(rule
+ (with-stdout-to
+  json_lexer.ml
+  (run ./gen.exe json table)))
+
+(rule
+ (with-stdout-to
+  json_lexer.mli
+  (run ./gen.exe json mli)))
+
+(rule
+ (with-stdout-to
+  json_match.ml
+  (run ./gen.exe json match)))
+
+(rule
+ (with-stdout-to
+  json_match.mli
+  (run ./gen.exe json mli)))
+
+(rule
+ (with-stdout-to
+  calc_lexer.ml
+  (run ./gen.exe calc table)))
+
+(rule
+ (with-stdout-to
+  calc_lexer.mli
+  (run ./gen.exe calc mli)))
+
+(rule
+ (with-stdout-to
+  calc_match.ml
+  (run ./gen.exe calc match)))
+
+(rule
+ (with-stdout-to
+  calc_match.mli
+  (run ./gen.exe calc mli)))
+
+(rule
+ (with-stdout-to
+  rassoc_lexer.ml
+  (run ./gen.exe rassoc table)))
+
+(rule
+ (with-stdout-to
+  rassoc_lexer.mli
+  (run ./gen.exe rassoc mli)))
+
+(rule
+ (with-stdout-to
+  rassoc_match.ml
+  (run ./gen.exe rassoc match)))
+
+(rule
+ (with-stdout-to
+  rassoc_match.mli
+  (run ./gen.exe rassoc mli)))
+
+(rule
+ (with-stdout-to
+  postfix_lexer.ml
+  (run ./gen.exe postfix table)))
+
+(rule
+ (with-stdout-to
+  postfix_lexer.mli
+  (run ./gen.exe postfix mli)))
+
+(rule
+ (with-stdout-to
+  postfix_match.ml
+  (run ./gen.exe postfix match)))
+
+(rule
+ (with-stdout-to
+  postfix_match.mli
+  (run ./gen.exe postfix mli)))
+
+(rule
+ (with-stdout-to
+  shapes_lexer.ml
+  (run ./gen.exe shapes table)))
+
+(rule
+ (with-stdout-to
+  shapes_lexer.mli
+  (run ./gen.exe shapes mli)))
+
+(rule
+ (with-stdout-to
+  shapes_match.ml
+  (run ./gen.exe shapes match)))
+
+(rule
+ (with-stdout-to
+  shapes_match.mli
+  (run ./gen.exe shapes mli)))
+
+(rule
+ (with-stdout-to
+  unicode_lexer.ml
+  (run ./gen.exe unicode table)))
+
+(rule
+ (with-stdout-to
+  unicode_lexer.mli
+  (run ./gen.exe unicode mli)))
+
+(rule
+ (with-stdout-to
+  unicode_match.ml
+  (run ./gen.exe unicode match)))
+
+(rule
+ (with-stdout-to
+  unicode_match.mli
+  (run ./gen.exe unicode mli)))
+
+; [emitted] links lingo_runtime and nothing else of ours, so a generated
+; lexer that reached for redfa or ucharset would not build.
+
+(library
+ (name emitted)
+ (modules
+  sexp_lexer
+  json_lexer
+  calc_lexer
+  rassoc_lexer
+  postfix_lexer
+  shapes_lexer
+  unicode_lexer
+  sexp_match
+  json_match
+  calc_match
+  rassoc_match
+  postfix_match
+  shapes_match
+  unicode_match)
+ (libraries lingo_runtime))
+
+(tests
+ (names law_lex)
+ (modules law_lex)
+ (libraries emitted lex lingo.core lingo_grammars lingo_runtime))
