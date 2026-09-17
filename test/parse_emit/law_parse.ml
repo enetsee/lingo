@@ -1,0 +1,695 @@
+(* -- the emitted parser -------------------------------------------------------
+
+      (a) The emitted parser and the interpreter build the same tree: the same
+          kinds, the same payloads, the same tokens, in the same places.
+      (b) They report the same diagnostics, in the same order, with the same
+          ranges and the same fields.
+      (c) The tree rebuilds the input, byte for byte, whatever the input.
+      (d) Every instruction form the corpus plans hold is one a compared parse
+          runs.
+
+      Mechanism. Eight grammars. For each one a list of seed inputs written
+      here, and a generated corpus built from them: a seed's tokens dropped,
+      duplicated, swapped, replaced and truncated, and runs drawn at random
+      from the token texts the seeds hold. Both sides parse every input,
+      entering at the grammar's first root.
+
+      The interpreter is the oracle. It shares no parse code with the
+      emitter: each brings its own dispatch, its own loops and its own
+      balanced skip, so anything lost in writing the plan out as control flow
+      shows up as a disagreement. The emitter also decides shapes the plan
+      does not: which arms a match holds, where a [let] goes, and which of
+      the two recovery sets is in scope at a position.
+
+      The tree is compared as a dump holding every field a green node carries
+      that is not derived: the kind, the payload, and each token's kind and
+      text. The diagnostics are compared as values, so a field that no
+      printer shows is still read.
+
+      The generator is a linear congruential one seeded here, so the corpus
+      is the same on every run and a failure names an input that can be
+      pasted back.
+
+      Coverage. Eight grammars, 111,719 inputs, and the counts print beside
+      the result. Part (d) is the coverage claim: a form no parse runs is a
+      form this law says nothing about. The count of inputs carrying a
+      diagnostic is beside it, because a corpus that never recovers says
+      nothing about recovery, which is where this project's hard bugs have
+      lived.
+
+      grammars/recovery_grammar.ml is in the corpus for the recovery set
+      alone. On the other seven, M6 to M8 change what a parse resumes on and
+      nothing moves: a resume set, a boundary and a rule's adds were each
+      covered by a set the position already held. All three redden on that
+      grammar, and on no other.
+
+      What this says nothing about. Whether the interpreter is right, which
+      test/laws/law_interp.ml reads, and what recovery builds, which
+      test/expect/*.parse reads. Nor any entry but a root: the emitted module
+      has an entry point per root and the interpreter takes any rule.
+
+      Part (d) says nothing about the recovery set either. It counts what the
+      interpreter traces, and the interpreter traces no event for a boundary
+      rule, for a rule's adds, or for a resume that declined a skip. Dropping
+      the recovery grammar from the corpus here reddens nothing in part (d),
+      and M6 to M8 in everything else.
+
+      Falsification. Every mutation was applied, run and reverted, and the
+      result recorded is the one observed. A count of inputs counts distinct
+      inputs, and the grammars beside it are where they came from.
+
+        M1  In [Ocaml.Parser.loop], build the stopping set from the ends-on
+            kinds alone, leaving out what the states accept.
+            -> parts (a) and (b), 14,460 inputs: sexp 316, json 1,260,
+               postfix 171, shapes 5,387, recovery 6,868, unicode 458. A body
+               that meets junk runs to the closer instead of picking up at
+               its next element.
+        M2  In [Ocaml.Parser.loop], sweep where a position is missing
+            something, rather than reporting it.
+            -> part (a), 1,532 inputs, and part (b), 1,564: json 785,
+               postfix 136, shapes 175 and 189, recovery 7 and 25,
+               unicode 429. The separator that is not there goes unreported
+               and the element after it is swept away.
+        M3  In [Ocaml.Parser.loop], take the start of the last transition
+            from [Cursor.offset] rather than from the token's range.
+            -> part (b), 299 inputs: json 105, postfix 11, shapes 11,
+               recovery 106, unicode 66. A trailing separator is then
+               reported over the trivia in front of it as well.
+        M4  In [Ocaml.Parser.loop], drop the position test that ends a body
+            where an iteration left the cursor where it was.
+            -> the suite does not finish. A body whose element consumes
+               nothing runs forever, and the test is there to stop it.
+               Reverted without a count.
+
+               This is the only place that test is read. The runtime held it
+               as [Cursor.while_progress] and no longer does, so no law but
+               this one and test/laws/law_interp.ml part (b) says a parse
+               stops.
+        M5  In [Ocaml.Parser.commit], skip on the inherited set alone,
+            leaving out what the position itself contributes.
+            -> part (a), 3,339 inputs, and part (b), 3,279: calc 537,
+               postfix 802, shapes 74 and 14, recovery 1,926.
+        M6  In [Ocaml.Parser.commit], skip whatever the resume set says.
+            -> parts (a) and (b), 387 inputs, recovery alone. A commit's
+               resume set holds the FIRST set of every later child and its
+               recovery set stops at the first later child that is not
+               nullable, so the two differ wherever two children follow the
+               commit. [Triple] is that shape, and [Sig] is the other one: a
+               [recover_to] override replaces the computed set and
+               [resume_after] ignores the override.
+
+               On the other seven grammars this reddens nothing. Every
+               resume set there holds the frame's own closer and nothing
+               else, because the commit is the only child of a delimited
+               rule, and the same commit's recover holds that closer too.
+        M7  In [Ocaml.Parser.rule_binding], pass the inbound set down where
+            the rule is a boundary.
+            -> parts (a) and (b), 1,157 inputs, recovery alone. [Group] is
+               committed and a boundary, and its body names [rparen] and
+               nothing else, so dropping the inbound set is the difference
+               between stopping at the close and stopping at the caller's
+               next item.
+
+               shapes holds the other boundary rule and does not move: its
+               body's stopping set already holds the [let] and [{] a caller
+               contributes.
+        M8  In [Ocaml.Parser.rule_binding], leave the rule's adds out of
+            [passed_down].
+            -> parts (a) and (b), 247 inputs, recovery alone. [Fields] is a
+               separated list of a rule. A separated body has no closer, so
+               its loop adds nothing to what it passes its elements, and the
+               separator reaches them through the adds alone.
+
+               The delimited bodies in the other grammars do not move. Their
+               loops carry the closer in the stopping set already, and
+               shapes' separated body has token elements, so nothing there
+               reads what is passed down.
+        M9  In [Ocaml.Parser.rule_binding], give every rule an empty inbound
+            set.
+            -> parts (a) and (b), 3,176 inputs: json 326, postfix 4,
+               shapes 7, recovery 2,839.
+       M10  In [Ocaml.Parser.skip_item], take the closer the skip stopped at
+            whether or not a frame is waiting for it.
+            -> parts (a) and (b), 20,819 inputs: sexp 2,825, json 3,303,
+               calc 1,974, postfix 4,970, shapes 4,195, unicode 3,552. The
+               stray opener walks off with the closer an outer frame wants.
+       M11  In [Ocaml.Parser.skip_item], run on through a closer of a pair
+            the skip did not open.
+            -> parts (a) and (b), 17,787 inputs: sexp 2,494, json 2,981,
+               calc 1,808, postfix 4,393, shapes 3,206, unicode 2,905.
+       M12  In [Ocaml.Parser.infix_body], guard an infix arm with
+            [left_bp > min_bp].
+            -> part (a), 610 inputs, rassoc alone. Right associativity is
+               the [>=] and nothing else, so [1^2^3] groups the other way.
+               calc does not move: its operators are all left-associative,
+               and [(bp, bp + 1)] groups the same under either test. rassoc
+               exists for this.
+       M13  In [Ocaml.Parser.lhs_body], leave the prefix kinds in the atom
+            sets.
+            -> nothing, and it compiles. No grammar here has a prefix
+               operator that also starts an atom. A grammar that had one
+               would not compile without the drop: the atom arm would be
+               unreachable and the exhaustiveness check says so. It would
+               also be a grammar whose atom no input can reach at the head,
+               which nothing rejects, so the case to write is a check and
+               not a grammar.
+       M14  In [Ocaml.Parser.wrap], open the node at the cursor rather than
+            at the checkpoint.
+            -> part (a), 22,084 inputs: calc 8,320, rassoc 7,875,
+               postfix 5,889. Part (b), 100, postfix alone. An operator that
+               has already read its left side stops wrapping it, and the
+               tree flattens.
+       M15  In [Ocaml.Parser.drain], drop the trailing [Cursor.skip_trivia].
+            -> parts (a) and (c), 4,642 inputs: sexp 1,929, json 382,
+               calc 1,029, postfix 550, unicode 752. shapes and recovery do
+               not move: both roots end their body with a [Trivia], which has
+               taken the trailing trivia before the drain runs.
+       M16  In [Ocaml.Parser.hole_node], stamp the diagnostic id one too
+            high on the hole.
+            -> part (a), 54,080 inputs, every grammar. Nothing but the
+               payload in the dump reads this, which is why the dump carries
+               it.
+       M17  In [Ocaml.Parser.instr], drop the placeholder from an [Expect].
+            -> part (a), 15,924 inputs, and part (b), 4,301. A production
+               that lost its closing delimiter stops recording it, and a
+               consumer can no longer tell it from one that has it.
+       M18  Drop the postfix grammar from the corpus here.
+            -> part (d): ["postfix"] reads zero. Dropping the recovery
+               grammar reddens nothing in part (d), for the reason under
+               Coverage above.
+   -------------------------------------------------------------------------- *)
+
+let failures = ref 0
+
+let fail fmt =
+  Format.kasprintf
+    (fun s ->
+       incr failures;
+       print_endline ("FAIL " ^ s))
+    fmt
+;;
+
+let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+
+(* -- the corpus ------------------------------------------------------------- *)
+
+type case =
+  { name : string
+  ; grammar : Core.Grammar.t
+  ; parse :
+      Lingo_runtime.Token.t array -> Siesta.Green.node * Lingo_runtime.Diagnostic.t list
+  ; seeds : string list
+  }
+
+let emitted
+      (parse_tokens :
+        ?cache:Siesta.Cache.t
+        -> Lingo_runtime.Token.t array
+        -> Siesta.Green.node * Lingo_runtime.Diagnostic.t list)
+  =
+  fun (tokens : Lingo_runtime.Token.t array) ->
+  parse_tokens ~cache:(Siesta.Cache.create_plain ()) tokens
+;;
+
+(* The seeds are the inputs law_interp and test/expect/*.parse read, which is
+   where the forms a grammar reaches only once were chosen. The generator
+   grows them; it does not replace them. *)
+let corpus : case list =
+  [ { name = "sexp"
+    ; grammar = Lingo_grammars.Sexp_grammar.grammar
+    ; parse = emitted Emitted_parsers.Sexp_parser.parse_tokens
+    ; seeds =
+        [ "(a b)"
+        ; "(a (b 12) c)"
+        ; "()"
+        ; "( a  b )"
+        ; "(a\n b)"
+        ; "(a b)  "
+        ; "("
+        ; "(a"
+        ; ")"
+        ; "(a ) b"
+        ; "(()"
+        ; "  )"
+        ; "( a  )  )"
+        ; "(  ]"
+        ; "(a (b (c)))"
+        ]
+    }
+  ; { name = "json"
+    ; grammar = Lingo_grammars.Json_grammar.grammar
+    ; parse = emitted Emitted_parsers.Json_parser.parse_tokens
+    ; seeds =
+        [ "1"
+        ; "[1, 2]"
+        ; "{\"a\": 1}"
+        ; "[]"
+        ; "{}"
+        ; "[{\"a\": [1]}]"
+        ; "  [1]  "
+        ; "[1, 2,]"
+        ; "[1 2]"
+        ; "[1 : 2]"
+        ; "{\"a\" 1}"
+        ; "[1"
+        ; "{"
+        ; "[1] junk"
+        ; "{\"a\": \"b"
+        ; "{\"a\": 1 \"b\": 2}"
+        ; "[{1 ]"
+        ; "[true, false, null]"
+        ]
+    }
+  ; { name = "calc"
+    ; grammar = Lingo_grammars.Calc_grammar.grammar
+    ; parse = emitted Emitted_parsers.Calc_parser.parse_tokens
+    ; seeds =
+        [ "1"
+        ; "1+2*3"
+        ; "-1*2"
+        ; "(1+2)*3"
+        ; "1-2-3"
+        ; " 1 + 2 "
+        ; "1+"
+        ; "1+*2"
+        ; "("
+        ; "(1"
+        ; "1 2"
+        ; "(1+2"
+        ; "-(1)"
+        ]
+    }
+  ; { name = "rassoc"
+    ; grammar = Lingo_grammars.Rassoc_grammar.grammar
+    ; parse = emitted Emitted_parsers.Rassoc_parser.parse_tokens
+    ; seeds = [ "1"; "1^2^3"; "1+2+3"; "-1^2"; "1^"; "^1"; "1++"; "1^2+3^4" ]
+    }
+  ; { name = "postfix"
+    ; grammar = Lingo_grammars.Postfix_grammar.grammar
+    ; parse = emitted Emitted_parsers.Postfix_parser.parse_tokens
+    ; seeds =
+        [ "a"
+        ; "a?"
+        ; "a.b"
+        ; "a[1]"
+        ; "a{1}"
+        ; "a(1, 2)"
+        ; "a()"
+        ; "a.b[2]?+1"
+        ; "a(1)(2)"
+        ; "a."
+        ; "a(1"
+        ; "a[1"
+        ; "a(1,)"
+        ; "a["
+        ; "a.?"
+        ; "a(1 2)"
+        ]
+    }
+  ; { name = "shapes"
+    ; grammar = Lingo_grammars.Shapes_grammar.grammar
+    ; parse = emitted Emitted_parsers.Shapes_parser.parse_tokens
+    ; seeds =
+        [ "let a"
+        ; "let a = b"
+        ; "let a = b, c"
+        ; "{ let a }"
+        ; "{ let a; let b }"
+        ; "{ let a; }"
+        ; "let a { let b }"
+        ; "let a  "
+        ; ""
+        ; "let"
+        ; "{"
+        ; "{ let }"
+        ; "let a ="
+        ; "{ let a; ; }"
+        ; "}"
+        ; "{ let a end"
+        ; "{ let a end }"
+        ; "let a ; let b"
+        ; "@ let a"
+        ; "let a ; ; let b"
+        ]
+    }
+    (* One production per part of the recovery set, each at a position where
+       dropping that part changes a parse. The other seven read the same
+       with three of the four parts gone. *)
+  ; { name = "recovery"
+    ; grammar = Lingo_grammars.Recovery_grammar.grammar
+    ; parse = emitted Emitted_parsers.Recovery_parser.parse_tokens
+    ; seeds =
+        [ "let a in end"
+        ; "( let a in end )"
+        ; "sig : a ; in"
+        ; "sig : a ; , : b ; in"
+        ; "let a in end ( let b in end )"
+          (* [end] is in the commit's resume set and not in its recovery
+             set. *)
+        ; "let end"
+        ; "let in"
+        ; "let" (* The caller passes down [sig], and the boundary drops it. *)
+        ; "( sig )"
+        ; "( in let a in end )"
+        ; "( let a in end" (* The child's [recover_to] replaces the computed set. *)
+        ; "sig end in"
+        ; "sig in"
+        ; "sig" (* The separator reaches the element through the rule's adds. *)
+        ; "sig : , : a ; in"
+        ; "sig : a ; , in"
+        ; ")"
+        ; ","
+        ; "end"
+        ]
+    }
+  ; { name = "unicode"
+    ; grammar = Lingo_grammars.Unicode_grammar.grammar
+    ; parse = emitted Emitted_parsers.Unicode_parser.parse_tokens
+    ; seeds =
+        [ "\xc2\xabhello\xc2\xbb"
+        ; "\xc2\xab\xc3\xa9t\xc3\xa9\xc2\xbb"
+        ; "\xc2\xab\xce\xb1\xce\xb2\xce\xb3\xc2\xbb"
+        ; "\xc2\xaba \xe2\x86\x92 b\xc2\xbb"
+        ; "\xc2\xab\xc2\xbb"
+        ; "\xc2\xab \xc3\xa9t\xc3\xa9 \xe2\x86\x92 \xce\xb1 \xc2\xbb"
+        ; "\xc2\xabhello"
+        ; "hello\xc2\xbb"
+        ; "\xc2\xab$\xc2\xbb"
+        ; "\xc2\xab\xe2\x86\x92\xc2\xbb"
+        ]
+    }
+  ]
+;;
+
+(* -- generating inputs ------------------------------------------------------ *)
+
+(* A linear congruential generator. The corpus is then the same on every run,
+   so a count in the record above is reproducible and a failure names an
+   input that can be pasted back. *)
+let state = ref 0x2545F491
+
+let roll (bound : int) : int =
+  state := ((!state * 1103515245) + 12345) land 0x3FFFFFFF;
+  if bound <= 0 then 0 else !state mod bound
+;;
+
+let pick (xs : 'a array) : 'a = xs.(roll (Array.length xs))
+
+let texts (facts : Core.Facts.t) (src : string) : string array =
+  Array.map (fun (t : Lingo_runtime.Token.t) -> t.text) (Lex.run facts src)
+;;
+
+(* One edit to a token sequence. Every shape here keeps the pieces the
+   grammar's own lexer produced, so the result stays close enough to the
+   language to reach a parser's recovery rather than its first refusal. *)
+let edit (pool : string array) (tokens : string array) : string array =
+  let n = Array.length tokens in
+  let at = roll (max n 1) in
+  let drop (i : int) =
+    Array.of_list (List.filteri (fun j _ -> j <> i) (Array.to_list tokens))
+  in
+  let insert (i : int) (text : string) =
+    Array.concat [ Array.sub tokens 0 i; [| text |]; Array.sub tokens i (n - i) ]
+  in
+  match roll 6 with
+  | _ when n = 0 -> [| pick pool |]
+  | 0 -> drop at
+  | 1 -> insert at tokens.(at)
+  | 2 ->
+    let copy = Array.copy tokens in
+    let other = roll n in
+    copy.(at) <- tokens.(other);
+    copy.(other) <- tokens.(at);
+    copy
+  | 3 ->
+    let copy = Array.copy tokens in
+    copy.(at) <- pick pool;
+    copy
+  | 4 -> insert at (pick pool)
+  | _ -> Array.sub tokens 0 at
+;;
+
+(* Between one and eight tokens drawn from the pool. A seed's shape survives
+   every edit above, so a corpus of edits alone never reaches a shape no seed
+   had. *)
+let drawn (pool : string array) : string =
+  let separator = if roll 2 = 0 then " " else "" in
+  String.concat separator (List.init (1 + roll 8) (fun _ -> pick pool))
+;;
+
+let rounds_per_seed = 400
+let draws_per_grammar = 8000
+
+(* Each round starts again from the seed and applies up to five edits, so the
+   corpus stays near inputs the grammar nearly accepts. A single walk drifts
+   away from them, and an input the grammar cannot begin to read exercises
+   one refusal rather than a recovery. *)
+let generated (facts : Core.Facts.t) (seeds : string list) : string list =
+  let pool =
+    Array.of_list
+      (List.sort_uniq
+         String.compare
+         (List.concat_map (fun src -> Array.to_list (texts facts src)) seeds))
+  in
+  let from_seeds =
+    List.concat_map
+      (fun (src : string) ->
+         let seed = texts facts src in
+         List.init rounds_per_seed (fun _ ->
+           let tokens = ref seed in
+           for _ = 0 to roll 5 do
+             tokens := edit pool !tokens
+           done;
+           String.concat "" (Array.to_list !tokens)))
+      seeds
+  in
+  from_seeds @ List.init draws_per_grammar (fun _ -> drawn pool)
+;;
+
+(* -- comparing -------------------------------------------------------------- *)
+
+(* Every field a green node carries that is not derived from its children:
+   the kind, the payload that resolves a hole to its diagnostic, and each
+   token's kind and text. *)
+let dump (root : Siesta.Green.node) : string =
+  let buffer = Buffer.create 256 in
+  let rec go (n : Siesta.Green.node) =
+    Buffer.add_string
+      buffer
+      (Printf.sprintf "(%d#%d" (Siesta.Green.kind n) (Siesta.Green.payload n));
+    Array.iter
+      (function
+        | Siesta.Green.Node m ->
+          Buffer.add_char buffer ' ';
+          go m
+        | Siesta.Green.Token t ->
+          Buffer.add_string
+            buffer
+            (Printf.sprintf
+               " %d:%S"
+               (Siesta.Green.Token.kind t)
+               (Siesta.Green.Token.text t)))
+      (Siesta.Green.children_array n);
+    Buffer.add_char buffer ')'
+  in
+  go root;
+  Buffer.contents buffer
+;;
+
+let show_diagnostics (ds : Lingo_runtime.Diagnostic.t list) : string =
+  String.concat
+    "; "
+    (List.map
+       (fun (d : Lingo_runtime.Diagnostic.t) ->
+          let lo, hi = d.range in
+          let body =
+            match d.kind with
+            | Missing m ->
+              Printf.sprintf
+                "missing %d at %s expecting [%s] hole %s"
+                (Ir.Message.to_int m.expected)
+                (Option.value m.at_child ~default:"-")
+                (String.concat "," (List.map string_of_int m.expected_kinds))
+                (match m.hole_kind with
+                 | None -> "-"
+                 | Some k -> string_of_int k)
+            | Extra id -> Printf.sprintf "extra %d" (Ir.Message.to_int id)
+            | Unexpected -> "unexpected"
+          in
+          Printf.sprintf "%d-%d %s" lo hi body)
+       ds)
+;;
+
+let show (src : string) : string =
+  if String.length src > 40 then String.sub src 0 40 ^ "\xe2\x80\xa6" else src
+;;
+
+(* -- what the corpus reaches ------------------------------------------------ *)
+
+let reach : (string, int) Hashtbl.t = Hashtbl.create 32
+
+let ran (name : string) : unit =
+  Hashtbl.replace reach name (1 + Option.value (Hashtbl.find_opt reach name) ~default:0)
+;;
+
+let forms =
+  [ "seq"
+  ; "open"
+  ; "close"
+  ; "trivia"
+  ; "bump"
+  ; "drain"
+  ; "expect"
+  ; "call"
+  ; "pratt"
+  ; "alt"
+  ; "commit"
+  ; "loop"
+  ; "exit-reporting"
+  ; "loop-recover"
+  ; "loop-missing"
+  ; "postfix"
+  ; "prefix"
+  ; "infix"
+  ; "atom-token"
+  ; "atom-rule"
+  ]
+;;
+
+(* -- running ---------------------------------------------------------------- *)
+
+let inputs = ref 0
+let tokens_seen = ref 0
+let with_diagnostics = ref 0
+let trees_differ = ref 0
+let diagnostics_differ = ref 0
+let not_lossless = ref 0
+
+(* Which grammars a disagreement came from, so a failure says where to look
+   and the falsification record can be written from what the run printed. *)
+let blamed : (string * string, int) Hashtbl.t = Hashtbl.create 16
+
+let blame (part : string) (grammar : string) : unit =
+  let key = part, grammar in
+  Hashtbl.replace blamed key (1 + Option.value (Hashtbl.find_opt blamed key) ~default:0)
+;;
+
+let by_grammar (part : string) : string =
+  String.concat
+    ", "
+    (List.filter_map
+       (fun (case : case) ->
+          Option.map
+            (fun (n : int) -> Printf.sprintf "%s %d" case.name n)
+            (Hashtbl.find_opt blamed (part, case.name)))
+       corpus)
+;;
+
+let source_of (tokens : Lingo_runtime.Token.t array) : string =
+  String.concat
+    ""
+    (Array.to_list (Array.map (fun (t : Lingo_runtime.Token.t) -> t.text) tokens))
+;;
+
+let run_one (case : case) (facts : Core.Facts.t) (plan : Ir.Plan.t) (src : string) : unit =
+  let tokens = Lex.run facts src in
+  incr inputs;
+  tokens_seen := !tokens_seen + Array.length tokens;
+  let walked, walked_diagnostics = Interp.run ~trace:ran plan plan.roots.(0) tokens in
+  let built, built_diagnostics = case.parse tokens in
+  if built_diagnostics <> [] then incr with_diagnostics;
+  let here = dump built
+  and there = dump walked in
+  if not (String.equal here there)
+  then (
+    incr trees_differ;
+    blame "a" case.name;
+    if !trees_differ <= 3
+    then
+      fail
+        "(a) %s: %S builds\n      %s\n    and the interpreter builds\n      %s"
+        case.name
+        (show src)
+        here
+        there);
+  if built_diagnostics <> walked_diagnostics
+  then (
+    incr diagnostics_differ;
+    blame "b" case.name;
+    if !diagnostics_differ <= 3
+    then
+      fail
+        "(b) %s: %S reports\n      %s\n    and the interpreter reports\n      %s"
+        case.name
+        (show src)
+        (show_diagnostics built_diagnostics)
+        (show_diagnostics walked_diagnostics));
+  if not (String.equal (Siesta.Green.to_source built) (source_of tokens))
+  then (
+    incr not_lossless;
+    blame "c" case.name;
+    if !not_lossless <= 3
+    then fail "(c) %s: %S does not come back from its tree" case.name (show src))
+;;
+
+let () =
+  List.iter
+    (fun (case : case) ->
+       match Core.Facts.of_grammar case.grammar with
+       | Error _ -> fail "%s: the grammar does not check" case.name
+       | Ok facts ->
+         let plan, _ = Plan.Lower.of_facts facts in
+         List.iter (run_one case facts plan) (case.seeds @ generated facts case.seeds))
+    corpus
+;;
+
+let () =
+  if !trees_differ = 0
+  then
+    pass
+      "the emitted parser and the interpreter build the same tree, over %d inputs"
+      !inputs
+  else
+    fail
+      "(a) %d of %d inputs build different trees (%s)"
+      !trees_differ
+      !inputs
+      (by_grammar "a");
+  if !diagnostics_differ = 0
+  then
+    pass
+      "the emitted parser and the interpreter report the same diagnostics, over %d inputs"
+      !inputs
+  else
+    fail
+      "(b) %d of %d inputs report different diagnostics (%s)"
+      !diagnostics_differ
+      !inputs
+      (by_grammar "b");
+  if !not_lossless = 0
+  then
+    pass "a parse rebuilds its input, over %d inputs and %d tokens" !inputs !tokens_seen
+  else
+    fail
+      "(c) %d of %d parses did not rebuild their input (%s)"
+      !not_lossless
+      !inputs
+      (by_grammar "c");
+  let unreached = List.filter (fun name -> not (Hashtbl.mem reach name)) forms in
+  (match unreached with
+   | [] ->
+     pass
+       "every instruction form ran (%s)"
+       (String.concat
+          " "
+          (List.map
+             (fun name -> Printf.sprintf "%s %d" name (Hashtbl.find reach name))
+             forms))
+   | missed -> List.iter (fun name -> fail "(d) no parse ran %s" name) missed);
+  pass "%d of %d inputs reported at least one diagnostic" !with_diagnostics !inputs;
+  if !with_diagnostics = 0 then fail "no input reached a recovery path";
+  if !failures > 0
+  then (
+    Printf.printf "%d failures\n" !failures;
+    exit 1)
+;;

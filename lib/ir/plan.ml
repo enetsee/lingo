@@ -66,7 +66,8 @@ type atom =
   | Atom_rule of int
 
 type block =
-  { infix : (Kind.t * (int * int)) array
+  { name : string
+  ; infix : (Kind.t * (int * int)) array
   ; prefix : (Kind.t * int) array
   ; postfix : postfix array
   ; atoms : (Kind.t array * atom) array

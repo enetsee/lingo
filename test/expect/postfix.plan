@@ -87,6 +87,7 @@
       (seq)))
   (blocks
     (block
+      Expr
       (base-kind 15)
       (prefix-kind)
       (infix-kind 16)

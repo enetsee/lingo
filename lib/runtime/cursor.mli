@@ -94,17 +94,6 @@ val report_at : t -> int * int -> Diagnostic.kind -> unit
     a hole per child and the list keeps one entry. *)
 val report_id : t -> Diagnostic.kind -> int
 
-(** {1 Loops} *)
-
-(** [while_progress c cond body] runs [body] while [cond] holds and the
-    cursor moves. An iteration that leaves {!position} where it was ends the
-    loop.
-
-    A repeated child whose rule is nullable leaves [cond] true at one
-    position. So does a body that emits a hole and consumes nothing. The
-    position test ends the loop in both cases. *)
-val while_progress : t -> (unit -> bool) -> (unit -> unit) -> unit
-
 (** {1 The builder and the diagnostics}
 
     {!Build} brackets nodes around what the cursor emits, so it works on the

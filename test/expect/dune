@@ -117,6 +117,26 @@
 
 (rule
  (with-stdout-to
+  recovery.plan.actual
+  (run ./dump_plan.exe recovery)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.plan recovery.plan.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.parse.actual
+  (run ./dump_parse.exe recovery)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.parse recovery.parse.actual)))
+
+(rule
+ (with-stdout-to
   sexp.parse.actual
   (run ./dump_parse.exe sexp)))
 

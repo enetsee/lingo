@@ -264,7 +264,8 @@ let paren : Ir.Plan.rule =
 ;;
 
 let block : Ir.Plan.block =
-  { infix = [| k_plus, (10, 11) |]
+  { name = "Expr"
+  ; infix = [| k_plus, (10, 11) |]
   ; prefix = [| k_minus, 50 |]
   ; postfix =
       (* The three shapes a postfix body takes: an enclosed one, a child after

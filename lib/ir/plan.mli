@@ -187,7 +187,10 @@ type atom =
   | Atom_rule of int (** Parse that rule, and wrap nothing. *)
 
 type block =
-  { infix : (Kind.t * (int * int)) array
+  { name : string
+    (** The author's name for the rule whose body this block is. A dump
+          names it, and an emitter names the bindings it writes after it. *)
+  ; infix : (Kind.t * (int * int)) array
     (** Operator to its left and right binding powers. Associativity is
           the encoding: [Left] is [(bp, bp + 1)] and [Right] is [(bp, bp)],
           and one [left_bp >= min_bp] test reads both. *)

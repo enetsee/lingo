@@ -45,6 +45,28 @@ let grammars =
   ; ( "postfix"
     , Lingo_grammars.Postfix_grammar.grammar
     , [ "a.b[2]?+1"; "a."; "a(1"; "a(1,)"; "a(1 2)" ] )
+    (* One input per part of the recovery set, each at the position that
+       reads it. The valid ones are here so the shapes can be read against a
+       parse that reports nothing. *)
+  ; ( "recovery"
+    , Lingo_grammars.Recovery_grammar.grammar
+    , [ "let a in end"
+      ; "( let a in end )"
+      ; "sig : a ; in"
+      ; "sig : a ; , : b ; in"
+        (* [end] is in the commit's resume set and not in its recovery set,
+           so the parse declines the skip and keeps the token. *)
+      ; "let end"
+        (* The caller passes down [sig], and the boundary drops it, so the
+           skip runs to this rule's own close. *)
+      ; "( sig )"
+        (* The child declares [recover_to \[end\]], which replaces the [in]
+           the position would otherwise have computed. *)
+      ; "sig end in"
+        (* The separator reaches the element through the rule's adds, and a
+           separated body's loop contributes nothing. *)
+      ; "sig : , : a ; in"
+      ] )
   ]
 ;;
 

@@ -3,14 +3,12 @@
       (a) A tree built through the runtime rebuilds its input, byte for byte.
       (b) The cursor moves forward only, it never goes past the last token,
           and a drain reaches the end of the input in one step per token.
-      (c) [Cursor.while_progress] stops. It stops when the body consumes
-          nothing, and it stops when the condition goes false.
-      (d) [Build.finish] refuses a tree with a frame still open.
-      (e) [Recover.expect] takes the token where the cursor is on one. Where
+      (c) [Build.finish] refuses a tree with a frame still open.
+      (d) [Recover.expect] takes the token where the cursor is on one. Where
           it is not, it reports one diagnostic and leaves the cursor where it
           was. A placeholder puts a childless node in the tree carrying that
           diagnostic's id.
-      (f) [Cursor.offset] is the byte length of everything the parse has
+      (e) [Cursor.offset] is the byte length of everything the parse has
           taken, and [Cursor.report_at] records the range it is given. So a
           parse can read the offset before and after taking input, and report
           over exactly the bytes it read.
@@ -18,11 +16,18 @@
       Mechanism. (a) and (b) are oracles over random token streams driven by a
       random walk over the builder. The walk is not a parse of anything. It
       reaches every event the runtime offers, and the tree still has to hold
-      every byte. (c) and (d) are oracles with exact counts. (e) asks for a
-      token at every position of a random stream, half the time for one that
-      is there and half the time for one that is not, and checks the tree and
-      the diagnostics against each other afterwards. Its last part is one
-      literal case for the same-offset fold.
+      every byte. (c) is an oracle with an exact count. (d) asks for a token at
+      every position of a random stream, half the time for one that is there
+      and half the time for one that is not, and checks the tree and the
+      diagnostics against each other afterwards. Its last part is one literal
+      case for the same-offset fold.
+
+      A repetition's progress guard used to be here, as [while_progress] and a
+      part of its own. The runtime holds no loop now: a loop is parse control
+      flow, so the emitter writes one and the interpreter brings its own, and
+      what each of them writes is read where that code is tested.
+      test/parse_emit/law_parse.ml M4 is the emitter's, and
+      test/laws/law_interp.ml part (b) is the interpreter's.
 
       Part (a)'s oracle does not recompute what the code computes. The runtime
       builds the tree through siesta from a stream of events, and the oracle
@@ -42,49 +47,46 @@
       result recorded is the one observed.
 
         M1  In [drain], drop the trailing [Cursor.skip_trivia].
-            -> part (a), on 62 of 600 streams, and part (e), 60 of 600.
+            -> part (a), on 62 of 600 streams, and part (d), 60 of 600.
                Trivia after the last meaningful token never reaches the tree,
                because [Cursor.eof] looks past trivia and the loop stops on
                it. This is the predecessor's own rule: trivia past the last
                child otherwise falls off the end of the input.
         M2  In [Cursor.bump], emit the token and leave [pos] where it is.
             -> part (a), 570 of 600 streams; part (b), 570 drains hit the
-               ceiling; part (c), the consuming body ran once over three
-               tokens; part (e), 3760 of 3792 tries.
+               ceiling; part (d), 3760 of 3792 tries.
         M2b In [Cursor.emit_token], advance [pos] by two.
             -> the suite dies on [Invalid_argument "index out of bounds"],
                from [next_meaningful] indexed past its last entry. Red, and
                not a report.
         M3  In [Cursor.skip_trivia], advance [pos] without emitting the token.
-            -> part (a), 393 of 600 streams, and part (e), 395 of 600.
+            -> part (a), 393 of 600 streams, and part (d), 395 of 600.
         M4  In [Recover.expect], consume a token after reporting one missing.
-            -> part (e), 1881 of 2111 misses, and the same-offset case, which
+            -> part (d), 1881 of 2111 misses, and the same-offset case, which
                reports two diagnostics because the second [expect] is no
                longer at the first one's position.
         M5  In [Recover.expect], never take the token.
-            -> part (e), all 3714 tries that asked for a token that was
+            -> part (d), all 3714 tries that asked for a token that was
                there.
         M6  In [Build.missing_node], drop the payload.
-            -> part (e), 1533 holes carry a payload that indexes no
+            -> part (d), 1533 holes carry a payload that indexes no
                diagnostic, and the same-offset case reads ids 0 and 0. This
                is what makes tree-to-diagnostic one step rather than a
                search.
         M7  In [Cursor.report_id], append a [Missing] over a range that
             already carries one instead of folding.
-            -> part (e), the same-offset case: two diagnostics where a
+            -> part (d), the same-offset case: two diagnostics where a
                committed production's two failing children should share one.
-        M8  In [Cursor.while_progress], test the condition alone and drop the
-            position test.
-            -> part (c). The idle body runs to the law's ceiling of 1000
-               rather than once.
+        M8  is gone. It mutated [Cursor.while_progress], and the runtime no
+            longer holds a loop for it to mutate.
         M9  In [Cursor.report_at], record [Cursor.range] instead of the range
             it was given.
-            -> part (f), all 288 spans. The cursor has moved past what the
+            -> part (e), all 288 spans. The cursor has moved past what the
                span covers by the time the report happens, which is why the
                function exists.
         M10 In [Cursor.emit_token], advance the offset by one byte rather
             than by the token's length.
-            -> part (f), both halves: the offset disagreed at 4271 of 8135
+            -> part (e), both halves: the offset disagreed at 4271 of 8135
                steps, and 156 of 288 spans named the wrong bytes. The spans
                that still passed are the ones whose tokens are all one byte
                long.
@@ -96,7 +98,7 @@
       is the half this check earns: a cursor that stops advancing.
 
       Coverage. Two runs of 600 random streams, one seed for parts (a) and
-      (b) and another for (e), plus 400 for part (f), over 9 token kinds with
+      (b) and another for (d), plus 400 for part (e), over 9 token kinds with
       one of them trivia.
       Counts print beside each result. Every builder event has a counter, and
       the law fails where one reads zero. The balanced skip is not covered
@@ -351,7 +353,7 @@ let () =
   else if !off_wrong > 0
   then
     fail
-      "(f) the offset disagreed with the tokens taken at %d of %d steps"
+      "(e) the offset disagreed with the tokens taken at %d of %d steps"
       !off_wrong
       !steps
   else
@@ -361,7 +363,7 @@ let () =
       !steps
 ;;
 
-(* -- (f) report_at ---------------------------------------------------------- *)
+(* -- (e) report_at ---------------------------------------------------------- *)
 
 (* A parse that reports on input it has already taken reads the offset before
    and after, and reports over the two. So the diagnostic has to come back
@@ -421,57 +423,24 @@ let () =
     | Some _, [] -> incr wrong
   done;
   if !spans = 0
-  then fail "(f) no stream reported a span, so this says nothing"
+  then fail "(e) no stream reported a span, so this says nothing"
   else if !wrong > 0
-  then fail "(f) %d of %d spans did not name the bytes the parse took" !wrong !spans
+  then fail "(e) %d of %d spans did not name the bytes the parse took" !wrong !spans
   else pass "report_at names the bytes the parse took, over %d spans" !spans
 ;;
 
-(* -- (c) while_progress stops ---------------------------------------------- *)
-
-(* A body that leaves the cursor alone spins in a real parser. A repeated
-   child whose rule is nullable does that, and so does a body that emits a
-   hole and returns. *)
-let () =
-  let ceiling = 1000 in
-  let tokens = lex "a b c" in
-  let c = new_cursor tokens in
-  Build.start_node c k_file;
-  let idle = ref 0 in
-  Cursor.while_progress c (fun () -> !idle < ceiling) (fun () -> incr idle);
-  let consumed = ref 0 in
-  Cursor.while_progress
-    c
-    (fun () -> not (Cursor.eof c))
-    (fun () ->
-       incr consumed;
-       Cursor.bump c);
-  let never = ref 0 in
-  Cursor.while_progress c (fun () -> false) (fun () -> incr never);
-  let _ : bool = drain c ~n:(Array.length tokens) in
-  Build.finish_node c;
-  let _ = Build.finish c in
-  if !idle <> 1
-  then fail "(c) a body that consumes nothing ran %d times, not once" !idle
-  else if !consumed <> 3
-  then fail "(c) a body that consumes ran %d times over 3 meaningful tokens" !consumed
-  else if !never <> 0
-  then fail "(c) a condition that is false at once ran the body %d times" !never
-  else pass "while_progress stops: 1 idle iteration, 3 consuming, 0 on a false condition"
-;;
-
-(* -- (d) finish refuses an open frame -------------------------------------- *)
+(* -- (c) finish refuses an open frame -------------------------------------- *)
 
 let () =
   let c = new_cursor (lex "a") in
   Build.start_node c k_file;
   Build.start_node c k_node;
   match Build.finish c with
-  | _ -> fail "(d) finish returned a tree with a frame still open"
+  | _ -> fail "(c) finish returned a tree with a frame still open"
   | exception Failure _ -> pass "finish refuses a tree with a frame still open"
 ;;
 
-(* -- (e) expect ----------------------------------------------------------- *)
+(* -- (d) expect ----------------------------------------------------------- *)
 
 (* Every node in the tree, with its kind, payload and child count. *)
 let rec nodes (n : Siesta.Green.node) acc =
@@ -563,34 +532,34 @@ let () =
   if !bad_hit > 0
   then
     fail
-      "(e) expect did not take the token it asked for, on %d of %d tries"
+      "(d) expect did not take the token it asked for, on %d of %d tries"
       !bad_hit
       !hits
   else if !bad_miss > 0
   then
     fail
-      "(e) a failed expect moved the cursor or reported the wrong number of diagnostics, \
+      "(d) a failed expect moved the cursor or reported the wrong number of diagnostics, \
        on %d of %d tries"
       !bad_miss
       !misses
   else if !bad_holes > 0
   then
     fail
-      "(e) the tree held the wrong number of holes on %d of %d streams"
+      "(d) the tree held the wrong number of holes on %d of %d streams"
       !bad_holes
       streams
   else if !bad_payload > 0
   then
     fail
-      "(e) %d holes carried a payload that does not index a Missing diagnostic"
+      "(d) %d holes carried a payload that does not index a Missing diagnostic"
       !bad_payload
   else if !lost_bytes > 0
   then
-    fail "(e) a parse with holes in it lost bytes on %d of %d streams" !lost_bytes streams
+    fail "(d) a parse with holes in it lost bytes on %d of %d streams" !lost_bytes streams
   else if !hits = 0 || !misses = 0 || !placeholders = 0
   then
     fail
-      "(e) a branch was never taken: %d hits, %d misses, %d placeholders"
+      "(d) a branch was never taken: %d hits, %d misses, %d placeholders"
       !hits
       !misses
       !placeholders
@@ -618,16 +587,16 @@ let () =
   let holes = List.filter (fun (k, _, _) -> k = k_missing) (nodes root []) in
   let payloads = List.map (fun (_, p, _) -> p) holes in
   if List.length holes <> 2
-  then fail "(e) two failed expects built %d holes, not two" (List.length holes)
+  then fail "(d) two failed expects built %d holes, not two" (List.length holes)
   else if List.length diags <> 1
   then
     fail
-      "(e) two failed expects at one position reported %d diagnostics, not one"
+      "(d) two failed expects at one position reported %d diagnostics, not one"
       (List.length diags)
   else if payloads <> [ 1; 1 ]
   then
     fail
-      "(e) the two holes carry ids %s, and both should be 1"
+      "(d) the two holes carry ids %s, and both should be 1"
       (String.concat "," (List.map string_of_int payloads))
   else pass "two failed expects at one position give two holes and one diagnostic"
 ;;

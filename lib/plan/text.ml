@@ -93,7 +93,8 @@ let sexp_of_postfix (q : Ir.Plan.postfix) : Sexp.t =
 let sexp_of_block (b : Ir.Plan.block) : Sexp.t =
   keyed
     "block"
-    [ keyed "base-kind" [ num b.base_kind ]
+    [ atom b.name
+    ; keyed "base-kind" [ num b.base_kind ]
     ; kopt "prefix-kind" b.prefix_kind
     ; kopt "infix-kind" b.infix_kind
     ; keyed "hole-kind" [ num b.hole_kind ]
@@ -298,8 +299,9 @@ let postfix_of_sexp (s : Sexp.t) : Ir.Plan.postfix =
 
 let block_of_sexp (s : Sexp.t) : Ir.Plan.block =
   match key "block" s with
-  | [ base; pre_k; in_k; hole; expected; m; infix; prefix; postfix; atoms ] ->
-    { base_kind = as_int (one "base-kind" base)
+  | [ name; base; pre_k; in_k; hole; expected; m; infix; prefix; postfix; atoms ] ->
+    { name = as_atom name
+    ; base_kind = as_int (one "base-kind" base)
     ; prefix_kind = kopt_of "prefix-kind" pre_k
     ; infix_kind = kopt_of "infix-kind" in_k
     ; hole_kind = as_int (one "hole-kind" hole)
@@ -327,7 +329,7 @@ let block_of_sexp (s : Sexp.t) : Ir.Plan.block =
                ints_of "on" on, Ir.Plan.Atom_rule (as_int (one "rule" r))
              | _ -> bad "an atom is (on token) or (on (rule n)): %s" (show e)))
     }
-  | _ -> bad "a block has ten fields: %s" (show s)
+  | _ -> bad "a block has eleven fields: %s" (show s)
 ;;
 
 let rule_of_sexp (s : Sexp.t) : Ir.Plan.rule =

@@ -1,0 +1,140 @@
+----------------------------------------------------------------------
+"let a in end"
+  N_FILE
+    N_ITEM
+      N_TRIPLE
+        "let"
+        " "
+        N_LEAF
+          "a"
+        " "
+        "in"
+        " "
+        "end"
+----------------------------------------------------------------------
+"( let a in end )"
+  N_FILE
+    N_ITEM
+      N_GROUP
+        "("
+        " "
+        N_TRIPLE
+          "let"
+          " "
+          N_LEAF
+            "a"
+          " "
+          "in"
+          " "
+          "end"
+        " "
+        ")"
+----------------------------------------------------------------------
+"sig : a ; in"
+  N_FILE
+    N_ITEM
+      N_SIG
+        "sig"
+        " "
+        N_FIELDS
+          N_FIELD
+            ":"
+            " "
+            N_LEAF
+              "a"
+            " "
+            ";"
+          " "
+        "in"
+----------------------------------------------------------------------
+"sig : a ; , : b ; in"
+  N_FILE
+    N_ITEM
+      N_SIG
+        "sig"
+        " "
+        N_FIELDS
+          N_FIELD
+            ":"
+            " "
+            N_LEAF
+              "a"
+            " "
+            ";"
+          " "
+          ","
+          " "
+          N_FIELD
+            ":"
+            " "
+            N_LEAF
+              "b"
+            " "
+            ";"
+          " "
+        "in"
+----------------------------------------------------------------------
+"let end"
+  N_FILE
+    N_ITEM
+      N_TRIPLE
+        "let"
+        " "
+        N_TRIPLE_HOLE
+        "end"
+  4-7 missing head: expected name
+  4-7 missing sep: expected "in"
+----------------------------------------------------------------------
+"( sig )"
+  N_FILE
+    N_ITEM
+      N_GROUP
+        "("
+        " "
+        N_GROUP_HOLE
+        N_ERROR
+          "sig"
+        " "
+        ")"
+  2-5 missing inner: expected "let"
+  2-5 unexpected
+----------------------------------------------------------------------
+"sig end in"
+  N_FILE
+    N_ITEM
+      N_SIG
+        "sig"
+        " "
+        N_SIG_HOLE
+    N_ERROR
+      "end"
+      " "
+      "in"
+  4-7 missing fields: expected ":"
+  4-7 missing tail: expected "in"
+  4-10 unexpected
+----------------------------------------------------------------------
+"sig : , : a ; in"
+  N_FILE
+    N_ITEM
+      N_SIG
+        "sig"
+        " "
+        N_FIELDS
+          N_FIELD
+            ":"
+            " "
+            N_FIELD_HOLE
+          ","
+          " "
+          N_FIELD
+            ":"
+            " "
+            N_LEAF
+              "a"
+            " "
+            ";"
+          " "
+        "in"
+  6-7 missing value: expected name
+  6-7 missing tail: expected ";"

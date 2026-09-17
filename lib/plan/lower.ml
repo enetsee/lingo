@@ -314,13 +314,13 @@ let resume_after (facts : Core.Facts.t) (rule_def : Core.Rule.def) (index : int)
 ;;
 
 (* Answers what the rule's own frame contributes to the recovery set it passes
-   down: its closer, its separator where it has one, and its resync anchors.
+   down: its closer, and its separator where it has one.
 
-   An anchor is a token that ends this rule's body early, over and above the
-   closer. It belongs here for the same reason the closer does. A production
-   holding a function body declares [with_resync_to \[ "def" \]] so a broken
-   expression inside stops at the [def] that starts the next declaration,
-   rather than eating it and turning one diagnostic into two. *)
+   The resync anchors are not here. [ends_on_of] carries them, and a
+   delimited body's loop unions its stopping set into what it hands an
+   element, so an anchor reaches a nested call that way. A rule with anchors
+   and no delimited frame hands them nowhere: [ends_on_of] is the only reader
+   of [rule.resync], and it answers [None] for every other frame. *)
 let adds_of ({ frame; _ } : Core.Rule.def) : Core.Kind.Set.t =
   let framing =
     match frame with
@@ -513,7 +513,8 @@ let postfix_of (facts : Core.Facts.t) (msgs : Messages.Builder.t) (p : Core.Bloc
 
 let block_of (f : Core.Facts.t) msgs (b : Core.Block.def) : Ir.Plan.block =
   let atoms_first = first_of_alts f b.atoms in
-  { infix =
+  { name = Core.Grammar.Name.Rule.to_string f.rules.(b.rule_id).name
+  ; infix =
       Array.map b.infix ~f:(fun (o : Core.Block.op) ->
         Core.Kind.to_int o.op_kind, Core.Block.op_bps o)
   ; prefix =

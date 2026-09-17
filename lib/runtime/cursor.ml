@@ -127,15 +127,6 @@ let report_id (c : t) (kind : Diagnostic.kind) =
   | _ -> append ()
 ;;
 
-let while_progress (c : t) cond body =
-  let continue = ref true in
-  while !continue && cond () do
-    let before = c.pos in
-    body ();
-    if c.pos = before then continue := false
-  done
-;;
-
 let builder (c : t) = c.builder
 let depth (c : t) = c.depth
 let entered (c : t) = c.depth <- c.depth + 1

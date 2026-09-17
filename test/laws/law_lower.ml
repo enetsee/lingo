@@ -48,13 +48,20 @@
             optional child a wording of its own for this reason and for no
             other, and the mutation reddens now.
         M2  In [Lower.kset], answer the kinds in descending order.
-            -> part (a), 59 findings across the six grammars: every set in a
-               plan is read as ascending and distinct.
-        M3  In [Lower.delimited_tail], name [Message.of_int 999] on the close
-            rather than asking the catalogue for one.
-            -> part (b), five grammars, and part (c) on the wording that is
-               no longer named. The two with no delimited production are
-               untouched.
+            -> part (a), 55 findings across the eight grammars: every set in
+               a plan is read as ascending and distinct.
+
+               This read 59 against six grammars once. It does not reproduce:
+               the same mutation reads 49 over the seven this corpus held
+               before [recovery] and 55 over the eight it holds now. A number
+               carried over a corpus that grew, which is what re-running a
+               record is for.
+        M3  In [Lower.delimited_tail], keep asking the catalogue for the
+            close's wording and name [Message.of_int 999] instead of the id
+            it answers.
+            -> part (b), six grammars, and part (c) on the wording that is no
+               longer named: 6 and 9 findings. rassoc and recovery have no
+               delimited production and are untouched.
         M4  Add a form to part (d)'s list that no grammar lowers to.
             -> part (d), naming it. This is the mutation the part exists for:
                [Ir.Plan.Cannot_exit] sat in the plan for a while with no
@@ -87,6 +94,7 @@ let corpus =
   ; "postfix", Lingo_grammars.Postfix_grammar.grammar
   ; "shapes", Lingo_grammars.Shapes_grammar.grammar
   ; "unicode", Lingo_grammars.Unicode_grammar.grammar
+  ; "recovery", Lingo_grammars.Recovery_grammar.grammar
   ]
 ;;
 

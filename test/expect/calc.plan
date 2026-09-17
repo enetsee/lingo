@@ -77,6 +77,7 @@
     (rule ExprPrefix (kind 12) (first) (adds) (boundary false) (seq)))
   (blocks
     (block
+      Expr
       (base-kind 10)
       (prefix-kind 12)
       (infix-kind 11)

@@ -1,9 +1,25 @@
-; Not a test: no alias runs it. [dune exec test/bench/bench_lex.exe] does.
+; Not a test: no alias runs either of these. [dune exec test/bench/bench_lex.exe]
+; and [dune exec test/bench/bench_parse.exe] do.
 ;
-; Both shapes come from test/lex_emit, where a law checks them, so everything
-; timed here is also tested there.
+; Everything timed here is checked elsewhere first. The lexer shapes come from
+; test/lex_emit and the parsers from test/parse_emit, and a law in each holds
+; them to an oracle.
 
 (executable
  (name bench_lex)
  (modules bench_lex)
  (libraries emitted lex lingo.core lingo_grammars lingo_runtime unix))
+
+(executable
+ (name bench_parse)
+ (modules bench_parse)
+ (libraries
+  emitted_parsers
+  lex
+  lingo.core
+  lingo.interp
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  siesta
+  unix))

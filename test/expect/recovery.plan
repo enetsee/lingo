@@ -1,0 +1,204 @@
+; -- kinds --------------------------------------------------------
+;   0 N_FILE
+;   1 N_ITEM
+;   2 N_TRIPLE
+;   3 N_GROUP
+;   4 N_SIG
+;   5 N_FIELDS
+;   6 N_FIELD
+;   7 N_LEAF
+;   8 T_LET
+;   9 T_SIG
+;  10 T_IN
+;  11 T_END
+;  12 T_LPAREN
+;  13 T_RPAREN
+;  14 T_COMMA
+;  15 T_SEMI
+;  16 T_COLON
+;  17 T_NAME
+;  18 T_WS
+;  19 N_FILE_HOLE
+;  20 N_ITEM_HOLE
+;  21 N_TRIPLE_HOLE
+;  22 N_GROUP_HOLE
+;  23 N_SIG_HOLE
+;  24 N_FIELDS_HOLE
+;  25 N_FIELD_HOLE
+;  26 N_LEAF_HOLE
+;  27 T_ERROR
+;  28 N_ERROR
+;  29 N_MISSING
+;  30 T_UNTERMINATED
+
+(plan
+  (error-kind 28)
+  (missing-kind 29)
+  (trivia 18)
+  (pairs)
+  (roots 0)
+  (rules
+    (rule
+      File
+      (kind 0)
+      (first 8 9 12)
+      (adds)
+      (boundary false)
+      (seq
+        (open 0)
+        (seq
+          (loop
+            0
+            (ends-on (kinds))
+            (state (accepts ((on 8 9 12) 0)) (exit may) (missing) (call 1)))
+          trivia)
+        (drain (message 0))
+        close))
+    (rule
+      Item
+      (kind 1)
+      (first 8 9 12)
+      (adds)
+      (boundary false)
+      (seq
+        (open 1)
+        (commit
+          (first 8 9 12)
+          (recover 8 9 12)
+          (at-child item)
+          (message 1)
+          (hole 20)
+          (placeholder 20)
+          (resume)
+          (alt ((on 8) (call 2)) ((on 12) (call 3)) ((on 9) (call 4))))
+        close))
+    (rule
+      Triple
+      (kind 2)
+      (first 8)
+      (adds)
+      (boundary false)
+      (seq
+        (open 2)
+        (expect 8 (message 2) (at-child kw) (hole 21) (placeholder))
+        (commit
+          (first 17)
+          (recover 10)
+          (at-child head)
+          (message 3)
+          (hole 21)
+          (placeholder 21)
+          (resume 10 11)
+          (call 7))
+        (expect 10 (message 4) (at-child sep) (hole 21) (placeholder))
+        (expect 11 (message 5) (at-child tail) (hole 21) (placeholder))
+        close))
+    (rule
+      Group
+      (kind 3)
+      (first 12)
+      (adds)
+      (boundary true)
+      (seq
+        (open 3)
+        (expect 12 (message 6) (at-child open) (hole 22) (placeholder))
+        (commit
+          (first 8)
+          (recover 13)
+          (at-child inner)
+          (message 2)
+          (hole 22)
+          (placeholder 22)
+          (resume 13)
+          (call 2))
+        (expect 13 (message 7) (at-child close) (hole 22) (placeholder))
+        close))
+    (rule
+      Sig
+      (kind 4)
+      (first 9)
+      (adds)
+      (boundary false)
+      (seq
+        (open 4)
+        (expect 9 (message 8) (at-child kw) (hole 23) (placeholder))
+        (commit
+          (first 16)
+          (recover 11)
+          (at-child fields)
+          (message 9)
+          (hole 23)
+          (placeholder 23)
+          (resume 10)
+          (call 5))
+        (expect 10 (message 4) (at-child tail) (hole 23) (placeholder))
+        close))
+    (rule
+      Fields
+      (kind 5)
+      (first 16)
+      (adds 14)
+      (boundary false)
+      (seq
+        (open 5)
+        (loop
+          0
+          (ends-on)
+          (state (accepts ((on 16) 1)) (exit may) (missing) (call 6))
+          (state
+            (accepts ((on 14) 2))
+            (exit may)
+            (missing 14 (message 11) 2)
+            bump)
+          (state
+            (accepts ((on 16) 1))
+            (exit may (message 10))
+            (missing)
+            (call 6)))
+        trivia
+        close))
+    (rule
+      Field
+      (kind 6)
+      (first 16)
+      (adds)
+      (boundary false)
+      (seq
+        (open 6)
+        (expect 16 (message 9) (at-child lead) (hole 25) (placeholder))
+        (commit
+          (first 17)
+          (recover 15)
+          (at-child value)
+          (message 3)
+          (hole 25)
+          (placeholder 25)
+          (resume 15)
+          (call 7))
+        (expect 15 (message 12) (at-child tail) (hole 25) (placeholder))
+        close))
+    (rule
+      Leaf
+      (kind 7)
+      (first 17)
+      (adds)
+      (boundary false)
+      (seq
+        (open 7)
+        (expect 17 (message 3) (at-child n) (hole 26) (placeholder))
+        close)))
+  (blocks))
+; -- messages -----------------------------------------------------
+;   0 trailing tokens
+;   1 expected "let" or "sig" or "("
+;   2 expected "let"
+;   3 expected name
+;   4 expected "in"
+;   5 expected "end"
+;   6 expected "("
+;   7 expected ")"
+;   8 expected "sig"
+;   9 expected ":"
+;  10 a trailing ","
+;  11 expected ","
+;  12 expected ";"

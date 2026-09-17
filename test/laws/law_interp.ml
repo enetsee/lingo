@@ -8,7 +8,7 @@
       (f) [run] refuses an entry that names no rule, and one that names a rule
           with nothing to run.
 
-      Mechanism. Six grammars, and for each of them a list of inputs written
+      Mechanism. Eight grammars, and for each of them a list of inputs written
       here. Every input goes through part (a) and part (b). The ones marked
       good go through part (c) as well, and the ones marked broken are there
       to reach the recovery paths that part (d) counts.
@@ -21,7 +21,7 @@
       Before postfix and shapes were written, seven instruction forms read
       zero and nothing said so.
 
-      Coverage. Seven grammars, 47 inputs the grammar accepts and 38 it does
+      Coverage. Eight grammars, 54 inputs the grammar accepts and 58 it does
       not. A count per instruction prints beside the result, and the law fails
       where one reads zero.
 
@@ -48,26 +48,37 @@
       result recorded is the one observed.
 
         M1  In [Interp.drain], drop the trailing [Cursor.skip_trivia].
-            -> part (a), 3 of 72 parses. [Cursor.eof] looks past trivia, so
+            -> part (a), 3 of 112 parses. [Cursor.eof] looks past trivia, so
                the sweep stops with the trailing trivia unread and it never
                reaches the tree.
 
                The first run of this mutation reddened nothing, because of a
                gap in this law rather than in the code: no input ended in
-               whitespace, so no parse had trailing trivia to lose. Four
+               whitespace, so no parse had trailing trivia to lose. Five
                inputs carry it now.
         M2  In [Interp.exec], let an [Alt] take its first arm whatever the
             kind under the cursor is.
-            -> part (c), 8 inputs across shapes, json and sexp. An alt over
-               rules picks the wrong one, and the parse then reports what the
-               arm it took could not find.
+            -> part (c), 24 inputs: json 6, sexp 6, shapes 8, recovery 4. An
+               alt over rules picks the wrong one, and the parse then reports
+               what the arm it took could not find. Part (d) as well:
+               ["loop-missing"] reads zero, because the body never gets far
+               enough to want a separator.
+        M3  In [Lower.repetition], drop the [Trivia] after the loop.
+            -> nothing here, and three hunks in test/expect/*.plan: sexp,
+               shapes and recovery. The sweep matters for where trivia lands
+               and not for whether it lands: a delimited body's close takes
+               the trivia before it either way, because taking a token takes
+               the trivia in front of it too. So the bytes still reach the
+               tree, in a different frame.
 
+               It moved four hunks in test/expect/*.parse once and now moves
+               none. No input in that dump ends a one-state repetition on
+               trivia any more, which is a gap in the dump rather than in
+               this law.
         M4  In [Build.start_node], drop the [Cursor.skip_trivia].
-            -> part (e), 28 nodes across shapes, json and sexp, including the
-               error node on sexp's ["  )"]. It is the one change that makes
-               leading trivia land inside the node it precedes, which is what
-               part (e) exists to catch.
-
+            -> part (e), 60 nodes: json 6, sexp 11, shapes 20, recovery 23.
+               It is the one change that makes leading trivia land inside the
+               node it precedes, which is what part (e) exists to catch.
         M5  In [Lex.uchar_at], step one byte at a time rather than one
             codepoint.
             -> part (c), all six inputs of the unicode grammar. Every token
@@ -75,7 +86,6 @@
                matches none of them and the parse reports on input the
                grammar accepts. No other grammar moves: they are all ASCII,
                where a byte and a codepoint are the same thing.
-
         M6  In [Interp.run], drop the range test on the entry.
             -> part (f), both out-of-range entries: "index out of bounds",
                which does not say what was wrong with it.
@@ -88,7 +98,6 @@
             -> part (f), one case: [Failure "Builder.finish: nothing built"].
                The parse raises either way; what the check buys is a message
                about the entry rather than about the builder.
-
         M8  In [Interp.loop], end the body where no state accepts, instead of
             recovering.
             -> part (d), ["loop-recover"] reads zero. This is the arm pigeon
@@ -104,40 +113,27 @@
                Silent acceptance of input the grammar rejects is the worst
                shape a parse can take, which is why the two cases are told
                apart rather than both recovered.
-        M10 In [Lower.ends_on_of], leave the resync anchors out of what ends a
+       M10  In [Lower.ends_on_of], leave the resync anchors out of what ends a
             body.
-            -> nothing here, and four hunks in test/expect/*.parse. shapes'
-               ["{ let a end }"] sweeps the [end] up and carries on to the
-               closer, which is what declaring an anchor is meant to stop.
-        M11 In [Lower.repeat_ends_on_of], give a root's repeated body [None]
+            -> nothing here, and two hunks in test/expect: shapes.parse and
+               shapes.plan. shapes' ["{ let a end }"] sweeps the [end] up and
+               carries on to the closer, which is what declaring an anchor is
+               meant to stop.
+       M11  In [Lower.repeat_ends_on_of], give a root's repeated body [None]
             so it ends where no element can start.
-            -> nothing here, and four hunks in test/expect/*.parse. A stray
-               token between two declarations loses every declaration after
-               it.
-        M12 In [Interp.loop], parse an element without the body's stopping
+            -> nothing here, and five hunks in test/expect: shapes.parse 2,
+               and one each in shapes.plan, recovery.parse and
+               recovery.plan. A stray token between two declarations loses
+               every declaration after it.
+       M12  In [Interp.loop], parse an element without the body's stopping
             points.
-            -> nothing here, and two hunks in test/expect/*.parse. A failure
-               nested inside an element escapes past the start of the next
-               one.
+            -> nothing here, and one hunk in test/expect/json.parse. A
+               failure nested inside an element escapes past the start of the
+               next one.
 
-      Three that redden nothing here, and are read elsewhere. Parts (a) to (f)
-      say what holds for every input; none of them reads the shape of what
-      recovery built. test/expect/*.parse is that reader, and M10, M11 and M12
-      are the mutations that show it.
-
-        M3  In [Lower.repetition], drop the [Trivia] after the loop.
-            -> nothing here, and four hunks in test/expect/*.parse. The sweep
-               matters for where trivia lands and
-               not for whether it lands: a delimited body's close takes the
-               trivia before it either way, because taking a token takes the
-               trivia in front of it too. So the bytes still reach the tree,
-               in a different frame.
-
-               Which frame is a claim about the tree's shape. Part (e) makes
-               one such claim and this is not it: the trivia lands in the
-               enclosing frame either way, and part (e) only forbids it
-               starting a node. test/expect/*.parse reads it now, and this
-               mutation moves four hunks there.
+      Parts (a) to (f) say what holds for every input; none of them reads the
+      shape of what recovery built. test/expect/*.parse is that reader, and
+      M3, M10, M11 and M12 are the mutations that show it.
    -------------------------------------------------------------------------- *)
 
 let failures = ref 0
@@ -217,6 +213,37 @@ let corpus =
         ; "hello\xc2\xbb"
         ; "\xc2\xab$\xc2\xbb"
         ; "\xc2\xab\xe2\x86\x92\xc2\xbb"
+        ]
+    }
+    (* The parts of a recovery set the other grammars leave unexercised. The
+       broken inputs here are one per part, each at the position that reads
+       it; grammars/recovery_grammar.ml says which is which. *)
+  ; { name = "recovery"
+    ; grammar = Lingo_grammars.Recovery_grammar.grammar
+    ; good =
+        [ ""
+        ; "let a in end"
+        ; "( let a in end )"
+        ; "sig : a ; in"
+        ; "sig : a ; , : b ; in"
+        ; "let a in end ( let b in end )"
+        ; "let a in end  "
+        ]
+    ; broken =
+        [ "let end"
+        ; "let in"
+        ; "let"
+        ; "( sig )"
+        ; "( in let a in end )"
+        ; "( let a in end"
+        ; "sig end in"
+        ; "sig in"
+        ; "sig"
+        ; "sig : , : a ; in"
+        ; "sig : a ; , in"
+        ; ")"
+        ; ","
+        ; "end"
         ]
     }
   ; { name = "shapes"

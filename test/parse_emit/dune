@@ -1,0 +1,116 @@
+; The emitted parsers. They are generated here, compiled here, and run
+; against the interpreter, which is the specification.
+
+(executable
+ (name gen)
+ (modules gen)
+ (libraries lingo.core lingo.plan lingo.ocaml lingo_grammars))
+
+(rule
+ (with-stdout-to
+  sexp_parser.ml
+  (run ./gen.exe sexp parser)))
+
+(rule
+ (with-stdout-to
+  sexp_parser.mli
+  (run ./gen.exe sexp mli)))
+
+(rule
+ (with-stdout-to
+  json_parser.ml
+  (run ./gen.exe json parser)))
+
+(rule
+ (with-stdout-to
+  json_parser.mli
+  (run ./gen.exe json mli)))
+
+(rule
+ (with-stdout-to
+  calc_parser.ml
+  (run ./gen.exe calc parser)))
+
+(rule
+ (with-stdout-to
+  calc_parser.mli
+  (run ./gen.exe calc mli)))
+
+(rule
+ (with-stdout-to
+  rassoc_parser.ml
+  (run ./gen.exe rassoc parser)))
+
+(rule
+ (with-stdout-to
+  rassoc_parser.mli
+  (run ./gen.exe rassoc mli)))
+
+(rule
+ (with-stdout-to
+  postfix_parser.ml
+  (run ./gen.exe postfix parser)))
+
+(rule
+ (with-stdout-to
+  postfix_parser.mli
+  (run ./gen.exe postfix mli)))
+
+(rule
+ (with-stdout-to
+  shapes_parser.ml
+  (run ./gen.exe shapes parser)))
+
+(rule
+ (with-stdout-to
+  shapes_parser.mli
+  (run ./gen.exe shapes mli)))
+
+(rule
+ (with-stdout-to
+  unicode_parser.ml
+  (run ./gen.exe unicode parser)))
+
+(rule
+ (with-stdout-to
+  unicode_parser.mli
+  (run ./gen.exe unicode mli)))
+
+(rule
+ (with-stdout-to
+  recovery_parser.ml
+  (run ./gen.exe recovery parser)))
+
+(rule
+ (with-stdout-to
+  recovery_parser.mli
+  (run ./gen.exe recovery mli)))
+
+; [emitted_parsers] links lingo_runtime and nothing else of ours, so a
+; generated parser that reached for lingo.plan or lingo.core would not build.
+
+(library
+ (name emitted_parsers)
+ (modules
+  sexp_parser
+  json_parser
+  calc_parser
+  rassoc_parser
+  postfix_parser
+  shapes_parser
+  unicode_parser
+  recovery_parser)
+ (libraries lingo_runtime))
+
+(tests
+ (names law_parse)
+ (modules law_parse)
+ (libraries
+  emitted_parsers
+  lex
+  lingo.core
+  lingo.interp
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  siesta))

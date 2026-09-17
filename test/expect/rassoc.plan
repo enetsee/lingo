@@ -52,6 +52,7 @@
     (rule ExprPrefix (kind 8) (first) (adds) (boundary false) (seq)))
   (blocks
     (block
+      Expr
       (base-kind 6)
       (prefix-kind 8)
       (infix-kind 7)

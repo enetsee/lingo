@@ -22,6 +22,7 @@ let grammars =
   ; "postfix", Lingo_grammars.Postfix_grammar.grammar
   ; "shapes", Lingo_grammars.Shapes_grammar.grammar
   ; "unicode", Lingo_grammars.Unicode_grammar.grammar
+  ; "recovery", Lingo_grammars.Recovery_grammar.grammar
   ]
 ;;
 
