@@ -2,6 +2,7 @@ N_FILE
   0 may-end
     next T_LET T_SIG T_LPAREN
     on N_ITEM -> 0
+    on N_ERROR -> 0
 
 N_ITEM
   0

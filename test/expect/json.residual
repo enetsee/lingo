@@ -31,18 +31,22 @@ N_OBJECT
     next T_LBRACE
     on T_LBRACE -> 1
     on N_MEMBER -> 2
+    on N_ERROR -> 1
     on T_RBRACE -> 4
   1
     next T_RBRACE T_STRING
     on N_MEMBER -> 2
+    on N_ERROR -> 1
     on T_RBRACE -> 4
   2
     next T_RBRACE T_COMMA
     on T_COMMA -> 3
+    on N_ERROR -> 1
     on T_RBRACE -> 4
   3
     next T_STRING
     on N_MEMBER -> 2
+    on N_ERROR -> 1
     on T_RBRACE -> 4
   4 may-end
 
@@ -51,19 +55,23 @@ N_ARRAY
     next T_LBRACKET
     on T_LBRACKET -> 1
     on N_VALUE -> 2
+    on N_ERROR -> 1
     on T_RBRACKET -> 4
   1
     next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_RBRACKET T_NUMBER
     next   T_STRING
     on N_VALUE -> 2
+    on N_ERROR -> 1
     on T_RBRACKET -> 4
   2
     next T_RBRACKET T_COMMA
     on T_COMMA -> 3
+    on N_ERROR -> 1
     on T_RBRACKET -> 4
   3
     next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_NUMBER T_STRING
     on N_VALUE -> 2
+    on N_ERROR -> 1
     on T_RBRACKET -> 4
   4 may-end
 

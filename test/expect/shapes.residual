@@ -2,6 +2,7 @@ N_PROGRAM
   0 may-end
     next T_LET T_LBRACE
     on N_DECL -> 0
+    on N_ERROR -> 0
 
 N_DECL
   0
@@ -57,18 +58,22 @@ N_BLOCK
     next T_LBRACE
     on T_LBRACE -> 1
     on N_DECL -> 2
+    on N_ERROR -> 1
     on T_RBRACE -> 4
   1
     next T_LET T_LBRACE T_RBRACE
     on N_DECL -> 2
+    on N_ERROR -> 1
     on T_RBRACE -> 4
   2
     next T_RBRACE T_SEMI
     on T_SEMI -> 3
+    on N_ERROR -> 1
     on T_RBRACE -> 4
   3
     next T_LET T_LBRACE T_RBRACE
     on N_DECL -> 2
+    on N_ERROR -> 1
     on T_RBRACE -> 4
   4 may-end
 

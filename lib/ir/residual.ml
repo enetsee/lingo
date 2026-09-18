@@ -462,7 +462,16 @@ module Table = struct
       let stay (dest : int) : step list =
         List.rev (Loop dest :: List.tl (List.rev path))
       in
-      Array.fold_left l.states.(state).accepts ~init:past ~f:(fun acc (gate, dest) ->
+      (* A loop that recovers sweeps what it cannot take into an error node and
+         starts again at its entry, so the error node is a child like any other
+         and it moves the automaton there. A loop that ends instead never
+         recovers and never leaves one behind. *)
+      let recovered =
+        match l.ends_on with
+        | None -> past
+        | Some _ -> ([ plan.error_kind ], Some (settle body (stay l.entry))) :: past
+      in
+      Array.fold_left l.states.(state).accepts ~init:recovered ~f:(fun acc (gate, dest) ->
         ( children plan ~gate:(Array.to_list gate) l.states.(state).emits
         , Some (settle body (stay dest)) )
         :: acc)

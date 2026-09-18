@@ -40,15 +40,21 @@ let child_kind (child : Siesta.Green.child) : Ir.Kind.t =
   | Siesta.Green.Token token -> Siesta.Green.Token.kind token
 ;;
 
-(* Trivia is no child of a rule. An error node holds what a recovery swept up.
-   A node of no length is a gap: one before [byte] holds the place of the child
-   it stands for, and one at [byte] is what the parse wrote on reading this
-   very token, so it is not there yet. *)
+let is_error (t : t) (child : Siesta.Green.child) : bool =
+  match child with
+  | Siesta.Green.Node node -> Int.equal (Siesta.Green.kind node) t.error_kind
+  | Siesta.Green.Token _ -> false
+;;
+
+(* Trivia is no child of a rule. A node of no length is a gap: one before
+   [byte] holds the place of the child it stands for, and one at [byte] is what
+   the parse wrote on reading this very token, so it is not there yet.
+
+   An error node counts. A loop that recovers starts again at its entry, and
+   the table carries the edge that says so. *)
 let counts (t : t) (child : Siesta.Green.child) ~(at : int) ~(byte : int) : bool =
   match child with
-  | Siesta.Green.Node node ->
-    (not (Int.equal (Siesta.Green.kind node) t.error_kind))
-    && (Siesta.Green.text_len node > 0 || at < byte)
+  | Siesta.Green.Node node -> Siesta.Green.text_len node > 0 || at < byte
   | Siesta.Green.Token token -> not (holds t.trivia (Siesta.Green.Token.kind token))
 ;;
 
@@ -125,9 +131,9 @@ let at (t : t) (root : Siesta.Green.node) ~(offset : int) : Ir.Kind.t array =
              did not: the parse wrote it on reading this very token. *)
           let behind =
             match child, counted with
+            | _ when is_error t child -> None
             | Siesta.Green.Node inner, true -> Some (inner, at)
-            | Siesta.Green.Node inner, false ->
-              if Int.equal (Siesta.Green.kind inner) t.error_kind then None else behind
+            | Siesta.Green.Node _, false -> behind
             | Siesta.Green.Token _, true -> None
             | Siesta.Green.Token _, false -> behind
           in

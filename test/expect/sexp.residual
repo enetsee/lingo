@@ -15,10 +15,12 @@ N_GROUP
     next T_LPAREN
     on T_LPAREN -> 1
     on N_SEXP -> 1
+    on N_ERROR -> 1
     on T_RPAREN -> 2
   1
     next T_LPAREN T_RPAREN T_IDENT T_NUMBER
     on N_SEXP -> 1
+    on N_ERROR -> 1
     on T_RPAREN -> 2
   2 may-end
 
