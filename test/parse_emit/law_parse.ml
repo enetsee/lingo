@@ -128,15 +128,17 @@
             set.
             -> parts (a) and (b), 3,176 inputs: json 326, postfix 4,
                shapes 7, recovery 2,839.
-       M10  In [Ocaml.Parser.skip_item], take the closer the skip stopped at
+       M10  In [Ocaml.Parser.skip_item], bump the closer the skip stopped at
             whether or not a frame is waiting for it.
-            -> parts (a) and (b), 20,819 inputs: sexp 2,825, json 3,303,
-               calc 1,974, postfix 4,970, shapes 4,195, unicode 3,552. The
-               stray opener walks off with the closer an outer frame wants.
-       M11  In [Ocaml.Parser.skip_item], run on through a closer of a pair
-            the skip did not open.
-            -> parts (a) and (b), 17,787 inputs: sexp 2,494, json 2,981,
-               calc 1,808, postfix 4,393, shapes 3,206, unicode 2,905.
+            -> parts (a) and (b), 1,035 inputs: sexp 57, json 382,
+               postfix 57, shapes 458, unicode 81. The skip still halts, so
+               the frame above is handed a closer that is already eaten.
+       M11  In [Ocaml.Parser.skip_item], bump a closer of a pair the skip
+            did not open and run on, rather than halting.
+            -> parts (a) and (b), 16,960 inputs: sexp 2,418, json 2,926,
+               calc 1,791, postfix 4,326, shapes 2,621, unicode 2,878. The
+               skip swallows the rest of the production it was recovering
+               inside.
        M12  In [Ocaml.Parser.infix_body], guard an infix arm with
             [left_bp > min_bp].
             -> part (a), 610 inputs, rassoc alone. Right associativity is
@@ -144,36 +146,27 @@
                calc does not move: its operators are all left-associative,
                and [(bp, bp + 1)] groups the same under either test. rassoc
                exists for this.
-       M13  In [Ocaml.Parser.lhs_body], leave the prefix kinds in the atom
-            sets.
-            -> nothing, and it compiles. No grammar here has a prefix
-               operator that also starts an atom. A grammar that had one
-               would not compile without the drop: the atom arm would be
-               unreachable and the exhaustiveness check says so. It would
-               also be a grammar whose atom no input can reach at the head,
-               which nothing rejects, so the case to write is a check and
-               not a grammar.
-       M14  In [Ocaml.Parser.wrap], open the node at the cursor rather than
+       M13  In [Ocaml.Parser.wrap], open the node at the cursor rather than
             at the checkpoint.
             -> part (a), 22,084 inputs: calc 8,320, rassoc 7,875,
                postfix 5,889. Part (b), 100, postfix alone. An operator that
                has already read its left side stops wrapping it, and the
                tree flattens.
-       M15  In [Ocaml.Parser.drain], drop the trailing [Cursor.skip_trivia].
+       M14  In [Ocaml.Parser.drain], drop the trailing [Cursor.skip_trivia].
             -> parts (a) and (c), 4,642 inputs: sexp 1,929, json 382,
                calc 1,029, postfix 550, unicode 752. shapes and recovery do
                not move: both roots end their body with a [Trivia], which has
                taken the trailing trivia before the drain runs.
-       M16  In [Ocaml.Parser.hole_node], stamp the diagnostic id one too
+       M15  In [Ocaml.Parser.hole_node], stamp the diagnostic id one too
             high on the hole.
             -> part (a), 54,080 inputs, every grammar. Nothing but the
                payload in the dump reads this, which is why the dump carries
                it.
-       M17  In [Ocaml.Parser.instr], drop the placeholder from an [Expect].
+       M16  In [Ocaml.Parser.instr], drop the placeholder from an [Expect].
             -> part (a), 15,924 inputs, and part (b), 4,301. A production
                that lost its closing delimiter stops recording it, and a
                consumer can no longer tell it from one that has it.
-       M18  Drop the postfix grammar from the corpus here.
+       M17  Drop the postfix grammar from the corpus here.
             -> part (d): ["postfix"] reads zero. Dropping the recovery
                grammar reddens nothing in part (d), for the reason under
                Coverage above.
