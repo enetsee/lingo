@@ -7,7 +7,8 @@
    - [Program] is a root with a repeated child and no frame, so the body loop
      has no closer to stop at and ends on a kind its element cannot start
      with;
-   - [Names] is [with_separator]: a separated list with nothing around it;
+   - [Names] is [with_separator] and one or more: a separated list with
+     nothing around it;
    - [Block] is delimited, committed and a boundary, so a failure inside it
      resumes on its own [rbrace] rather than on a caller's delimiter;
    - [Block] declares a resync anchor, so a broken body stops at [end] rather
@@ -45,7 +46,7 @@ let grammar : t =
      is on something no declaration starts with. *)
   let program = prod "Program" [ child_rep "decls" (Rule "Decl") ] in
   let decl =
-    prod "Decl" [ child_alt_rules ~modifier:Required "decl" [ "Let"; "Block" ] ]
+    prod "Decl" [ child_alt_rules ~modifier:Exactly_one "decl" [ "Let"; "Block" ] ]
   in
   (* Both trailing children are optional, so their absence is silent.
 
@@ -67,10 +68,11 @@ let grammar : t =
   let init =
     prod "Init" [ child_req "eq" (Token "equals"); child_req "value" (Rule "Names") ]
   in
-  (* A separated list with nothing around it. Its first element is required
-     whatever the child slot says, so the loop differs from a delimited one. *)
+  (* A separated list with nothing around it, and one or more of them: an
+     empty one would be no syntax at all. A delimited list is the other way,
+     because its brackets are there to be seen. *)
   let names =
-    prod "Names" [ child_rep "items" (Token "name") ]
+    prod "Names" [ child_rep1 "items" (Token "name") ]
     |> with_separator ~sep:"comma" ~trailing_sep:Never
   in
   (* Committed and a boundary, so a failure inside resumes on this rule's own

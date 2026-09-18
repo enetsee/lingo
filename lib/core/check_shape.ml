@@ -10,7 +10,7 @@ open StdLabels
    own occurrences from zero. That is why the same hazard takes three shapes
    below. *)
 let kind_key (child : Rule.child) = Array.to_list (Array.map ~f:Kind.to_int child.alts)
-let is_repeated (child : Rule.child) = child.modifier = Grammar.Repeated
+let is_repeated (child : Rule.child) = child.modifier = Grammar.Zero_or_more
 
 let kind_refs (kind_table : Kind.Table.t) (kind_set : Kind.Set.t) : Error.kind_ref list =
   Error.kind_refs kind_table (Kind.Set.elements kind_set)
@@ -103,7 +103,7 @@ let view_hazards (shape : Stage.shape) acc =
                | [] | [ _ ] -> false
                | _last :: earlier ->
                  List.exists
-                   ~f:(fun (_, (c : Rule.child)) -> c.modifier = Grammar.Optional)
+                   ~f:(fun (_, (c : Rule.child)) -> c.modifier = Grammar.Zero_or_one)
                    earlier
              in
              if earlier_shadows
@@ -185,7 +185,7 @@ let resync (shape : Stage.shape) (acc : Error.t list) : Error.t list =
     | Rule.User, false ->
       let body : Error.resync_body option =
         match rule_def.frame, Rule.body_children rule_def with
-        | Rule.Delimited _, [ { modifier = Grammar.Repeated; _ } ] -> None
+        | Rule.Delimited _, [ { modifier = Grammar.Zero_or_more; _ } ] -> None
         | Rule.Separated _, _ -> Some Error.Ends_at_its_separator
         | (Rule.Delimited _ | Rule.Plain | Rule.Committed _), _ ->
           Some Error.Repeats_nothing

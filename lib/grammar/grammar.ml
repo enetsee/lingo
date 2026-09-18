@@ -1,9 +1,10 @@
 module Name = Name
 
 type modifier =
-  | Required
-  | Optional
-  | Repeated
+  | Exactly_one
+  | Zero_or_one
+  | Zero_or_more
+  | One_or_more
 
 type symbol =
   | Token of string
@@ -281,14 +282,18 @@ let child ?recover_to ?(greedy = false) ~modifier name sym =
   }
 ;;
 
-let child_req ?recover_to name sym = child ?recover_to ~modifier:Required name sym
+let child_req ?recover_to name sym = child ?recover_to ~modifier:Exactly_one name sym
 
 let child_opt ?recover_to ?greedy name sym =
-  child ?recover_to ?greedy ~modifier:Optional name sym
+  child ?recover_to ?greedy ~modifier:Zero_or_one name sym
 ;;
 
 let child_rep ?recover_to ?greedy name sym =
-  child ?recover_to ?greedy ~modifier:Repeated name sym
+  child ?recover_to ?greedy ~modifier:Zero_or_more name sym
+;;
+
+let child_rep1 ?recover_to ?greedy name sym =
+  child ?recover_to ?greedy ~modifier:One_or_more name sym
 ;;
 
 let child_alt ?recover_to ~modifier name syms =

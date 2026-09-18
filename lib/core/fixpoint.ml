@@ -112,8 +112,10 @@ let kind_nullable (ctx : ctx) ~(nullable : bool array) (k : Kind.t) : bool =
 
 let child_nullable (ctx : ctx) ~(nullable : bool array) (c : Rule.child) : bool =
   match c.modifier with
-  | Grammar.Optional | Grammar.Repeated -> true
-  | Grammar.Required -> Array.exists ~f:(kind_nullable ctx ~nullable) c.alts
+  | Grammar.Zero_or_one | Grammar.Zero_or_more -> true
+  (* One or more takes its first, so it is nullable only where that one is. *)
+  | Grammar.Exactly_one | Grammar.One_or_more ->
+    Array.exists ~f:(kind_nullable ctx ~nullable) c.alts
 ;;
 
 let kind_first (ctx : ctx) ~(first : Kind.Set.t array) (k : Kind.t) : Kind.Set.t =
@@ -159,10 +161,10 @@ let nullable (ctx : ctx) : bool array =
       all_nullable (pre_children d)
       &&
         (match d.frame with
-        (* A delimited body takes its open token, and a separated list takes
-          one element before entering its loop. *)
-        | Rule.Delimited _ | Rule.Separated _ -> false
-        | Rule.Plain | Rule.Committed _ -> all_nullable (body_children d))
+        (* A delimited body takes its open token whatever its children do. *)
+        | Rule.Delimited _ -> false
+        | Rule.Separated _ | Rule.Plain | Rule.Committed _ ->
+          all_nullable (body_children d))
   in
   solve
     ctx.n
@@ -330,8 +332,8 @@ let follow (ctx : ctx) ~(nullable : bool array) ~(first : Kind.Set.t array)
              element's FIRST, or the separator if the frame has one. *)
           let rest_first =
             match c.modifier with
-            | Grammar.Required | Grammar.Optional -> rest_first
-            | Grammar.Repeated ->
+            | Grammar.Exactly_one | Grammar.Zero_or_one -> rest_first
+            | Grammar.Zero_or_more | Grammar.One_or_more ->
               (match d.frame with
                | Rule.Delimited { sep = Some { sep_tok; _ }; _ }
                | Rule.Separated { sep_tok; _ } -> Kind.Set.add sep_tok rest_first

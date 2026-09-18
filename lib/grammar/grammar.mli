@@ -8,9 +8,10 @@ module Name = Name
 
 (** How many times a child occurs. *)
 type modifier =
-  | Required (** Exactly one. Absence emits a diagnostic and a hole. *)
-  | Optional (** Zero or one. Absence is silent. *)
-  | Repeated (** Zero or more. *)
+  | Exactly_one (** Absence emits a diagnostic and a hole. *)
+  | Zero_or_one (** Absence is silent. *)
+  | Zero_or_more (** Absence is silent, and the loop ends where no element starts. *)
+  | One_or_more (** The first reports the way {!Exactly_one} does, and the rest repeat. *)
 
 (** What a child binds to. The payloads are strings since the data constructor 
     already says which namespace it is in. The checker lifts to either  
@@ -423,6 +424,10 @@ val child_req : ?recover_to:string list -> string -> symbol -> child
 val child_opt : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> child
 val child_rep : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> child
 
+(** One or more, where [child_rep] is zero or more. A list with nothing
+    around it usually wants this: an empty one is not syntax anybody wrote. *)
+val child_rep1 : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> child
+
 val child_alt
   :  ?recover_to:string list
   -> modifier:modifier
@@ -502,9 +507,9 @@ val with_delimited_sep
   -> production
   -> production
 
-(** A [sep]-separated list with nothing around it. The first element is
-    required, whatever modifier the child slot carries. To allow an empty
-    list, put this production behind an optional child in its parent. *)
+(** A [sep]-separated list with nothing around it. The child's modifier says
+    whether it can be empty, and {!child_rep1} is usually what one of these
+    wants: an empty list with nothing around it is no syntax at all. *)
 val with_separator
   :  sep:string
   -> ?trailing_sep:trailing_sep

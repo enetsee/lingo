@@ -53,7 +53,9 @@ let grammar : t =
   in
   let file = prod "File" [ child_rep "items" (Rule "Item") ] in
   let item =
-    prod "Item" [ child_alt_rules ~modifier:Required "item" [ "Triple"; "Group"; "Sig" ] ]
+    prod
+      "Item"
+      [ child_alt_rules ~modifier:Exactly_one "item" [ "Triple"; "Group"; "Sig" ] ]
   in
   (* Two children follow the committed one, and they start with different
      tokens. [resume] holds both and [recover] holds the first. *)
@@ -89,7 +91,7 @@ let grammar : t =
       ]
   in
   let fields =
-    prod "Fields" [ child_rep "items" (Rule "Field") ]
+    prod "Fields" [ child_rep1 "items" (Rule "Field") ]
     |> with_separator ~sep:"comma" ~trailing_sep:Never
   in
   (* A lead token, so the element is entered on [colon] and its committed

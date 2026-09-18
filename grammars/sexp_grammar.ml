@@ -52,7 +52,7 @@ let grammar : t =
     prod
       "Sexp"
       [ child_alt
-          ~modifier:Required
+          ~modifier:Exactly_one
           "kind"
           [ Token "ident"; Token "number"; Rule "Group" ]
       ]

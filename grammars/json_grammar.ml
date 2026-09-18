@@ -68,7 +68,7 @@ let grammar : t =
     prod
       "Value"
       [ child_alt
-          ~modifier:Required
+          ~modifier:Exactly_one
           "kind"
           [ Token "true"
           ; Token "false"

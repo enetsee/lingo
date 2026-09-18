@@ -107,8 +107,9 @@
       (boundary false)
       (seq
         (open 4)
+        (expect 14 (message 3) (at-child items) (hole 20) (placeholder))
         (loop
-          0
+          1
           (ends-on)
           (state (accepts ((on 14) 1)) (exit may) (missing) bump)
           (state

@@ -214,7 +214,7 @@ let () =
   if group.body_from = 0
   then pass "Group's body starts at child 0, as every production's does"
   else fail "Group's body_from is %d, not 0" group.body_from;
-  if Array.length group.children = 1 && group.children.(0).modifier = Grammar.Repeated
+  if Array.length group.children = 1 && group.children.(0).modifier = Grammar.Zero_or_more
   then pass "Group wraps one repeated child"
   else fail "Group does not wrap exactly one repeated child"
 ;;

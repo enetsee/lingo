@@ -41,9 +41,10 @@ N_INIT
   2 may-end
 
 N_NAMES
-  0 may-end
+  0
     next T_NAME
     on T_NAME -> 1
+    on T_COMMA -> 2
   1 may-end
     next T_COMMA
     on T_COMMA -> 2

@@ -196,7 +196,7 @@ let shape (names : names) : shape =
     | Some i -> names.tokens.(i).Token.kind
     | None -> names.error_kind
   in
-  let mk_child ?(modifier = Grammar.Required) ?(greedy = false) ?recover_to name alts
+  let mk_child ?(modifier = Grammar.Exactly_one) ?(greedy = false) ?recover_to name alts
     : Rule.child
     =
     { child_name = name
@@ -283,7 +283,7 @@ let shape (names : names) : shape =
         then [||]
         else
           [| mk_child
-               ~modifier:Required
+               ~modifier:Exactly_one
                (Grammar.Name.Child.of_string "atom")
                (token_alts token_atoms)
           |]
@@ -307,7 +307,7 @@ let shape (names : names) : shape =
     | Role { block_rule; block; role } ->
       let bk = names.rule_kind.(block_rule) in
       let operand nm =
-        mk_child ~modifier:Required (Grammar.Name.Child.of_string nm) [| bk |]
+        mk_child ~modifier:Exactly_one (Grammar.Name.Child.of_string nm) [| bk |]
       in
       let ops toks = Array.of_list (List.map ~f:res_tok toks) in
       let children, frame, body_from =
@@ -316,7 +316,7 @@ let shape (names : names) : shape =
         | Role.Bin ->
           ( [| operand "lhs"
              ; mk_child
-                 ~modifier:Required
+                 ~modifier:Exactly_one
                  (Grammar.Name.Child.of_string "op")
                  (ops
                     (List.map
@@ -328,7 +328,7 @@ let shape (names : names) : shape =
           , 0 )
         | Role.Prefix ->
           ( [| mk_child
-                 ~modifier:Required
+                 ~modifier:Exactly_one
                  (Grammar.Name.Child.of_string "op")
                  (ops
                     (List.map
@@ -344,7 +344,7 @@ let shape (names : names) : shape =
            | Nothing ->
              ( [| operand "operand"
                 ; mk_child
-                    ~modifier:Required
+                    ~modifier:Exactly_one
                     (Grammar.Name.Child.of_string "op")
                     [| res_tok p.lead |]
                |]
@@ -353,11 +353,11 @@ let shape (names : names) : shape =
            | Then sym ->
              ( [| operand "operand"
                 ; mk_child
-                    ~modifier:Required
+                    ~modifier:Exactly_one
                     (Grammar.Name.Child.of_string "op")
                     [| res_tok p.lead |]
                 ; mk_child
-                    ~modifier:Required
+                    ~modifier:Exactly_one
                     (Grammar.Name.Child.of_string "rhs")
                     [| res sym |]
                |]
@@ -371,13 +371,13 @@ let shape (names : names) : shape =
                | One sym ->
                  ( None
                  , mk_child
-                     ~modifier:Required
+                     ~modifier:Exactly_one
                      (Grammar.Name.Child.of_string "body")
                      [| res sym |] )
                | Many { elem; sep } ->
                  ( of_sep sep
                  , mk_child
-                     ~modifier:Repeated
+                     ~modifier:Zero_or_more
                      (Grammar.Name.Child.of_string "args")
                      [| res elem |] )
              in

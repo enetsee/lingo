@@ -141,8 +141,17 @@
       (boundary false)
       (seq
         (open 5)
+        (commit
+          (first 16)
+          (recover 10 14)
+          (at-child items)
+          (message 9)
+          (hole 24)
+          (placeholder 24)
+          (resume 16)
+          (call 6))
         (loop
-          0
+          1
           (ends-on)
           (state (accepts ((on 16) 1)) (exit may) (missing) (call 6))
           (state

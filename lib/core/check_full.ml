@@ -64,8 +64,8 @@ let first_follow (ctx : ctx) (acc : Error.t list) : Error.t list =
          positions where it has to choose. *)
       let skippable =
         match ch.modifier with
-        | Grammar.Optional | Grammar.Repeated -> true
-        | Grammar.Required ->
+        | Grammar.Zero_or_one | Grammar.Zero_or_more -> true
+        | Grammar.Exactly_one | Grammar.One_or_more ->
           Array.exists ~f:(Fixpoint.Reader.kind_nullable ctx.fixpoint_reader) ch.alts
       in
       if skippable && not ch.greedy
@@ -276,7 +276,7 @@ let nullable_repeated (ctx : ctx) (acc : Error.t list) : Error.t list =
     | Rule.Separated _ -> acc
     | _ ->
       Array.fold_left d.children ~init:acc ~f:(fun acc (ch : Rule.child) ->
-        if ch.modifier <> Grammar.Repeated
+        if ch.modifier <> Grammar.Zero_or_more
         then acc
         else if
           Array.length ch.alts = 0
@@ -531,7 +531,8 @@ let token_reachability (ctx : ctx) (dfa : Redfa.Dfa.t) (acc : Error.t list) : Er
 let resync_anchor_conflict (ctx : ctx) (acc : Error.t list) : Error.t list =
   Array.fold_left ctx.shape.rules ~init:acc ~f:(fun acc (rule_def : Rule.def) ->
     match rule_def.origin, rule_def.frame, Rule.body_children rule_def with
-    | Rule.User, Rule.Delimited _, [ ({ modifier = Grammar.Repeated; _ } as child) ] ->
+    | Rule.User, Rule.Delimited _, [ ({ modifier = Grammar.Zero_or_more; _ } as child) ]
+      ->
       let first = Fixpoint.Reader.alts_first ctx.fixpoint_reader child in
       Kind.Set.fold
         (fun anchor acc ->

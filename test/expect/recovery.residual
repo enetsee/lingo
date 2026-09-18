@@ -61,9 +61,10 @@ N_SIG
   3 may-end
 
 N_FIELDS
-  0 may-end
+  0
     next T_COLON
-    on N_FIELD -> 1
+    on N_FIELD N_FIELDS_HOLE -> 1
+    on T_COMMA -> 2
   1 may-end
     next T_COMMA
     on T_COMMA -> 2

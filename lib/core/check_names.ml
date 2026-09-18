@@ -213,12 +213,17 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
           let where = Error.At_child { production = pn; child = c.name } in
           (* A recovery set replaces what the parse resumes on where a child
              cannot be read. An optional child's absence is silent and a
-             repeated one just ends its loop, so neither has that moment. *)
+             repeated one just ends its loop, so neither has that moment. One
+             or more does: its first is required. *)
           let acc =
             match c.modifier, c.c_parse.recover_to with
-            | (Grammar.Optional | Grammar.Repeated), Some _ ->
+            | (Grammar.Zero_or_one | Grammar.Zero_or_more), Some _ ->
               Error.make ~detail:(Error.Unused_recover_to { name = c.name }) where :: acc
-            | (Grammar.Optional | Grammar.Repeated | Grammar.Required), _ -> acc
+            | ( ( Grammar.Zero_or_one
+                | Grammar.Zero_or_more
+                | Grammar.Exactly_one
+                | Grammar.One_or_more )
+              , _ ) -> acc
           in
           match c.sym with
           | Single s -> sym_error names where s acc
@@ -248,12 +253,12 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
             :: acc
           (* Only a required child reports, so only a required child has
              wording to replace. *)
-          | Some { modifier = Grammar.Optional | Grammar.Repeated; _ } ->
+          | Some { modifier = Grammar.Zero_or_one | Grammar.Zero_or_more; _ } ->
             Error.make
               ~detail:(Error.Unused_message_child { name = nm })
               (Error.At_child { production = pn; child = nm })
             :: acc
-          | Some { modifier = Grammar.Required; _ } -> acc)
+          | Some { modifier = Grammar.Exactly_one | Grammar.One_or_more; _ } -> acc)
       in
       let acc =
         match prod.framing with

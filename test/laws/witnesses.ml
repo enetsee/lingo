@@ -179,7 +179,7 @@ let unused_resync_anchors_separated =
     ]
 ;;
 
-let empty_alternatives = only [ prod "Root" [ child_alt ~modifier:Required "x" [] ] ]
+let empty_alternatives = only [ prod "Root" [ child_alt ~modifier:Exactly_one "x" [] ] ]
 let unknown_root = only ~roots:[ "Nope" ] [ clean_root ]
 let dup_root = only ~roots:[ "Root"; "Root" ] [ clean_root ]
 
@@ -312,7 +312,7 @@ let repeated_vs_single_kinds =
   only
     [ prod
         "Root"
-        [ child_alt ~modifier:Repeated "xs" [ Token "ta"; Token "tb" ]
+        [ child_alt ~modifier:Zero_or_more "xs" [ Token "ta"; Token "tb" ]
         ; child_req "x" (Token "ta")
         ]
     ]
@@ -333,7 +333,7 @@ let overlapping_single_kinds =
   only
     [ prod
         "Root"
-        [ child_alt ~modifier:Required "a" [ Token "ta"; Token "tb" ]
+        [ child_alt ~modifier:Exactly_one "a" [ Token "ta"; Token "tb" ]
         ; child_req "b" (Token "ta")
         ]
     ]
@@ -343,7 +343,7 @@ let overlapping_single_kinds =
 
 let first_first_conflict =
   only
-    [ prod "Root" [ child_alt ~modifier:Required "x" [ Rule "A"; Rule "B" ] ]
+    [ prod "Root" [ child_alt ~modifier:Exactly_one "x" [ Rule "A"; Rule "B" ] ]
     ; prod "A" [ child_req "x" (Token "ta") ]
     ; prod "B" [ child_req "x" (Token "ta") ]
     ]

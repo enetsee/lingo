@@ -39,13 +39,16 @@ let compute (g : t) : tables =
   let csym_nullable cs = List.exists sym_nullable (syms_of cs) in
   let child_nullable (c : child) =
     match c.modifier with
-    | Optional | Repeated -> true
-    | Required -> csym_nullable c.sym
+    | Zero_or_one | Zero_or_more -> true
+    | Exactly_one | One_or_more -> csym_nullable c.sym
   in
   let prod_nullable (p : production) =
     match p.framing with
-    | Delimited _ | Separated _ -> false
-    | Plain | Committed _ -> List.for_all child_nullable p.children
+    (* A delimited production takes its open token whatever its children do. A
+       separated one is its children, and whether a list can be empty is the
+       element child's modifier. *)
+    | Delimited _ -> false
+    | Separated _ | Plain | Committed _ -> List.for_all child_nullable p.children
   in
   let changed = ref true in
   while !changed do
@@ -174,8 +177,8 @@ let compute (g : t) : tables =
              let rf, re = remaining_first rest in
              let rf =
                match c.modifier with
-               | Required | Optional -> rf
-               | Repeated ->
+               | Exactly_one | Zero_or_one -> rf
+               | Zero_or_more | One_or_more ->
                  (match p.framing with
                   | Delimited { sep_policy = With_sep { sep; _ }; _ } ->
                     SS.add (Name.Token.to_string sep) rf

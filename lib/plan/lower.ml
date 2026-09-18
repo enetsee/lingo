@@ -53,6 +53,18 @@ let child_first (facts : Core.Facts.t) (child : Core.Rule.child) : Core.Kind.Set
        Core.Facts.first_of_kind facts kind))
 ;;
 
+(* What a failed first element resumes on. Another element counts, because the
+   loop behind it can still take one. *)
+let resumes_on (first : Core.Kind.Set.t) (resume : Ir.Kind.t array option)
+  : Ir.Kind.t array option
+  =
+  Some
+    (Array.of_list
+       (List.sort_uniq
+          ~cmp:Int.compare
+          (Array.to_list (kset first) @ Array.to_list (Option.value resume ~default:[||]))))
+;;
+
 (* -- a child's body -------------------------------------------------------- *)
 
 let rec body_of_alts (facts : Core.Facts.t) (alts : Core.Kind.t array) : Ir.Plan.instr =
@@ -97,58 +109,78 @@ let repetition
 
 (* Lowers one child of a rule. [resume] holds what a later child can start
    with. Pass [None] where the child is the last thing in the rule. *)
-let instr_of_child
-      (facts : Core.Facts.t)
-      (msgs : Messages.Builder.t)
-      (rule_def : Core.Rule.def)
-      (index : int)
-      (resume : Ir.Kind.t array option)
-      (repeat_ends_on : Ir.Kind.t array option)
-      (child : Core.Rule.child)
+let rec instr_of_child
+          (facts : Core.Facts.t)
+          (msgs : Messages.Builder.t)
+          (rule_def : Core.Rule.def)
+          (index : int)
+          (resume : Ir.Kind.t array option)
+          (repeat_ends_on : Ir.Kind.t array option)
+          (child : Core.Rule.child)
   : Ir.Plan.instr
   =
   let first = child_first facts child in
   match child.modifier with
   (* Neither of these reports, so neither asks for a message. Asking here
      would put wording in the catalogue that no instruction ever names. *)
-  | Core.Grammar.Optional ->
+  | Core.Grammar.Zero_or_one ->
     Ir.Plan.Alt { arms = [| kset first, body_of_alts facts child.alts |] }
   (* A repeated child outside a frame ends where no element can start. Only a
      frame's own body recovers, because only a frame has a closer to stop at.
      See [body_instrs]. *)
-  | Core.Grammar.Repeated ->
+  | Core.Grammar.Zero_or_more ->
     repetition (kset first) (body_of_alts facts child.alts) repeat_ends_on
-  | Core.Grammar.Required ->
-    let at_child = Core.Grammar.Name.Child.to_string child.child_name in
-    let id = message facts msgs rule_def child first in
-    (match child.alts with
-     | [| kind |] when facts.kind_rule.(Core.Kind.to_int kind) < 0 ->
-       Ir.Plan.Expect
-         { tok = Core.Kind.to_int kind
-         ; message = id
-         ; at_child = Some at_child
-         ; hole = Option.map Core.Kind.to_int rule_def.hole
-         ; placeholder = None
-         }
-     | alts ->
-       let recover =
-         match child.recover_to with
-         | Some s -> s
-         | None -> Core.Facts.local_recovery_set facts rule_def.id ~child:index
-       in
-       Ir.Plan.Commit
-         { first = kset first
-         ; recover = kset recover
-         ; at_child
-         ; message = id
-         ; hole = Option.map Core.Kind.to_int rule_def.hole
-         ; placeholder =
-             (match rule_def.hole with
-              | Some kind -> Core.Kind.to_int kind
-              | None -> Core.Kind.to_int facts.missing_kind)
-         ; resume
-         ; body = body_of_alts facts alts
-         })
+  | Core.Grammar.One_or_more ->
+    (* The first is required and the rest repeat. A failed first resumes on
+       another element as well as on a later child, because the loop behind it
+       can still take one. *)
+    let resume = resumes_on first resume in
+    Ir.Plan.Seq
+      [| required facts msgs rule_def index resume child first
+       ; repetition (kset first) (body_of_alts facts child.alts) repeat_ends_on
+      |]
+  | Core.Grammar.Exactly_one -> required facts msgs rule_def index resume child first
+
+and required
+      (facts : Core.Facts.t)
+      (msgs : Messages.Builder.t)
+      (rule_def : Core.Rule.def)
+      (index : int)
+      (resume : Ir.Kind.t array option)
+      (child : Core.Rule.child)
+      (first : Core.Kind.Set.t)
+  : Ir.Plan.instr
+  =
+  let at_child = Core.Grammar.Name.Child.to_string child.child_name in
+  let id = message facts msgs rule_def child first in
+  match child.alts with
+  | [| kind |] when facts.kind_rule.(Core.Kind.to_int kind) < 0 ->
+    Ir.Plan.Expect
+      { tok = Core.Kind.to_int kind
+      ; message = id
+      ; at_child = Some at_child
+      ; hole = Option.map Core.Kind.to_int rule_def.hole
+      ; placeholder = None
+      }
+  | alts ->
+    let recover =
+      match child.recover_to with
+      | Some s -> s
+      | None -> Core.Facts.local_recovery_set facts rule_def.id ~child:index
+    in
+    Ir.Plan.Commit
+      { first = kset first
+      ; recover = kset recover
+      ; at_child
+      ; message = id
+      ; hole = Option.map Core.Kind.to_int rule_def.hole
+      ; placeholder =
+          (match rule_def.hole with
+           | Some kind -> Core.Kind.to_int kind
+           | None -> Core.Kind.to_int facts.missing_kind)
+      ; resume
+      ; body = body_of_alts facts alts
+      }
 ;;
 
 (* -- a body loop ----------------------------------------------------------- *)
@@ -168,6 +200,7 @@ let instr_of_child
    the grammar makes of that. The parser takes the separator either way,
    because it is bytes the source had. *)
 let separated_loop
+      ~(entry : int)
       (elem_first : Ir.Kind.t array)
       (sep : Ir.Kind.t)
       (body : Ir.Plan.instr)
@@ -177,7 +210,7 @@ let separated_loop
   : Ir.Plan.instr
   =
   Ir.Plan.Loop
-    { entry = 0
+    { entry
     ; ends_on
     ; states =
         [| { accepts = [| elem_first, 1 |]
@@ -241,8 +274,8 @@ let repeat_ends_on_of (rule_def : Core.Rule.def) ~(is_root : bool) (index : int)
   match is_root && index = last && index >= 0 with
   | true ->
     (match rule_def.children.(index).modifier with
-     | Core.Grammar.Repeated -> Some [||]
-     | Core.Grammar.Required | Core.Grammar.Optional -> None)
+     | Core.Grammar.Zero_or_more | Core.Grammar.One_or_more -> Some [||]
+     | Core.Grammar.Exactly_one | Core.Grammar.Zero_or_one -> None)
   | false -> None
 ;;
 
@@ -256,8 +289,30 @@ let body_instrs
   : Ir.Plan.instr list
   =
   let body = Core.Rule.body_children rule_def in
+  (* One or more reads its first before the loop, so the loop carries on from
+     just past an element rather than from the start of the body. *)
+  let one_or_more (child : Core.Rule.child) : bool =
+    child.modifier = Core.Grammar.One_or_more
+  in
+  let first_element (child : Core.Rule.child) : Ir.Plan.instr list =
+    if one_or_more child
+    then (
+      let index = rule_def.body_from in
+      [ required
+          facts
+          msgs
+          rule_def
+          index
+          (resumes_on (child_first facts child) (resume_of index))
+          child
+          (child_first facts child)
+      ])
+    else []
+  in
   match sep_opt, body with
-  | Some sep, [ ({ modifier = Core.Grammar.Repeated; _ } as child) ] ->
+  | ( Some sep
+    , [ ({ modifier = Core.Grammar.Zero_or_more | Core.Grammar.One_or_more; _ } as child)
+      ] ) ->
     let elem_first = kset (child_first facts child)
     and sep_kind = Core.Kind.to_int sep.sep_tok
     and body = body_of_alts facts child.alts
@@ -267,18 +322,29 @@ let body_instrs
         msgs
         (default_text facts (Core.Kind.Set.singleton sep.sep_tok))
     in
-    [ separated_loop elem_first sep_kind body after_sep (ends_on_of rule_def) no_sep
-    ; Ir.Plan.Trivia
-    ]
+    first_element child
+    @ [ separated_loop
+          ~entry:(if one_or_more child then 1 else 0)
+          elem_first
+          sep_kind
+          body
+          after_sep
+          (ends_on_of rule_def)
+          no_sep
+      ; Ir.Plan.Trivia
+      ]
   (* A delimited body with no separator. It recovers like the separated one,
      because it has the same closer to stop at. *)
-  | None, [ ({ modifier = Core.Grammar.Repeated; _ } as child) ]
+  | ( None
+    , [ ({ modifier = Core.Grammar.Zero_or_more | Core.Grammar.One_or_more; _ } as child)
+      ] )
     when ends_on_of rule_def <> None ->
-    [ repetition
-        (kset (child_first facts child))
-        (body_of_alts facts child.alts)
-        (ends_on_of rule_def)
-    ]
+    first_element child
+    @ [ repetition
+          (kset (child_first facts child))
+          (body_of_alts facts child.alts)
+          (ends_on_of rule_def)
+      ]
   | _ ->
     List.mapi body ~f:(fun i c ->
       let index = rule_def.body_from + i in

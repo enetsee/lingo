@@ -15,7 +15,7 @@
       Falsification. Every mutation below was applied, run and reverted, and
       the result recorded is the one observed.
 
-        M1  In [Fixpoint.compute]'s FOLLOW walk, replace the [Repeated] arm's
+        M1  In [Fixpoint.compute]'s FOLLOW walk, replace the [Zero_or_more] arm's
             separator case with [Kind.Set.union rest_first (alts_first c)].
             -> this law. FOLLOW disagrees on the separated and
                delimited-with-sep grammars.

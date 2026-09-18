@@ -59,8 +59,8 @@
       read 73 failures in sexp, json, postfix, recovery and shapes, all of
       them the trivia between a body's elements.
 
-      Coverage. Eight grammars, 94 inputs, 1,004 positions, 5,343 pairs of a
-      kind and a position settled and 3,334 the parse cannot be put at. 43 of
+      Coverage. Eight grammars, 94 inputs, 1,002 positions, 5,341 pairs of a
+      kind and a position settled and 3,318 the parse cannot be put at. 43 of
       the positions are holes, where the kind really under the cursor is one
       the residual leaves out. Part (g) covers 419 bytes and 3,630 pairs of a
       kind and a byte, with none left undecided.
@@ -78,8 +78,8 @@
 
         M1  In [Residual.entered], read the body rather than the gate that
             chose it.
-            -> part (b), 41 pairs: sexp 12, json 15, postfix 2, unicode 3,
-               recovery 2, shapes 7. A commit's body is often a bare [Bump],
+            -> part (b), 39 pairs: sexp 12, json 15, postfix 2, unicode 3,
+               recovery 2, shapes 5. A commit's body is often a bare [Bump],
                which names no kind of its own, so the position loses the set
                that admitted it.
 
@@ -118,7 +118,7 @@
                record that.
         M7  In [Residual.at], read the innermost frame for what follows its
             position rather than for what is at it.
-            -> part (a), 286, and part (b), 1,068, over every grammar. M12 is
+            -> part (a), 286, and part (b), 1,071, over every grammar. M12 is
                the same claim at the other end of the stack.
         M8  In [Residual.expression], stop an operand that has been read from
             letting its activation climb.
@@ -131,8 +131,8 @@
             -> part (b), 38: calc 23, rassoc 15.
        M10  In [Interp.loop], record the state the element came from as the
             one to resume at.
-            -> part (a), 44, and part (b), 40: json 3, postfix 21, unicode 3,
-               recovery 2, shapes 55. The interpreter's half of M5. The claim
+            -> part (a), 44, and part (b), 38: json 3, postfix 9, unicode 3,
+               recovery 2, shapes 21. The interpreter's half of M5. The claim
                fails whether the plan walk or the parse has the state wrong,
                which is what makes the threading worth testing rather than
                trusting.

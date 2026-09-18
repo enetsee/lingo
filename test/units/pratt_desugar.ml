@@ -196,9 +196,10 @@ let describe (c : Rule.child) =
     "%s%s:%s"
     (Name.Child.to_string c.child_name)
     (match c.modifier with
-     | Required -> "1"
-     | Optional -> "?"
-     | Repeated -> "*")
+     | Exactly_one -> "1"
+     | Zero_or_one -> "?"
+     | Zero_or_more -> "*"
+     | One_or_more -> "+")
     (String.concat
        "|"
        (List.map
