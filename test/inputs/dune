@@ -1,0 +1,6 @@
+; The example inputs, shared by law_interp, law_residual and law_parse. A list
+; per law was three lists that drifted, so an input added for one was not seen
+; by the other two.
+
+(library
+ (name inputs))

@@ -30,7 +30,7 @@
       is the same on every run and a failure names an input that can be
       pasted back.
 
-      Coverage. Eight grammars, 111,719 inputs, and the counts print beside
+      Coverage. Eight grammars, 112,521 inputs, and the counts print beside
       the result. Part (d) is the coverage claim: a form no parse runs is a
       form this law says nothing about. The count of inputs carrying a
       diagnostic is beside it, because a corpus that never recovers says
@@ -60,20 +60,20 @@
 
         M1  In [Ocaml.Parser.loop], build the stopping set from the ends-on
             kinds alone, leaving out what the states accept.
-            -> parts (a) and (b), 14,460 inputs: sexp 316, json 1,260,
-               postfix 171, shapes 5,387, recovery 6,868, unicode 458. A body
+            -> parts (a) and (b), 13,532 inputs: sexp 298, json 1,277,
+               postfix 166, unicode 464, recovery 5,897, shapes 5,430. A body
                that meets junk runs to the closer instead of picking up at
                its next element.
         M2  In [Ocaml.Parser.loop], sweep where a position is missing
             something, rather than reporting it.
-            -> part (a), 1,532 inputs, and part (b), 1,564: json 785,
-               postfix 136, shapes 175 and 189, recovery 7 and 25,
-               unicode 429. The separator that is not there goes unreported
+            -> part (a), 1,528 inputs, and part (b), 1,559: json 774,
+               postfix 147, unicode 417, recovery 15 and 35, shapes 175 and
+               186. The separator that is not there goes unreported
                and the element after it is swept away.
         M3  In [Ocaml.Parser.loop], take the start of the last transition
             from [Cursor.offset] rather than from the token's range.
-            -> part (b), 299 inputs: json 105, postfix 11, shapes 11,
-               recovery 106, unicode 66. A trailing separator is then
+            -> part (b), 328 inputs: json 101, postfix 12, unicode 89,
+               recovery 116, shapes 10. A trailing separator is then
                reported over the trivia in front of it as well.
         M4  In [Ocaml.Parser.loop], drop the position test that ends a body
             where an iteration left the cursor where it was.
@@ -87,10 +87,10 @@
                stops.
         M5  In [Ocaml.Parser.commit], skip on the inherited set alone,
             leaving out what the position itself contributes.
-            -> part (a), 3,339 inputs, and part (b), 3,279: calc 537,
-               postfix 802, shapes 74 and 14, recovery 1,926.
+            -> part (a), 2,965 inputs, and part (b), 2,897: calc 565,
+               postfix 785, recovery 1,534, shapes 81 and 13.
         M6  In [Ocaml.Parser.commit], skip whatever the resume set says.
-            -> parts (a) and (b), 387 inputs, recovery alone. A commit's
+            -> parts (a) and (b), 579 inputs, recovery alone. A commit's
                resume set holds the FIRST set of every later child and its
                recovery set stops at the first later child that is not
                nullable, so the two differ wherever two children follow the
@@ -104,7 +104,7 @@
                rule, and the same commit's recover holds that closer too.
         M7  In [Ocaml.Parser.rule_binding], pass the inbound set down where
             the rule is a boundary.
-            -> parts (a) and (b), 1,157 inputs, recovery alone. [Group] is
+            -> parts (a) and (b), 1,612 inputs, recovery alone. [Group] is
                committed and a boundary, and its body names [rparen] and
                nothing else, so dropping the inbound set is the difference
                between stopping at the close and stopping at the caller's
@@ -115,7 +115,7 @@
                contributes.
         M8  In [Ocaml.Parser.rule_binding], leave the rule's adds out of
             [passed_down].
-            -> parts (a) and (b), 247 inputs, recovery alone. [Fields] is a
+            -> parts (a) and (b), 226 inputs, recovery alone. [Fields] is a
                separated list of a rule. A separated body has no closer, so
                its loop adds nothing to what it passes its elements, and the
                separator reaches them through the adds alone.
@@ -126,47 +126,47 @@
                reads what is passed down.
         M9  In [Ocaml.Parser.rule_binding], give every rule an empty inbound
             set.
-            -> parts (a) and (b), 3,176 inputs: json 326, postfix 4,
-               shapes 7, recovery 2,839.
+            -> parts (a) and (b), 2,534 inputs: json 338, postfix 5,
+               recovery 2,188, shapes 3.
        M10  In [Ocaml.Parser.skip_item], bump the closer the skip stopped at
             whether or not a frame is waiting for it.
-            -> parts (a) and (b), 1,035 inputs: sexp 57, json 382,
-               postfix 57, shapes 458, unicode 81. The skip still halts, so
+            -> parts (a) and (b), 1,012 inputs: sexp 56, json 374,
+               postfix 68, unicode 88, shapes 426. The skip still halts, so
                the frame above is handed a closer that is already eaten.
        M11  In [Ocaml.Parser.skip_item], bump a closer of a pair the skip
             did not open and run on, rather than halting.
-            -> parts (a) and (b), 16,960 inputs: sexp 2,418, json 2,926,
-               calc 1,791, postfix 4,326, shapes 2,621, unicode 2,878. The
+            -> parts (a) and (b), 16,922 inputs: sexp 2,454, json 2,943,
+               calc 1,786, postfix 4,315, unicode 2,854, shapes 2,570. The
                skip swallows the rest of the production it was recovering
                inside.
        M12  In [Ocaml.Parser.infix_body], guard an infix arm with
             [left_bp > min_bp].
-            -> part (a), 610 inputs, rassoc alone. Right associativity is
+            -> part (a), 586 inputs, rassoc alone. Right associativity is
                the [>=] and nothing else, so [1^2^3] groups the other way.
                calc does not move: its operators are all left-associative,
                and [(bp, bp + 1)] groups the same under either test. rassoc
                exists for this.
        M13  In [Ocaml.Parser.wrap], open the node at the cursor rather than
             at the checkpoint.
-            -> part (a), 22,084 inputs: calc 8,320, rassoc 7,875,
-               postfix 5,889. Part (b), 100, postfix alone. An operator that
+            -> part (a), 22,069 inputs: calc 8,320, rassoc 7,866,
+               postfix 5,883. Part (b), 113, postfix alone. An operator that
                has already read its left side stops wrapping it, and the
                tree flattens.
        M14  In [Ocaml.Parser.drain], drop the trailing [Cursor.skip_trivia].
-            -> parts (a) and (c), 4,642 inputs: sexp 1,929, json 382,
-               calc 1,029, postfix 550, unicode 752. shapes and recovery do
+            -> parts (a) and (c), 4,676 inputs: sexp 1,934, json 381,
+               calc 1,034, postfix 549, unicode 778. shapes and recovery do
                not move: both roots end their body with a [Trivia], which has
                taken the trailing trivia before the drain runs.
        M15  In [Ocaml.Parser.hole_node], stamp the diagnostic id one too
             high on the hole.
-            -> part (a), 54,080 inputs, every grammar. Nothing but the
+            -> part (a), 54,279 inputs, every grammar. Nothing but the
                payload in the dump reads this, which is why the dump carries
                it.
        M16  In [Ocaml.Parser.instr], drop the placeholder from an [Expect].
-            -> part (a), 15,924 inputs, and part (b), 4,301. A production
+            -> part (a), 15,856 inputs, and part (b), 4,228. A production
                that lost its closing delimiter stops recording it, and a
                consumer can no longer tell it from one that has it.
-       M17  Drop the postfix grammar from the corpus here.
+       M17  Drop the postfix grammar from test/inputs.
             -> part (d): ["postfix"] reads zero. Dropping the recovery
                grammar reddens nothing in part (d), for the reason under
                Coverage above.
@@ -204,172 +204,48 @@ let emitted
   parse_tokens ~cache:(Siesta.Cache.create_plain ()) tokens
 ;;
 
-(* The seeds are the inputs law_interp and test/expect/*.parse read, which is
-   where the forms a grammar reaches only once were chosen. The generator
-   grows them; it does not replace them. *)
+(* The seeds are test/inputs, where the forms a grammar reaches only once were
+   chosen. The generator grows them; it does not replace them. *)
 let corpus : case list =
   [ { name = "sexp"
     ; grammar = Lingo_grammars.Sexp_grammar.grammar
     ; parse = emitted Emitted_parsers.Sexp_parser.parse_tokens
-    ; seeds =
-        [ "(a b)"
-        ; "(a (b 12) c)"
-        ; "()"
-        ; "( a  b )"
-        ; "(a\n b)"
-        ; "(a b)  "
-        ; "("
-        ; "(a"
-        ; ")"
-        ; "(a ) b"
-        ; "(()"
-        ; "  )"
-        ; "( a  )  )"
-        ; "(  ]"
-        ; "(a (b (c)))"
-        ]
+    ; seeds = Inputs.all Inputs.sexp
     }
   ; { name = "json"
     ; grammar = Lingo_grammars.Json_grammar.grammar
     ; parse = emitted Emitted_parsers.Json_parser.parse_tokens
-    ; seeds =
-        [ "1"
-        ; "[1, 2]"
-        ; "{\"a\": 1}"
-        ; "[]"
-        ; "{}"
-        ; "[{\"a\": [1]}]"
-        ; "  [1]  "
-        ; "[1, 2,]"
-        ; "[1 2]"
-        ; "[1 : 2]"
-        ; "{\"a\" 1}"
-        ; "[1"
-        ; "{"
-        ; "[1] junk"
-        ; "{\"a\": \"b"
-        ; "{\"a\": 1 \"b\": 2}"
-        ; "[{1 ]"
-        ; "[true, false, null]"
-        ]
+    ; seeds = Inputs.all Inputs.json
     }
   ; { name = "calc"
     ; grammar = Lingo_grammars.Calc_grammar.grammar
     ; parse = emitted Emitted_parsers.Calc_parser.parse_tokens
-    ; seeds =
-        [ "1"
-        ; "1+2*3"
-        ; "-1*2"
-        ; "(1+2)*3"
-        ; "1-2-3"
-        ; " 1 + 2 "
-        ; "1+"
-        ; "1+*2"
-        ; "("
-        ; "(1"
-        ; "1 2"
-        ; "(1+2"
-        ; "-(1)"
-        ]
+    ; seeds = Inputs.all Inputs.calc
     }
   ; { name = "rassoc"
     ; grammar = Lingo_grammars.Rassoc_grammar.grammar
     ; parse = emitted Emitted_parsers.Rassoc_parser.parse_tokens
-    ; seeds = [ "1"; "1^2^3"; "1+2+3"; "-1^2"; "1^"; "^1"; "1++"; "1^2+3^4" ]
+    ; seeds = Inputs.all Inputs.rassoc
     }
   ; { name = "postfix"
     ; grammar = Lingo_grammars.Postfix_grammar.grammar
     ; parse = emitted Emitted_parsers.Postfix_parser.parse_tokens
-    ; seeds =
-        [ "a"
-        ; "a?"
-        ; "a.b"
-        ; "a[1]"
-        ; "a{1}"
-        ; "a(1, 2)"
-        ; "a()"
-        ; "a.b[2]?+1"
-        ; "a(1)(2)"
-        ; "a."
-        ; "a(1"
-        ; "a[1"
-        ; "a(1,)"
-        ; "a["
-        ; "a.?"
-        ; "a(1 2)"
-        ]
-    }
-  ; { name = "shapes"
-    ; grammar = Lingo_grammars.Shapes_grammar.grammar
-    ; parse = emitted Emitted_parsers.Shapes_parser.parse_tokens
-    ; seeds =
-        [ "let a"
-        ; "let a = b"
-        ; "let a = b, c"
-        ; "{ let a }"
-        ; "{ let a; let b }"
-        ; "{ let a; }"
-        ; "let a { let b }"
-        ; "let a  "
-        ; ""
-        ; "let"
-        ; "{"
-        ; "{ let }"
-        ; "let a ="
-        ; "{ let a; ; }"
-        ; "}"
-        ; "{ let a end"
-        ; "{ let a end }"
-        ; "let a ; let b"
-        ; "@ let a"
-        ; "let a ; ; let b"
-        ]
-    }
-    (* One production per part of the recovery set, each at a position where
-       dropping that part changes a parse. The other seven read the same
-       with three of the four parts gone. *)
-  ; { name = "recovery"
-    ; grammar = Lingo_grammars.Recovery_grammar.grammar
-    ; parse = emitted Emitted_parsers.Recovery_parser.parse_tokens
-    ; seeds =
-        [ "let a in end"
-        ; "( let a in end )"
-        ; "sig : a ; in"
-        ; "sig : a ; , : b ; in"
-        ; "let a in end ( let b in end )"
-          (* [end] is in the commit's resume set and not in its recovery
-             set. *)
-        ; "let end"
-        ; "let in"
-        ; "let" (* The caller passes down [sig], and the boundary drops it. *)
-        ; "( sig )"
-        ; "( in let a in end )"
-        ; "( let a in end" (* The child's [recover_to] replaces the computed set. *)
-        ; "sig end in"
-        ; "sig in"
-        ; "sig" (* The separator reaches the element through the rule's adds. *)
-        ; "sig : , : a ; in"
-        ; "sig : a ; , in"
-        ; ")"
-        ; ","
-        ; "end"
-        ]
+    ; seeds = Inputs.all Inputs.postfix
     }
   ; { name = "unicode"
     ; grammar = Lingo_grammars.Unicode_grammar.grammar
     ; parse = emitted Emitted_parsers.Unicode_parser.parse_tokens
-    ; seeds =
-        [ "\xc2\xabhello\xc2\xbb"
-        ; "\xc2\xab\xc3\xa9t\xc3\xa9\xc2\xbb"
-        ; "\xc2\xab\xce\xb1\xce\xb2\xce\xb3\xc2\xbb"
-        ; "\xc2\xaba \xe2\x86\x92 b\xc2\xbb"
-        ; "\xc2\xab\xc2\xbb"
-        ; "\xc2\xab \xc3\xa9t\xc3\xa9 \xe2\x86\x92 \xce\xb1 \xc2\xbb"
-        ; "\xc2\xabhello"
-        ; "hello\xc2\xbb"
-        ; "\xc2\xab$\xc2\xbb"
-        ; "\xc2\xab\xe2\x86\x92\xc2\xbb"
-        ]
+    ; seeds = Inputs.all Inputs.unicode
+    }
+  ; { name = "recovery"
+    ; grammar = Lingo_grammars.Recovery_grammar.grammar
+    ; parse = emitted Emitted_parsers.Recovery_parser.parse_tokens
+    ; seeds = Inputs.all Inputs.recovery
+    }
+  ; { name = "shapes"
+    ; grammar = Lingo_grammars.Shapes_grammar.grammar
+    ; parse = emitted Emitted_parsers.Shapes_parser.parse_tokens
+    ; seeds = Inputs.all Inputs.shapes
     }
   ]
 ;;

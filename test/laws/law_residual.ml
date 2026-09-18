@@ -59,11 +59,12 @@
       read 73 failures in sexp, json, postfix, recovery and shapes, all of
       them the trivia between a body's elements.
 
-      Coverage. Eight grammars, 94 inputs, 1,002 positions, 5,341 pairs of a
-      kind and a position settled and 3,318 the parse cannot be put at. 43 of
-      the positions are holes, where the kind really under the cursor is one
-      the residual leaves out. Part (g) covers 419 bytes and 3,630 pairs of a
-      kind and a byte, with none left undecided.
+      Coverage. The 121 inputs in test/inputs, over eight grammars: 1,328
+      positions, 6,973 pairs of a kind and a position settled and 4,300 the
+      parse cannot be put at. 68 of the positions are holes, where the kind
+      really under the cursor is one the residual leaves out. Part (g) covers
+      552 bytes and 4,668 pairs of a kind and a byte, with none left
+      undecided.
 
       Part (e) is what keeps the rest honest. It counts positions per grammar
       and per kind of position, and fails where either reads zero, so a corpus
@@ -78,8 +79,8 @@
 
         M1  In [Residual.entered], read the body rather than the gate that
             chose it.
-            -> part (b), 39 pairs: sexp 12, json 15, postfix 2, unicode 3,
-               recovery 2, shapes 5. A commit's body is often a bare [Bump],
+            -> part (b), 63 pairs: sexp 18, json 25, postfix 2, unicode 10,
+               recovery 3, shapes 5. A commit's body is often a bare [Bump],
                which names no kind of its own, so the position loses the set
                that admitted it.
 
@@ -90,22 +91,23 @@
                count of pairs the parse cannot be put at.
         M2  In [Residual.ends], let a state whose exit reports still end a
             body.
-            -> part (a), 9: json 3, postfix 2, recovery 2, shapes 2. A body
+            -> part (a), 14: json 5, postfix 2, unicode 2, recovery 3,
+               shapes 2. A body
                that forbids a trailing separator can still be ended at one, by
                taking the separator and reporting it, and the residual then
                offers the closer straight after a separator. This is the
                mutation that found the rule: the first version let every state
                end a body.
         M3  In [Residual.at], never read the frame above.
-            -> part (b), 98: calc 4, postfix 16, recovery 4, shapes 74. What
+            -> part (b), 123: calc 8, postfix 20, recovery 5, shapes 90. What
                follows a rule goes missing at every position the rule's own
                body can complete from.
         M4  In [Residual.whole], make an [Alt] non-nullable.
-            -> part (b), 85, shapes alone. It is the grammar with optional
+            -> part (b), 105, shapes alone. It is the grammar with optional
                children, and what follows one is what goes missing.
         M5  In [Residual.remains], resume a loop in the state the element came
             from rather than the one the transition names.
-            -> part (a), 44, and part (b), 23: postfix and shapes. After an
+            -> part (a), 52, and part (b), 28: postfix and shapes. After an
                element a separator or the closer comes next, and the mutation
                offers another element.
         M6  In [Residual.climb_set], take every operator whatever its binding
@@ -118,7 +120,7 @@
                record that.
         M7  In [Residual.at], read the innermost frame for what follows its
             position rather than for what is at it.
-            -> part (a), 286, and part (b), 1,071, over every grammar. M12 is
+            -> part (a), 365, and part (b), 1,512, over every grammar. M12 is
                the same claim at the other end of the stack.
         M8  In [Residual.expression], stop an operand that has been read from
             letting its activation climb.
@@ -128,20 +130,20 @@
                ends at a required [)]. law_interp counts three atom-rule runs
                and all three are that rule.
         M9  In [Residual.head_set], leave out the prefix operators.
-            -> part (b), 38: calc 23, rassoc 15.
+            -> part (b), 50: calc 31, rassoc 19.
        M10  In [Interp.loop], record the state the element came from as the
             one to resume at.
-            -> part (a), 44, and part (b), 38: json 3, postfix 9, unicode 3,
-               recovery 2, shapes 21. The interpreter's half of M5. The claim
+            -> part (a), 52, and part (b), 53: json 5, postfix 12,
+               unicode 10, recovery 3, shapes 23. The interpreter's half of M5. The claim
                fails whether the plan walk or the parse has the state wrong,
                which is what makes the threading worth testing rather than
                trusting.
        M11  In [Residual.whole], make a [Commit] nullable.
-            -> part (a), 67: json 6, calc 3, postfix 29, recovery 23,
+            -> part (a), 79: json 12, calc 5, postfix 29, recovery 27,
                shapes 6.
        M12  In [Residual.at], read a frame above for what it is at rather than
             for what follows it.
-            -> part (a), 199, and part (b), 80. The call is counted twice: as
+            -> part (a), 244, and part (b), 99. The call is counted twice: as
                the frame above's pending instruction and as the frame below.
        M13  In [Residual.taken], give an element every kind its state takes
             rather than the ones that led to it.
@@ -155,8 +157,9 @@
                table reads false either way. A rule whose every child is
                optional would read it, and the ladder has none.
             Part (g) reddens on every mutation above that parts (a) and (b)
-            catch, M1 excepted, at these counts: M2 9, M3 59, M4 45, M5 26 and
-            14, M7 252 and 357, M9 20, M10 26 and 14, M11 65, M12 150 and 51.
+            catch, M1 excepted, at these counts: M2 14, M3 75, M4 57, M5 32
+            and 18, M7 323 and 485, M9 26, M10 32 and 18, M11 77, M12 180
+            and 64.
             They run lower than (a) and (b) because there are fewer bytes than
             steps. M1 is the exception: the gate it breaks applies only inside
             a body a dispatch chose, and that is never the step a byte is
@@ -169,17 +172,17 @@
             the dump is where the next one shows up.
 
             Part (h) reddens where the tables and the plan walk part company:
-            M3 35, M5 13, M7 177, M10 13, M12 90. It reads nothing for the
+            M3 45, M5 16, M7 225, M10 16, M12 109. It reads nothing for the
             rest, because the tables are built out of the same walk those
             mutations changed, so the two sides move together. So (h) checks
             that the emitted path and the plan path agree, and parts (a), (b)
             and (g) are what check the walk itself.
 
-       M15  Empty calc's input list.
+       M15  Empty calc's input list in test/inputs.
             -> part (e), "no position came from these grammars: calc". Parts
                (a) to (d) stay green, which is the whole reason (e) is here.
        M16  Drop postfix's dotted inputs ["a.b"], ["a."], ["a.?"] and
-            ["a.b\[2\]?+1"].
+            ["a.b\[2\]?+1"] from test/inputs.
             -> part (e), "no position was one of these kinds: postfix". A
                postfix operator whose body is one child is the only thing that
                leaves a parse at that kind of position, and those four inputs
@@ -230,133 +233,49 @@ type case =
   ; inputs : string list
   }
 
-(* The inputs law_interp reads, accepted and broken together. This law puts
-   the same question at every position of either, so the split between them
-   makes no difference here. *)
+(* Accepted and broken input together. This law puts the same question at
+   every position of either, so the split between them makes no difference
+   here. *)
 let corpus =
   [ { name = "sexp"
     ; grammar = Lingo_grammars.Sexp_grammar.grammar
     ; tables = Emitted_parsers.Sexp_residual.tables
-    ; inputs =
-        [ "(a b)"
-        ; "(a (b 12) c)"
-        ; "()"
-        ; "( a  b )"
-        ; "(a\n b)"
-        ; "("
-        ; "(a"
-        ; ")"
-        ; "(a ) b"
-        ; "(()"
-        ; "(  ]"
-        ]
+    ; inputs = Inputs.all Inputs.sexp
     }
   ; { name = "json"
     ; grammar = Lingo_grammars.Json_grammar.grammar
     ; tables = Emitted_parsers.Json_residual.tables
-    ; inputs =
-        [ "1"
-        ; "[1, 2]"
-        ; "{\"a\": 1}"
-        ; "[]"
-        ; "{}"
-        ; "[{\"a\": [1]}]"
-        ; "[1, 2,]"
-        ; "[1 2]"
-        ; "{\"a\" 1}"
-        ; "[1"
-        ; "{"
-        ; "[1] junk"
-        ]
+    ; inputs = Inputs.all Inputs.json
     }
   ; { name = "calc"
     ; grammar = Lingo_grammars.Calc_grammar.grammar
     ; tables = Emitted_parsers.Calc_residual.tables
-    ; inputs =
-        [ "1"; "1+2*3"; "-1*2"; "(1+2)*3"; "1-2-3"; "1+"; "1+*2"; "("; "(1"; "1 2" ]
+    ; inputs = Inputs.all Inputs.calc
     }
   ; { name = "rassoc"
     ; grammar = Lingo_grammars.Rassoc_grammar.grammar
     ; tables = Emitted_parsers.Rassoc_residual.tables
-    ; inputs = [ "1"; "1^2^3"; "1+2+3"; "-1^2"; "1^"; "^1"; "1++" ]
+    ; inputs = Inputs.all Inputs.rassoc
     }
   ; { name = "postfix"
     ; grammar = Lingo_grammars.Postfix_grammar.grammar
     ; tables = Emitted_parsers.Postfix_residual.tables
-    ; inputs =
-        [ "a"
-        ; "a?"
-        ; "a.b"
-        ; "a[1]"
-        ; "a{1}"
-        ; "a(1, 2)"
-        ; "a()"
-        ; "a.b[2]?+1"
-        ; "a(1)(2)"
-        ; "a."
-        ; "a(1"
-        ; "a[1"
-        ; "a(1,)"
-        ; "a["
-        ; "a.?"
-        ]
+    ; inputs = Inputs.all Inputs.postfix
     }
   ; { name = "unicode"
     ; grammar = Lingo_grammars.Unicode_grammar.grammar
     ; tables = Emitted_parsers.Unicode_residual.tables
-    ; inputs =
-        [ "\xc2\xabhello\xc2\xbb"
-        ; "\xc2\xab\xc3\xa9t\xc3\xa9\xc2\xbb"
-        ; "\xc2\xab\xc2\xbb"
-        ; "\xc2\xabhello"
-        ; "hello\xc2\xbb"
-        ; "\xc2\xab$\xc2\xbb"
-        ]
+    ; inputs = Inputs.all Inputs.unicode
     }
   ; { name = "recovery"
     ; grammar = Lingo_grammars.Recovery_grammar.grammar
     ; tables = Emitted_parsers.Recovery_residual.tables
-    ; inputs =
-        [ "let a in end"
-        ; "( let a in end )"
-        ; "sig : a ; in"
-        ; "sig : a ; , : b ; in"
-        ; "let a in end ( let b in end )"
-        ; "let end"
-        ; "let in"
-        ; "let"
-        ; "( sig )"
-        ; "( in let a in end )"
-        ; "( let a in end"
-        ; "sig end in"
-        ; "sig"
-        ; "sig : , : a ; in"
-        ; ")"
-        ; ","
-        ; "end"
-        ]
+    ; inputs = Inputs.all Inputs.recovery
     }
   ; { name = "shapes"
     ; grammar = Lingo_grammars.Shapes_grammar.grammar
     ; tables = Emitted_parsers.Shapes_residual.tables
-    ; inputs =
-        [ "let a"
-        ; "let a = b"
-        ; "let a = b, c"
-        ; "{ let a }"
-        ; "{ let a; let b }"
-        ; "{ let a; }"
-        ; "let a { let b }"
-        ; "let"
-        ; "{"
-        ; "{ let }"
-        ; "let a ="
-        ; "{ let a; ; }"
-        ; "}"
-        ; "{ let a end"
-        ; "let a ; let b"
-        ; "@ let a"
-        ]
+    ; inputs = Inputs.all Inputs.shapes
     }
   ]
 ;;

@@ -58,6 +58,7 @@
   lingo.core
   lingo_grammars
   lingo_runtime
+  inputs
   lex
   siesta))
 
@@ -74,5 +75,6 @@
   lingo.core
   lingo_grammars
   lingo_runtime
+  inputs
   lex
   siesta))

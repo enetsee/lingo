@@ -200,6 +200,7 @@
  (modules law_ahead)
  (libraries
   emitted_parsers
+  inputs
   lex
   lingo.core
   lingo.interp
@@ -213,6 +214,7 @@
  (modules law_parse)
  (libraries
   emitted_parsers
+  inputs
   lex
   lingo.core
   lingo.interp

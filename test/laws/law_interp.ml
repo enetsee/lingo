@@ -21,9 +21,9 @@
       Before postfix and shapes were written, seven instruction forms read
       zero and nothing said so.
 
-      Coverage. Eight grammars, 54 inputs the grammar accepts and 58 it does
-      not. A count per instruction prints beside the result, and the law fails
-      where one reads zero.
+      Coverage. Eight grammars, 58 inputs the grammar accepts and 63 it does
+      not, from test/inputs. A count per instruction prints beside the result,
+      and the law fails where one reads zero.
 
       Part (e) is the one claim here about the tree's shape, and it is the one
       that can be made without a second implementation to compare against.
@@ -48,7 +48,7 @@
       result recorded is the one observed.
 
         M1  In [Interp.drain], drop the trailing [Cursor.skip_trivia].
-            -> part (a), 3 of 112 parses. [Cursor.eof] looks past trivia, so
+            -> part (a), 3 of 121 parses. [Cursor.eof] looks past trivia, so
                the sweep stops with the trailing trivia unread and it never
                reaches the tree.
 
@@ -58,11 +58,14 @@
                inputs carry it now.
         M2  In [Interp.exec], let an [Alt] take its first arm whatever the
             kind under the cursor is.
-            -> part (c), 24 inputs: json 6, sexp 6, shapes 8, recovery 4. An
+            -> part (c), 26 inputs: json 7, sexp 7, shapes 8, recovery 4. An
                alt over rules picks the wrong one, and the parse then reports
-               what the arm it took could not find. Part (d) as well:
-               ["loop-missing"] reads zero, because the body never gets far
-               enough to want a separator.
+               what the arm it took could not find.
+
+               It used to redden part (d) as well, with ["loop-missing"]
+               reading zero, because no body got far enough to want a
+               separator. The corpus reaches that form four ways now and one
+               of them survives the mutation.
         M3  In [Lower.repetition], drop the [Trivia] after the loop.
             -> nothing here, and three hunks in test/expect/*.plan: sexp,
                shapes and recovery. The sweep matters for where trivia lands
@@ -76,7 +79,7 @@
                trivia any more, which is a gap in the dump rather than in
                this law.
         M4  In [Build.start_node], drop the [Cursor.skip_trivia].
-            -> part (e), 60 nodes: json 6, sexp 11, shapes 20, recovery 23.
+            -> part (e), 68 nodes: json 12, sexp 13, shapes 20, recovery 23.
                It is the one change that makes leading trivia land inside the
                node it precedes, which is what part (e) exists to catch.
         M5  In [Lex.uchar_at], step one byte at a time rather than one
@@ -121,10 +124,14 @@
                meant to stop.
        M11  In [Lower.repeat_ends_on_of], give a root's repeated body [None]
             so it ends where no element can start.
-            -> nothing here, and five hunks in test/expect: shapes.parse 2,
-               and one each in shapes.plan, recovery.parse and
-               recovery.plan. A stray token between two declarations loses
-               every declaration after it.
+            -> nothing here, and seven hunks in test/expect: shapes.parse 2,
+               and one each in shapes.plan, shapes.residual, recovery.parse,
+               recovery.plan and recovery.residual. A stray token between two
+               declarations loses every declaration after it.
+
+               The two *.residual hunks are what [ends_on] buys the tables: a
+               loop that recovers carries an edge on the error kind back to
+               its entry, and a loop that ends instead carries none.
        M12  In [Interp.loop], parse an element without the body's stopping
             points.
             -> nothing here, and one hunk in test/expect/json.parse. A
@@ -150,134 +157,35 @@ let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
 
 (* -- the corpus ------------------------------------------------------------ *)
 
-(* [good] is input the grammar accepts, so a parse of it reports nothing.
-   [broken] is input it does not, and it is here to reach recovery. *)
 type case =
   { name : string
   ; grammar : Core.Grammar.t
-  ; good : string list
-  ; broken : string list
+  ; inputs : Inputs.t
   }
 
 let corpus =
-  [ { name = "sexp"
-    ; grammar = Lingo_grammars.Sexp_grammar.grammar
-    ; good =
-        [ "(a b)"; "(a (b 12) c)"; "()"; "( a  b )"; "(a\n b)"; "(a b)  " ]
-        (* The last three carry leading trivia in front of the token that fails,
-         which is the case that put part (e) here: the skip used to open its
-         error node before taking that trivia, so the trivia landed inside the
-         node rather than in the frame around it. *)
-    ; broken = [ "("; "(a"; ")"; "(a ) b"; "(()"; "  )"; "( a  )  )"; "(  ]" ]
-    }
-  ; { name = "json"
-    ; grammar = Lingo_grammars.Json_grammar.grammar
-    ; good =
-        [ "1"; "[1, 2]"; "{\"a\": 1}"; "[]"; "{}"; "[{\"a\": [1]}]"; "  [1]  " ]
-        (* The last one ends inside a string. The lexer leaves those bytes as
-         one unterminated token, so the parse has something to report. *)
-    ; broken = [ "[1, 2,]"; "[1 2]"; "{\"a\" 1}"; "[1"; "{"; "[1] junk"; "{\"a\": \"b" ]
-    }
-  ; { name = "calc"
-    ; grammar = Lingo_grammars.Calc_grammar.grammar
-    ; good = [ "1"; "1+2*3"; "-1*2"; "(1+2)*3"; "1-2-3"; " 1 + 2 " ]
-    ; broken = [ "1+"; "1+*2"; "("; "(1"; "1 2" ]
-    }
+  [ { name = "sexp"; grammar = Lingo_grammars.Sexp_grammar.grammar; inputs = Inputs.sexp }
+  ; { name = "json"; grammar = Lingo_grammars.Json_grammar.grammar; inputs = Inputs.json }
+  ; { name = "calc"; grammar = Lingo_grammars.Calc_grammar.grammar; inputs = Inputs.calc }
   ; { name = "rassoc"
     ; grammar = Lingo_grammars.Rassoc_grammar.grammar
-    ; good = [ "1"; "1^2^3"; "1+2+3"; "-1^2" ]
-    ; broken = [ "1^"; "^1"; "1++" ]
+    ; inputs = Inputs.rassoc
     }
   ; { name = "postfix"
     ; grammar = Lingo_grammars.Postfix_grammar.grammar
-    ; good =
-        [ "a"; "a?"; "a.b"; "a[1]"; "a{1}"; "a(1, 2)"; "a()"; "a.b[2]?+1"; "a(1)(2)" ]
-    ; broken = [ "a."; "a(1"; "a[1"; "a(1,)"; "a["; "a.?" ]
+    ; inputs = Inputs.postfix
     }
   ; { name = "unicode"
-    ; grammar =
-        Lingo_grammars.Unicode_grammar.grammar
-        (* Every token here is more than one byte in UTF-8, so a lexer that
-         stepped a byte at a time would read none of them and part (c) would
-         report on input the grammar accepts. *)
-    ; good =
-        [ "\xc2\xabhello\xc2\xbb"
-        ; "\xc2\xab\xc3\xa9t\xc3\xa9\xc2\xbb"
-        ; "\xc2\xab\xce\xb1\xce\xb2\xce\xb3\xc2\xbb"
-        ; "\xc2\xaba \xe2\x86\x92 b\xc2\xbb"
-        ; "\xc2\xab\xc2\xbb"
-        ; "\xc2\xab \xc3\xa9t\xc3\xa9 \xe2\x86\x92 \xce\xb1 \xc2\xbb"
-        ]
-    ; broken =
-        [ "\xc2\xabhello"
-        ; "hello\xc2\xbb"
-        ; "\xc2\xab$\xc2\xbb"
-        ; "\xc2\xab\xe2\x86\x92\xc2\xbb"
-        ]
+    ; grammar = Lingo_grammars.Unicode_grammar.grammar
+    ; inputs = Inputs.unicode
     }
-    (* The parts of a recovery set the other grammars leave unexercised. The
-       broken inputs here are one per part, each at the position that reads
-       it; grammars/recovery_grammar.ml says which is which. *)
   ; { name = "recovery"
     ; grammar = Lingo_grammars.Recovery_grammar.grammar
-    ; good =
-        [ ""
-        ; "let a in end"
-        ; "( let a in end )"
-        ; "sig : a ; in"
-        ; "sig : a ; , : b ; in"
-        ; "let a in end ( let b in end )"
-        ; "let a in end  "
-        ]
-    ; broken =
-        [ "let end"
-        ; "let in"
-        ; "let"
-        ; "( sig )"
-        ; "( in let a in end )"
-        ; "( let a in end"
-        ; "sig end in"
-        ; "sig in"
-        ; "sig"
-        ; "sig : , : a ; in"
-        ; "sig : a ; , in"
-        ; ")"
-        ; ","
-        ; "end"
-        ]
+    ; inputs = Inputs.recovery
     }
   ; { name = "shapes"
     ; grammar = Lingo_grammars.Shapes_grammar.grammar
-    ; good =
-        [ "let a"
-        ; "let a = b"
-        ; "let a = b, c"
-        ; "{ let a }"
-        ; "{ let a; let b }"
-        ; "{ let a; }"
-        ; "let a { let b }"
-        ; "let a  "
-        ; ""
-        ]
-        (* The last two turn on the resync anchor. [end] starts nothing, so a
-         body without an anchor would sweep it up; [Block] declares it, so the
-         body stops there instead. *)
-    ; broken =
-        [ "let"
-        ; "{"
-        ; "{ let }"
-        ; "let a ="
-        ; "{ let a; ; }"
-        ; "}"
-        ; "{ let a end"
-        ; "{ let a end }"
-          (* A root of repeated items recovers to the end of the input, so a
-             stray token between two declarations costs a diagnostic rather
-             than every declaration after it. *)
-        ; "let a ; let b"
-        ; "@ let a"
-        ; "let a ; ; let b"
-        ]
+    ; inputs = Inputs.shapes
     }
   ]
 ;;
@@ -385,8 +293,8 @@ let () =
              if expect_clean && diags <> []
              then noisy := (c.name, src, List.length diags) :: !noisy
          in
-         List.iter (run ~expect_clean:true) c.good;
-         List.iter (run ~expect_clean:false) c.broken)
+         List.iter (run ~expect_clean:true) c.inputs.good;
+         List.iter (run ~expect_clean:false) c.inputs.broken)
     corpus;
   (match !runaway with
    | [] -> pass "every parse stopped, over %d parses" !parses
@@ -401,7 +309,7 @@ let () =
    | [] ->
      pass
        "input the grammar accepts parses clean, over %d inputs"
-       (List.length (List.concat_map (fun c -> c.good) corpus))
+       (List.length (List.concat_map (fun c -> c.inputs.good) corpus))
    | bad ->
      List.iter
        (fun (g, src, n) -> fail "(c) %s accepts %S, and the parse reported %d" g src n)
