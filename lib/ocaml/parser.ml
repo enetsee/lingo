@@ -55,10 +55,128 @@ let add_all ~(set : Emit.expr) (kinds : Emit.expr) : Emit.expr =
   Emit.ecall "add_all" [ set; kinds ]
 ;;
 
-let extend ~(set : Emit.expr) (kinds : Ir.Kind.t list) : Emit.expr =
+(* -- a recovery set --------------------------------------------------------- *)
+
+(* One bit per kind, packed into machine words. A union runs at a call and at
+   a body loop; a membership test runs once per token a skip walks past, and
+   that is the one a broken input pays for.
+
+   The width is the whole plan's highest kind rather than the highest a
+   recovery set holds. Over-sizing costs a word in each literal, and getting
+   the tighter bound wrong would drop a kind out of a set. *)
+let bits = 63
+
+let rec instr_kinds (instruction : Ir.Plan.instr) (acc : int) : int =
+  let some (kind : Ir.Kind.t option) (acc : int) =
+    match kind with
+    | None -> acc
+    | Some kind -> max acc kind
+  in
+  let many (kinds : Ir.Kind.t array) (acc : int) =
+    Array.fold_left kinds ~init:acc ~f:max
+  in
+  match instruction with
+  | Ir.Plan.Seq instructions ->
+    Array.fold_left instructions ~init:acc ~f:(fun acc i -> instr_kinds i acc)
+  | Ir.Plan.Open kind -> max acc kind
+  | Ir.Plan.Close | Ir.Plan.Trivia | Ir.Plan.Bump | Ir.Plan.Drain _ -> acc
+  | Ir.Plan.Expect e -> some e.hole (some e.placeholder (max acc e.tok))
+  | Ir.Plan.Call _ -> acc
+  | Ir.Plan.Pratt _ -> acc
+  | Ir.Plan.Alt a ->
+    Array.fold_left a.arms ~init:acc ~f:(fun acc (on, body) ->
+      instr_kinds body (many on acc))
+  | Ir.Plan.Commit c ->
+    let acc = many c.first (many c.recover (max acc c.placeholder)) in
+    let acc = some c.hole acc in
+    let acc =
+      match c.resume with
+      | None -> acc
+      | Some rs -> many rs acc
+    in
+    instr_kinds c.body acc
+  | Ir.Plan.Loop l ->
+    let acc =
+      match l.ends_on with
+      | None -> acc
+      | Some ks -> many ks acc
+    in
+    Array.fold_left l.states ~init:acc ~f:(fun acc (state : Ir.Plan.loop_state) ->
+      let acc =
+        Array.fold_left state.accepts ~init:acc ~f:(fun acc (on, _) -> many on acc)
+      in
+      let acc =
+        match state.when_missing with
+        | None -> acc
+        | Some m -> max acc m.tok
+      in
+      instr_kinds state.emits acc)
+;;
+
+let words (plan : Ir.Plan.t) : int =
+  let acc =
+    Array.fold_left plan.rules ~init:0 ~f:(fun acc (rule : Ir.Plan.rule) ->
+      let acc = Array.fold_left rule.first ~init:(max acc rule.kind) ~f:max in
+      let acc = Array.fold_left rule.adds ~init:acc ~f:max in
+      instr_kinds rule.body acc)
+  in
+  let acc =
+    Array.fold_left plan.blocks ~init:acc ~f:(fun acc (block : Ir.Plan.block) ->
+      let acc = Array.fold_left block.expected ~init:(max acc block.hole_kind) ~f:max in
+      let acc = max acc block.base_kind in
+      let acc =
+        List.fold_left [ block.prefix_kind; block.infix_kind ] ~init:acc ~f:(fun acc k ->
+          match k with
+          | None -> acc
+          | Some kind -> max acc kind)
+      in
+      let acc =
+        Array.fold_left block.atoms ~init:acc ~f:(fun acc (on, _) ->
+          Array.fold_left on ~init:acc ~f:max)
+      in
+      let acc =
+        Array.fold_left block.infix ~init:acc ~f:(fun acc (token, _) -> max acc token)
+      in
+      let acc =
+        Array.fold_left block.prefix ~init:acc ~f:(fun acc (token, _) -> max acc token)
+      in
+      Array.fold_left block.postfix ~init:acc ~f:(fun acc (q : Ir.Plan.postfix) ->
+        instr_kinds q.body (max (max acc q.lead) q.kind)))
+  in
+  let acc =
+    Array.fold_left plan.pairs ~init:acc ~f:(fun acc (opener, closer) ->
+      max (max acc opener) closer)
+  in
+  let acc = Array.fold_left plan.trivia ~init:acc ~f:max in
+  (max (max acc plan.error_kind) plan.missing_kind / bits) + 1
+;;
+
+(* An array literal allocates wherever it is written, and a rule that starts
+   from nothing reaches for the empty set on every call. That one is bound
+   once. *)
+let empty_set = "empty_set"
+
+let bitset (plan : Ir.Plan.t) (kinds : Ir.Kind.t list) : Emit.expr =
+  match kinds with
+  | [] -> Emit.evar empty_set
+  | kinds ->
+    let packed = Array.make (words plan) 0 in
+    List.iter kinds ~f:(fun (kind : Ir.Kind.t) ->
+      if kind >= 0
+      then packed.(kind / bits) <- packed.(kind / bits) lor (1 lsl (kind mod bits)));
+    Emit.earray (List.map (Array.to_list packed) ~f:Emit.eint)
+;;
+
+let empty_set_item (plan : Ir.Plan.t) : Emit.item =
+  Emit.ilet
+    empty_set
+    (Emit.earray (List.init ~len:(words plan) ~f:(fun _ -> Emit.eint 0)))
+;;
+
+let extend (plan : Ir.Plan.t) ~(set : Emit.expr) (kinds : Ir.Kind.t list) : Emit.expr =
   match kinds with
   | [] -> set
-  | kinds -> add_all ~set (kind_list kinds)
+  | kinds -> add_all ~set (bitset plan kinds)
 ;;
 
 (* -- what a body reads ----------------------------------------------------- *)
@@ -249,7 +367,7 @@ and commit
   : Emit.expr * needs
   =
   (* The skip names [recover]. *)
-  let skip = Emit.ecall "skip" [ cursor; extend ~set:(Emit.evar "recover") local ] in
+  let skip = Emit.ecall "skip" [ cursor; extend plan ~set:(Emit.evar "recover") local ] in
   let resumed =
     match resume with
     | None -> skip
@@ -439,7 +557,10 @@ and loop
       else running
     in
     (* The stopping set is built from [recover]. *)
-    ( Emit.elet "stop_on" ~body:(extend ~set:(Emit.evar "recover") stops) ~rest:running
+    ( Emit.elet
+        "stop_on"
+        ~body:(extend plan ~set:(Emit.evar "recover") stops)
+        ~rest:running
     , together needs_recover inner )
 
 (* Emits an entry into an expression block.
@@ -587,7 +708,7 @@ let rule_binding (plan : Ir.Plan.t) (rule : Ir.Plan.rule)
   =
   (* A boundary rule starts from nothing, so a failure inside it stops at its
      own delimiters and recovery cannot leave a scope it was never in. *)
-  let inbound = if rule.boundary then Emit.elist [] else Emit.evar "inbound" in
+  let inbound = if rule.boundary then bitset plan [] else Emit.evar "inbound" in
   let body, needed = instr plan rule.body in
   let body =
     if needed.passed_down
@@ -596,6 +717,7 @@ let rule_binding (plan : Ir.Plan.t) (rule : Ir.Plan.rule)
         "passed_down"
         ~body:
           (extend
+             plan
              ~set:(if needed.recover then Emit.evar "recover" else inbound)
              (Array.to_list rule.adds))
         ~rest:body
@@ -631,23 +753,53 @@ let cluster (plan : Ir.Plan.t) : Emit.item =
 
 (* -- the preamble ----------------------------------------------------------- *)
 
-(* A recovery set is a list of kinds. The emitted parser does two things with
-   one: this union, and a membership test. *)
 let add_all_item : Emit.item =
   Emit.ilet
     ~args:[ Emit.arg_var "set"; Emit.arg_var "kinds" ]
     "add_all"
     (Emit.ecall
-       "List.fold_left"
+       "Array.map2"
        [ Emit.elambda
-           [ Emit.arg_var "acc"; Emit.arg_var "kind" ]
-           (Emit.eif
-              ~condition:(Emit.ecall "List.mem" [ Emit.evar "kind"; Emit.evar "acc" ])
-              ~then_:(Emit.evar "acc")
-              ~else_:(Emit.econstruct "::" [ Emit.evar "kind"; Emit.evar "acc" ]))
+           [ Emit.arg_var "a"; Emit.arg_var "b" ]
+           (Emit.ecall "lor" [ Emit.evar "a"; Emit.evar "b" ])
        ; Emit.evar "set"
        ; Emit.evar "kinds"
        ])
+;;
+
+(* A kind past the end of the set is one no literal could have put there, so
+   the width test is the answer rather than a guard against it. *)
+let in_set_item : Emit.item =
+  Emit.ilet
+    ~args:[ Emit.arg_var "set"; Emit.arg_var "kind" ]
+    "in_set"
+    (Emit.eand
+       ~left:(Emit.egreater_equal ~left:(Emit.evar "kind") ~right:(Emit.eint 0))
+       ~right:
+         (Emit.elet
+            "word"
+            ~body:(Emit.ecall "/" [ Emit.evar "kind"; Emit.eint bits ])
+            ~rest:
+              (Emit.eand
+                 ~left:
+                   (Emit.eless
+                      ~left:(Emit.evar "word")
+                      ~right:(Emit.ecall "Array.length" [ Emit.evar "set" ]))
+                 ~right:
+                   (Emit.eequal
+                      ~left:
+                        (Emit.ecall
+                           "land"
+                           [ Emit.ecall
+                               "lsr"
+                               [ Emit.ecall
+                                   "Array.get"
+                                   [ Emit.evar "set"; Emit.evar "word" ]
+                               ; Emit.ecall "mod" [ Emit.evar "kind"; Emit.eint bits ]
+                               ]
+                           ; Emit.eint 1
+                           ])
+                      ~right:(Emit.eint 1)))))
 ;;
 
 (* Skips forward to a token the parse can carry on from, and puts what it
@@ -665,9 +817,9 @@ let skip_item (plan : Ir.Plan.t) : Emit.item =
   let kind = Emit.evar "kind" in
   let bump = call "Cursor.bump" [ cursor ] in
   let halt = assign "running" (Emit.ebool false) in
-  (* [waited_for] is bound once in the emitted code. Every arm below tests
-     it, and [List.mem] walks the set. [reserved] adds that no pair of this
-     skip's own is still open. *)
+  (* [waited_for] is bound once in the emitted code, because every arm below
+     tests it. [reserved] adds that no pair of this skip's own is still
+     open. *)
   let waited_for = Emit.evar "waited_for" in
   let reserved =
     Emit.eand
@@ -719,7 +871,7 @@ let skip_item (plan : Ir.Plan.t) : Emit.item =
           Emit.pany
           (Emit.elet
              "waited_for"
-             ~body:(Emit.ecall "List.mem" [ kind; stop_on ])
+             ~body:(Emit.ecall "in_set" [ stop_on; kind ])
              ~rest:on_kind)
       ]
   in
@@ -771,7 +923,7 @@ let skip_item (plan : Ir.Plan.t) : Emit.item =
             ~condition:
               (Emit.eand
                  ~left:(Emit.enot_equal ~left:kind ~right:(Emit.eint Ir.Kind.none))
-                 ~right:(Emit.enot (Emit.ecall "List.mem" [ kind; stop_on ])))
+                 ~right:(Emit.enot (Emit.ecall "in_set" [ stop_on; kind ])))
             ~then_:sweeping))
 ;;
 
@@ -797,7 +949,7 @@ let entry_point (plan : Ir.Plan.t) (root : int) : Emit.item =
          (Emit.eseq
             [ Emit.eapply_labelled
                 (Emit.evar (Core.Manifest.parse_fn rule.name))
-                [ Ppxlib.Nolabel, cursor; Ppxlib.Labelled "inbound", Emit.elist [] ]
+                [ Ppxlib.Nolabel, cursor; Ppxlib.Labelled "inbound", bitset plan [] ]
             ; call "Build.finish" [ cursor ]
             ]))
 ;;
@@ -817,7 +969,8 @@ let entry_points (plan : Ir.Plan.t) : Emit.item list =
 (* -- the module ------------------------------------------------------------- *)
 
 let generate (plan : Ir.Plan.t) : Emit.item list =
-  [ add_all_item; skip_item plan; cluster plan ] @ entry_points plan
+  [ add_all_item; in_set_item; empty_set_item plan; skip_item plan; cluster plan ]
+  @ entry_points plan
 ;;
 
 let entry_type : Emit.ty =
