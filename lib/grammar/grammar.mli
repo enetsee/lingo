@@ -528,6 +528,10 @@ val with_trailing_space : bool -> production -> production
     leaves alone the [def] that starts the next declaration, so one
     diagnostic stays one.
 
+    Pick a token no element of the body starts with. An anchor an element
+    could start with ends the body wherever one could begin, so the body never
+    takes one, and that is rejected as [resync-anchor-conflict].
+
     Only a repeated child inside a matched pair gives a loop for an anchor to
     end. A production that repeats nothing has none, and a separated list has
     already ended wherever an anchor could sit, because its loop runs while the

@@ -129,6 +129,7 @@ type detail =
   | Empty_first_set of { referenced_from : string list }
   | Pratt_atom_conflict of { common : kind_ref list }
   | Prefix_atom_conflict of { how : prefix_atom }
+  | Resync_anchor_conflict of { anchor : Grammar.Name.Token.t }
   | Token_unreachable of { reason : token_unreachable_reason }
 
 type t =
@@ -187,6 +188,7 @@ let code (e : t) : string =
   | Empty_first_set _ -> "empty-first-set"
   | Pratt_atom_conflict _ -> "pratt-atom-conflict"
   | Prefix_atom_conflict _ -> "prefix-atom-conflict"
+  | Resync_anchor_conflict _ -> "resync-anchor-conflict"
   | Token_unreachable _ -> "token-unreachable"
 ;;
 
@@ -244,6 +246,7 @@ let full_stage_codes =
   ; "empty-first-set"
   ; "pratt-atom-conflict"
   ; "prefix-atom-conflict"
+  ; "resync-anchor-conflict"
   ; "token-unreachable"
   ]
 ;;
@@ -293,6 +296,10 @@ let hint (e : t) : string option =
     Some "give the operator a token of its own, or drop the atom"
   | Prefix_atom_conflict { how = Is_the_atom } ->
     Some "the prefix table is read before the atoms; drop the token from the atoms"
+  | Resync_anchor_conflict _ ->
+    Some
+      "pick a token no element starts with, such as the keyword that begins whatever \
+       follows the body"
   | Unused_resync_anchors { body = Repeats_nothing } ->
     Some "drop the anchors; only a delimited production has a body they can end"
   | Unused_resync_anchors { body = Ends_at_its_separator } ->
@@ -486,6 +493,11 @@ let message (e : t) : string =
       (Grammar.Name.Rule.to_string atom)
   | Prefix_atom_conflict { how = Is_the_atom } ->
     "the prefix operator is itself an atom of this block, and it is never read as one"
+  | Resync_anchor_conflict { anchor } ->
+    Printf.sprintf
+      "an element of this body can start with %s, and the anchor ends the body there, so \
+       it would never take one"
+      (Grammar.Name.Token.to_string anchor)
   | Token_unreachable { reason } ->
     (match reason with
      | Empty_language -> "the lexer can never emit this token: it matches nothing"

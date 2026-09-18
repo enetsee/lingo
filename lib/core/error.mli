@@ -149,6 +149,7 @@ type detail =
   | Empty_first_set of { referenced_from : string list }
   | Pratt_atom_conflict of { common : kind_ref list }
   | Prefix_atom_conflict of { how : prefix_atom }
+  | Resync_anchor_conflict of { anchor : Grammar.Name.Token.t }
   | Token_unreachable of { reason : token_unreachable_reason }
 
 type t =

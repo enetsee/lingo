@@ -523,6 +523,35 @@ let token_reachability (ctx : ctx) (dfa : Redfa.Dfa.t) (acc : Error.t list) : Er
     !acc)
 ;;
 
+(* A resync anchor ends a body before what continues it, so an anchor an
+   element can start with ends the body before it ever takes one. shapes had
+   exactly that: a block of declarations anchored on [let], which every
+   declaration starts with. It read as correct until the body loop learned to
+   recover. *)
+let resync_anchor_conflict (ctx : ctx) (acc : Error.t list) : Error.t list =
+  Array.fold_left ctx.shape.rules ~init:acc ~f:(fun acc (rule_def : Rule.def) ->
+    match rule_def.origin, rule_def.frame, Rule.body_children rule_def with
+    | Rule.User, Rule.Delimited _, [ ({ modifier = Grammar.Repeated; _ } as child) ] ->
+      let first = Fixpoint.Reader.alts_first ctx.fixpoint_reader child in
+      Kind.Set.fold
+        (fun anchor acc ->
+           if Kind.Set.mem first anchor
+           then
+             Error.make
+               ~detail:
+                 (Error.Resync_anchor_conflict
+                    { anchor =
+                        Grammar.Name.Token.of_string
+                          (Kind.Name.to_string (Kind.Table.name ctx.kind_table anchor))
+                    })
+               (Error.At_production rule_def.name)
+             :: acc
+           else acc)
+        rule_def.resync
+        acc
+    | _, _, _ -> acc)
+;;
+
 let run (shape : Stage.shape) (fixpoint_tables : Fixpoint.tables) (dfa : Redfa.Dfa.t)
   : Error.t list
   =
@@ -540,6 +569,7 @@ let run (shape : Stage.shape) (fixpoint_tables : Fixpoint.tables) (dfa : Redfa.D
   |> nullable_repeated ctx
   |> nullable_pratt_and_separated ctx
   |> empty_first_sets ctx
+  |> resync_anchor_conflict ctx
   |> pratt_atom_first_first ctx
   |> prefix_atom_conflict ctx
   |> token_reachability ctx dfa

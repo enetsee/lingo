@@ -438,6 +438,16 @@ let prefix_is_atom =
     [ prod "Root" [ child_req "e" (Rule "E") ] ]
 ;;
 
+(* A delimited body anchored on the very token its elements start with. The
+   anchor ends the body wherever an element could begin. *)
+let resync_anchor_conflict =
+  only
+    [ prod "Root" [ child_rep "items" (Token "ta") ]
+      |> with_delimited ~open_tok:"lp" ~close_tok:"rp"
+      |> with_resync_to [ "ta" ]
+    ]
+;;
+
 let prefix_atom_conflict =
   only
     ~expr:
@@ -508,6 +518,7 @@ let all : (string * Grammar.t) list =
   ; "pratt-atom-conflict", pratt_atom_conflict
   ; "prefix-atom-conflict", prefix_atom_conflict
   ; "prefix-atom-conflict", prefix_is_atom
+  ; "resync-anchor-conflict", resync_anchor_conflict
   ; "token-unreachable", token_unreachable
   ]
 ;;
