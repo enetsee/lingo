@@ -1,0 +1,69 @@
+N_FILE
+  0
+    next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_NUMBER T_STRING
+    on N_VALUE N_FILE_HOLE -> 1
+  1 may-end
+
+N_VALUE
+  0
+    next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_NUMBER T_STRING
+    on N_OBJECT N_ARRAY T_TRUE T_FALSE T_NULL T_NUMBER T_STRING N_VALUE_HOLE
+    on   -> 1
+  1 may-end
+
+N_MEMBER
+  0
+    next T_STRING
+    on T_STRING -> 1
+    on T_COLON -> 2
+    on N_VALUE N_MEMBER_HOLE -> 3
+  1
+    next T_COLON
+    on T_COLON -> 2
+    on N_VALUE N_MEMBER_HOLE -> 3
+  2
+    next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_NUMBER T_STRING
+    on N_VALUE N_MEMBER_HOLE -> 3
+  3 may-end
+
+N_OBJECT
+  0
+    next T_LBRACE
+    on T_LBRACE -> 1
+    on N_MEMBER -> 2
+    on T_RBRACE -> 4
+  1
+    next T_RBRACE T_STRING
+    on N_MEMBER -> 2
+    on T_RBRACE -> 4
+  2
+    next T_RBRACE T_COMMA
+    on T_COMMA -> 3
+    on T_RBRACE -> 4
+  3
+    next T_STRING
+    on N_MEMBER -> 2
+    on T_RBRACE -> 4
+  4 may-end
+
+N_ARRAY
+  0
+    next T_LBRACKET
+    on T_LBRACKET -> 1
+    on N_VALUE -> 2
+    on T_RBRACKET -> 4
+  1
+    next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_RBRACKET T_NUMBER
+    next   T_STRING
+    on N_VALUE -> 2
+    on T_RBRACKET -> 4
+  2
+    next T_RBRACKET T_COMMA
+    on T_COMMA -> 3
+    on T_RBRACKET -> 4
+  3
+    next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_NUMBER T_STRING
+    on N_VALUE -> 2
+    on T_RBRACKET -> 4
+  4 may-end
+

@@ -60,3 +60,19 @@
   lingo_runtime
   lex
   siesta))
+
+; law_residual probes the interpreter to say what a position admits, so it
+; needs the parse runtime as well as the plan.
+
+(tests
+ (names law_residual)
+ (modules law_residual)
+ (libraries
+  emitted_parsers
+  lingo.plan
+  lingo.interp
+  lingo.core
+  lingo_grammars
+  lingo_runtime
+  lex
+  siesta))

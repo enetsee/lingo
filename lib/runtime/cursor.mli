@@ -94,6 +94,14 @@ val report_at : t -> int * int -> Diagnostic.kind -> unit
     a hole per child and the list keeps one entry. *)
 val report_id : t -> Diagnostic.kind -> int
 
+(** How many times the parse has reported. Read it either side of a step,
+    and the two counts say whether that step reported.
+
+    Two [Missing] diagnostics over one range fold into one entry in
+    {!val-diagnostics}, and both count here. So a position that reports what its
+    neighbour already reported is still visible. *)
+val reports : t -> int
+
 (** {1 The builder and the diagnostics}
 
     {!Build} brackets nodes around what the cursor emits, so it works on the

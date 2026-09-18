@@ -30,6 +30,95 @@
  (modules dump_lexer)
  (libraries lingo.core lingo_grammars))
 
+; The residual tables, as the emitter writes them. Reading these by eye is what
+; found two faults in them, so they are in the tree where the next one shows up
+; as a diff.
+
+(executable
+ (name dump_residual)
+ (modules dump_residual)
+ (libraries lingo.plan lingo.core lingo_grammars lingo_runtime.ir))
+
+(rule
+ (with-stdout-to
+  sexp.residual.actual
+  (run ./dump_residual.exe sexp)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.residual sexp.residual.actual)))
+
+(rule
+ (with-stdout-to
+  json.residual.actual
+  (run ./dump_residual.exe json)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.residual json.residual.actual)))
+
+(rule
+ (with-stdout-to
+  calc.residual.actual
+  (run ./dump_residual.exe calc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.residual calc.residual.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.residual.actual
+  (run ./dump_residual.exe rassoc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.residual rassoc.residual.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.residual.actual
+  (run ./dump_residual.exe postfix)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.residual postfix.residual.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.residual.actual
+  (run ./dump_residual.exe shapes)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.residual shapes.residual.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.residual.actual
+  (run ./dump_residual.exe unicode)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.residual unicode.residual.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.residual.actual
+  (run ./dump_residual.exe recovery)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.residual recovery.residual.actual)))
+
 (executable
  (name dump_emit)
  (modules dump_emit)

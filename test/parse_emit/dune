@@ -86,6 +86,88 @@
   recovery_parser.mli
   (run ./gen.exe recovery mli)))
 
+; The residual tables, beside the parser they describe.
+
+(rule
+ (with-stdout-to
+  sexp_residual.ml
+  (run ./gen.exe sexp residual)))
+
+(rule
+ (with-stdout-to
+  sexp_residual.mli
+  (run ./gen.exe sexp residual-mli)))
+
+(rule
+ (with-stdout-to
+  json_residual.ml
+  (run ./gen.exe json residual)))
+
+(rule
+ (with-stdout-to
+  json_residual.mli
+  (run ./gen.exe json residual-mli)))
+
+(rule
+ (with-stdout-to
+  calc_residual.ml
+  (run ./gen.exe calc residual)))
+
+(rule
+ (with-stdout-to
+  calc_residual.mli
+  (run ./gen.exe calc residual-mli)))
+
+(rule
+ (with-stdout-to
+  rassoc_residual.ml
+  (run ./gen.exe rassoc residual)))
+
+(rule
+ (with-stdout-to
+  rassoc_residual.mli
+  (run ./gen.exe rassoc residual-mli)))
+
+(rule
+ (with-stdout-to
+  postfix_residual.ml
+  (run ./gen.exe postfix residual)))
+
+(rule
+ (with-stdout-to
+  postfix_residual.mli
+  (run ./gen.exe postfix residual-mli)))
+
+(rule
+ (with-stdout-to
+  shapes_residual.ml
+  (run ./gen.exe shapes residual)))
+
+(rule
+ (with-stdout-to
+  shapes_residual.mli
+  (run ./gen.exe shapes residual-mli)))
+
+(rule
+ (with-stdout-to
+  unicode_residual.ml
+  (run ./gen.exe unicode residual)))
+
+(rule
+ (with-stdout-to
+  unicode_residual.mli
+  (run ./gen.exe unicode residual-mli)))
+
+(rule
+ (with-stdout-to
+  recovery_residual.ml
+  (run ./gen.exe recovery residual)))
+
+(rule
+ (with-stdout-to
+  recovery_residual.mli
+  (run ./gen.exe recovery residual-mli)))
+
 ; [emitted_parsers] links lingo_runtime and nothing else of ours, so a
 ; generated parser that reached for lingo.plan or lingo.core would not build.
 
@@ -99,8 +181,32 @@
   postfix_parser
   shapes_parser
   unicode_parser
-  recovery_parser)
+  recovery_parser
+  sexp_residual
+  json_residual
+  calc_residual
+  rassoc_residual
+  postfix_residual
+  shapes_residual
+  unicode_residual
+  recovery_residual)
  (libraries lingo_runtime))
+
+; law_ahead reads the emitted tables back and compares them with the plan they
+; came from. Whether those tables are right is test/laws/law_residual part (h).
+
+(tests
+ (names law_ahead)
+ (modules law_ahead)
+ (libraries
+  emitted_parsers
+  lex
+  lingo.core
+  lingo.interp
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  siesta))
 
 (tests
  (names law_parse)

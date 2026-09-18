@@ -1,0 +1,26 @@
+N_FILE
+  0
+    next T_LAQUO
+    on N_DOC N_FILE_HOLE -> 1
+  1 may-end
+
+N_DOC
+  0
+    next T_LAQUO
+    on T_LAQUO -> 1
+    on T_WORD -> 2
+    on T_RAQUO -> 4
+  1
+    next T_RAQUO T_WORD
+    on T_WORD -> 2
+    on T_RAQUO -> 4
+  2
+    next T_RAQUO T_ARROW
+    on T_ARROW -> 3
+    on T_RAQUO -> 4
+  3
+    next T_WORD
+    on T_WORD -> 2
+    on T_RAQUO -> 4
+  4 may-end
+

@@ -8,6 +8,7 @@ type t =
   ; next_meaningful : int array
   ; builder : Siesta.Builder.t
   ; diags : Diagnostic.t Dynarray.t
+  ; mutable reports : int
   ; mutable depth : int
   }
 
@@ -37,6 +38,7 @@ let create ?(cache = Siesta.Cache.create ()) ~trivia_kinds tokens =
   ; next_meaningful
   ; builder = Siesta.Builder.create ~cache ()
   ; diags = Dynarray.create ()
+  ; reports = 0
   ; depth = 0
   }
 ;;
@@ -102,16 +104,19 @@ let bump (c : t) =
    end is quadratic on input that reports a diagnostic per token, and a fuzz
    corpus is full of that input. *)
 let report (c : t) (kind : Diagnostic.kind) =
+  c.reports <- c.reports + 1;
   Dynarray.add_last c.diags { Diagnostic.range = range c; kind }
 ;;
 
 let offset (c : t) = c.offset
 
 let report_at (c : t) (range : int * int) (kind : Diagnostic.kind) =
+  c.reports <- c.reports + 1;
   Dynarray.add_last c.diags { Diagnostic.range; kind }
 ;;
 
 let report_id (c : t) (kind : Diagnostic.kind) =
+  c.reports <- c.reports + 1;
   let r = range c in
   let n = Dynarray.length c.diags in
   let append () =
@@ -127,6 +132,7 @@ let report_id (c : t) (kind : Diagnostic.kind) =
   | _ -> append ()
 ;;
 
+let reports (c : t) = c.reports
 let builder (c : t) = c.builder
 let depth (c : t) = c.depth
 let entered (c : t) = c.depth <- c.depth + 1

@@ -1,0 +1,24 @@
+N_FILE
+  0
+    next T_LPAREN T_IDENT T_NUMBER
+    on N_SEXP N_FILE_HOLE -> 1
+  1 may-end
+
+N_SEXP
+  0
+    next T_LPAREN T_IDENT T_NUMBER
+    on N_GROUP T_IDENT T_NUMBER N_SEXP_HOLE -> 1
+  1 may-end
+
+N_GROUP
+  0
+    next T_LPAREN
+    on T_LPAREN -> 1
+    on N_SEXP -> 1
+    on T_RPAREN -> 2
+  1
+    next T_LPAREN T_RPAREN T_IDENT T_NUMBER
+    on N_SEXP -> 1
+    on T_RPAREN -> 2
+  2 may-end
+

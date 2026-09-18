@@ -1,0 +1,40 @@
+N_EXPR
+  0
+    next T_MINUS T_INT
+    on T_INT -> 1
+  1 may-end
+    next T_PLUS T_CARET
+
+N_EXPR_HOLE
+  0
+    next T_MINUS T_INT
+
+N_EXPR_PREFIX
+  0
+    next T_MINUS T_INT
+    on T_MINUS -> 1
+  1
+    next T_MINUS T_INT
+    on N_EXPR N_EXPR_BIN N_EXPR_PREFIX N_EXPR_HOLE -> 2
+  2 may-end
+    next T_PLUS T_CARET
+
+N_EXPR_BIN
+  0
+    next T_MINUS T_INT
+    on N_EXPR N_EXPR_BIN N_EXPR_PREFIX N_EXPR_HOLE -> 1
+  1 may-end
+    next T_PLUS T_CARET
+    on T_PLUS T_CARET -> 2
+  2
+    next T_MINUS T_INT
+    on N_EXPR N_EXPR_BIN N_EXPR_PREFIX N_EXPR_HOLE -> 3
+  3 may-end
+    next T_PLUS T_CARET
+
+N_FILE
+  0
+    next T_MINUS T_INT
+    on N_EXPR N_EXPR_BIN N_EXPR_PREFIX N_FILE_HOLE N_EXPR_HOLE -> 1
+  1 may-end
+

@@ -43,3 +43,4 @@ module Diagnostic = Diagnostic
 module Cursor = Cursor
 module Build = Build
 module Recover = Recover
+module Ahead = Ahead

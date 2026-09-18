@@ -24,9 +24,20 @@
     [?trace] is called with the name of each instruction form as it runs:
     ["seq"], ["commit"], ["postfix"] and so on. A law counts those to say
     which of them the corpus reaches, because a form no parse runs is a form
-    the law says nothing about. *)
+    the law says nothing about.
+
+    [?at] is called wherever the parse reads the cursor to decide what to do
+    next: the position in the plan, the index into [tokens] the parse has
+    reached with trivia counted, and how many times it has reported. Two calls
+    and their [reported] say whether the step between them reported.
+
+    Every hole is one of those positions. A hole is what a position leaves
+    behind when it reads the cursor and what the position needs is not there.
+    {!Ir.Residual.at} turns a position into the kinds the grammar admits
+    there. *)
 val run
   :  ?trace:(string -> unit)
+  -> ?at:(Ir.Residual.State.t -> index:int -> reported:int -> unit)
   -> Ir.Plan.t
   -> int
   -> Lingo_runtime.Token.t array

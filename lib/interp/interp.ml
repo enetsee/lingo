@@ -80,13 +80,26 @@ let skip (plan : Ir.Plan.t) (cursor : Cursor.t) (stop_on : Ir.Kind.t list) : uni
 
 (* -- execution ------------------------------------------------------------- *)
 
-(* The three things every step of the walk needs. [trace] is called with the
-   name of each instruction as it runs. *)
+(* What every step of the walk needs. [trace] is called with the name of each
+   instruction as it runs, and [at] with the position wherever the walk reads
+   the cursor. *)
 type t =
   { plan : Ir.Plan.t
   ; cursor : Cursor.t
   ; trace : string -> unit
+  ; at : Ir.Residual.State.t -> index:int -> reported:int -> unit
   }
+
+let reached (t : t) (where : Ir.Residual.State.t) : unit =
+  t.at where ~index:(Cursor.position t.cursor) ~reported:(Cursor.reports t.cursor)
+;;
+
+let first_index (count : int) ~(holds : int -> bool) : int option =
+  let rec go (index : int) : int option =
+    if index >= count then None else if holds index then Some index else go (index + 1)
+  in
+  go 0
+;;
 
 (* [recover] is what a failure here can resume on: the closers of every frame
    open above this point. A [Commit] unions its own recovery set into that
@@ -99,12 +112,14 @@ let rec exec
           (t : t)
           ~(recover : Ir.Kind.t list)
           ~(passed_down : Ir.Kind.t list)
+          ~(where : Ir.Residual.State.t)
           (instr : Ir.Plan.instr)
   =
   match instr with
   | Seq xs ->
     t.trace "seq";
-    Array.iter xs ~f:(exec t ~recover ~passed_down)
+    Array.iteri xs ~f:(fun index instruction ->
+      exec t ~recover ~passed_down ~where:(Ir.Residual.State.item where index) instruction)
   | Open k ->
     t.trace "open";
     Build.start_node t.cursor k
@@ -116,12 +131,15 @@ let rec exec
     Cursor.skip_trivia t.cursor
   | Bump ->
     t.trace "bump";
+    reached t where;
     Cursor.bump t.cursor
   | Drain id ->
     t.trace "drain";
+    reached t where;
     drain t.cursor id
   | Expect e ->
     t.trace "expect";
+    reached t where;
     Recover.expect
       ?at_child:e.at_child
       ?hole_kind:e.hole
@@ -131,22 +149,30 @@ let rec exec
       e.message
   | Call r ->
     t.trace "call";
-    call t passed_down r
+    call t passed_down r ~where:(Ir.Residual.State.call where r)
   | Pratt pr ->
     t.trace "pratt";
-    pratt t ~recover ~passed_down ~block:pr.block ~min_bp:pr.min_bp
+    pratt t ~recover ~passed_down ~where ~block:pr.block ~min_bp:pr.min_bp
   | Alt a ->
     t.trace "alt";
+    reached t where;
     (match
-       Array.find_map a.arms ~f:(fun (on, body) ->
-         if holds_array on (Cursor.current t.cursor) then Some body else None)
+       first_index (Array.length a.arms) ~holds:(fun index ->
+         holds_array (fst a.arms.(index)) (Cursor.current t.cursor))
      with
-     | Some body -> exec t ~recover ~passed_down body
+     | Some index ->
+       exec
+         t
+         ~recover
+         ~passed_down
+         ~where:(Ir.Residual.State.arm where index)
+         (snd a.arms.(index))
      | None -> ())
   | Commit cm ->
     t.trace "commit";
+    reached t where;
     if holds_array cm.first (Cursor.current t.cursor)
-    then exec t ~recover ~passed_down cm.body
+    then exec t ~recover ~passed_down ~where:(Ir.Residual.State.child where) cm.body
     else (
       let id =
         Cursor.report_id
@@ -169,19 +195,20 @@ let rec exec
       if not rest_can_take then skip t.plan t.cursor (add_all recover cm.recover))
   | Loop l ->
     t.trace "loop";
-    loop t ~recover ~passed_down l.states l.entry l.ends_on
+    loop t ~recover ~passed_down ~where l.states l.entry l.ends_on
 
-and call (t : t) (inbound : Ir.Kind.t list) (r : int) =
+and call (t : t) (inbound : Ir.Kind.t list) (r : int) ~(where : Ir.Residual.State.t) =
   let rule = t.plan.rules.(r) in
   (* A boundary rule starts from nothing, so a failure inside it stops at its
      own delimiters. Recovery then cannot leave a scope it was never in. *)
   let recover = if rule.boundary then [] else inbound in
-  exec t ~recover ~passed_down:(add_all recover rule.adds) rule.body
+  exec t ~recover ~passed_down:(add_all recover rule.adds) ~where rule.body
 
 and loop
       (t : t)
       ~(recover : Ir.Kind.t list)
       ~(passed_down : Ir.Kind.t list)
+      ~(where : Ir.Residual.State.t)
       (states : Ir.Plan.loop_state array)
       (entry : int)
       (ends_on : Ir.Kind.t array option)
@@ -221,6 +248,7 @@ and loop
   let running = ref true in
   while !running do
     let before = Cursor.position t.cursor in
+    reached t (Ir.Residual.State.loop where !state);
     if ending ()
     then running := false
     else (
@@ -231,6 +259,7 @@ and loop
           t
           ~recover
           ~passed_down:(add_all passed_down (Array.of_list stop_on))
+          ~where:(Ir.Residual.State.emits where ~state:!state ~goto:dest)
           states.(!state).emits;
         last_taken := Some (from, Cursor.offset t.cursor);
         state := dest
@@ -281,23 +310,40 @@ and pratt
       (t : t)
       ~(recover : Ir.Kind.t list)
       ~(passed_down : Ir.Kind.t list)
+      ~(where : Ir.Residual.State.t)
       ~(block : int)
       ~(min_bp : int)
   =
   let b = t.plan.blocks.(block) in
   let start = Build.mark t.cursor in
-  head t ~recover ~passed_down block b start;
-  let climbing = ref true in
-  while !climbing do
+  head
+    t
+    ~recover
+    ~passed_down
+    ~where:(Ir.Residual.State.operand where min_bp)
+    block
+    b
+    start;
+  let climbing = Ir.Residual.State.climbing where min_bp in
+  let running = ref true in
+  while !running do
+    reached t climbing;
     let k = Cursor.current t.cursor in
     match
-      Array.find_opt b.postfix ~f:(fun (q : Ir.Plan.postfix) ->
+      first_index (Array.length b.postfix) ~holds:(fun index ->
+        let q : Ir.Plan.postfix = b.postfix.(index) in
         q.lead = k && q.bp >= min_bp)
     with
-    | Some q ->
+    | Some index ->
+      let q = b.postfix.(index) in
       t.trace "postfix";
       Cursor.bump t.cursor;
-      exec t ~recover ~passed_down q.body;
+      exec
+        t
+        ~recover
+        ~passed_down
+        ~where:(Ir.Residual.State.postfix climbing index)
+        q.body;
       Build.start_node_at t.cursor start q.kind;
       Build.finish_node t.cursor
     | None ->
@@ -308,13 +354,13 @@ and pratt
        | Some (_, (_, right_bp)) ->
          t.trace "infix";
          Cursor.bump t.cursor;
-         pratt t ~recover ~passed_down ~block ~min_bp:right_bp;
+         pratt t ~recover ~passed_down ~where:climbing ~block ~min_bp:right_bp;
          (match b.infix_kind with
           | Some kind ->
             Build.start_node_at t.cursor start kind;
             Build.finish_node t.cursor
           | None -> ())
-       | None -> climbing := false)
+       | None -> running := false)
   done
 
 (* What an expression starts with: a prefix operator and its operand or an atom *)
@@ -322,17 +368,19 @@ and head
       (t : t)
       ~(recover : Ir.Kind.t list)
       ~(passed_down : Ir.Kind.t list)
+      ~(where : Ir.Residual.State.t)
       (block : int)
       (b : Ir.Plan.block)
       (start : Siesta.Builder.checkpoint)
   : unit
   =
+  reached t where;
   let k = Cursor.current t.cursor in
   match Array.find_opt b.prefix ~f:(fun (tok, _) -> tok = k) with
   | Some (_, right_bp) ->
     t.trace "prefix";
     Cursor.bump t.cursor;
-    pratt t ~recover ~passed_down ~block ~min_bp:right_bp;
+    pratt t ~recover ~passed_down ~where ~block ~min_bp:right_bp;
     (match b.prefix_kind with
      | Some kind ->
        Build.start_node_at t.cursor start kind;
@@ -352,7 +400,7 @@ and head
      (* A rule builds its own node, so this wraps nothing. *)
      | Some (Ir.Plan.Atom_rule r) ->
        t.trace "atom-rule";
-       call t passed_down r
+       call t passed_down r ~where:(Ir.Residual.State.call where r)
      | None -> missing_atom t.cursor b)
 
 (* No atom where one was needed. The hole stands in for the expression, so the
@@ -396,6 +444,7 @@ and drain (cursor : Cursor.t) (message_id : Ir.Message.id) : unit =
    the facts, which is what lets [Call] carry one unchanged. *)
 let run
       ?(trace = fun (_ : string) -> ())
+      ?(at = fun (_ : Ir.Residual.State.t) ~index:(_ : int) ~reported:(_ : int) -> ())
       (plan : Ir.Plan.t)
       (entry : int)
       (tokens : Lingo_runtime.Token.t array)
@@ -421,6 +470,6 @@ let run
       ~trivia_kinds:(Array.to_list plan.trivia)
       tokens
   in
-  call { plan; cursor; trace } [] entry;
+  call { plan; cursor; trace; at } [] entry ~where:(Ir.Residual.State.enter entry);
   Build.finish cursor
 ;;

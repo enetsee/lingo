@@ -1,0 +1,94 @@
+N_FILE
+  0 may-end
+    next T_LET T_SIG T_LPAREN
+    on N_ITEM -> 0
+
+N_ITEM
+  0
+    next T_LET T_SIG T_LPAREN
+    on N_TRIPLE N_GROUP N_SIG N_ITEM_HOLE -> 1
+  1 may-end
+
+N_TRIPLE
+  0
+    next T_LET
+    on T_LET -> 1
+    on N_LEAF N_TRIPLE_HOLE -> 2
+    on T_IN -> 3
+    on T_END -> 4
+  1
+    next T_NAME
+    on N_LEAF N_TRIPLE_HOLE -> 2
+    on T_IN -> 3
+    on T_END -> 4
+  2
+    next T_IN
+    on T_IN -> 3
+    on T_END -> 4
+  3
+    next T_END
+    on T_END -> 4
+  4 may-end
+
+N_GROUP
+  0
+    next T_LPAREN
+    on T_LPAREN -> 1
+    on N_TRIPLE N_GROUP_HOLE -> 2
+    on T_RPAREN -> 3
+  1
+    next T_LET
+    on N_TRIPLE N_GROUP_HOLE -> 2
+    on T_RPAREN -> 3
+  2
+    next T_RPAREN
+    on T_RPAREN -> 3
+  3 may-end
+
+N_SIG
+  0
+    next T_SIG
+    on T_SIG -> 1
+    on N_FIELDS N_SIG_HOLE -> 2
+    on T_IN -> 3
+  1
+    next T_COLON
+    on N_FIELDS N_SIG_HOLE -> 2
+    on T_IN -> 3
+  2
+    next T_IN
+    on T_IN -> 3
+  3 may-end
+
+N_FIELDS
+  0 may-end
+    next T_COLON
+    on N_FIELD -> 1
+  1 may-end
+    next T_COMMA
+    on T_COMMA -> 2
+  2
+    next T_COLON
+    on N_FIELD -> 1
+
+N_FIELD
+  0
+    next T_COLON
+    on T_COLON -> 1
+    on N_LEAF N_FIELD_HOLE -> 2
+    on T_SEMI -> 3
+  1
+    next T_NAME
+    on N_LEAF N_FIELD_HOLE -> 2
+    on T_SEMI -> 3
+  2
+    next T_SEMI
+    on T_SEMI -> 3
+  3 may-end
+
+N_LEAF
+  0
+    next T_NAME
+    on T_NAME -> 1
+  1 may-end
+

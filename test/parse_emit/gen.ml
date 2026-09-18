@@ -36,5 +36,8 @@ let () =
        (match Sys.argv.(2) with
         | "mli" ->
           print_string (Ocaml.Emit.render_signature (Ocaml.Parser.signature plan))
+        | "residual" -> print_string (Ocaml.Emit.render (Ocaml.Residual.generate plan))
+        | "residual-mli" ->
+          print_string (Ocaml.Emit.render_signature (Ocaml.Residual.signature plan))
         | _ -> print_string (Ocaml.Emit.render (Ocaml.Parser.generate plan))))
 ;;
