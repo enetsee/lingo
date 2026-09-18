@@ -449,28 +449,31 @@ let pratt_atom_first_first (ctx : ctx) (acc : Error.t list) : Error.t list =
 ;;
 
 (* The left-hand-side dispatch reads the prefix table before the atoms. A
-   prefix operator token that also appears in FIRST of an atom therefore
-   always takes that token, and the atom never gets it. *)
+   prefix operator token that also appears in FIRST of an atom therefore always
+   takes that token, and the atom never reads it. A token atom that is the
+   operator itself goes the same way. *)
 let prefix_atom_conflict (ctx : ctx) (acc : Error.t list) : Error.t list =
   Array.fold_left ctx.shape.blocks ~init:acc ~f:(fun acc (b : Block.def) ->
     Array.fold_left b.prefix ~init:acc ~f:(fun acc (o : Block.op) ->
       Array.fold_left b.atoms ~init:acc ~f:(fun acc k ->
+        let where =
+          Error.At_operator
+            { block = b.name
+            ; token =
+                Grammar.Name.Token.of_string
+                  (Kind.Name.to_string (Kind.Table.name ctx.kind_table o.op_kind))
+            }
+        in
+        let report (how : Error.prefix_atom) =
+          Error.make ~detail:(Error.Prefix_atom_conflict { how }) where :: acc
+        in
         let r = Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k in
-        if r < 0 || ctx.shape.rules.(r).Rule.origin <> Rule.User
+        if r < 0
+        then if Kind.equal k o.op_kind then report Error.Is_the_atom else acc
+        else if ctx.shape.rules.(r).Rule.origin <> Rule.User
         then acc
         else if Kind.Set.mem ctx.fixpoint_tables.first.(r) o.op_kind
-        then
-          Error.make
-            ~detail:
-              (Error.Prefix_atom_conflict
-                 { atom = Grammar.Name.Rule.to_string ctx.shape.rules.(r).Rule.name })
-            (Error.At_operator
-               { block = b.name
-               ; token =
-                   Grammar.Name.Token.of_string
-                     (Kind.Name.to_string (Kind.Table.name ctx.kind_table o.op_kind))
-               })
-          :: acc
+        then report (Error.Starts_the_atom { atom = ctx.shape.rules.(r).Rule.name })
         else acc)))
 ;;
 

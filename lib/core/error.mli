@@ -52,6 +52,13 @@ type resync_body =
   | Repeats_nothing
   | Ends_at_its_separator
 
+(** How a prefix operator makes an atom unreachable. The left-hand-side
+    dispatch reads the prefix table first, so the token never reaches the
+    atom. *)
+type prefix_atom =
+  | Starts_the_atom of { atom : Grammar.Name.Rule.t }
+  | Is_the_atom
+
 type token_unreachable_reason =
   | Empty_language
   | Subsumed_by of Grammar.Name.Token.t
@@ -141,7 +148,7 @@ type detail =
   | Nullable_separated_element of { element : string }
   | Empty_first_set of { referenced_from : string list }
   | Pratt_atom_conflict of { common : kind_ref list }
-  | Prefix_atom_conflict of { atom : string }
+  | Prefix_atom_conflict of { how : prefix_atom }
   | Token_unreachable of { reason : token_unreachable_reason }
 
 type t =

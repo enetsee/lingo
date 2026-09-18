@@ -479,12 +479,8 @@ let wrap (kind : Ir.Kind.t) : Emit.expr list =
   ]
 ;;
 
-(* A kind in both the prefix and the atom table takes the prefix arm, and is
-   dropped from the atom's set, because two arms for one kind do not
-   compile. *)
 let lhs_body (plan : Ir.Plan.t) (block : int) : Emit.expr =
   let definition = plan.blocks.(block) in
-  let prefixes = List.map (Array.to_list definition.prefix) ~f:fst in
   let prefix_arms =
     List.map
       (Array.to_list definition.prefix)
@@ -501,8 +497,7 @@ let lhs_body (plan : Ir.Plan.t) (block : int) : Emit.expr =
     List.map
       (Array.to_list definition.atoms)
       ~f:(fun ((on, atom) : Ir.Kind.t array * Ir.Plan.atom) ->
-        ( List.filter (Array.to_list on) ~f:(fun (k : Ir.Kind.t) ->
-            not (List.mem k ~set:prefixes))
+        ( Array.to_list on
         , match atom with
           (* The token is the whole atom, and the node wraps just it. *)
           | Ir.Plan.Atom_token ->

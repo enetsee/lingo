@@ -35,6 +35,10 @@ type resync_body =
   | Repeats_nothing
   | Ends_at_its_separator
 
+type prefix_atom =
+  | Starts_the_atom of { atom : Grammar.Name.Rule.t }
+  | Is_the_atom
+
 type token_unreachable_reason =
   | Empty_language
   | Subsumed_by of Grammar.Name.Token.t
@@ -124,7 +128,7 @@ type detail =
   | Nullable_separated_element of { element : string }
   | Empty_first_set of { referenced_from : string list }
   | Pratt_atom_conflict of { common : kind_ref list }
-  | Prefix_atom_conflict of { atom : string }
+  | Prefix_atom_conflict of { how : prefix_atom }
   | Token_unreachable of { reason : token_unreachable_reason }
 
 type t =
@@ -285,6 +289,10 @@ let hint (e : t) : string option =
     Some "the postfix trigger is checked first, so the infix form is dead"
   | Mixed_assoc_at_bp _ -> Some "give the two associativities distinct binding powers"
   | Delimited_arity _ | Separated_arity _ -> Some "wrap the body in a rule of its own"
+  | Prefix_atom_conflict { how = Starts_the_atom _ } ->
+    Some "give the operator a token of its own, or drop the atom"
+  | Prefix_atom_conflict { how = Is_the_atom } ->
+    Some "the prefix table is read before the atoms; drop the token from the atoms"
   | Unused_resync_anchors { body = Repeats_nothing } ->
     Some "drop the anchors; only a delimited production has a body they can end"
   | Unused_resync_anchors { body = Ends_at_its_separator } ->
@@ -471,11 +479,13 @@ let message (e : t) : string =
       "two atoms can both start with %s, and atom dispatch is ordered, so the later one \
        is unreachable"
       (kinds common)
-  | Prefix_atom_conflict { atom } ->
+  | Prefix_atom_conflict { how = Starts_the_atom { atom } } ->
     Printf.sprintf
       "the prefix operator can start the atom %s, which is therefore unreachable through \
        it"
-      atom
+      (Grammar.Name.Rule.to_string atom)
+  | Prefix_atom_conflict { how = Is_the_atom } ->
+    "the prefix operator is itself an atom of this block, and it is never read as one"
   | Token_unreachable { reason } ->
     (match reason with
      | Empty_language -> "the lexer can never emit this token: it matches nothing"

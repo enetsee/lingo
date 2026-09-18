@@ -424,6 +424,20 @@ let pratt_atom_conflict =
     [ prod "Root" [ child_req "e" (Rule "E") ]; prod "A" [ child_req "x" (Token "ta") ] ]
 ;;
 
+(* The prefix operator is itself an atom of the block. The prefix table is read
+   first, so the atom never reads the token. *)
+let prefix_is_atom =
+  only
+    ~expr:
+      [ expr_block
+          ~rule_name:"E"
+          ~atoms:[ Token "m" ]
+          ~prefix_ops:[ prefix ~token:"m" ~bp:10 () ]
+          ()
+      ]
+    [ prod "Root" [ child_req "e" (Rule "E") ] ]
+;;
+
 let prefix_atom_conflict =
   only
     ~expr:
@@ -493,6 +507,7 @@ let all : (string * Grammar.t) list =
   ; "empty-first-set", empty_first_set
   ; "pratt-atom-conflict", pratt_atom_conflict
   ; "prefix-atom-conflict", prefix_atom_conflict
+  ; "prefix-atom-conflict", prefix_is_atom
   ; "token-unreachable", token_unreachable
   ]
 ;;
