@@ -31,6 +31,10 @@ let kind_refs (tbl : Kind.Table.t) (ks : Kind.t list) : kind_ref list =
   List.map ~f:(fun k -> { kind = k; name = Kind.Table.name tbl k }) ks
 ;;
 
+type resync_body =
+  | Repeats_nothing
+  | Ends_at_its_separator
+
 type token_unreachable_reason =
   | Empty_language
   | Subsumed_by of Grammar.Name.Token.t
@@ -97,6 +101,7 @@ type detail =
   (* -- resolved children, normalised framing -------------------------------- *)
   | Delimited_arity of { children : int }
   | Separated_arity of { children : int }
+  | Unused_resync_anchors of { body : resync_body }
   | Repeated_vs_single of { children : Grammar.Name.Child.t list }
   | Repeated_vs_single_kinds of
       { repeated : Grammar.Name.Child.t
@@ -164,6 +169,7 @@ let code (e : t) : string =
   | Mixed_assoc_at_bp _ -> "mixed-assoc-at-bp"
   | Delimited_arity _ -> "delimited-arity"
   | Separated_arity _ -> "separated-arity"
+  | Unused_resync_anchors _ -> "unused-resync-anchors"
   | Repeated_vs_single _ -> "repeated-vs-single"
   | Repeated_vs_single_kinds _ -> "repeated-vs-single-kinds"
   | Ambiguous_same_kind_child _ -> "ambiguous-same-kind-child"
@@ -220,6 +226,7 @@ let shape_stage_codes =
   ; "repeated-vs-single-kinds"
   ; "ambiguous-same-kind-child"
   ; "overlapping-single-kinds"
+  ; "unused-resync-anchors"
   ]
 ;;
 
@@ -278,6 +285,10 @@ let hint (e : t) : string option =
     Some "the postfix trigger is checked first, so the infix form is dead"
   | Mixed_assoc_at_bp _ -> Some "give the two associativities distinct binding powers"
   | Delimited_arity _ | Separated_arity _ -> Some "wrap the body in a rule of its own"
+  | Unused_resync_anchors { body = Repeats_nothing } ->
+    Some "drop the anchors; only a delimited production has a body they can end"
+  | Unused_resync_anchors { body = Ends_at_its_separator } ->
+    Some "drop the anchors, or wrap the list in an opener and a closer"
   | Repeated_vs_single _ -> Some "give one of them a kind of its own"
   | Overlapping_single_kinds _ -> Some "wrap one side in a rule of its own"
   | First_follow_conflict _ ->
@@ -391,6 +402,11 @@ let message (e : t) : string =
     Printf.sprintf
       "a separated production wraps exactly one element child; this one has %d"
       children
+  | Unused_resync_anchors { body = Repeats_nothing } ->
+    "a resync anchor ends a repeated body early, and this production repeats nothing"
+  | Unused_resync_anchors { body = Ends_at_its_separator } ->
+    "a resync anchor ends a repeated body early, and this list already ends wherever the \
+     cursor leaves its separator"
   | Repeated_vs_single { children } ->
     Printf.sprintf
       "%s share a kind and mix repeated with single-valued: the repeated nodes pad the \

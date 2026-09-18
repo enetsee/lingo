@@ -46,6 +46,12 @@ type kind_ref =
     below. *)
 val kind_refs : Kind.Table.t -> Kind.t list -> kind_ref list
 
+(** Why a production's resync anchors reach nothing. Only a repeated body
+    inside a matched pair has something for one to end. *)
+type resync_body =
+  | Repeats_nothing
+  | Ends_at_its_separator
+
 type token_unreachable_reason =
   | Empty_language
   | Subsumed_by of Grammar.Name.Token.t
@@ -112,6 +118,7 @@ type detail =
   (* -- resolved children, normalised framing -------------------------------- *)
   | Delimited_arity of { children : int }
   | Separated_arity of { children : int }
+  | Unused_resync_anchors of { body : resync_body }
   | Repeated_vs_single of { children : Grammar.Name.Child.t list }
   | Repeated_vs_single_kinds of
       { repeated : Grammar.Name.Child.t

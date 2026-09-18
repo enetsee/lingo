@@ -163,6 +163,22 @@ let unused_recover_to =
     ]
 ;;
 
+(* Resync anchors on a production that repeats nothing, so there is no body
+   loop for one to end. *)
+let unused_resync_anchors =
+  only [ prod "Root" [ child_req "x" (Token "ta") ] |> with_resync_to [ "tb" ] ]
+;;
+
+(* The same on a separated list, which has ended wherever an anchor could sit:
+   its loop runs while the cursor is on the separator. *)
+let unused_resync_anchors_separated =
+  only
+    [ prod "Root" [ child_rep "x" (Token "ta") ]
+      |> with_separator ~sep:"comma"
+      |> with_resync_to [ "tb" ]
+    ]
+;;
+
 let empty_alternatives = only [ prod "Root" [ child_alt ~modifier:Required "x" [] ] ]
 let unknown_root = only ~roots:[ "Nope" ] [ clean_root ]
 let dup_root = only ~roots:[ "Root"; "Root" ] [ clean_root ]
@@ -447,6 +463,8 @@ let all : (string * Grammar.t) list =
   ; "unknown-message-child", unknown_message_child
   ; "unused-message-child", unused_message_child
   ; "unused-recover-to", unused_recover_to
+  ; "unused-resync-anchors", unused_resync_anchors
+  ; "unused-resync-anchors", unused_resync_anchors_separated
   ; "empty-alternatives", empty_alternatives
   ; "no-roots", no_roots
   ; "root-is-block", root_is_block

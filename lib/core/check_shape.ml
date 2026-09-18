@@ -172,4 +172,31 @@ let view_hazards (shape : Stage.shape) acc =
       pairs acc singles)
 ;;
 
-let run (s : Stage.shape) : Error.t list = [] |> arity s |> view_hazards s
+(* A resync anchor ends a repeated body before it reads past a token that
+   belongs to an outer scope. Only a repeated child inside a matched pair has
+   such a body. A production that repeats nothing has none to end, and a
+   separated list has already ended wherever an anchor could sit, because its
+   loop runs while the cursor is on its separator. Anchors anywhere else reach
+   nothing, and used to do so in silence. *)
+let resync (shape : Stage.shape) (acc : Error.t list) : Error.t list =
+  Array.fold_left shape.rules ~init:acc ~f:(fun acc (rule_def : Rule.def) ->
+    match rule_def.origin, Kind.Set.is_empty rule_def.resync with
+    | (Rule.Pratt_block | Rule.Pratt_role _), _ | Rule.User, true -> acc
+    | Rule.User, false ->
+      let body : Error.resync_body option =
+        match rule_def.frame, Rule.body_children rule_def with
+        | Rule.Delimited _, [ { modifier = Grammar.Repeated; _ } ] -> None
+        | Rule.Separated _, _ -> Some Error.Ends_at_its_separator
+        | (Rule.Delimited _ | Rule.Plain | Rule.Committed _), _ ->
+          Some Error.Repeats_nothing
+      in
+      (match body with
+       | None -> acc
+       | Some body ->
+         Error.make
+           ~detail:(Error.Unused_resync_anchors { body })
+           (Error.At_production rule_def.name)
+         :: acc))
+;;
+
+let run (s : Stage.shape) : Error.t list = [] |> arity s |> resync s |> view_hazards s

@@ -528,9 +528,11 @@ val with_trailing_space : bool -> production -> production
     leaves alone the [def] that starts the next declaration, so one
     diagnostic stays one.
 
-    Only a production with a body loop has one to end. This is silent on a
-    [Plain] or [Committed] one. The parser reads it, and nothing in this
-    library does. *)
+    Only a repeated child inside a matched pair gives a loop for an anchor to
+    end. A production that repeats nothing has none, and a separated list has
+    already ended wherever an anchor could sit, because its loop runs while the
+    cursor is on the separator. Anchors on either are rejected as
+    [unused-resync-anchors]. *)
 val with_resync_to : string list -> production -> production
 
 val with_recovery_strategy : recovery_strategy -> production -> production
