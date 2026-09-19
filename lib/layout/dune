@@ -1,0 +1,4 @@
+(library
+ (name layout)
+ (public_name lingo.layout)
+ (libraries ir core))

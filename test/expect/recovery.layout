@@ -1,0 +1,95 @@
+; 0 N_FILE
+; 1 N_ITEM
+; 2 N_TRIPLE
+; 3 N_GROUP
+; 4 N_SIG
+; 5 N_FIELDS
+; 6 N_FIELD
+; 7 N_LEAF
+; 8 T_LET
+; 9 T_SIG
+; 10 T_IN
+; 11 T_END
+; 12 T_LPAREN
+; 13 T_RPAREN
+; 14 T_COMMA
+; 15 T_SEMI
+; 16 T_COLON
+; 17 T_NAME
+; 18 T_WS
+; 19 N_FILE_HOLE
+; 20 N_ITEM_HOLE
+; 21 N_TRIPLE_HOLE
+; 22 N_GROUP_HOLE
+; 23 N_SIG_HOLE
+; 24 N_FIELDS_HOLE
+; 25 N_FIELD_HOLE
+; 26 N_LEAF_HOLE
+; 27 T_ERROR
+; 28 N_ERROR
+; 29 N_MISSING
+; 30 T_UNTERMINATED
+(layout
+  (token 8 before after)
+  (token 9 before after)
+  (token 10 before after)
+  (token 11 before after)
+  (token 12)
+  (token 13)
+  (token 14)
+  (token 15)
+  (token 16 before after)
+  (token 17 before after)
+  (token 18 before after reformat)
+  (token 27)
+  (token 30)
+  (rule 0 File 0
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 1) repeats (before flat) (between fit))
+  )
+  (rule 1 Item 1
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 2 3 4) (before flat) (between flat))
+  )
+  (rule 2 Triple 2
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 8) (before flat) (between flat))
+    (slot (kinds 7) (before fit) (between fit))
+    (slot (kinds 10) (before fit) (between fit))
+    (slot (kinds 11) (before fit) (between fit))
+  )
+  (rule 3 Group 3
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 12) (before flat) (between flat))
+    (slot (kinds 2) (before fit) (between fit))
+    (slot (kinds 13) (before fit) (between fit))
+  )
+  (rule 4 Sig 4
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 9) (before flat) (between flat))
+    (slot (kinds 5) (before fit) (between fit))
+    (slot (kinds 10) (before fit) (between fit))
+  )
+  (rule 5 Fields 5
+    (frame separated (sep 14 never))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 6) repeats (before flat) (between fit))
+  )
+  (rule 6 Field 6
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 16) (before flat) (between flat))
+    (slot (kinds 7) (before fit) (between fit))
+    (slot (kinds 15) (before fit) (between fit))
+  )
+  (rule 7 Leaf 7
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 17) (before flat) (between flat))
+  )
+)

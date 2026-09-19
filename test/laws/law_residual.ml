@@ -73,139 +73,114 @@
       Which instruction forms these same parses run is law_interp part (d)'s
       count, over the same inputs.
 
-      Falsification. Every mutation was applied, built, run and reverted, and
-      the result recorded is the one observed. A count counts pairs of a kind
-      and a position, and the grammars beside it are where they came from.
+      Falsification. Re-run on 2026-09-19, after the body loop's progress guard
+      changed. Every mutation was applied, built, run and reverted, and the
+      result recorded is the one observed. A count counts pairs of a kind and a
+      position, and the grammars beside it are where they came from. Each edit is
+      named exactly, because a mutation nobody can re-create is a mutation
+      nobody can check.
 
-        M1  In [Residual.entered], read the body rather than the gate that
-            chose it.
-            -> part (b), 63 pairs: sexp 18, json 25, postfix 2, unicode 10,
+        M1  In [Residual.entered], answer [whole plan null body] where the steps
+            run out and the position is inclusive, rather than the gate.
+            -> part (b), 64 pairs: sexp 18, json 26, postfix 2, unicode 10,
                recovery 3, shapes 5. A commit's body is often a bare [Bump],
-               which names no kind of its own, so the position loses the set
-               that admitted it.
+               which names no kind of its own, so the position loses the set that
+               admitted it.
 
                The other half of what [entered] buys reads nothing. Answering
                [gate, true] adds what follows the commit, and those are kinds
-               that cannot be under the cursor at a body a dispatch chose, so
-               no input puts the parse there to disagree. They are in the
-               count of pairs the parse cannot be put at.
-        M2  In [Residual.ends], let a state whose exit reports still end a
-            body.
-            -> part (a), 14: json 5, postfix 2, unicode 2, recovery 3,
-               shapes 2. A body
-               that forbids a trailing separator can still be ended at one, by
-               taking the separator and reporting it, and the residual then
-               offers the closer straight after a separator. This is the
-               mutation that found the rule: the first version let every state
-               end a body.
-        M3  In [Residual.at], never read the frame above.
-            -> part (b), 123: calc 8, postfix 20, recovery 5, shapes 90. What
-               follows a rule goes missing at every position the rule's own
-               body can complete from.
-        M4  In [Residual.whole], make an [Alt] non-nullable.
-            -> part (b), 105, shapes alone. It is the grammar with optional
-               children, and what follows one is what goes missing.
-        M5  In [Residual.remains], resume a loop in the state the element came
-            from rather than the one the transition names.
-            -> part (a), 52, and part (b), 28: postfix and shapes. After an
-               element a separator or the closer comes next, and the mutation
-               offers another element.
+               that cannot be under the cursor at a body a dispatch chose, so no
+               input puts the parse there to disagree.
+        M2  In [Residual.ends], answer [true] for [May_exit_reporting] as well.
+            -> part (a), 14: json 5, postfix 2, unicode 2, recovery 3, shapes 2.
+               Part (g), the same 14. A body that forbids a trailing separator
+               can still be ended at one, by taking the separator and reporting
+               it, and the residual then offers the closer straight after a
+               separator. This is the mutation that found the rule.
+
+               It moves five of the eight *.residual dumps: json, postfix,
+               recovery, shapes and unicode.
+        M3  In [Residual.at]'s [walk], drop the recursion into the frame above.
+            -> part (b), 123: calc 8, postfix 20, recovery 5, shapes 90.
+               Part (g), 75. Part (h), 45. What follows a rule goes missing at
+               every position the rule's own body can complete from.
+        M4  In [Residual.whole], answer [false] for an [Alt]'s nullability.
+            -> part (b), 105, shapes alone. Part (g), 57. It is the grammar with
+               optional children, and what follows one is what goes missing.
+               shapes.residual moves.
+        M5  In [Residual.remains], resume a loop at [e.state] rather than at
+            [goto].
+            -> part (a), 52: postfix 16, shapes 36. Part (b), 28. Part (g), 32
+               and 18. Part (h), 16. After an element a separator or the closer
+               comes next, and the mutation offers another element.
         M6  In [Residual.climb_set], take every operator whatever its binding
             power.
             -> nothing. Every climb sits under a chain of climbs reaching the
                [Pratt] instruction's own [min_bp], which the lowering always
                writes as 0, and a climb may end wherever it is, so the walk
                already unions [climb_set 0] in. Which frame takes an operator
-               follows from the binding power, and a set of kinds does not
-               record that.
-        M7  In [Residual.at], read the innermost frame for what follows its
-            position rather than for what is at it.
-            -> part (a), 365, and part (b), 1,512, over every grammar. M12 is
-               the same claim at the other end of the stack.
-        M8  In [Residual.expression], stop an operand that has been read from
-            letting its activation climb.
-            -> nothing. It reads only where a frame sits above an [operand]
-               step, which is a rule called as an atom, and no atom rule in
-               the corpus has a position it can complete from: calc's [Parens]
-               ends at a required [)]. law_interp counts three atom-rule runs
-               and all three are that rule.
+               follows from the binding power, and a set of kinds does not record
+               that.
+        M7  In [Residual.at], call [walk] on the innermost frame with
+            [~inclusive:false].
+            -> part (a), 363: json 58, calc 52, rassoc 24, postfix 41,
+               recovery 98, shapes 90. Part (b), 1,525: sexp 136, json 806,
+               calc 121, rassoc 54, postfix 120, unicode 38, recovery 108,
+               shapes 142. Part (g), 323 and 485. Part (h), 225. M12 is the same
+               claim at the other end of the stack.
+        M8  In [Residual.expression], answer [first, false] at an [Operand]
+            rather than letting a nullable operand's climb through.
+            -> part (b), 10: calc 8, rassoc 2. Part (g), 10. Part (h), 3.
+
+               This read nothing before. The record said no atom rule in the
+               corpus had a position it could complete from, and that is no
+               longer true. The claim was about the corpus rather than the code,
+               and the corpus moved.
         M9  In [Residual.head_set], leave out the prefix operators.
-            -> part (b), 50: calc 31, rassoc 19.
-       M10  In [Interp.loop], record the state the element came from as the
-            one to resume at.
-            -> part (a), 52, and part (b), 53: json 5, postfix 12,
-               unicode 10, recovery 3, shapes 23. The interpreter's half of M5. The claim
-               fails whether the plan walk or the parse has the state wrong,
-               which is what makes the threading worth testing rather than
-               trusting.
-       M11  In [Residual.whole], make a [Commit] nullable.
-            -> part (a), 79: json 12, calc 5, postfix 29, recovery 27,
-               shapes 6.
-       M12  In [Residual.at], read a frame above for what it is at rather than
-            for what follows it.
-            -> part (a), 244, and part (b), 99. The call is counted twice: as
-               the frame above's pending instruction and as the frame below.
-       M13  In [Residual.taken], give an element every kind its state takes
-            rather than the ones that led to it.
-            -> nothing. The lowering writes one transition per loop state, so
-               the kinds that led to a destination and the kinds the state
-               takes are the same array. A plan with two transitions out of
-               one state would separate them, and no lowering writes one.
-       M14  In [Residual.nullable_rules], do not run the fixpoint, so no rule
-            is nullable.
-            -> nothing. No rule in the eight grammars is nullable, so the
-               table reads false either way. A rule whose every child is
-               optional would read it, and the ladder has none.
-            Part (g) reddens on every mutation above that parts (a) and (b)
-            catch, M1 excepted, at these counts: M2 14, M3 75, M4 57, M5 32
-            and 18, M7 323 and 485, M9 26, M10 32 and 18, M11 77, M12 180
-            and 64.
-            They run lower than (a) and (b) because there are fewer bytes than
-            steps. M1 is the exception: the gate it breaks applies only inside
-            a body a dispatch chose, and that is never the step a byte is
-            first read at.
-
-            The mutations above move test/expect/*.residual as well, which is
-            the same tables printed to be read. M2 alone moves five of the
-            eight files: json, postfix, recovery, shapes and unicode. Two
-            faults in those tables were found by eye and by nothing else, so
-            the dump is where the next one shows up.
-
-            Part (h) reddens where the tables and the plan walk part company:
-            M3 45, M5 16, M7 225, M10 16, M12 109. It reads nothing for the
-            rest, because the tables are built out of the same walk those
-            mutations changed, so the two sides move together. So (h) checks
-            that the emitted path and the plan path agree, and parts (a), (b)
-            and (g) are what check the walk itself.
-
+            -> part (b), 50: calc 31, rassoc 19. Part (g), 26. calc.residual and
+               rassoc.residual move.
+       M10  In [Interp.loop], record [!state] as the state to resume at rather
+            than [dest].
+            -> part (a), 52: postfix 16, shapes 36. Part (b), 53: json 5,
+               postfix 12, unicode 10, recovery 3, shapes 23. Part (g), 32 and
+               18. Part (h), 16. The interpreter's half of M5. The claim fails
+               whether the plan walk or the parse has the state wrong, which is
+               what makes the threading worth testing rather than trusting.
+       M11  In [Residual.whole], answer [true] for a [Commit]'s nullability.
+            -> part (a), 79: json 12, calc 5, postfix 29, recovery 27, shapes 6.
+               Part (g), 77. All eight *.residual dumps move.
+       M12  In [Residual.at]'s [walk], call the frame above with
+            [~inclusive:true].
+            -> part (a), 242: calc 78, rassoc 48, postfix 90, recovery 5,
+               shapes 21. Part (b), 99. Part (g), 180 and 64. Part (h), 109. The
+               call is counted twice: as the frame above's pending instruction
+               and as the frame below.
+       M13  In [Residual.taken], ignore [goto] and give an element every kind its
+            state takes.
+            -> nothing. The lowering writes one transition per loop state, so the
+               kinds that led to a destination and the kinds the state takes are
+               the same array. A plan with two transitions out of one state would
+               separate them, and no lowering writes one.
+       M14  In [Residual.nullable_rules], start [settled] at [true] so the
+            fixpoint never runs.
+            -> nothing. No rule in the nine grammars is nullable, so the table
+               reads false either way. A rule whose every child is optional would
+               read it, and the ladder has none.
        M15  Empty calc's input list in test/inputs.
-            -> part (e), "no position came from these grammars: calc". Parts
-               (a) to (d) stay green, which is the whole reason (e) is here.
+            -> part (e), twice: "no position came from these grammars: calc" and
+               "no input lexes these token kinds: calc T_INT". Parts (a) to (d)
+               stay green, which is the whole reason (e) is here.
        M16  Drop postfix's dotted inputs ["a.b"], ["a."], ["a.?"] and
             ["a.b\[2\]?+1"] from test/inputs.
-            -> part (e), "no position was one of these kinds: postfix". A
-               postfix operator whose body is one child is the only thing that
-               leaves a parse at that kind of position, and those four inputs
-               are the only ones in the corpus that reach one.
-       M17  In [Residual.at], drop the range check on the rule a frame names.
-            -> part (f): [Invalid_argument "index out of bounds"], which does
-               not say what was wrong with the state.
-       M18  In [Residual.remains], drop the range check on a [Seq]'s index.
-            -> part (f), the same message at the next index down.
-       M19  In [Residual.remains], let a path carry on past a loop state.
-            -> part (f): the state is accepted. A loop state is where a path
-               ends, because what the loop runs is reached through [Emits].
-       M20  In [Ocaml.Residual.point], write [may_end] as [true] always.
-            -> part (h), 100 bytes. An emitter fault reaches this law because
-               the tables it reads are the emitted ones.
-       M21  In [Ocaml.Residual.point], write every transition target one too
-            high.
-            -> part (h), and the message names [Ahead.at] rather than an array
-               access: a table can send the walk off the end of itself, and a
-               law that died of it would report nothing.
-       M22  Cut calc's inputs to ["("] and ["()"].
-            -> part (e): calc's [T_INT] has no example to splice, so the probe
-               could never reach it and nothing reported that.
+            -> part (e), "no position was one of these kinds: postfix". The
+               dotted forms are the only ones that reach a [Postfix] step with a
+               body, so the coverage claim rests on four inputs.
+
+            Part (h) reads nothing for the mutations the *.residual dumps move,
+            because the tables are built out of the same walk those mutations
+            changed, so the two sides move together. So (h) checks that the
+            emitted path and the plan path agree, and parts (a), (b) and (g) are
+            what check the walk itself.
    -------------------------------------------------------------------------- *)
 
 open StdLabels

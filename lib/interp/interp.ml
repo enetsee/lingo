@@ -246,8 +246,14 @@ and loop
     | Some ks -> Cursor.eof t.cursor || holds_array ks (Cursor.current t.cursor)
   in
   let running = ref true in
+  (* Steps since the last one that took a token. A position that reports what
+     it wanted and carries on takes none, and the loop has to be allowed to go
+     on from there or a missing separator ends the body. It cannot go on for
+     ever: each such step moves the state, and there are this many. *)
+  let stalled = ref 0 in
   while !running do
-    let before = Cursor.position t.cursor in
+    let before = Cursor.meaningful_position t.cursor in
+    let was = !state in
     reached t (Ir.Residual.State.loop where !state);
     if ending ()
     then running := false
@@ -288,7 +294,15 @@ and loop
               in the state the failure left would keep a body that has just
               thrown away a separator waiting for one. *)
            state := entry));
-    if !running && Cursor.position t.cursor = before then running := false
+    if !running
+    then
+      if Cursor.meaningful_position t.cursor <> before
+      then stalled := 0
+      else if !state = was
+      then running := false
+      else (
+        incr stalled;
+        if !stalled > Array.length states then running := false)
   done;
   match states.(!state).exit, !last_taken with
   | Ir.Plan.May_exit_reporting id, Some range ->

@@ -1,0 +1,47 @@
+; 0 N_FILE
+; 1 T_PLUS
+; 2 T_CARET
+; 3 T_MINUS
+; 4 T_INT
+; 5 T_WS
+; 6 N_EXPR
+; 7 N_EXPR_BIN
+; 8 N_EXPR_PREFIX
+; 9 N_FILE_HOLE
+; 10 N_EXPR_HOLE
+; 11 T_ERROR
+; 12 N_ERROR
+; 13 N_MISSING
+; 14 T_UNTERMINATED
+(layout
+  (token 1 before after)
+  (token 2 before after)
+  (token 3 before after)
+  (token 4 before after)
+  (token 5 before after reformat)
+  (token 11)
+  (token 14)
+  (rule 0 File 0
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 6 7 8 10) (before flat) (between flat))
+  )
+  (rule 1 Expr 6
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 4) (before flat) (between flat))
+  )
+  (rule 2 ExprBin 7
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 6 7 8 10) (before flat) (between flat))
+    (slot (kinds 1 2) (before flat) (between flat))
+    (slot (kinds 6 7 8 10) (before fit) (between fit))
+  )
+  (rule 3 ExprPrefix 8
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 3) (before flat) (between flat))
+    (slot (kinds 6 7 8 10) (before flat) (between flat))
+  )
+)

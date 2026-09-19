@@ -343,3 +343,205 @@
  (alias runtest)
  (action
   (diff unicode.lexer unicode.lexer.actual)))
+
+; The layout, and what the fold writes with it. [dump_format] runs the parse as
+; well, so it links the interpreter and the laws' own lexer.
+
+(executable
+ (name dump_layout)
+ (modules dump_layout)
+ (libraries lingo.layout lingo.core lingo_grammars lingo_runtime.ir))
+
+(executable
+ (name dump_format)
+ (modules dump_format)
+ (libraries
+  lingo.layout
+  lingo.plan
+  lingo.interp
+  lingo.core
+  lingo_grammars
+  lingo_runtime
+  inputs
+  lex
+  siesta))
+
+(rule
+ (with-stdout-to
+  sexp.layout.actual
+  (run ./dump_layout.exe sexp)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.layout sexp.layout.actual)))
+
+(rule
+ (with-stdout-to
+  json.layout.actual
+  (run ./dump_layout.exe json)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.layout json.layout.actual)))
+
+(rule
+ (with-stdout-to
+  calc.layout.actual
+  (run ./dump_layout.exe calc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.layout calc.layout.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.layout.actual
+  (run ./dump_layout.exe rassoc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.layout rassoc.layout.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.layout.actual
+  (run ./dump_layout.exe postfix)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.layout postfix.layout.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.layout.actual
+  (run ./dump_layout.exe shapes)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.layout shapes.layout.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.layout.actual
+  (run ./dump_layout.exe unicode)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.layout unicode.layout.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.layout.actual
+  (run ./dump_layout.exe recovery)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.layout recovery.layout.actual)))
+
+(rule
+ (with-stdout-to
+  comments.layout.actual
+  (run ./dump_layout.exe comments)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff comments.layout comments.layout.actual)))
+
+(rule
+ (with-stdout-to
+  sexp.format.actual
+  (run ./dump_format.exe sexp)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.format sexp.format.actual)))
+
+(rule
+ (with-stdout-to
+  json.format.actual
+  (run ./dump_format.exe json)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.format json.format.actual)))
+
+(rule
+ (with-stdout-to
+  calc.format.actual
+  (run ./dump_format.exe calc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.format calc.format.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.format.actual
+  (run ./dump_format.exe rassoc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.format rassoc.format.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.format.actual
+  (run ./dump_format.exe postfix)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.format postfix.format.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.format.actual
+  (run ./dump_format.exe shapes)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.format shapes.format.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.format.actual
+  (run ./dump_format.exe unicode)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.format unicode.format.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.format.actual
+  (run ./dump_format.exe recovery)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.format recovery.format.actual)))
+
+(rule
+ (with-stdout-to
+  comments.format.actual
+  (run ./dump_format.exe comments)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff comments.format comments.format.actual)))

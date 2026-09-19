@@ -1,0 +1,7 @@
+; The generated corpus, shared by law_parse and law_layout. A copy in each
+; would be two corpora that drift apart, and the counts in a falsification
+; record are only reproducible while the corpus is.
+
+(library
+ (name sweep)
+ (libraries lex lingo.core lingo_runtime))

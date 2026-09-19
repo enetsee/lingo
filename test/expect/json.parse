@@ -109,15 +109,12 @@
           N_OBJECT
             "{"
             T_RBRACE
-        T_RBRACKET
-    "1"
-    " "
-    "]"
+        N_VALUE
+          "1"
+        " "
+        "]"
   2-3 missing -: expected "}"
   2-3 missing -: expected ","
-  1-2 extra: a trailing ","
-  2-3 missing -: expected "]"
-  2-5 extra: trailing tokens
 ----------------------------------------------------------------------
 "[1] junk"
   N_FILE

@@ -21,3 +21,4 @@ val postfix : t
 val unicode : t
 val recovery : t
 val shapes : t
+val comments : t

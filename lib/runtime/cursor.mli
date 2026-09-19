@@ -37,6 +37,14 @@ val create : ?cache:Siesta.Cache.t -> trivia_kinds:Ir.Kind.t list -> Token.t arr
 (** The index into the token array. It counts trivia. *)
 val position : t -> int
 
+(** Where the next meaningful token sits. Trivia in front of it has not been
+    read, so this does not move when only trivia is taken.
+
+    A body loop reads this to separate a step that made progress from one that
+    did not. Reading {!position} counts a space as progress, so the same tokens
+    spaced two ways parse to two different trees. *)
+val meaningful_position : t -> int
+
 (** The kind under the cursor, past any trivia. {!Ir.Kind.none} at the end of
     the input. *)
 val current : t -> Ir.Kind.t

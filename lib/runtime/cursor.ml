@@ -50,6 +50,7 @@ let is_trivia (c : t) (k : Ir.Kind.t) =
 ;;
 
 let peek_idx (c : t) = c.next_meaningful.(c.pos)
+let meaningful_position = peek_idx
 
 let current (c : t) : Ir.Kind.t =
   let i = peek_idx c in

@@ -44,99 +44,77 @@
       is it. Part (c) is the nearest thing available: a grammar that accepts
       an input has to parse it without complaint.
 
-      Falsification. Every mutation was applied, run and reverted, and the
-      result recorded is the one observed.
+      Falsification. Re-run on 2026-09-19, after the body loop's progress guard
+      changed. Every mutation was applied, built, run and reverted, and the
+      result recorded is the one observed. Where a mutation reddens nothing here,
+      the expect goldens it moves are named, because that is then the only thing
+      that sees it.
 
         M1  In [Interp.drain], drop the trailing [Cursor.skip_trivia].
-            -> part (a), 3 of 121 parses. [Cursor.eof] looks past trivia, so
-               the sweep stops with the trailing trivia unread and it never
-               reaches the tree.
-
-               The first run of this mutation reddened nothing, because of a
-               gap in this law rather than in the code: no input ended in
-               whitespace, so no parse had trailing trivia to lose. Five
-               inputs carry it now.
-        M2  In [Interp.exec], let an [Alt] take its first arm whatever the
-            kind under the cursor is.
-            -> part (c), 26 inputs: json 7, sexp 7, shapes 8, recovery 4. An
-               alt over rules picks the wrong one, and the parse then reports
-               what the arm it took could not find.
-
-               It used to redden part (d) as well, with ["loop-missing"]
-               reading zero, because no body got far enough to want a
-               separator. The corpus reaches that form four ways now and one
-               of them survives the mutation.
+            -> part (a), 3 of 121 parses, and test/expect/comments.format moves.
+               [Cursor.eof] looks past trivia, so the sweep stops with the
+               trailing trivia unread and it never reaches the tree.
+        M2  In [Interp.exec], let an [Alt] take its first arm whatever the kind
+            under the cursor is.
+            -> part (c), 26 inputs: shapes 8, sexp 7, json 7, recovery 4. An alt
+               over rules picks the wrong one, and the parse then reports what
+               the arm it took could not find. Nine expect goldens move with it.
         M3  In [Lower.repetition], drop the [Trivia] after the loop.
-            -> nothing here, and three hunks in test/expect/*.plan: sexp,
-               shapes and recovery. The sweep matters for where trivia lands
-               and not for whether it lands: a delimited body's close takes
-               the trivia before it either way, because taking a token takes
-               the trivia in front of it too. So the bytes still reach the
-               tree, in a different frame.
-
-               It moved four hunks in test/expect/*.parse once and now moves
-               none. No input in that dump ends a one-state repetition on
-               trivia any more, which is a gap in the dump rather than in
-               this law.
+            -> nothing here, and three hunks in test/expect/*.plan: sexp, shapes
+               and recovery. The sweep matters for where trivia lands and not for
+               whether it lands: a delimited body's close takes the trivia before
+               it either way, because taking a token takes the trivia in front of
+               it too. So the bytes still reach the tree, in a different frame.
         M4  In [Build.start_node], drop the [Cursor.skip_trivia].
-            -> part (e), 68 nodes: json 12, sexp 13, shapes 20, recovery 23.
-               It is the one change that makes leading trivia land inside the
-               node it precedes, which is what part (e) exists to catch.
-        M5  In [Lex.uchar_at], step one byte at a time rather than one
-            codepoint.
-            -> part (c), all six inputs of the unicode grammar. Every token
-               there is more than one byte in UTF-8, so a byte-stepping scan
-               matches none of them and the parse reports on input the
-               grammar accepts. No other grammar moves: they are all ASCII,
-               where a byte and a codepoint are the same thing.
+            -> part (e), 68 nodes: recovery 23, shapes 20, sexp 13, json 12. It
+               is the one change that makes leading trivia land inside the node
+               it precedes, which is what part (e) exists to catch.
+        M5  In [Lex.uchar_at], step one byte at a time rather than one codepoint.
+            -> part (c), all six inputs of the unicode grammar. Every token there
+               is more than one byte in UTF-8, so a byte-stepping scan matches
+               none of them and the parse reports on input the grammar accepts.
+               No other grammar moves: they are all ASCII, where a byte and a
+               codepoint are the same thing.
         M6  In [Interp.run], drop the range test on the entry.
-            -> part (f), both out-of-range entries: "index out of bounds",
-               which does not say what was wrong with it.
-
-               The first run of this reddened nothing. The test caught
-               [Invalid_argument] and asked no more, and an array access
-               raises that on its own, so a bounds error read as a refusal.
-               The test reads the message now.
+            -> part (f), both out-of-range entries: "index out of bounds", which
+               does not say what was wrong with it.
         M7  In [Interp.run], drop the test for a rule with an empty body.
-            -> part (f), one case: [Failure "Builder.finish: nothing built"].
-               The parse raises either way; what the check buys is a message
-               about the entry rather than about the builder.
+            -> part (f), one case: [Failure "Builder.finish: nothing built"]. The
+               parse raises either way; what the check buys is a message about
+               the entry rather than about the builder.
         M8  In [Interp.loop], end the body where no state accepts, instead of
             recovering.
-            -> part (d), ["loop-recover"] reads zero. This is the arm pigeon
-               has and this loop did not: a body that meets a token it cannot
-               use sweeps it into an error node and carries on, rather than
-               ending and leaving the rest to the caller. On json's
-               ["\[1 : 2\]"] the old shape lost the [2] altogether.
+            -> part (d), ["loop-recover"] reads zero, and json.parse,
+               recovery.parse and shapes.parse move. This is the arm pigeon has
+               and this loop did not: a body that meets a token it cannot use
+               sweeps it into an error node and carries on, rather than ending
+               and leaving the rest to the caller. On json's ["\[1 : 2\]"] the old
+               shape lost the [2] altogether.
         M9  In [Interp.loop], sweep where a position is missing something,
             instead of reporting it.
-            -> part (d), ["loop-missing"] reads zero, and json's ["\[1 2\]"]
-               parses with no diagnostic at all: the separator that is not
-               there goes unreported and the second element is swept away.
-               Silent acceptance of input the grammar rejects is the worst
-               shape a parse can take, which is why the two cases are told
-               apart rather than both recovered.
+            -> part (d), ["loop-missing"] reads zero, and five goldens move.
+               Recovery still reports there, through the sweep, so no part but
+               the coverage count sees it, which is the part's reason for being.
        M10  In [Lower.ends_on_of], leave the resync anchors out of what ends a
             body.
-            -> nothing here, and two hunks in test/expect: shapes.parse and
-               shapes.plan. shapes' ["{ let a end }"] sweeps the [end] up and
-               carries on to the closer, which is what declaring an anchor is
-               meant to stop.
-       M11  In [Lower.repeat_ends_on_of], give a root's repeated body [None]
-            so it ends where no element can start.
-            -> nothing here, and seven hunks in test/expect: shapes.parse 2,
-               and one each in shapes.plan, shapes.residual, recovery.parse,
-               recovery.plan and recovery.residual. A stray token between two
-               declarations loses every declaration after it.
+            -> nothing here, and three hunks in test/expect: shapes.format,
+               shapes.parse and shapes.plan. shapes' ["{ let a end }"] sweeps the
+               [end] up and carries on to the closer, which is what declaring an
+               anchor is meant to stop.
+       M11  In [Lower.repeat_ends_on_of], give a root's repeated body [None] so
+            it ends where no element can start.
+            -> nothing here, and six hunks in test/expect: recovery.parse,
+               recovery.plan, recovery.residual and the same three for shapes. A
+               stray token between two declarations loses every declaration after
+               it.
 
                The two *.residual hunks are what [ends_on] buys the tables: a
-               loop that recovers carries an edge on the error kind back to
-               its entry, and a loop that ends instead carries none.
+               loop that recovers carries an edge on the error kind back to its
+               entry, and a loop that ends instead carries none.
        M12  In [Interp.loop], parse an element without the body's stopping
             points.
-            -> nothing here, and one hunk in test/expect/json.parse. A
-               failure nested inside an element escapes past the start of the
-               next one.
+            -> nothing here, and one hunk in test/expect/json.parse. A failure
+               nested inside an element escapes past the start of the next one.
 
       Parts (a) to (f) say what holds for every input; none of them reads the
       shape of what recovery built. test/expect/*.parse is that reader, and

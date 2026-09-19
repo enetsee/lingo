@@ -78,3 +78,24 @@
   inputs
   lex
   siesta))
+
+; law_layout folds every input from test/inputs through the layout, so it needs
+; the parse as well: a formatter's laws are about what it does to a tree, and a
+; recovered tree is the one its fixed point never held on before.
+
+(tests
+ (names law_layout)
+ (modules law_layout)
+ (libraries
+  lingo.layout
+  lingo.plan
+  lingo.interp
+  lingo.core
+  lingo_grammars
+  lingo_runtime
+  lingo_runtime.ir
+  handsome
+  inputs
+  lex
+  siesta
+  sweep))

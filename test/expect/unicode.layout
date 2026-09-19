@@ -1,0 +1,32 @@
+; 0 N_FILE
+; 1 N_DOC
+; 2 T_LAQUO
+; 3 T_RAQUO
+; 4 T_ARROW
+; 5 T_WORD
+; 6 T_WS
+; 7 N_FILE_HOLE
+; 8 N_DOC_HOLE
+; 9 T_ERROR
+; 10 N_ERROR
+; 11 N_MISSING
+; 12 T_UNTERMINATED
+(layout
+  (token 2)
+  (token 3)
+  (token 4 before after)
+  (token 5 before after)
+  (token 6 before after reformat)
+  (token 9)
+  (token 12)
+  (rule 0 File 0
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 1) (before flat) (between flat))
+  )
+  (rule 1 Doc 1
+    (frame delimited 2 3 (sep 4 never))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 5) repeats (before flat) (between fit))
+  )
+)

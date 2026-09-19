@@ -508,28 +508,72 @@ and loop
                     ])))
       ]
   in
+  (* The guard that says a step made progress. A token taken is progress. A
+     position that reports what it wanted and carries on takes none, and the
+     body has to go on from there or a missing separator ends it; that step
+     moves the state, so it counts, and the count of states bounds how many of
+     them can run before one takes a token.
+
+     Reading [Cursor.position] instead counts the trivia the report emitted, so
+     the same tokens spaced two ways parse to two different trees. *)
   let running =
     Emit.eseq
       (Emit.elet
          "going"
          ~body:(Emit.ecall "ref" [ Emit.ebool true ])
          ~rest:
-           (Emit.ewhile
-              ~condition:(Emit.eand ~left:(read "going") ~right:carrying_on)
-              ~body:
-                (Emit.elet
-                   "before"
-                   ~body:(call "Cursor.position" [ cursor ])
-                   ~rest:
-                     (Emit.eseq
-                        [ step
-                        ; Emit.ewhen
-                            ~condition:
-                              (Emit.eequal
-                                 ~left:(call "Cursor.position" [ cursor ])
-                                 ~right:(Emit.evar "before"))
-                            ~then_:(assign "going" (Emit.ebool false))
-                        ])))
+           (Emit.elet
+              "stalled"
+              ~body:(Emit.ecall "ref" [ Emit.eint 0 ])
+              ~rest:
+                (Emit.ewhile
+                   ~condition:(Emit.eand ~left:(read "going") ~right:carrying_on)
+                   ~body:
+                     (Emit.elet
+                        "before"
+                        ~body:(call "Cursor.meaningful_position" [ cursor ])
+                        ~rest:
+                          (Emit.elet
+                             "was"
+                             ~body:(read "state")
+                             ~rest:
+                               (Emit.eseq
+                                  [ step
+                                  ; Emit.eif
+                                      ~condition:
+                                        (Emit.enot
+                                           (Emit.eequal
+                                              ~left:
+                                                (call
+                                                   "Cursor.meaningful_position"
+                                                   [ cursor ])
+                                              ~right:(Emit.evar "before")))
+                                      ~then_:(assign "stalled" (Emit.eint 0))
+                                      ~else_:
+                                        (Emit.eif
+                                           ~condition:
+                                             (Emit.eequal
+                                                ~left:(read "state")
+                                                ~right:(Emit.evar "was"))
+                                           ~then_:(assign "going" (Emit.ebool false))
+                                           ~else_:
+                                             (Emit.eseq
+                                                [ assign
+                                                    "stalled"
+                                                    (Emit.ecall
+                                                       "Stdlib.( + )"
+                                                       [ read "stalled"; Emit.eint 1 ])
+                                                ; Emit.ewhen
+                                                    ~condition:
+                                                      (Emit.egreater
+                                                         ~left:(read "stalled")
+                                                         ~right:
+                                                           (Emit.eint
+                                                              (Array.length states)))
+                                                    ~then_:
+                                                      (assign "going" (Emit.ebool false))
+                                                ]))
+                                  ])))))
        :: exiting)
   in
   let running =

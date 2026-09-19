@@ -1,4 +1,4 @@
 (library
  (name lingo_runtime)
  (public_name lingo_runtime)
- (libraries ir siesta))
+ (libraries ir siesta handsome))

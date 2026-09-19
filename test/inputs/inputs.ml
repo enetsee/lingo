@@ -152,6 +152,50 @@ let shapes : t =
       ; "let a ; let b"
       ; "@ let a"
       ; "let a ; ; let b"
+        (* The block's closer is missing, so the body's last run is what holds
+           the tokens after it and has to measure them. *)
+      ; "{c let a;; letlet b a}"
+      ]
+  }
+;;
+
+(* The formatter's inputs. Every comment here sits somewhere a boundary has to
+   decide about: at the head of a body, between two elements, and at the end of
+   the input with nothing to end its line. The long one is there to break, so
+   the trailing separator that appears only on a break has an input that makes
+   it appear. *)
+let comments : t =
+  { good =
+      [ "[a, b]"
+      ; "[a.b, 1]"
+      ; "[]"
+      ; "[[a], [b, c]]"
+      ; "[ // first\n  a, b ]"
+      ; "[a, // trailing\n  b ]"
+      ; "[a /* mid */, b]"
+      ; "[aaaa, bbbb, cccc, dddd]"
+      ; "[a] // after"
+      ; "[1 . 5]"
+        (* The separator the source already has is the author asking for a broken
+           body. Nothing else in a grammar can ask for that directly. *)
+      ; "[a, b,]"
+      ; "[[a, b,], c]"
+      ]
+      (* ["\[1 .5\]"] is the max-munch case: three tokens the source had apart,
+         no two of which join, that are one number together. *)
+  ; broken =
+      [ "[1 .5]"
+      ; "[a"
+      ; "[a, // x"
+      ; "[a,, b]"
+      ; "[. a]"
+      ; "[a b]"
+      ; "/* open"
+      ; "[a] junk"
+        (* A [Field] with no name leaves a break asked for by a child that is
+           not there. Carried on, the trailing separator takes it and lands on a
+           line of its own. *)
+      ; "[a/* mid *//* mid */.]"
       ]
   }
 ;;

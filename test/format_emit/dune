@@ -1,0 +1,131 @@
+; The emitted layout tables. They are generated here, compiled here, and run
+; against the fold over the table lingo.layout lowers, which is the
+; specification.
+
+(executable
+ (name gen)
+ (modules gen)
+ (libraries lingo.core lingo.layout lingo.ocaml lingo_grammars))
+
+(rule
+ (with-stdout-to
+  sexp_layout.ml
+  (run ./gen.exe sexp layout)))
+
+(rule
+ (with-stdout-to
+  sexp_layout.mli
+  (run ./gen.exe sexp mli)))
+
+(rule
+ (with-stdout-to
+  json_layout.ml
+  (run ./gen.exe json layout)))
+
+(rule
+ (with-stdout-to
+  json_layout.mli
+  (run ./gen.exe json mli)))
+
+(rule
+ (with-stdout-to
+  calc_layout.ml
+  (run ./gen.exe calc layout)))
+
+(rule
+ (with-stdout-to
+  calc_layout.mli
+  (run ./gen.exe calc mli)))
+
+(rule
+ (with-stdout-to
+  rassoc_layout.ml
+  (run ./gen.exe rassoc layout)))
+
+(rule
+ (with-stdout-to
+  rassoc_layout.mli
+  (run ./gen.exe rassoc mli)))
+
+(rule
+ (with-stdout-to
+  postfix_layout.ml
+  (run ./gen.exe postfix layout)))
+
+(rule
+ (with-stdout-to
+  postfix_layout.mli
+  (run ./gen.exe postfix mli)))
+
+(rule
+ (with-stdout-to
+  shapes_layout.ml
+  (run ./gen.exe shapes layout)))
+
+(rule
+ (with-stdout-to
+  shapes_layout.mli
+  (run ./gen.exe shapes mli)))
+
+(rule
+ (with-stdout-to
+  unicode_layout.ml
+  (run ./gen.exe unicode layout)))
+
+(rule
+ (with-stdout-to
+  unicode_layout.mli
+  (run ./gen.exe unicode mli)))
+
+(rule
+ (with-stdout-to
+  recovery_layout.ml
+  (run ./gen.exe recovery layout)))
+
+(rule
+ (with-stdout-to
+  recovery_layout.mli
+  (run ./gen.exe recovery mli)))
+
+(rule
+ (with-stdout-to
+  comments_layout.ml
+  (run ./gen.exe comments layout)))
+
+(rule
+ (with-stdout-to
+  comments_layout.mli
+  (run ./gen.exe comments mli)))
+
+; [emitted_formatters] links lingo_runtime and nothing else of ours, so a
+; generated formatter that reached for lingo.layout would not build.
+
+(library
+ (name emitted_formatters)
+ (modules
+  sexp_layout
+  json_layout
+  calc_layout
+  rassoc_layout
+  postfix_layout
+  shapes_layout
+  unicode_layout
+  recovery_layout
+  comments_layout)
+ (libraries lingo_runtime))
+
+(tests
+ (names law_format)
+ (modules law_format)
+ (libraries
+  emitted_formatters
+  inputs
+  lex
+  lingo.core
+  lingo.interp
+  lingo.layout
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  siesta
+  sweep))

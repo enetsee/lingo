@@ -1,0 +1,100 @@
+; 0 N_FILE
+; 1 N_FIELD
+; 2 T_LPAREN
+; 3 T_RPAREN
+; 4 T_LBRACKET
+; 5 T_RBRACKET
+; 6 T_LBRACE
+; 7 T_RBRACE
+; 8 T_DOT
+; 9 T_COMMA
+; 10 T_QUESTION
+; 11 T_PLUS
+; 12 T_INT
+; 13 T_NAME
+; 14 T_WS
+; 15 N_EXPR
+; 16 N_EXPR_BIN
+; 17 N_EXPR_PREFIX
+; 18 N_EXPR_POSTFIX_TRY
+; 19 N_EXPR_POSTFIX_FIELD
+; 20 N_EXPR_POSTFIX_INDEX
+; 21 N_EXPR_POSTFIX_BLOCK
+; 22 N_EXPR_POSTFIX_CALL
+; 23 N_FILE_HOLE
+; 24 N_FIELD_HOLE
+; 25 N_EXPR_HOLE
+; 26 T_ERROR
+; 27 N_ERROR
+; 28 N_MISSING
+; 29 T_UNTERMINATED
+(layout
+  (token 2)
+  (token 3)
+  (token 4)
+  (token 5)
+  (token 6)
+  (token 7)
+  (token 8)
+  (token 9)
+  (token 10)
+  (token 11 before after)
+  (token 12 before after)
+  (token 13 before after)
+  (token 14 before after reformat)
+  (token 26)
+  (token 29)
+  (rule 0 File 0
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
+  )
+  (rule 1 Field 1
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 13) (before flat) (between flat))
+  )
+  (rule 2 Expr 15
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 12 13) (before flat) (between flat))
+  )
+  (rule 3 ExprBin 16
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
+    (slot (kinds 11) (before flat) (between flat))
+    (slot (kinds 15 16 18 19 20 21 22 25) (before fit) (between fit))
+  )
+  (rule 4 ExprPostfixTry 18
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
+    (slot (kinds 10) (before flat) (between flat))
+  )
+  (rule 5 ExprPostfixField 19
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
+    (slot (kinds 8) (before flat) (between flat))
+    (slot (kinds 1) (before flat) (between flat))
+  )
+  (rule 6 ExprPostfixIndex 20
+    (frame delimited 4 5)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
+    (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
+  )
+  (rule 7 ExprPostfixBlock 21
+    (frame delimited 6 7)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
+    (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
+  )
+  (rule 8 ExprPostfixCall 22
+    (frame delimited 2 3 (sep 9 never))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
+    (slot (kinds 15 16 18 19 20 21 22 25) repeats (before flat) (between fit))
+  )
+)

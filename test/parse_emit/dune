@@ -221,4 +221,5 @@
   lingo.plan
   lingo_grammars
   lingo_runtime
-  siesta))
+  siesta
+  sweep))

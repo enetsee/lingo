@@ -1,0 +1,74 @@
+; 0 N_PROGRAM
+; 1 N_DECL
+; 2 N_LET
+; 3 N_INIT
+; 4 N_NAMES
+; 5 N_BLOCK
+; 6 T_LET
+; 7 T_LBRACE
+; 8 T_RBRACE
+; 9 T_SEMI
+; 10 T_COMMA
+; 11 T_EQUALS
+; 12 T_AT
+; 13 T_END
+; 14 T_NAME
+; 15 T_WS
+; 16 N_PROGRAM_HOLE
+; 17 N_DECL_HOLE
+; 18 N_LET_HOLE
+; 19 N_INIT_HOLE
+; 20 N_NAMES_HOLE
+; 21 N_BLOCK_HOLE
+; 22 T_ERROR
+; 23 N_ERROR
+; 24 N_MISSING
+; 25 T_UNTERMINATED
+(layout
+  (token 6 before after)
+  (token 7)
+  (token 8)
+  (token 9)
+  (token 10)
+  (token 11 before after)
+  (token 12)
+  (token 13 before after)
+  (token 14 before after)
+  (token 15 before after reformat)
+  (token 22)
+  (token 25)
+  (rule 0 Program 0
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 1) repeats (before flat) (between fit))
+  )
+  (rule 1 Decl 1
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 2 5) (before flat) (between flat))
+  )
+  (rule 2 Let 2
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 6) (before flat) (between flat))
+    (slot (kinds 14) (before fit) (between fit))
+    (slot (kinds 12) (before fit) (between fit))
+    (slot (kinds 3) (before fit) (between fit))
+  )
+  (rule 3 Init 3
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 11) (before flat) (between flat))
+    (slot (kinds 4) (before fit) (between fit))
+  )
+  (rule 4 Names 4
+    (frame separated (sep 10 never))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 14) repeats (before flat) (between fit))
+  )
+  (rule 5 Block 5
+    (frame delimited 7 8 (sep 9 always))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 1) repeats (before flat) (between fit))
+  )
+)

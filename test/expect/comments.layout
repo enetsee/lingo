@@ -1,0 +1,56 @@
+; 0 N_FILE
+; 1 N_LIST
+; 2 N_ITEM
+; 3 N_FIELD
+; 4 T_LBRACK
+; 5 T_RBRACK
+; 6 T_COMMA
+; 7 T_DOT
+; 8 T_NAME
+; 9 T_NUMBER
+; 10 T_WS
+; 11 T_LINE
+; 12 T_BLOCK
+; 13 N_FILE_HOLE
+; 14 N_LIST_HOLE
+; 15 N_ITEM_HOLE
+; 16 N_FIELD_HOLE
+; 17 T_ERROR
+; 18 N_ERROR
+; 19 N_MISSING
+; 20 T_UNTERMINATED
+(layout
+  (token 4)
+  (token 5)
+  (token 6 after)
+  (token 7)
+  (token 8 before after)
+  (token 9 before after)
+  (token 10 before after reformat)
+  (token 11 before after preserve)
+  (token 12 before after preserve)
+  (token 17)
+  (token 20)
+  (rule 0 File 0
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 1) (before flat) (between flat))
+  )
+  (rule 1 List 1
+    (frame delimited 4 5 (sep 6 on-break))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 2) repeats (before flat) (between fit))
+  )
+  (rule 2 Item 2
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 1 8 9) (before flat) (between flat))
+    (slot (kinds 3) repeats (before fit) (between fit))
+  )
+  (rule 3 Field 3
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 7) (before flat) (between flat))
+    (slot (kinds 8 9) (before fit) (between fit))
+  )
+)

@@ -1,0 +1,69 @@
+; 0 N_FILE
+; 1 N_VALUE
+; 2 N_MEMBER
+; 3 N_OBJECT
+; 4 N_ARRAY
+; 5 T_TRUE
+; 6 T_FALSE
+; 7 T_NULL
+; 8 T_LBRACE
+; 9 T_RBRACE
+; 10 T_LBRACKET
+; 11 T_RBRACKET
+; 12 T_COMMA
+; 13 T_COLON
+; 14 T_NUMBER
+; 15 T_STRING
+; 16 T_WS
+; 17 N_FILE_HOLE
+; 18 N_VALUE_HOLE
+; 19 N_MEMBER_HOLE
+; 20 N_OBJECT_HOLE
+; 21 N_ARRAY_HOLE
+; 22 T_ERROR
+; 23 N_ERROR
+; 24 N_MISSING
+; 25 T_UNTERMINATED
+(layout
+  (token 5 before after)
+  (token 6 before after)
+  (token 7 before after)
+  (token 8)
+  (token 9)
+  (token 10)
+  (token 11)
+  (token 12 after)
+  (token 13 after)
+  (token 14 before after)
+  (token 15 before after)
+  (token 16 before after reformat)
+  (token 22)
+  (token 25)
+  (rule 0 File 0
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 1) (before flat) (between flat))
+  )
+  (rule 1 Value 1
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 3 4 5 6 7 14 15) (before flat) (between flat))
+  )
+  (rule 2 Member 2
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 15) (before flat) (between flat))
+    (slot (kinds 13) (before fit) (between fit))
+    (slot (kinds 1) (before fit) (between fit))
+  )
+  (rule 3 Object 3
+    (frame delimited 8 9 (sep 12 never))
+    (body (hard 1)) (inner (hard 1)) (indent 2)
+    (slot (kinds 2) repeats (before flat) (between (hard 1)))
+  )
+  (rule 4 Array 4
+    (frame delimited 10 11 (sep 12 never))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 1) repeats (before flat) (between fit))
+  )
+)

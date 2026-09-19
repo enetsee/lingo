@@ -94,3 +94,9 @@ let run (f : Core.Facts.t) (s : string) : Lingo_runtime.Token.t array =
   done;
   Dynarray.to_array out
 ;;
+
+(* [Lingo_runtime.Layout.boundary] holds the walk over the tokens, because an
+   emitted formatter needs the same one over its own lexer. *)
+let boundary (f : Core.Facts.t) : string -> int -> bool =
+  Lingo_runtime.Layout.boundary ~lex:(run f)
+;;
