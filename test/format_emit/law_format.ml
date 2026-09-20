@@ -43,10 +43,11 @@
             -> (a) 46 fields, (b) 10,372 formats.
         M7  In [Ocaml.Formatter.rule], write [edge_before] and [edge_after] as
             [None].
-            -> nothing, and no byte of the emitted source moves. No grammar in
-               the ladder sets either one, so this is not a mutation at all. The
-               emitter could leave both fields out and no part of this law would
-               redden.
+            -> (a) 2 fields, (b) 1,985 formats. This read nothing at all until
+               2026-09-20, when sexp's [Group] became the first production to
+               set either one. Every grammar had [None] there before that, so
+               the mutation moved no byte of the emitted source and the emitter
+               could have left both fields out.
         M8  In [Ocaml.Formatter.rule], write [name] as the empty string.
             -> (a) 46 fields, and (b) nothing. The name is for a dump and a
                diagnostic. The fold reads none of it, so (a) is the only part

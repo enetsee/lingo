@@ -213,6 +213,12 @@
                the group that settles the line then stops short of the tokens
                the caller writes on it.
 
+       M21  In [Lower.rule], write [edge_before] and [edge_after] as [None].
+            -> (g), both of its steps, and the two sexp goldens move by 14
+               lines. The override is what puts a space between a group and what
+               sits beside it. Neither parenthesis can carry that, because two
+               parentheses still touch.
+
        M19  In [Layout.node], drop the [absent] trace.
        M20  In [Layout.node], replace [undo] with the identity, which drops the
             restoring and the [break-back] trace together.
@@ -345,6 +351,8 @@ let steps =
   ; "unruled"
   ; "absent"
   ; "break-back"
+  ; "edge-before"
+  ; "edge-after"
   ]
 ;;
 

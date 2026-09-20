@@ -520,7 +520,17 @@ val with_separator
 val with_committed : ?boundary:bool -> production -> production
 val with_identity : string -> production -> production
 val with_no_hole : production -> production
+
+(** Replaces the leading spacing flag of this production, which otherwise comes
+    from its first token. {!with_trailing_space} is the same on the trailing
+    edge.
+
+    Both are for spacing that belongs to the production rather than to either
+    token. sexp's [Group] sits between tight parentheses, so [(a (b 12) c)]
+    comes out as [(a(b 12)c)]; loosening the parentheses themselves would put a
+    space between two of them as well. *)
 val with_leading_space : bool -> production -> production
+
 val with_trailing_space : bool -> production -> production
 
 (** Ends this production's body loop when the cursor reaches any of [toks].

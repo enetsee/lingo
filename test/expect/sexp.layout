@@ -33,7 +33,7 @@
   )
   (rule 2 Group 2
     (frame delimited 3 4)
-    (body fit) (inner fit) (indent 2)
+    (body fit) (inner fit) (indent 2) (edge-before true) (edge-after true)
     (slot (kinds 1) repeats (before flat) (between fit))
   )
 )

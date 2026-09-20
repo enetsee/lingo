@@ -57,9 +57,15 @@ let grammar : t =
           [ Token "ident"; Token "number"; Rule "Group" ]
       ]
   in
+  (* [lparen] and [rparen] are tight, so nothing sits between a group and what
+     is beside it: [(a (b 12) c)] comes out [(a(b 12)c)]. The spacing wanted
+     here belongs to the production rather than to either token, because two
+     parentheses still touch. *)
   let group =
     prod "Group" [ child_rep "elt" (Rule "Sexp") ]
     |> with_delimited ~open_tok:"lparen" ~close_tok:"rparen"
+    |> with_leading_space true
+    |> with_trailing_space true
   in
   create ~tokens ~roots:[ "File" ] [ file; sexp; group ]
 ;;

@@ -673,13 +673,19 @@ and node (e : env) (n : Siesta.Green.node) ~tail ~stood st =
     in
     let st =
       match r.edge_before with
-      | Some _ as b -> { st with space_before = b }
+      | Some _ as b ->
+        say e "edge-before";
+        { st with space_before = b }
       | None -> st
     in
     let close st =
       let st =
         match r.edge_after, st.last with
-        | Some b, Some edge -> { st with last = Some { edge with space_after = b } }
+        | Some b, Some edge ->
+          say e "edge-after";
+          { st with last = Some { edge with space_after = b } }
+        (* Nothing was written before this edge, so there is no flag to
+           replace. *)
         | (Some _ | None), _ -> st
       in
       tail st
