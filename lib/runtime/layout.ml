@@ -167,8 +167,11 @@ let name_of j =
 type env =
   { lay : Ir.Layout.t
   ; boundary : string -> int -> bool
-  ; trace : string -> unit
+  ; trace : step:string -> kind:Ir.Kind.t -> unit
+  ; kind : Ir.Kind.t (* The rule the fold is inside. *)
   }
+
+let say (e : env) (step : string) : unit = e.trace ~step ~kind:e.kind
 
 (* Only a token's spacing flags are read at a boundary, so a kind that is not a
    token gives the neutral entry. [trivia] is read of any child. *)
@@ -180,7 +183,7 @@ let token (lay : Ir.Layout.t) (k : Ir.Kind.t) =
 
 let joins (e : env) (st : state) ~next =
   let j = join ~boundary:e.boundary ~run:st.run ~next in
-  e.trace (name_of j);
+  say e (name_of j);
   j
 ;;
 
@@ -290,13 +293,13 @@ let glue (e : env) (st : state) (w : Written.t) : Ir.Kind.t Handsome.Ascii.t * s
     let d, clears =
       match brk with
       | Hard n ->
-        e.trace "break-hard";
+        say e "break-hard";
         breaks n, true
       | Fit ->
-        e.trace "break-fit";
+        say e "break-fit";
         (if blank then Handsome.Ascii.line else Handsome.Ascii.softline), blank
       | Flat ->
-        e.trace "break-flat";
+        say e "break-flat";
         (if blank then Handsome.Ascii.text " " else empty), blank
     in
     d, leaving ~clears
@@ -452,10 +455,10 @@ let entries
             prev_slot := s;
             again := ag;
             incr elements;
-            if ag then e.trace "repeat";
+            if ag then say e "repeat";
             Filled
           | None ->
-            e.trace "stray";
+            say e "stray";
             Stray)
       in
       let was_held =
@@ -466,7 +469,7 @@ let entries
       let before : Ir.Layout.break =
         if held || was_held
         then (
-          e.trace (if !nl then "held-line" else "held-same");
+          say e (if !nl then "held-line" else "held-same");
           if !nl then Hard 1 else Flat)
         else (
           match role with
@@ -564,11 +567,21 @@ and child (e : env) it ~tail ~stood st =
 and node (e : env) (n : Siesta.Green.node) ~tail ~stood st =
   let entry = st.written
   and stood_space = st.space_before in
+  (* [undo] belongs to the boundary in front of this node, which is the enclosing
+     rule's, so it traces against the [e] this was called with. *)
   let undo st =
-    if st.written = entry then { st with brk = stood; space_before = stood_space } else st
+    if st.written = entry
+    then (
+      if st.brk <> stood || st.space_before <> stood_space then say e "break-back";
+      { st with brk = stood; space_before = stood_space })
+    else st
   in
   let tail st = tail (undo st) in
   let k = Siesta.Green.kind n in
+  (* A child's [tail] walks the children after it, and is called from inside that
+     child. The kind travels in [env] rather than a mutable cell so that a tail
+     resumes with the kind of the rule whose children it is walking. *)
+  let e = { e with kind = k } in
   let cs = Siesta.Green.children_array n in
   (* A node with no children stands in for something the parse never read: a
      hole, or a delimiter it looked for and did not find. It has no bytes, so
@@ -580,13 +593,14 @@ and node (e : env) (n : Siesta.Green.node) ~tail ~stood st =
      and its output grew one delimiter per pass. *)
   if Array.length cs = 0
   then (
+    say e "absent";
     let d, st = tail st in
     empty, d, undo st)
   else (
     let ri = e.lay.of_kind.(k) in
     let ruled = ri >= 0 in
     let r = if ruled then e.lay.rules.(ri) else unruled in
-    if not ruled then e.trace "unruled";
+    if not ruled then say e "unruled";
     let es, o, c = entries e r ~hold_all:(not ruled) ~prev_held:st.held cs in
     let last = Array.length es in
     (* What the body does about a separator after its last element.
@@ -708,7 +722,8 @@ and node (e : env) (n : Siesta.Green.node) ~tail ~stood st =
             if not sep
             then nothing st
             else (
-              e.trace
+              say
+                e
                 (match s.trailing with
                  | Always -> "sep-always"
                  | On_break -> "sep-on-break"
@@ -772,9 +787,15 @@ and node (e : env) (n : Siesta.Green.node) ~tail ~stood st =
     lead, Handsome.Ascii.group (Handsome.Ascii.annotate k d), undo st)
 ;;
 
-let doc ?(trace = fun (_ : string) -> ()) (lay : Ir.Layout.t) ~boundary n =
+let doc
+      ?(trace = fun ~step:(_ : string) ~kind:(_ : Ir.Kind.t) -> ())
+      (lay : Ir.Layout.t)
+      ~boundary
+      n
+  =
+  let kind = Siesta.Green.kind n in
   let lead, d, _ =
-    node { lay; boundary; trace } n ~tail:nothing ~stood:Ir.Layout.Flat start
+    node { lay; boundary; trace; kind } n ~tail:nothing ~stood:Ir.Layout.Flat start
   in
   lead ^^ d
 ;;

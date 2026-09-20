@@ -131,7 +131,14 @@ let signature : Emit.sig_item list =
       (Emit.tarrow_optional
          "trace"
          ~domain:
-           (Emit.tarrow ~domain:(Emit.tcon "string" []) ~codomain:(Emit.tcon "unit" []))
+           (Emit.tarrow_labelled
+              "step"
+              ~domain:(Emit.tcon "string" [])
+              ~codomain:
+                (Emit.tarrow_labelled
+                   "kind"
+                   ~domain:(Emit.tcon "Lingo_runtime.Kind.t" [])
+                   ~codomain:(Emit.tcon "unit" [])))
          ~codomain:
            (Emit.tarrow_labelled
               "lex"

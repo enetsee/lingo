@@ -117,12 +117,16 @@ val boundary : lex:(string -> Token.t array) -> string -> int -> bool
 (** The document, with each token's kind on it. A caller folding the rendered
     stream reads those to colour the output or to check it.
 
-    [trace] is called with the name of each step the fold takes: which join the
-    lexer allowed, which break a boundary took, and the handful of steps no
-    boundary governs. A law counts them to say which a corpus reaches, because a
-    step no fold takes is one no law covers. *)
+    [trace] is called with each step the fold takes and the kind of the rule it
+    took it in: which join the lexer allowed, which break a boundary took, and
+    the handful of steps no boundary governs. A law counts them to say which a
+    corpus reaches, because a step no fold takes is one no law covers.
+
+    The kind is there for the counting. There are fifteen steps and that number
+    follows from this fold, so a count over steps alone stands still however far
+    a corpus is taken. How many steps a rule has follows from the grammar. *)
 val doc
-  :  ?trace:(string -> unit)
+  :  ?trace:(step:string -> kind:Ir.Kind.t -> unit)
   -> Ir.Layout.t
   -> boundary:(string -> int -> bool)
   -> Siesta.Green.node
@@ -130,7 +134,7 @@ val doc
 
 (** [doc] rendered at [width]. *)
 val format
-  :  ?trace:(string -> unit)
+  :  ?trace:(step:string -> kind:Ir.Kind.t -> unit)
   -> Ir.Layout.t
   -> boundary:(string -> int -> bool)
   -> width:int

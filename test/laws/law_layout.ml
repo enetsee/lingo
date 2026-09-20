@@ -9,10 +9,12 @@
       (f) No text node holds a newline, so the column model is right about
           every byte.
       (g) Every step the fold can take is one the corpus reaches.
+      (h) A corpus twice as deep reaches pairs of steps the first did not.
 
       Mechanism. Nine grammars. Two corpora for each: the inputs written in
       test/inputs, at four widths, and a corpus generated from those by editing
-      their tokens, at two. Parts (b) to (f) run on every format.
+      their tokens, at two. Parts (b) to (f) run on every format. (h) needs a
+      second sweep, so it runs under [LINGO_COVER=1] and nowhere else.
 
       The argument, which the corpus only checks. [format t] is [render (doc t)], and [doc] is a function of [t] alone. So
       idempotence is this: does [parse (format t)] give [t] back?
@@ -197,6 +199,13 @@
                line of its own, taking the break meant for the name a [Field]
                never got. It is idempotent and inside the ruler, so only the
                goldens carry it.
+
+               Re-measured on 2026-09-19 against the [break-back] step, which
+               marks this situation. Still nothing, and that is the honest
+               reading: the step fires on a request outstanding where a child
+               wrote nothing, before anything is done about it. A step on the
+               restoring would have reddened (g) for having been deleted rather
+               than for the layout being wrong.
        M18  In [Layout.entries], leave the rule's break on a closer the parse
             never found. [depth 8]
             -> (e) 584 lines. Such a closer writes nothing, so there is nothing
@@ -204,9 +213,20 @@
                the group that settles the line then stops short of the tokens
                the caller writes on it.
 
-      Four of the eighteen redden nothing and move the goldens instead. That is
+       M19  In [Layout.node], drop the [absent] trace.
+       M20  In [Layout.node], replace [undo] with the identity, which drops the
+            restoring and the [break-back] trace together.
+            -> (g), each naming its own step. Both are mutations of the
+               instrument rather than of the layout, and they are here because
+               a step the corpus cannot reach makes (g) and the coverage count
+               both say less than they read.
+
+      Four of the twenty redden nothing and move the goldens instead. That is
       the honest state of the parts: they say the fold is correct, and they do not
       say it is good.
+
+      No mutation of the fold reddens (h). It is a claim about the corpus, and
+      what would falsify it is a generator that stops exploring.
    -------------------------------------------------------------------------- *)
 
 let failures = ref 0
@@ -264,29 +284,49 @@ let corpus =
 
 let reach : (string, int) Hashtbl.t = Hashtbl.create 32
 
-let ran name =
-  Hashtbl.replace reach name (1 + Option.value (Hashtbl.find_opt reach name) ~default:0)
+let ran ~step ~kind:(_ : Ir.Kind.t) =
+  Hashtbl.replace reach step (1 + Option.value (Hashtbl.find_opt reach step) ~default:0)
 ;;
 
 (* Whether the generated corpus is explored or only resampled.
 
    M1 in 02-LAWS.md puts it as an edge being a transition rather than a single
    step. The number of steps the fold has is a property of the layout, so
-   counting those saturates at once and shows nothing about depth. Counting
-   consecutive pairs shows whether a deeper corpus reaches shapes a shallow one
-   does not.
+   counting those saturates at once and shows nothing about depth.
+
+   Counting pairs of them is not enough either, and that was this law's own
+   reading of M1 until 2026-09-19: 97 pairs at depth 1, 99 at 4 and 100 at 16,
+   with the ceiling at fifteen steps squared. Depth 8 found M10 and M18 and
+   depth 64 found M17 while the count stood still. So the step is paired with
+   the rule it was taken in, which is where the grammar enters. A point is a
+   grammar, a step and a rule kind, and an edge is two consecutive points.
+   That reads 1,544 at depth 1, 1,639 at 4, 1,702 at 16, 1,748 at 64 and 1,772
+   at 128.
+
+   The role of the child was tried as a step of its own and made the instrument
+   worse: 1,574 at depth 1 and 1,684 at 128. A step between every pair collapses
+   the pairs that used to be adjacent, so a role belongs in the point or nowhere.
+
+   What remains is a property of having nine grammars. The reachable set over a
+   fixed set of them is finite, and what widens it is a sampler over grammars.
 
    The predecessor ran ten sweeps of a million before anyone noticed its own
    instrument held constant. Off by default, because it costs a hashtable write
    per step; [LINGO_COVER=1] turns it on. *)
 let covering = Sys.getenv_opt "LINGO_COVER" = Some "1"
-let edges : (string * string, int) Hashtbl.t = Hashtbl.create 256
-let previous = ref ""
 
-let stepped name =
-  let e = !previous, name in
+type point = string * string * Ir.Kind.t
+
+let edges : (point * point, int) Hashtbl.t = Hashtbl.create 1024
+let nowhere : point = "", "", -1
+let previous = ref nowhere
+let grammar = ref ""
+
+let stepped ~step ~kind =
+  let p = !grammar, step, kind in
+  let e = !previous, p in
   Hashtbl.replace edges e (1 + Option.value (Hashtbl.find_opt edges e) ~default:0);
-  previous := name
+  previous := p
 ;;
 
 let steps =
@@ -303,6 +343,8 @@ let steps =
   ; "sep-on-break"
   ; "sep-always"
   ; "unruled"
+  ; "absent"
+  ; "break-back"
   ]
 ;;
 
@@ -437,6 +479,7 @@ let () =
        match Core.Facts.of_grammar c.grammar with
        | Error _ -> fail "%s: the grammar does not check" c.name
        | Ok f ->
+         grammar := c.name;
          let l = Layout.Lower.of_facts f in
          (match Layout.Check.run l with
           | Ok () -> ()
@@ -461,7 +504,7 @@ let () =
                then Lingo_runtime.Layout.doc ~trace:ran l ~boundary tree
                else if covering
                then (
-                 previous := "";
+                 previous := nowhere;
                  Lingo_runtime.Layout.doc ~trace:stepped l ~boundary tree)
                else Lingo_runtime.Layout.doc l ~boundary tree
              in
@@ -557,13 +600,58 @@ let () =
     fail "(e) %d lines past the ruler had a break the printer declined" (List.length bad)
 ;;
 
+(* -- (h) the search is searching ------------------------------------------- *)
+
+(* M1's other half. A count is only evidence while it is still moving, so the
+   corpus is taken to twice the depth and has to reach pairs the first pass did
+   not. A count that stops is measuring the fold's vocabulary.
+
+   Only the folding runs here. The laws above have already read this corpus at
+   [depth], and reading it again at [depth * 2] would double the suite for a
+   question about the instrument. *)
 let () =
   if covering
-  then
+  then (
+    let shallow = Hashtbl.length edges in
+    List.iter
+      (fun c ->
+         match Core.Facts.of_grammar c.grammar with
+         | Error _ -> ()
+         | Ok f ->
+           grammar := c.name;
+           let l = Layout.Lower.of_facts f in
+           let plan, _ = Plan.Lower.of_facts f in
+           let entry = plan.Ir.Plan.roots.(0) in
+           let boundary = Lex.boundary f in
+           let seeds = Inputs.all c.inputs in
+           List.iter
+             (fun src ->
+                let tree, _ = Interp.run plan entry (Lex.run f src) in
+                previous := nowhere;
+                ignore (Lingo_runtime.Layout.doc ~trace:stepped l ~boundary tree))
+             (Sweep.inputs ~depth:(depth * 2) f seeds))
+      corpus;
+    let deep = Hashtbl.length edges in
     Printf.printf
-      "COVER depth %d: %d distinct pairs of consecutive steps\n"
+      "COVER depth %d: %d edges; and %d after depth %d\n"
       depth
-      (Hashtbl.length edges)
+      shallow
+      deep
+      (depth * 2);
+    if deep <= shallow
+    then
+      fail
+        "(h) depth %d reached no edge depth %d had not, over %d"
+        (depth * 2)
+        depth
+        shallow
+    else
+      pass
+        "(h) depth %d adds %d edges to depth %d's %d"
+        (depth * 2)
+        (deep - shallow)
+        depth
+        shallow)
 ;;
 
 let () =
