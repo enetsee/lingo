@@ -1,12 +1,12 @@
 (** How a name the author writes becomes a name a backend emits.
 
-    Grammar names are loosely UpperCamelCase. OCaml wants a different shape
-    in each place one lands. Values and fields want [snake_case]. Modules
-    want [Upper_first]. A few names land on a keyword and take a trailing
+    Grammar names are loosely UpperCamelCase. OCaml takes a different shape
+    in each place one lands. Values and fields take [snake_case]. Modules take
+    [Upper_first]. A few names land on a keyword and take a trailing
     underscore.
 
-    Nothing here knows what a grammar is. {!Manifest} applies these functions
-    to a grammar, and owns the namespaces that come out. *)
+    Nothing here reads a grammar. {!Manifest} applies these functions to one,
+    and owns the namespaces that come out. *)
 
 (** ["FooBar"] gives ["foo_bar"]. An uppercase letter after the first
     position takes an underscore before it, and every letter is lowered.
@@ -18,7 +18,7 @@ val snake_case : string -> string
 
 (** Splits a run of capitals before its last letter, so ["URLPattern"] gives
     ["url_pattern"]. Use it for a name that becomes a prefix-matched dotted
-    scope. An OCaml binding wants {!snake_case}. *)
+    scope. An OCaml binding takes {!snake_case}. *)
 val snake_case_acronym : string -> string
 
 val ocaml_reserved : string list

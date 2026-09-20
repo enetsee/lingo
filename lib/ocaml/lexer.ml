@@ -2,8 +2,8 @@ open StdLabels
 
 (* The automaton is emitted as integers. Generated code links [lingo_runtime]
    and nothing else of ours, so it has no [Ucharset] to decode a class set
-   with. The scan asks which class a codepoint is in, and [Core.Lexer]
-   flattens the sets into that answer. *)
+   with. The scan reads which class a codepoint is in, and [Core.Lexer]
+   flattens the sets into that table. *)
 
 type shape =
   | Table
@@ -203,7 +203,7 @@ let table_items (table : Core.Lexer.t) (bits : int) : Emit.item list =
   ]
 ;;
 
-(* The segment holding U+0080. The ASCII table answers every codepoint below
+(* The segment holding U+0080. The ASCII table covers every codepoint below
    it, so the search starts here. *)
 let first_high (table : Core.Lexer.t) : int =
   let found = ref 0 in
@@ -484,9 +484,9 @@ let self_set (dfa : Redfa.Dfa.t) (state : int) : Ucharset.t =
 ;;
 
 (* [st_N_run j] is the end of the run of self characters starting at [j]. Its
-   match branches straight to the next step. A version answering a boolean has
-   to reach a [true] first and let the caller branch on that, and over seven
-   runs the extra step showed.
+   match branches straight to the next step. A version giving a boolean has to
+   reach a [true] first and let the caller branch on that, and over seven runs
+   the extra step showed.
 
    It sits in the cluster. A local [let rec] closing over [src] and [n]
    allocates a closure every time the arm is taken, which measured at twelve

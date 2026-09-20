@@ -47,8 +47,8 @@ let invalid_names (names : Stage.names) (acc : Error.t list) : Error.t list =
        [Role.kind_suffix] uppercases it. [Role.snake_suffix] takes it as
        written. [Role.pascal_suffix] splits it on [_] and capitalises each part.
 
-       The check runs before any of those three, and asks for an identifier. An
-       identifier survives all three manglings.
+       The check runs before any of those three, and requires an identifier.
+       An identifier survives all three manglings.
 
        That is stricter than the emitted code needs. A suffix lands inside an
        identifier and never at its front, so a leading digit would still
@@ -450,7 +450,7 @@ let pratt (names : Stage.names) (acc : Error.t list) : Error.t list =
     let acc = dups "prefix" prefix_toks acc in
     let acc = dups "infix" infix_toks acc in
     let acc = dups "postfix" postfix_toks acc in
-    (* Position decides between prefix and infix, and the two contexts are
+    (* Position separates prefix from infix, and the two contexts are
        separate at parse time. The loop checks postfix triggers before infix
        dispatch, so a token declared as both parses as postfix every time. *)
     let acc =
@@ -467,9 +467,9 @@ let pratt (names : Stage.names) (acc : Error.t list) : Error.t list =
           else acc)
     in
     (* The threshold test is the same for every operator at a binding power. The
-       parent of one operator cannot tell which associativity started the level,
-       so right wins. Two infix operators that share a binding power want the
-       same associativity. *)
+       parent of one operator carries no record of which associativity started
+       the level, so right wins. Two infix operators that share a binding power
+       have to share an associativity. *)
     let acc =
       let by_bp = Hashtbl.create 8 in
       List.iter

@@ -33,7 +33,7 @@
 
     {1 Checking one}
 
-    Call {!Facts.of_grammar}. It answers with a {!Facts.t}, or with a list
+    Call {!Facts.of_grammar}. It gives a {!Facts.t}, or a list
     of {!Error.t}. {!Error.codes} lists every rejection it can report.
 
     {1 Reading the facts}
@@ -68,7 +68,7 @@ module Lexer = Lexer
 
     These are here for the test suite. It runs the stages one at a time and
     checks that each rejection is reported at the earliest stage that can
-    answer it. What they hand out is a partly derived grammar. *)
+    report it. What they hand out is a partly derived grammar. *)
 module Internal : sig
   module Stage = Stage
   module Fixpoint = Fixpoint

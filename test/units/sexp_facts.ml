@@ -5,7 +5,7 @@
       running the code it checks. Where the checker and this file disagree, one
       of them is wrong and the argument has to be made.
 
-      What it pins:
+      What it checks:
 
       - the kind numbering, in full and in order. The numbering follows the
         manifest's declaration order, so changing that order renumbers every
@@ -49,15 +49,14 @@
                    nothing remains, no frame, follow(File) = {}
                                            = {}
                    A root's only child has nowhere to resume, so a failure
-                   there drains to end of input. Pinned because this is the one
-                   position where an empty recovery set is the answer.
+                   there drains to end of input. Checked because this is the
+                   one position where an empty recovery set is right.
    -------------------------------------------------------------------------- *)
-
-open Core
 
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -65,13 +64,15 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 let f =
-  match Facts.of_grammar Lingo_grammars.Sexp_grammar.grammar with
+  match Core.Facts.of_grammar Lingo_grammars.Sexp_grammar.grammar with
   | Ok f -> f
   | Error es ->
-    Format.printf "FAIL sexp was rejected:@\n%a@." Error.pp_list es;
+    Format.printf "FAIL sexp was rejected:@\n%a@." Core.Error.pp_list es;
     exit 1
 ;;
 
@@ -97,7 +98,7 @@ let expected_kinds =
 ;;
 
 let () =
-  let got = List.map Kind.Name.to_string (Kind.Table.names f.kinds) in
+  let got = List.map Core.Kind.Name.to_string (Core.Kind.Table.names f.kinds) in
   if got = expected_kinds
   then pass "kind numbering: 15 kinds, in the order written down"
   else
@@ -107,29 +108,29 @@ let () =
       (String.concat " " got)
 ;;
 
-(* Over the table's own names, since the list above has just been pinned equal
-   to them. Reaching [find] with a literal would want a way to build a
+(* Over the table's own names, since the list above has just been checked
+   equal to them. Reaching [find] with a literal would need a way to build a
    [Kind.Name.t] from a spelling, and there is none. *)
 let () =
   List.iteri
     (fun i n ->
-       let spelled = Kind.Name.to_string n in
-       match Facts.find_kind f n with
-       | Some k when Kind.to_int k = i -> ()
-       | Some k -> fail "%s numbers %d, not %d" spelled (Kind.to_int k) i
+       let spelled = Core.Kind.Name.to_string n in
+       match Core.Facts.find_kind f n with
+       | Some k when Core.Kind.to_int k = i -> ()
+       | Some k -> fail "%s numbers %d, not %d" spelled (Core.Kind.to_int k) i
        | None -> fail "%s is missing from the table" spelled)
-    (Kind.Table.names f.kinds)
+    (Core.Kind.Table.names f.kinds)
 ;;
 
 (* -- the rules ------------------------------------------------------------- *)
 
-let rule name =
-  match Facts.find_kind f (Kind.Name.node name) with
+let rule (name : string) : Core.Rule.def =
+  match Core.Facts.find_kind f (Core.Kind.Name.node name) with
   | None ->
     fail "no kind for rule %s" name;
     exit 1
   | Some k ->
-    (match Facts.rule_of_kind f k with
+    (match Core.Facts.rule_of_kind f k with
      | Some d -> d
      | None ->
        fail "no rule for kind of %s" name;
@@ -146,59 +147,61 @@ let () =
   else fail "rule ids are %d %d %d, not 0 1 2" file.id sexp.id group.id
 ;;
 
-let set_names s =
+let set_names (s : Core.Kind.Set.t) : string list =
   List.sort
     String.compare
-    (List.map (fun k -> Kind.Name.to_string (Facts.kind_name f k)) (Kind.Set.elements s))
+    (List.map
+       (fun k -> Core.Kind.Name.to_string (Core.Facts.kind_name f k))
+       (Core.Kind.Set.elements s))
 ;;
 
-let expect what got want =
-  let want = List.sort String.compare want in
-  if got = want
-  then pass "%s = {%s}" what (String.concat ", " want)
+let expect (what : string) (got : string list) (expected : string list) : unit =
+  let expected = List.sort String.compare expected in
+  if got = expected
+  then pass "%s = {%s}" what (String.concat ", " expected)
   else
     fail
       "%s = {%s}, expected {%s}"
       what
       (String.concat ", " got)
-      (String.concat ", " want)
+      (String.concat ", " expected)
 ;;
 
 let () =
   List.iter
-    (fun ((d : Rule.def), want) ->
-       if Facts.is_nullable f d.id = want
-       then pass "nullable(%s) = %b" (Grammar.Name.Rule.to_string d.name) want
+    (fun ((d : Core.Rule.def), expected) ->
+       if Core.Facts.is_nullable f d.id = expected
+       then pass "nullable(%s) = %b" (Grammar.Name.Rule.to_string d.name) expected
        else
          fail
            "nullable(%s) = %b, expected %b"
            (Grammar.Name.Rule.to_string d.name)
-           (not want)
-           want)
+           (not expected)
+           expected)
     [ file, false; sexp, false; group, false ]
 ;;
 
 let () =
   expect
     "FIRST(File)"
-    (set_names (Facts.first_of f file.id))
+    (set_names (Core.Facts.first_of f file.id))
     [ "T_IDENT"; "T_NUMBER"; "T_LPAREN" ];
   expect
     "FIRST(Sexp)"
-    (set_names (Facts.first_of f sexp.id))
+    (set_names (Core.Facts.first_of f sexp.id))
     [ "T_IDENT"; "T_NUMBER"; "T_LPAREN" ];
-  expect "FIRST(Group)" (set_names (Facts.first_of f group.id)) [ "T_LPAREN" ]
+  expect "FIRST(Group)" (set_names (Core.Facts.first_of f group.id)) [ "T_LPAREN" ]
 ;;
 
 let () =
-  expect "FOLLOW(File)" (set_names (Facts.follow_of f file.id)) [];
+  expect "FOLLOW(File)" (set_names (Core.Facts.follow_of f file.id)) [];
   expect
     "FOLLOW(Sexp)"
-    (set_names (Facts.follow_of f sexp.id))
+    (set_names (Core.Facts.follow_of f sexp.id))
     [ "T_IDENT"; "T_NUMBER"; "T_LPAREN"; "T_RPAREN" ];
   expect
     "FOLLOW(Group)"
-    (set_names (Facts.follow_of f group.id))
+    (set_names (Core.Facts.follow_of f group.id))
     [ "T_IDENT"; "T_NUMBER"; "T_LPAREN"; "T_RPAREN" ]
 ;;
 
@@ -206,9 +209,13 @@ let () =
 
 let () =
   (match group.frame with
-   | Rule.Delimited { open_; close; sep = None; boundary = false }
-     when Kind.Name.equal (Facts.kind_name f open_) (Kind.Name.token "lparen")
-          && Kind.Name.equal (Facts.kind_name f close) (Kind.Name.token "rparen") ->
+   | Core.Rule.Delimited { open_; close; sep = None; boundary = false }
+     when Core.Kind.Name.equal
+            (Core.Facts.kind_name f open_)
+            (Core.Kind.Name.token "lparen")
+          && Core.Kind.Name.equal
+               (Core.Facts.kind_name f close)
+               (Core.Kind.Name.token "rparen") ->
      pass "Group is delimited by lparen .. rparen with no separator"
    | _ -> fail "Group's frame is not the delimited lparen .. rparen it was declared as");
   if group.body_from = 0
@@ -222,12 +229,14 @@ let () =
 let () =
   match sexp.children.(0).alts with
   | [| a; b; c |] ->
-    let ns = List.map (fun k -> Kind.Name.to_string (Facts.kind_name f k)) [ a; b; c ] in
+    let ns =
+      List.map (fun k -> Core.Kind.Name.to_string (Core.Facts.kind_name f k)) [ a; b; c ]
+    in
     if ns = [ "T_IDENT"; "T_NUMBER"; "N_GROUP" ]
     then pass "Sexp.kind keeps its alternatives in declaration order"
     else
       fail
-        "Sexp.kind's alternatives are %s, not the declared order"
+        "Sexp.kind's alternatives are %s rather than the declared order"
         (String.concat " " ns)
   | _ -> fail "Sexp.kind does not have three alternatives"
 ;;
@@ -235,8 +244,8 @@ let () =
 (* -- trivia ---------------------------------------------------------------- *)
 
 let () =
-  let ws = Option.get (Facts.find_kind f (Kind.Name.token "ws")) in
-  if Facts.is_trivia_kind f ws && Kind.Set.cardinal f.trivia = 1
+  let ws = Option.get (Core.Facts.find_kind f (Core.Kind.Name.token "ws")) in
+  if Core.Facts.is_trivia_kind f ws && Core.Kind.Set.cardinal f.trivia = 1
   then pass "trivia is exactly {T_WS}"
   else fail "trivia is %s, expected {T_WS}" (String.concat ", " (set_names f.trivia))
 ;;
@@ -246,9 +255,9 @@ let () =
 let () =
   expect
     "recover(Group.elt)"
-    (set_names (Facts.recovery_set f group.id ~child:0))
+    (set_names (Core.Facts.recovery_set f group.id ~child:0))
     [ "T_IDENT"; "T_NUMBER"; "T_LPAREN"; "T_RPAREN" ];
-  expect "recover(File.root)" (set_names (Facts.recovery_set f file.id ~child:0)) []
+  expect "recover(File.root)" (set_names (Core.Facts.recovery_set f file.id ~child:0)) []
 ;;
 
 let () =

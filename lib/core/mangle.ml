@@ -1,6 +1,6 @@
 open StdLabels
 
-let snake_case s =
+let snake_case (s : string) : string =
   let buf = Buffer.create (String.length s) in
   String.iteri
     ~f:(fun i c ->
@@ -11,7 +11,7 @@ let snake_case s =
   Buffer.contents buf
 ;;
 
-let snake_case_acronym s =
+let snake_case_acronym (s : string) : string =
   let buf = Buffer.create (String.length s) in
   let n = String.length s in
   let is_upper c = Char.uppercase_ascii c = c && c <> Char.lowercase_ascii c in
@@ -91,7 +91,7 @@ let ocaml_reserved =
 let escape_reserved s = if List.mem s ~set:ocaml_reserved then s ^ "_" else s
 let safe_snake s = escape_reserved (snake_case s)
 
-let upper_first s =
+let upper_first (s : string) : string =
   let s = snake_case s in
   if s = ""
   then s

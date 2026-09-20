@@ -11,7 +11,7 @@
     - the parser's top-level bindings;
     - the formatter's cluster;
     - the view modules;
-    - the types and accessors those modules mint.
+    - the types and accessors those modules declare.
 
     A backend emits a handful of names for every grammar: [format_node],
     [format_generic], [parse_tokens] and the four built-in kinds. Each is an
@@ -22,7 +22,7 @@
 
     This describes the widest emission a backend can produce. Every
     production gets a [__root] variant and an entry point, whether or not a
-    caller asks for them. So a grammar that passes here is safe under any
+    caller has use for them. So a grammar that passes here is safe under any
     emission the toolkit makes.
 
     That is why a grammar with both an [Expr] root and an [Expr_Root]
@@ -101,7 +101,7 @@ type collision =
     scope, and from whether any of the entries is a built-in. *)
 val collisions : t -> collision list
 
-(** The kind name each kind of declaration mints. {!Kind.Name} owns the
+(** The kind name each kind of declaration gives. {!Kind.Name} owns the
     spelling. This says which declaration reaches which constructor.
 
     Both {!kind_names} and the staged derivation's lookups come through here,
@@ -113,10 +113,10 @@ module Kind_name : sig
   (** For example [N_EXPR_BIN], [N_EXPR_POSTFIX_CALL]. *)
   val of_role : Grammar.expr_def -> Role.t -> Kind.Name.t
 
-  (** Only a production with {!Grammar.production.has_hole} mints one. *)
+  (** Only a production with {!Grammar.production.has_hole} has one. *)
   val hole_of_production : Grammar.production -> Kind.Name.t
 
-  (** Every block mints one. *)
+  (** Every block has one. *)
   val hole_of_block : Grammar.expr_def -> Kind.Name.t
 end
 

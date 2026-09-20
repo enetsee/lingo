@@ -11,7 +11,7 @@
     of any of those would put that code outside the comparison. *)
 
 (** [run plan entry tokens] parses [tokens] with the rule at index [entry],
-    and answers the tree and the diagnostics in the order they were reported.
+    and gives the tree and the diagnostics in the order they were reported.
 
     [entry] is an index into [plan.rules], and any rule will do: a fuzz
     harness enters at one that is not a root to read a fragment. Raises
@@ -26,8 +26,8 @@
     which of them the corpus reaches, because a form no parse runs is a form
     the law says nothing about.
 
-    [?at] is called wherever the parse reads the cursor to decide what to do
-    next: the position in the plan, the index into [tokens] the parse has
+    [?at] is called wherever the parse reads the cursor before its next step:
+    the position in the plan, the index into [tokens] the parse has
     reached with trivia counted, and how many times it has reported. Two calls
     and their [reported] say whether the step between them reported.
 

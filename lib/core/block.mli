@@ -54,7 +54,7 @@ type def =
   ; name : Grammar.Name.Rule.t
   ; atoms : Kind.t array
     (** In declaration order. Dispatch over them is a cascade, so the order
-          decides which atom wins a shared leading token. *)
+          settles which atom takes a shared leading token. *)
   ; prefix : op array
   ; infix : op array
   ; postfix : postfix array
@@ -64,5 +64,5 @@ type def =
 
 (** The binding-power pair an associativity stands for. [Left] gives
     [(bp, bp + 1)] and [Right] gives [(bp, bp)]. A parser then needs only a
-    [left_bp >= min_bp] test to tell them apart. *)
+    [left_bp >= min_bp] test to separate them. *)
 val op_bps : op -> int * int

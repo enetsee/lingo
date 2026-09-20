@@ -453,8 +453,8 @@ let message (e : t) : string =
       (kinds common)
   | First_follow_conflict { common } ->
     Printf.sprintf
-      "the parser cannot tell whether to enter this child on %s: it is both in the \
-       child's FIRST and in what may follow it"
+      "%s cannot settle whether a parser enters this child: it is both in the child's \
+       FIRST and in what may follow it"
       (kinds common)
   | Left_recursion { members } ->
     (match members with

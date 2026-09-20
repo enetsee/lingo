@@ -20,7 +20,7 @@
       Both shapes come out of one [Ocaml.Lexer] and both are checked. Parts
       (a) to (d) read the table, which {!Ocaml.Lexer.generate} emits by
       default. Part (e) reads the table and the match shape against test/lex,
-      so each is held to the same answer.
+      so both are held to one standard.
 
       Part (c)'s oracle is not a lexer. It evaluates each token's regex over
       the candidate text, so it says what the grammar's tokens denote with no
@@ -28,8 +28,8 @@
       lexers decode it to U+FFFD, so a candidate that is not valid UTF-8 is
       counted and skipped, and the count prints.
 
-      Part (e) is the differential, and its three sides compute the same
-      answer three ways. test/lex searches a state's interval list on every
+      Part (e) is the differential, and its three sides reach the same tokens
+      three ways. test/lex searches a state's interval list on every
       transition. The table maps the character to a class and indexes a row.
       The match shape branches on the byte. Anything lost in flattening the
       automaton, or in writing it out as control flow, shows up as a
@@ -75,14 +75,14 @@
         M5  In [Ocaml.Lexer.scan_body], start the search one segment above
             the one holding U+0080.
             -> parts (a), (c) and (e), 1 input: unicode's "«©»". The search
-               skips the segment U+00A9 is in and answers for the one after
+               skips the segment U+00A9 is in and lands on the one after
                it, which is [«]'s own class, so the copyright sign lexes as a
                left guillemet.
 
                The first run of this reddened nothing, which was a finding
                about the corpus. Every input above U+007F was a character its
                grammar had no token for, and a wrong class and no class stop
-               the scan in the same place. "«©»" tells them apart.
+               the scan in the same place. "«©»" separates them.
         M6  In [Ocaml.Lexer.table_items], build the ASCII table from
             [class_of (cp + 1)].
             -> parts (a), (c) and (e): 16, 157 and 53. Every ASCII character
@@ -119,14 +119,15 @@
                first byte and then again from the middle.
         M13 In [Ocaml.Lexer.self_arm], go to [finish] after the run rather
             than back through the state.
-            -> part (e), 15 inputs. The run is consumed and nothing then asks
+            -> part (e), 15 inputs. The run is consumed and nothing then reads
                what ended it, so an accepting state stops where it started
                and every run comes out as a one-character token.
    -------------------------------------------------------------------------- *)
 
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -134,7 +135,9 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 (* -- the corpus ------------------------------------------------------------ *)
 

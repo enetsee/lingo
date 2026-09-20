@@ -12,89 +12,156 @@
       both move the file.
    -------------------------------------------------------------------------- *)
 
-open Ocaml.Emit
-
 (* -- one structure, reaching everything ------------------------------------ *)
 
 let kind_type =
-  itype_variant "kind" [ "K_a", []; "K_b", [ tcon "int" []; tcon "string" [] ] ]
+  Ocaml.Emit.itype_variant
+    "kind"
+    [ "K_a", []; "K_b", [ Ocaml.Emit.tcon "int" []; Ocaml.Emit.tcon "string" [] ] ]
 ;;
 
-let token_type = itype_record "token" [ "kind", tcon "kind" []; "text", tcon "string" [] ]
-let id_type = itype_alias "id" (tcon "int" [])
+let token_type =
+  Ocaml.Emit.itype_record
+    "token"
+    [ "kind", Ocaml.Emit.tcon "kind" []; "text", Ocaml.Emit.tcon "string" [] ]
+;;
+
+let id_type = Ocaml.Emit.itype_alias "id" (Ocaml.Emit.tcon "int" [])
 
 (* Operators, a field read, and the literals. *)
 let conditions =
-  ilet
-    ~args:[ arg_var "p"; arg_any; arg_typed ~arg_name:"n" ~type_path:"int" ]
+  Ocaml.Emit.ilet
+    ~args:
+      [ Ocaml.Emit.arg_var "p"
+      ; Ocaml.Emit.arg_any
+      ; Ocaml.Emit.arg_typed ~arg_name:"n" ~type_path:"int"
+      ]
     "conditions"
-    (eand
+    (Ocaml.Emit.eand
        ~left:
-         (eor
-            ~left:(enot (eequal ~left:(efield (evar "p") "kind") ~right:(eint 0)))
-            ~right:(enot_equal ~left:(evar "n") ~right:(eint 1)))
-       ~right:
-         (eand
+         (Ocaml.Emit.eor
             ~left:
-              (eand
-                 ~left:(eless ~left:(evar "n") ~right:(eint 2))
-                 ~right:(eless_equal ~left:(evar "n") ~right:(eint 3)))
+              (Ocaml.Emit.enot
+                 (Ocaml.Emit.eequal
+                    ~left:(Ocaml.Emit.efield (Ocaml.Emit.evar "p") "kind")
+                    ~right:(Ocaml.Emit.eint 0)))
             ~right:
-              (eand
-                 ~left:(egreater ~left:(evar "n") ~right:(eint 4))
-                 ~right:(egreater_equal ~left:(evar "n") ~right:(eint 5)))))
+              (Ocaml.Emit.enot_equal
+                 ~left:(Ocaml.Emit.evar "n")
+                 ~right:(Ocaml.Emit.eint 1)))
+       ~right:
+         (Ocaml.Emit.eand
+            ~left:
+              (Ocaml.Emit.eand
+                 ~left:
+                   (Ocaml.Emit.eless
+                      ~left:(Ocaml.Emit.evar "n")
+                      ~right:(Ocaml.Emit.eint 2))
+                 ~right:
+                   (Ocaml.Emit.eless_equal
+                      ~left:(Ocaml.Emit.evar "n")
+                      ~right:(Ocaml.Emit.eint 3)))
+            ~right:
+              (Ocaml.Emit.eand
+                 ~left:
+                   (Ocaml.Emit.egreater
+                      ~left:(Ocaml.Emit.evar "n")
+                      ~right:(Ocaml.Emit.eint 4))
+                 ~right:
+                   (Ocaml.Emit.egreater_equal
+                      ~left:(Ocaml.Emit.evar "n")
+                      ~right:(Ocaml.Emit.eint 5)))))
 ;;
 
 (* Control flow, and the shapes a value takes. *)
 let walk =
-  ilet_rec
+  Ocaml.Emit.ilet_rec
     [ ( "walk"
-      , [ arg_var "p"
+      , [ Ocaml.Emit.arg_var "p"
         ; Named "depth"
-        ; Named_pat ("seen", pvar "s")
-        ; Opt ("loud", Some (ebool false))
+        ; Named_pat ("seen", Ocaml.Emit.pvar "s")
+        ; Opt ("loud", Some (Ocaml.Emit.ebool false))
         ]
-      , eseq
-          [ ewhen ~condition:(evar "loud") ~then_:(ecall "ignore" [ estr "noisy" ])
-          ; ewhile
-              ~condition:(egreater ~left:(evar "depth") ~right:(eint 0))
-              ~body:(eseq [ ecall "step" [ evar "p" ]; ecall "step" [ evar "s" ] ])
-          ; eif
-              ~condition:(evar "loud")
+      , Ocaml.Emit.eseq
+          [ Ocaml.Emit.ewhen
+              ~condition:(Ocaml.Emit.evar "loud")
+              ~then_:(Ocaml.Emit.ecall "ignore" [ Ocaml.Emit.estr "noisy" ])
+          ; Ocaml.Emit.ewhile
+              ~condition:
+                (Ocaml.Emit.egreater
+                   ~left:(Ocaml.Emit.evar "depth")
+                   ~right:(Ocaml.Emit.eint 0))
+              ~body:
+                (Ocaml.Emit.eseq
+                   [ Ocaml.Emit.ecall "step" [ Ocaml.Emit.evar "p" ]
+                   ; Ocaml.Emit.ecall "step" [ Ocaml.Emit.evar "s" ]
+                   ])
+          ; Ocaml.Emit.eif
+              ~condition:(Ocaml.Emit.evar "loud")
               ~then_:
-                (ematch
-                   (evar "depth")
-                   [ ecase (por (pint 0) [ pint 1; pint 2 ]) (estr "low")
-                   ; ecase ~guard:(ebool true) (pconstruct "Some" [ pvar "x" ]) (evar "x")
-                   ; ecase (ptuple [ pvar "a"; pany ]) (evar "a")
-                   ; ecase (pstr "done") eunit
-                   ; ecase (por (pchar 'a') [ pchar_range ~lo:'0' ~hi:'9' ]) eunit
-                   ; ecase pany (ecall "helper" [ eunit ])
+                (Ocaml.Emit.ematch
+                   (Ocaml.Emit.evar "depth")
+                   [ Ocaml.Emit.ecase
+                       (Ocaml.Emit.por
+                          (Ocaml.Emit.pint 0)
+                          [ Ocaml.Emit.pint 1; Ocaml.Emit.pint 2 ])
+                       (Ocaml.Emit.estr "low")
+                   ; Ocaml.Emit.ecase
+                       ~guard:(Ocaml.Emit.ebool true)
+                       (Ocaml.Emit.pconstruct "Some" [ Ocaml.Emit.pvar "x" ])
+                       (Ocaml.Emit.evar "x")
+                   ; Ocaml.Emit.ecase
+                       (Ocaml.Emit.ptuple [ Ocaml.Emit.pvar "a"; Ocaml.Emit.pany ])
+                       (Ocaml.Emit.evar "a")
+                   ; Ocaml.Emit.ecase (Ocaml.Emit.pstr "done") Ocaml.Emit.eunit
+                   ; Ocaml.Emit.ecase
+                       (Ocaml.Emit.por
+                          (Ocaml.Emit.pchar 'a')
+                          [ Ocaml.Emit.pchar_range ~lo:'0' ~hi:'9' ])
+                       Ocaml.Emit.eunit
+                   ; Ocaml.Emit.ecase
+                       Ocaml.Emit.pany
+                       (Ocaml.Emit.ecall "helper" [ Ocaml.Emit.eunit ])
                    ])
               ~else_:
-                (elet
+                (Ocaml.Emit.elet
                    "local"
-                   ~body:(etuple [ eint 1; estr "two"; ebool true ])
+                   ~body:
+                     (Ocaml.Emit.etuple
+                        [ Ocaml.Emit.eint 1
+                        ; Ocaml.Emit.estr "two"
+                        ; Ocaml.Emit.ebool true
+                        ])
                    ~rest:
-                     (elet_rec
+                     (Ocaml.Emit.elet_rec
                         [ ( "inner"
-                          , [ arg_var "q" ]
-                          , eapply_labelled (evar "f") [ Labelled "at", evar "q" ] )
+                          , [ Ocaml.Emit.arg_var "q" ]
+                          , Ocaml.Emit.eapply_labelled
+                              (Ocaml.Emit.evar "f")
+                              [ Labelled "at", Ocaml.Emit.evar "q" ] )
                         ]
-                        (eapply (evar "inner") [ evar "local" ])))
+                        (Ocaml.Emit.eapply
+                           (Ocaml.Emit.evar "inner")
+                           [ Ocaml.Emit.evar "local" ])))
           ] )
     ; ( "helper"
-      , [ arg_any ]
-      , ethunk
-          (elist
-             [ econstraint (earray [ eint 0; eint 1 ]) (tcon "array" [ tcon "int" [] ])
-             ; erecord [ "kind", evar "k" ]
+      , [ Ocaml.Emit.arg_any ]
+      , Ocaml.Emit.ethunk
+          (Ocaml.Emit.elist
+             [ Ocaml.Emit.econstraint
+                 (Ocaml.Emit.earray [ Ocaml.Emit.eint 0; Ocaml.Emit.eint 1 ])
+                 (Ocaml.Emit.tcon "array" [ Ocaml.Emit.tcon "int" [] ])
+             ; Ocaml.Emit.erecord [ "kind", Ocaml.Emit.evar "k" ]
              ]) )
     ]
 ;;
 
 let module_item =
-  imodule "Inner" [ iopen "Stdlib"; ilet "answer" (econstruct "Some" [ eint 42 ]) ]
+  Ocaml.Emit.imodule
+    "Inner"
+    [ Ocaml.Emit.iopen "Stdlib"
+    ; Ocaml.Emit.ilet "some_value" (Ocaml.Emit.econstruct "Some" [ Ocaml.Emit.eint 42 ])
+    ]
 ;;
 
 let structure = [ kind_type; token_type; id_type; conditions; walk; module_item ]
@@ -102,22 +169,33 @@ let structure = [ kind_type; token_type; id_type; conditions; walk; module_item 
 (* -- one signature --------------------------------------------------------- *)
 
 let signature =
-  [ stype_abstract "t"
-  ; stype_alias "id" (tcon "int" [])
-  ; stype_variant "shape" [ "Leaf", []; "Node", [ tcon "t" []; tcon "t" [] ] ]
-  ; stype_record
+  [ Ocaml.Emit.stype_abstract "t"
+  ; Ocaml.Emit.stype_alias "id" (Ocaml.Emit.tcon "int" [])
+  ; Ocaml.Emit.stype_variant
+      "shape"
+      [ "Leaf", []; "Node", [ Ocaml.Emit.tcon "t" []; Ocaml.Emit.tcon "t" [] ] ]
+  ; Ocaml.Emit.stype_record
       "pair"
-      [ "left", tcon "t" []; "right", ttuple [ tcon "int" []; tcon "t" [] ] ]
-  ; smodule
+      [ "left", Ocaml.Emit.tcon "t" []
+      ; "right", Ocaml.Emit.ttuple [ Ocaml.Emit.tcon "int" []; Ocaml.Emit.tcon "t" [] ]
+      ]
+  ; Ocaml.Emit.smodule
       "Sub"
-      [ sval "make" (tarrow ~domain:(tcon "int" []) ~codomain:(tcon "t" []))
-      ; sval
+      [ Ocaml.Emit.sval
+          "make"
+          (Ocaml.Emit.tarrow
+             ~domain:(Ocaml.Emit.tcon "int" [])
+             ~codomain:(Ocaml.Emit.tcon "t" []))
+      ; Ocaml.Emit.sval
           "walk"
-          (tarrow_optional
+          (Ocaml.Emit.tarrow_optional
              "deep"
-             ~domain:(tcon "bool" [])
+             ~domain:(Ocaml.Emit.tcon "bool" [])
              ~codomain:
-               (tarrow_labelled "at" ~domain:(tcon "t" []) ~codomain:(tcon "unit" [])))
+               (Ocaml.Emit.tarrow_labelled
+                  "at"
+                  ~domain:(Ocaml.Emit.tcon "t" [])
+                  ~codomain:(Ocaml.Emit.tcon "unit" [])))
       ]
   ]
 ;;

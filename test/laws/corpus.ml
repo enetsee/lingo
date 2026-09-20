@@ -1,6 +1,6 @@
 (** The grammars every law is quantified over.
 
-    Nine, chosen to cover the shapes the checks tell apart. A law reading
+    Nine, chosen to cover the shapes the checks separate. A law reading
     zero here says nothing about a grammar whose shape is not among them.
 
     Five are built in {!Lingo_witness.Witnesses}, each taking the shape

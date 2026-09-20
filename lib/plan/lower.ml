@@ -1,7 +1,7 @@
 open StdLabels
 
 (* [Core.Kind.Set.elements] is ascending and [Core.Kind.to_int] is the
-   identity, so what comes back is what [Plan.Check] wants: ascending, no
+   identity, so what comes back is what [Plan.Check] requires: ascending, no
    repeats. *)
 let kset (s : Core.Kind.Set.t) : Ir.Kind.t array =
   Array.of_list (List.map (Core.Kind.Set.elements s) ~f:Core.Kind.to_int)
@@ -121,8 +121,8 @@ let rec instr_of_child
   =
   let first = child_first facts child in
   match child.modifier with
-  (* Neither of these reports, so neither asks for a message. Asking here
-     would put wording in the catalogue that no instruction ever names. *)
+  (* Neither of these reports, so neither takes a message. One here would put
+     wording in the catalogue that no instruction ever names. *)
   | Core.Grammar.Zero_or_one ->
     Ir.Plan.Alt { arms = [| kset first, body_of_alts facts child.alts |] }
   (* A repeated child outside a frame ends where no element can start. Only a
@@ -254,7 +254,7 @@ let trailing_exit (facts : Core.Facts.t) (msgs : Messages.Builder.t) (sep : Core
    the anchors the grammar declared. Everything else a body meets and cannot
    use is swept into an error node, and the body carries on.
 
-   A separated list answers [None]. It has no closer, so it ends where the
+   A separated list gives [None]. It has no closer, so it ends where the
    cursor leaves the separator and what follows is the caller's business. *)
 let ends_on_of (rule_def : Core.Rule.def) : Ir.Kind.t array option =
   match rule_def.frame with
@@ -364,7 +364,7 @@ let body_instrs
 
    A parser that fails at a child skips recovery when the cursor already sits
    on one of these, because the rest of the rule can take that token. Where
-   nothing follows the child there is nothing to skip for, and the answer is
+   nothing follows the child there is nothing to skip for, and it gives
    [None]. *)
 let resume_after (facts : Core.Facts.t) (rule_def : Core.Rule.def) (index : int)
   : int array option
@@ -386,7 +386,7 @@ let resume_after (facts : Core.Facts.t) (rule_def : Core.Rule.def) (index : int)
    delimited body's loop unions its stopping set into what it hands an
    element, so an anchor reaches a nested call that way. A rule with anchors
    and no delimited frame hands them nowhere: [ends_on_of] is the only reader
-   of [rule.resync], and it answers [None] for every other frame. *)
+   of [rule.resync], and it gives [None] for every other frame. *)
 let adds_of ({ frame; _ } : Core.Rule.def) : Core.Kind.Set.t =
   let framing =
     match frame with
@@ -524,10 +524,10 @@ let rule_of
 
 (* The kind of the node a role builds. An inactive role has no rule, which
    is what the [option] on a block's prefix and infix kinds is for. *)
-let role_kind (f : Core.Facts.t) (block_rule : Core.Rule.id) (want : Core.Role.t) =
+let role_kind (f : Core.Facts.t) (block_rule : Core.Rule.id) (role : Core.Role.t) =
   Array.find_map f.rules ~f:(fun (r : Core.Rule.def) ->
     match r.origin with
-    | Core.Rule.Pratt_role p when p.block = block_rule && Core.Role.equal p.role want ->
+    | Core.Rule.Pratt_role p when p.block = block_rule && Core.Role.equal p.role role ->
       Some (Core.Kind.to_int r.kind)
     | Core.Rule.Pratt_role _ | Core.Rule.Pratt_block | Core.Rule.User -> None)
 ;;
@@ -577,7 +577,9 @@ let postfix_of (facts : Core.Facts.t) (msgs : Messages.Builder.t) (p : Core.Bloc
   }
 ;;
 
-let block_of (f : Core.Facts.t) msgs (b : Core.Block.def) : Ir.Plan.block =
+let block_of (f : Core.Facts.t) (msgs : Messages.Builder.t) (b : Core.Block.def)
+  : Ir.Plan.block
+  =
   let atoms_first = first_of_alts f b.atoms in
   { name = Core.Grammar.Name.Rule.to_string f.rules.(b.rule_id).name
   ; infix =

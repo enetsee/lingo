@@ -17,7 +17,7 @@ type t =
 
 (* The message id prints as a number. Rendering it needs the catalogue, and a
    diagnostic does not carry one. *)
-let pp fmt (d : t) =
+let pp (fmt : Format.formatter) (d : t) : unit =
   let lo, hi = d.range in
   match d.kind with
   | Missing m ->
@@ -47,6 +47,6 @@ let pp fmt (d : t) =
   | Unexpected -> Format.fprintf fmt "@[<h>%d-%d unexpected@]" lo hi
 ;;
 
-let pp_list fmt ds =
+let pp_list (fmt : Format.formatter) (ds : t list) : unit =
   Format.fprintf fmt "@[<v>%a@]" (Format.pp_print_list ~pp_sep:Format.pp_print_cut pp) ds
 ;;

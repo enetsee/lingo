@@ -170,7 +170,13 @@ type t =
   ; roots : Name.Rule.t list
   }
 
-let create ?(expr = []) ~tokens ~roots productions =
+let create
+      ?(expr = [])
+      ~(tokens : token_def list)
+      ~(roots : string list)
+      (productions : production list)
+  : t
+  =
   { productions; expr; tokens; roots = List.map Name.Rule.of_string roots }
 ;;
 
@@ -190,11 +196,11 @@ let is_rule (symbol : symbol) =
 
 (* -- expression blocks ----------------------------------------------------- *)
 
-let infix ?(assoc = Left) ~token ~bp () =
+let infix ?(assoc = Left) ~(token : string) ~(bp : int) () : operator =
   { op_token = Name.Token.of_string token; bp; op_assoc = assoc }
 ;;
 
-let prefix ?(assoc = Right) ~token ~bp () =
+let prefix ?(assoc = Right) ~(token : string) ~(bp : int) () : operator =
   { op_token = Name.Token.of_string token; bp; op_assoc = assoc }
 ;;
 
@@ -226,15 +232,25 @@ let with_sep ?(trailing = Never) (sep : string) : sep_policy =
 
 (* -- postfix operators ----------------------------------------------------- *)
 
-let postfix_simple ?(kind_suffix = "") ~token ~bp () =
+let postfix_simple ?(kind_suffix = "") ~(token : string) ~(bp : int) () : postfix_op =
   { bp; lead = Name.Token.of_string token; body = Nothing; kind_suffix }
 ;;
 
-let postfix_access ?(kind_suffix = "") ~token ~rhs ~bp () =
+let postfix_access ?(kind_suffix = "") ~(token : string) ~(rhs : symbol) ~(bp : int) ()
+  : postfix_op
+  =
   { bp; lead = Name.Token.of_string token; body = Then rhs; kind_suffix }
 ;;
 
-let postfix_index ?(kind_suffix = "") ~open_tok ~close_tok ~index ~bp () =
+let postfix_index
+      ?(kind_suffix = "")
+      ~(open_tok : string)
+      ~(close_tok : string)
+      ~(index : symbol)
+      ~(bp : int)
+      ()
+  : postfix_op
+  =
   { bp
   ; lead = Name.Token.of_string open_tok
   ; body = Enclosed { close = Name.Token.of_string close_tok; content = One index }
@@ -242,7 +258,15 @@ let postfix_index ?(kind_suffix = "") ~open_tok ~close_tok ~index ~bp () =
   }
 ;;
 
-let postfix_brace ?(kind_suffix = "") ~open_tok ~close_tok ~body ~bp () =
+let postfix_brace
+      ?(kind_suffix = "")
+      ~(open_tok : string)
+      ~(close_tok : string)
+      ~(body : symbol)
+      ~(bp : int)
+      ()
+  : postfix_op
+  =
   { bp
   ; lead = Name.Token.of_string open_tok
   ; body = Enclosed { close = Name.Token.of_string close_tok; content = One body }
@@ -274,7 +298,14 @@ let postfix_call
 
 let recover_to_names = Option.map (List.map Name.Token.of_string)
 
-let child ?recover_to ?(greedy = false) ~modifier name sym =
+let child
+      ?recover_to
+      ?(greedy = false)
+      ~(modifier : modifier)
+      (name : string)
+      (sym : symbol)
+  : child
+  =
   { name = Name.Child.of_string name
   ; sym = Single sym
   ; modifier
@@ -284,19 +315,21 @@ let child ?recover_to ?(greedy = false) ~modifier name sym =
 
 let child_req ?recover_to name sym = child ?recover_to ~modifier:Exactly_one name sym
 
-let child_opt ?recover_to ?greedy name sym =
+let child_opt ?recover_to ?greedy (name : string) (sym : symbol) : child =
   child ?recover_to ?greedy ~modifier:Zero_or_one name sym
 ;;
 
-let child_rep ?recover_to ?greedy name sym =
+let child_rep ?recover_to ?greedy (name : string) (sym : symbol) : child =
   child ?recover_to ?greedy ~modifier:Zero_or_more name sym
 ;;
 
-let child_rep1 ?recover_to ?greedy name sym =
+let child_rep1 ?recover_to ?greedy (name : string) (sym : symbol) : child =
   child ?recover_to ?greedy ~modifier:One_or_more name sym
 ;;
 
-let child_alt ?recover_to ~modifier name syms =
+let child_alt ?recover_to ~(modifier : modifier) (name : string) (syms : symbol list)
+  : child
+  =
   { name = Name.Child.of_string name
   ; sym = Alternatives syms
   ; modifier
@@ -304,13 +337,19 @@ let child_alt ?recover_to ~modifier name syms =
   }
 ;;
 
-let child_alt_rules ?recover_to ~modifier name rule_names =
+let child_alt_rules
+      ?recover_to
+      ~(modifier : modifier)
+      (name : string)
+      (rule_names : string list)
+  : child
+  =
   child_alt ?recover_to ~modifier name (List.map (fun r -> Rule r) rule_names)
 ;;
 
 (* -- tokens ---------------------------------------------------------------- *)
 
-let kw ?name ?trivia literal =
+let kw ?name ?trivia (literal : string) : token_def =
   let token_name =
     match name with
     | Some n -> n
@@ -323,7 +362,14 @@ let kw ?name ?trivia literal =
   }
 ;;
 
-let punct ?(space_before = true) ?(space_after = true) ?trivia ~name literal =
+let punct
+      ?(space_before = true)
+      ?(space_after = true)
+      ?trivia
+      ~(name : string)
+      (literal : string)
+  : token_def
+  =
   { token_name = Name.Token.of_string name
   ; token_class = Punctuation literal
   ; t_format = { space_before; space_after }
@@ -331,11 +377,11 @@ let punct ?(space_before = true) ?(space_after = true) ?trivia ~name literal =
   }
 ;;
 
-let punct_tight ?trivia ~name literal =
+let punct_tight ?trivia ~(name : string) (literal : string) : token_def =
   punct ~space_before:false ~space_after:false ?trivia ~name literal
 ;;
 
-let pat ?textmate ?trivia n lexer =
+let pat ?textmate ?trivia (n : string) (lexer : Redfa.Regex.t) : token_def =
   { token_name = Name.Token.of_string n
   ; token_class = Pattern { lexer; textmate }
   ; t_format = { space_before = true; space_after = true }
@@ -345,7 +391,14 @@ let pat ?textmate ?trivia n lexer =
 
 (* -- productions ----------------------------------------------------------- *)
 
-let prod ?(break_style = Fit) ?(indent_width = 2) ?(separator_lines = 1) name children =
+let prod
+      ?(break_style = Fit)
+      ?(indent_width = 2)
+      ?(separator_lines = 1)
+      (name : string)
+      (children : child list)
+  : production
+  =
   { kind_name = Name.Rule.of_string name
   ; children
   ; identity_child = None
@@ -360,7 +413,7 @@ let prod ?(break_style = Fit) ?(indent_width = 2) ?(separator_lines = 1) name ch
   }
 ;;
 
-let with_messages msgs p =
+let with_messages (msgs : (string * string) list) (p : production) : production =
   { p with
     error_messages = List.map (fun (c, entry) -> Name.Child.of_string c, entry) msgs
   }
@@ -375,7 +428,14 @@ let framing_boundary = function
   | Separated { boundary; _ } -> boundary
 ;;
 
-let with_delimited_internal ~open_tok ~close_tok ~sep_policy ?boundary p =
+let with_delimited_internal
+      ~(open_tok : Name.Token.t)
+      ~(close_tok : Name.Token.t)
+      ~(sep_policy : sep_policy)
+      ?boundary
+      (p : production)
+  : production
+  =
   let boundary =
     match boundary with
     | Some b -> b
@@ -384,7 +444,9 @@ let with_delimited_internal ~open_tok ~close_tok ~sep_policy ?boundary p =
   { p with framing = Delimited { open_tok; close_tok; sep_policy; boundary } }
 ;;
 
-let with_delimited ~open_tok ~close_tok ?boundary p =
+let with_delimited ~(open_tok : string) ~(close_tok : string) ?boundary (p : production)
+  : production
+  =
   with_delimited_internal
     ~open_tok:(Name.Token.of_string open_tok)
     ~close_tok:(Name.Token.of_string close_tok)
@@ -393,7 +455,15 @@ let with_delimited ~open_tok ~close_tok ?boundary p =
     p
 ;;
 
-let with_delimited_sep ~open_tok ~close_tok ~sep ?(trailing_sep = Never) ?boundary p =
+let with_delimited_sep
+      ~(open_tok : string)
+      ~(close_tok : string)
+      ~(sep : string)
+      ?(trailing_sep = Never)
+      ?boundary
+      (p : production)
+  : production
+  =
   with_delimited_internal
     ~open_tok:(Name.Token.of_string open_tok)
     ~close_tok:(Name.Token.of_string close_tok)
@@ -402,7 +472,9 @@ let with_delimited_sep ~open_tok ~close_tok ~sep ?(trailing_sep = Never) ?bounda
     p
 ;;
 
-let with_separator ~sep ?(trailing_sep = Never) ?boundary p =
+let with_separator ~(sep : string) ?(trailing_sep = Never) ?boundary (p : production)
+  : production
+  =
   let boundary =
     match boundary with
     | Some b -> b
@@ -414,7 +486,7 @@ let with_separator ~sep ?(trailing_sep = Never) ?boundary p =
   }
 ;;
 
-let with_committed ?boundary p =
+let with_committed ?boundary (p : production) : production =
   let boundary =
     match boundary with
     | Some b -> b
@@ -429,7 +501,7 @@ let with_committed ?boundary p =
   { p with framing }
 ;;
 
-let with_identity child_name p =
+let with_identity (child_name : string) (p : production) : production =
   { p with identity_child = Some (Name.Child.of_string child_name) }
 ;;
 
@@ -444,7 +516,7 @@ let with_recovery_strategy s p = { p with recovery = { strategy = s } }
    in range. *)
 let max_recovery_lookahead = 8
 
-let lookahead_n n =
+let lookahead_n (n : int) : lookahead_n =
   if n < 1 || n > max_recovery_lookahead
   then
     invalid_arg

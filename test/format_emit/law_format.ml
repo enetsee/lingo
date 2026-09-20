@@ -69,7 +69,8 @@ open StdLabels
 
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -77,7 +78,10 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
+
 let first_ten l = List.filteri l ~f:(fun i _ -> i < 10)
 
 type case =

@@ -12,7 +12,7 @@ type def =
 
 let is_trivia d = d.trivia <> None
 
-let text d =
+let text (d : def) : string option =
   match d.klass with
   | Grammar.Keyword s | Grammar.Punctuation s -> Some s
   | Grammar.Pattern _ -> None

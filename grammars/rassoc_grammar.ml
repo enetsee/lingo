@@ -2,11 +2,11 @@
 
    This grammar exists for one threshold. An associativity is a pair of
    binding powers: [Left] gives [(bp, bp + 1)] and [Right] gives [(bp, bp)].
-   A parser tells them apart with [left_bp >= min_bp], and that test only
-   changes its answer where an operator is right-associative.
+   A parser separates them with [left_bp >= min_bp], and that test only comes
+   out differently where an operator is right-associative.
 
    [caret] is right-associative, so [a ^ b ^ c] groups to the right. [plus]
-   is left-associative beside it, so one grammar carries both answers.
+   is left-associative beside it, so one grammar carries both.
 
    Keep it minimal. Every other grammar with a right-associative operator
    also has postfix operators, and then a failure has two possible causes.

@@ -237,7 +237,8 @@
 
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -245,7 +246,9 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 (* -- the corpus ------------------------------------------------------------ *)
 
@@ -290,7 +293,7 @@ let corpus =
 
 let reach : (string, int) Hashtbl.t = Hashtbl.create 32
 
-let ran ~step ~kind:(_ : Ir.Kind.t) =
+let ran ~(step : string) ~kind:(_ : Ir.Kind.t) : unit =
   Hashtbl.replace reach step (1 + Option.value (Hashtbl.find_opt reach step) ~default:0)
 ;;
 
@@ -328,7 +331,7 @@ let nowhere : point = "", "", -1
 let previous = ref nowhere
 let grammar = ref ""
 
-let stepped ~step ~kind =
+let stepped ~(step : string) ~(kind : Ir.Kind.t) : unit =
   let p = !grammar, step, kind in
   let e = !previous, p in
   Hashtbl.replace edges e (1 + Option.value (Hashtbl.find_opt edges e) ~default:0);
@@ -397,7 +400,7 @@ let separators (l : Ir.Layout.t) =
    one extra token where a body's policy added a separator, and nothing else: the
    fold writes the tree's tokens and, in a frame the parse closed, one separator.
    It may never lose one. *)
-let rec keeps ~seps before after =
+let rec keeps ~(seps : string list) (before : string list) (after : string list) : bool =
   match before, after with
   | [], [] -> true
   | b, y :: a
@@ -408,7 +411,9 @@ let rec keeps ~seps before after =
   | _ -> false
 ;;
 
-let first_difference ~seps before after =
+let first_difference ~(seps : string list) (before : string list) (after : string list)
+  : string
+  =
   let rec go i b a =
     match b, a with
     | [], [] -> "?"
@@ -422,7 +427,7 @@ let first_difference ~seps before after =
 ;;
 
 (* The same tokens, in the same order, the separators a policy may add aside. *)
-let agree ~seps before after =
+let agree ~(seps : string list) (before : string list) (after : string list) : bool =
   let without = List.filter (fun t -> not (List.mem t seps)) in
   List.equal String.equal (without before) (without after)
 ;;

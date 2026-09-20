@@ -4,21 +4,27 @@ type tables =
   { first : Kind.Set.t array
   ; follow : Kind.Set.t array
   ; nullable : bool array
+  ; min_size : int array
   ; enclosing : Kind.Set.t array
   }
 
 (* Every table below is a least fixpoint of a monotone step. Visiting the
-   rules in a different order gives the same answer. The order only changes
-   how much work reaching that answer takes.
+   rules in a different order gives the same tables. The order only changes
+   how much work building them takes.
 
    A worklist recomputes a rule when something it reads has moved. Seed the
    queue with every rule. When one moves, wake the rules that read it. The
    cost then follows the edges of the dependency graph.
 
    [wakes r] names what to re-run when [r] moves. The pull-shaped tables and
-   the push-shaped ones need different answers, so each caller supplies its
+   the push-shaped ones need different sets, so each caller supplies its
    own. *)
-let solve n ~wakes ~step =
+let solve
+      (n : int)
+      ~(wakes : int -> int list)
+      ~(step : moved:(int -> unit) -> int -> unit)
+  : unit
+  =
   let queued = Array.make n false in
   let q = Queue.create () in
   let enqueue i =
@@ -178,6 +184,63 @@ let nullable (ctx : ctx) : bool array =
   nullable
 ;;
 
+(* -- minimum size ---------------------------------------------------------- *)
+
+(* The fewest tokens a rule derives. Every rule starts out of reach and the
+   numbers come down, so a rule with no base case keeps [inf].
+
+   [inf] is [max_int], which is what a tropical algebra uses for the same
+   thing. The sampler's system carries this number too, derived from the
+   species rather than from here, and a law compares the two. *)
+let inf = max_int
+let plus (a : int) (b : int) : int = if a = inf || b = inf then inf else a + b
+
+let min_size (ctx : ctx) : int array =
+  let size = Array.make ctx.n inf in
+  (* A token is one. A rule is whatever the table holds for it so far. *)
+  let kind_size (k : Kind.t) : int =
+    let r = rule_of_kind ctx k in
+    if r >= 0 then size.(r) else 1
+  in
+  let smallest (kinds : Kind.t array) : int =
+    Array.fold_left kinds ~init:inf ~f:(fun acc k -> min acc (kind_size k))
+  in
+  let child_size (c : Rule.child) : int =
+    match c.modifier with
+    (* A child that may be absent adds no tokens, and one that must appear
+       adds its smallest symbol. *)
+    | Grammar.Zero_or_one | Grammar.Zero_or_more -> 0
+    | Grammar.Exactly_one | Grammar.One_or_more -> smallest c.alts
+  in
+  (* A delimited frame adds its two delimiters whatever its body holds. A
+     separator sits between elements, and the smallest body is one element,
+     so it adds none. *)
+  let frame_size (frame : Rule.frame) : int =
+    match frame with
+    | Rule.Delimited _ -> 2
+    | Rule.Plain | Rule.Committed _ | Rule.Separated _ -> 0
+  in
+  let rule_size (d : Rule.def) : int =
+    match d.origin with
+    (* A prefix or an infix operator adds its own token to an operand, so the
+       smallest expression is the smallest atom. *)
+    | Rule.Pratt_block -> smallest ctx.blocks.(ctx.block_of_rule.(d.id)).atoms
+    | Rule.Pratt_role _ | Rule.User ->
+      Array.fold_left d.children ~init:(frame_size d.frame) ~f:(fun acc c ->
+        plus acc (child_size c))
+  in
+  solve
+    ctx.n
+    ~wakes:(fun r -> ctx.readers.(r))
+    ~step:(fun ~moved i ->
+      let now = rule_size ctx.rules.(i) in
+      if size.(i) <> now
+      then (
+        size.(i) <- now;
+        moved i));
+  size
+;;
+
 (* -- first ----------------------------------------------------------------- *)
 
 let first (ctx : ctx) ~(nullable : bool array) : Kind.Set.t array =
@@ -255,11 +318,7 @@ let follow (ctx : ctx) ~(nullable : bool array) ~(first : Kind.Set.t array)
       true)
     else false
   in
-  (* What can follow a block's own expression position.
-
-     An expression sits immediately left of every infix token and every
-     postfix lead. Inside an enclosed postfix it also sits left of that
-     form's separator and close. *)
+  (* What can follow a block's own expression position. *)
   let block_own_ops (b : Block.def) : Kind.Set.t =
     let init =
       Array.fold_left b.infix ~init:Kind.Set.empty ~f:(fun acc (o : Block.op) ->
@@ -488,13 +547,13 @@ let compute ~(rules : Rule.def array) ~(blocks : Block.def array) ~(kind_rule : 
   let first = first ctx ~nullable in
   let follow = follow ctx ~nullable ~first in
   let enclosing = enclosing ctx in
-  { first; follow; nullable; enclosing }
+  { first; follow; nullable; min_size = min_size ctx; enclosing }
 ;;
 
 (* -- reading the tables back ----------------------------------------------- *)
 
-(* The same questions the walks above ask while building the tables, asked
-   once they are built. A check over a finished [tables] would otherwise
+(* What the walks above read while building the tables, read once they are
+   built. A check over a finished [tables] would otherwise
    carry its own copy of each. *)
 module Reader = struct
   type t =
@@ -530,10 +589,7 @@ module Reader = struct
     alts_first r.ctx ~first:r.tables.first c
   ;;
 
-  (* FIRST of every suffix of a child sequence, and whether the whole of each
-     suffix can pass without consuming. Index [k] describes the children from
-     [k]; index [len] is the empty suffix, which passes. One right-to-left
-     pass gives them all. *)
+  (* One right-to-left pass gives every suffix at once. *)
   let suffix_first (r : t) (cs : Rule.child array) : Kind.Set.t array * bool array =
     let len = Array.length cs in
     let sfirst = Array.make (len + 1) Kind.Set.empty in

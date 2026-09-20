@@ -15,7 +15,7 @@
    [postfix_access] takes a rule rather than a token, because the lowering
    keeps only the child's FIRST set where a token would do and needs the rule
    id where it would not. A grammar that reaches [x.f] with a token alone
-   cannot tell the two apart.
+   cannot separate the two.
 
    One left-associative infix operator sits beside them, so a postfix binding
    tighter than an infix is observable. There is no prefix operator and no

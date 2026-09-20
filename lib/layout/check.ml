@@ -32,7 +32,7 @@ type problem =
       ; kind : int
       }
 
-let pp_problem ppf p =
+let pp_problem (ppf : Format.formatter) (p : problem) : unit =
   match p with
   | Rule_out_of_range { at; id } -> Format.fprintf ppf "%s: no rule at %d" at id
   | Kind_out_of_range { at; kind } -> Format.fprintf ppf "%s: no kind %d" at kind

@@ -16,7 +16,7 @@
       Mechanism. (a) and (b) are oracles over random token streams driven by a
       random walk over the builder. The walk is not a parse of anything. It
       reaches every event the runtime offers, and the tree still has to hold
-      every byte. (c) is an oracle with an exact count. (d) asks for a token at
+      every byte. (c) is an oracle with an exact count. (d) reaches for a token at
       every position of a random stream, half the time for one that is there
       and half the time for one that is not, and checks the tree and the
       diagnostics against each other afterwards. Its last part is one literal
@@ -37,7 +37,7 @@
       Every loop the law owns carries a ceiling of one step per token, so a
       cursor that stops advancing is reported rather than hung.
 
-      This law links lingo_runtime and nothing else. The runtime knows no
+      This law links lingo_runtime and nothing else. The runtime holds no
       grammars, so the kinds below are the law's own. It holds no balanced
       skip and no set of kinds, because both read the grammar: the emitter
       writes them with the kinds as constants and the interpreter brings its
@@ -111,11 +111,10 @@
       in is a question about a parser.
    -------------------------------------------------------------------------- *)
 
-open Lingo_runtime
-
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -123,7 +122,9 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 (* -- the law's own alphabet ------------------------------------------------ *)
 
@@ -142,7 +143,7 @@ let k_ws = 9
 let k_file = 10
 let k_node = 11
 let k_missing = 12
-let k_message = Message.of_int 1
+let k_message = Lingo_runtime.Message.of_int 1
 let trivia_kinds = [ k_ws ]
 
 let punctuation =
@@ -158,7 +159,7 @@ let punctuation =
 
 (* A run of spaces makes one trivia token and a run of letters makes one word,
    so a witness written as source lexes to the tokens it looks like. *)
-let lex (s : string) : Token.t array =
+let lex (s : string) : Lingo_runtime.Token.t array =
   let out = ref [] in
   let n = String.length s in
   let i = ref 0 in
@@ -166,7 +167,7 @@ let lex (s : string) : Token.t array =
     let c = s.[!i] in
     match List.assoc_opt c punctuation with
     | Some kind ->
-      out := { Token.kind; text = String.make 1 c } :: !out;
+      out := { Lingo_runtime.Token.kind; text = String.make 1 c } :: !out;
       incr i
     | None ->
       let kind = if c = ' ' then k_ws else k_word in
@@ -179,17 +180,19 @@ let lex (s : string) : Token.t array =
       while !i < n && more !i do
         incr i
       done;
-      out := { Token.kind; text = String.sub s start (!i - start) } :: !out
+      out := { Lingo_runtime.Token.kind; text = String.sub s start (!i - start) } :: !out
   done;
   Array.of_list (List.rev !out)
 ;;
 
-let source_of (tokens : Token.t array) =
-  String.concat "" (Array.to_list (Array.map (fun (t : Token.t) -> t.text) tokens))
+let source_of (tokens : Lingo_runtime.Token.t array) =
+  String.concat
+    ""
+    (Array.to_list (Array.map (fun (t : Lingo_runtime.Token.t) -> t.text) tokens))
 ;;
 
-let new_cursor tokens =
-  Cursor.create ~cache:(Siesta.Cache.create_plain ()) ~trivia_kinds tokens
+let new_cursor (tokens : Lingo_runtime.Token.t array) : Lingo_runtime.Cursor.t =
+  Lingo_runtime.Cursor.create ~cache:(Siesta.Cache.create_plain ()) ~trivia_kinds tokens
 ;;
 
 (* Reads to the end of the input, then takes the trailing trivia. [Cursor.eof]
@@ -199,14 +202,14 @@ let new_cursor tokens =
    Answers false where the ceiling ran out. A drain takes one step per token,
    so a cursor that has stopped advancing is reported here instead of hanging
    the suite. *)
-let drain ?(watch = fun _ -> ()) c ~n =
+let drain ?(watch = fun _ -> ()) (c : Lingo_runtime.Cursor.t) ~(n : int) : bool =
   let steps = ref 0 in
-  while (not (Cursor.eof c)) && !steps <= n do
-    Cursor.bump c;
+  while (not (Lingo_runtime.Cursor.eof c)) && !steps <= n do
+    Lingo_runtime.Cursor.bump c;
     watch c;
     incr steps
   done;
-  Cursor.skip_trivia c;
+  Lingo_runtime.Cursor.skip_trivia c;
   watch c;
   !steps <= n
 ;;
@@ -226,11 +229,11 @@ let spellings =
   |]
 ;;
 
-let random_stream rng =
+let random_stream (rng : Random.State.t) : Lingo_runtime.Token.t array =
   let n = Random.State.int rng 24 in
   Array.init n (fun _ ->
     let kind, text = spellings.(Random.State.int rng (Array.length spellings)) in
-    { Token.kind; text })
+    { Lingo_runtime.Token.kind; text })
 ;;
 
 (* How often each builder event was reached. An event the walk never takes is
@@ -245,29 +248,36 @@ type reach =
 
 (* The walk has a parser's shape and none of a parser's rules. It opens a
    node, puts tokens and nodes in it, and closes it. *)
-let rec drive rng c ~depth ~reach ~watch =
+let rec drive
+          (rng : Random.State.t)
+          (c : Lingo_runtime.Cursor.t)
+          ~(depth : int)
+          ~(reach : reach)
+          ~(watch : Lingo_runtime.Cursor.t -> unit)
+  : unit
+  =
   for _ = 1 to Random.State.int rng 4 do
     (match Random.State.int rng 6 with
      | 0 when depth < 4 ->
        reach.opened <- reach.opened + 1;
-       Build.start_node c k_node;
+       Lingo_runtime.Build.start_node c k_node;
        drive rng c ~depth:(depth + 1) ~reach ~watch;
-       Build.finish_node c
+       Lingo_runtime.Build.finish_node c
      | 1 when depth < 4 ->
        reach.wrapped <- reach.wrapped + 1;
-       let cp = Build.mark c in
+       let cp = Lingo_runtime.Build.mark c in
        drive rng c ~depth:(depth + 1) ~reach ~watch;
-       Build.start_node_at c cp k_node;
-       Build.finish_node c
+       Lingo_runtime.Build.start_node_at c cp k_node;
+       Lingo_runtime.Build.finish_node c
      | 2 ->
        reach.missing <- reach.missing + 1;
-       Build.missing_node c k_missing
+       Lingo_runtime.Build.missing_node c k_missing
      | 3 ->
        reach.skipped <- reach.skipped + 1;
-       Cursor.skip_trivia c
+       Lingo_runtime.Cursor.skip_trivia c
      | _ ->
        reach.bumped <- reach.bumped + 1;
-       Cursor.bump c);
+       Lingo_runtime.Cursor.bump c);
     watch c
   done
 ;;
@@ -293,22 +303,22 @@ let () =
        array instead. *)
     let prefix = Array.make (n + 1) 0 in
     for i = 0 to n - 1 do
-      prefix.(i + 1) <- prefix.(i) + String.length tokens.(i).Token.text
+      prefix.(i + 1) <- prefix.(i) + String.length tokens.(i).Lingo_runtime.Token.text
     done;
     let last = ref 0 in
     let watch c =
-      let p = Cursor.position c in
+      let p = Lingo_runtime.Cursor.position c in
       incr steps;
       if p < !last then incr backwards;
       if p > n then incr overrun;
-      if p <= n && Cursor.offset c <> prefix.(p) then incr off_wrong;
+      if p <= n && Lingo_runtime.Cursor.offset c <> prefix.(p) then incr off_wrong;
       last := p
     in
-    Build.start_node c k_file;
+    Lingo_runtime.Build.start_node c k_file;
     drive rng c ~depth:0 ~reach ~watch;
     if not (drain ~watch c ~n) then incr stuck;
-    Build.finish_node c;
-    let root, _ = Build.finish c in
+    Lingo_runtime.Build.finish_node c;
+    let root, _ = Lingo_runtime.Build.finish c in
     if String.equal (Siesta.Green.to_source root) (source_of tokens) then incr lossless
   done;
   if !lossless <> streams
@@ -383,40 +393,45 @@ let () =
     let tokens = random_stream rng in
     let n = Array.length tokens in
     let c = new_cursor tokens in
-    Build.start_node c k_file;
+    Lingo_runtime.Build.start_node c k_file;
     for _ = 1 to Random.State.int rng (n + 1) do
-      Cursor.bump c
+      Lingo_runtime.Cursor.bump c
     done;
-    let want =
-      if Cursor.eof c
+    let expected =
+      if Lingo_runtime.Cursor.eof c
       then None
       else (
-        let lo = fst (Cursor.range c) in
+        let lo = fst (Lingo_runtime.Cursor.range c) in
         (* The first meaningful token at or after the cursor. [lo] starts
            there, so the oracle has to as well. *)
-        let from = ref (Cursor.position c) in
-        while !from < n && Cursor.is_trivia c tokens.(!from).Token.kind do
+        let from = ref (Lingo_runtime.Cursor.position c) in
+        while
+          !from < n
+          && Lingo_runtime.Cursor.is_trivia c tokens.(!from).Lingo_runtime.Token.kind
+        do
           incr from
         done;
         let first = !from in
         for _ = 1 to 1 + Random.State.int rng 4 do
-          Cursor.bump c
+          Lingo_runtime.Cursor.bump c
         done;
-        let hi = Cursor.offset c in
-        Cursor.report_at c (lo, hi) Diagnostic.Unexpected;
+        let hi = Lingo_runtime.Cursor.offset c in
+        Lingo_runtime.Cursor.report_at c (lo, hi) Lingo_runtime.Diagnostic.Unexpected;
         incr spans;
-        let stop = Cursor.position c in
-        let texts = List.init (stop - first) (fun i -> tokens.(first + i).Token.text) in
+        let stop = Lingo_runtime.Cursor.position c in
+        let texts =
+          List.init (stop - first) (fun i -> tokens.(first + i).Lingo_runtime.Token.text)
+        in
         Some ((lo, hi), String.concat "" texts))
     in
     ignore (drain c ~n);
-    Build.finish_node c;
-    let root, diags = Build.finish c in
+    Lingo_runtime.Build.finish_node c;
+    let root, diags = Lingo_runtime.Build.finish c in
     let source = Siesta.Green.to_source root in
-    match want, List.rev diags with
+    match expected, List.rev diags with
     | None, _ -> ()
     | Some ((lo, hi), text), last :: _ ->
-      if last.Diagnostic.range <> (lo, hi)
+      if last.Lingo_runtime.Diagnostic.range <> (lo, hi)
       then incr wrong
       else if not (String.equal (String.sub source lo (hi - lo)) text)
       then incr wrong
@@ -433,9 +448,9 @@ let () =
 
 let () =
   let c = new_cursor (lex "a") in
-  Build.start_node c k_file;
-  Build.start_node c k_node;
-  match Build.finish c with
+  Lingo_runtime.Build.start_node c k_file;
+  Lingo_runtime.Build.start_node c k_node;
+  match Lingo_runtime.Build.finish c with
   | _ -> fail "(c) finish returned a tree with a frame still open"
   | exception Failure _ -> pass "finish refuses a tree with a frame still open"
 ;;
@@ -443,7 +458,9 @@ let () =
 (* -- (d) expect ----------------------------------------------------------- *)
 
 (* Every node in the tree, with its kind, payload and child count. *)
-let rec nodes (n : Siesta.Green.node) acc =
+let rec nodes (n : Siesta.Green.node) (acc : (int * int * int) list)
+  : (int * int * int) list
+  =
   let acc =
     (Siesta.Green.kind n, Siesta.Green.payload n, Siesta.Green.num_children n) :: acc
   in
@@ -474,21 +491,21 @@ let () =
     let tokens = random_stream rng in
     let n = Array.length tokens in
     let c = new_cursor tokens in
-    Build.start_node c k_file;
+    Lingo_runtime.Build.start_node c k_file;
     let want_holes = ref 0 in
     let steps = ref 0 in
-    while (not (Cursor.eof c)) && !steps <= n do
+    while (not (Lingo_runtime.Cursor.eof c)) && !steps <= n do
       incr steps;
-      let here = Cursor.current c in
-      let before_pos = Cursor.position c in
-      let before_diags = List.length (Cursor.diagnostics c) in
+      let here = Lingo_runtime.Cursor.current c in
+      let before_pos = Lingo_runtime.Cursor.position c in
+      let before_diags = List.length (Lingo_runtime.Cursor.diagnostics c) in
       if Random.State.bool rng
       then (
         incr hits;
-        Recover.expect c here k_message;
+        Lingo_runtime.Recover.expect c here k_message;
         if
-          Cursor.position c <= before_pos
-          || List.length (Cursor.diagnostics c) <> before_diags
+          Lingo_runtime.Cursor.position c <= before_pos
+          || List.length (Lingo_runtime.Cursor.diagnostics c) <> before_diags
         then incr bad_hit)
       else (
         incr misses;
@@ -498,19 +515,19 @@ let () =
         then (
           incr placeholders;
           incr want_holes;
-          Recover.expect ~placeholder:k_missing c absent k_message)
-        else Recover.expect c absent k_message;
+          Lingo_runtime.Recover.expect ~placeholder:k_missing c absent k_message)
+        else Lingo_runtime.Recover.expect c absent k_message;
         if
-          Cursor.current c <> here
-          || List.length (Cursor.diagnostics c) <> before_diags + 1
+          Lingo_runtime.Cursor.current c <> here
+          || List.length (Lingo_runtime.Cursor.diagnostics c) <> before_diags + 1
         then incr bad_miss;
         (* A miss leaves the cursor, so take the token to reach the next
            position. *)
-        Cursor.bump c)
+        Lingo_runtime.Cursor.bump c)
     done;
     let _ : bool = drain c ~n in
-    Build.finish_node c;
-    let root, diags = Build.finish c in
+    Lingo_runtime.Build.finish_node c;
+    let root, diags = Lingo_runtime.Build.finish c in
     if not (String.equal (Siesta.Green.to_source root) (source_of tokens))
     then incr lost_bytes;
     let holes = List.filter (fun (k, _, _) -> k = k_missing) (nodes root []) in
@@ -522,8 +539,8 @@ let () =
            && payload >= 1
            && payload <= List.length diags
            &&
-           match (List.nth diags (payload - 1)).Diagnostic.kind with
-           | Diagnostic.Missing _ -> true
+           match (List.nth diags (payload - 1)).Lingo_runtime.Diagnostic.kind with
+           | Lingo_runtime.Diagnostic.Missing _ -> true
            | _ -> false
          in
          if not ok then incr bad_payload)
@@ -573,25 +590,25 @@ let () =
 ;;
 
 (* The same-offset fold. A committed production whose leading required
-   children all fail at one cursor asks for a diagnostic per child. The tree
+   children all fail at one cursor reports once per child. The tree
    keeps a hole per child and the list keeps one entry, so both holes carry
    the same id. *)
 let () =
   let c = new_cursor (lex "a") in
-  Build.start_node c k_file;
-  Recover.expect ~placeholder:k_missing c k_semi k_message;
-  Recover.expect ~placeholder:k_missing c k_lparen k_message;
+  Lingo_runtime.Build.start_node c k_file;
+  Lingo_runtime.Recover.expect ~placeholder:k_missing c k_semi k_message;
+  Lingo_runtime.Recover.expect ~placeholder:k_missing c k_lparen k_message;
   let _ : bool = drain c ~n:1 in
-  Build.finish_node c;
-  let root, diags = Build.finish c in
+  Lingo_runtime.Build.finish_node c;
+  let root, diags = Lingo_runtime.Build.finish c in
   let holes = List.filter (fun (k, _, _) -> k = k_missing) (nodes root []) in
   let payloads = List.map (fun (_, p, _) -> p) holes in
   if List.length holes <> 2
-  then fail "(d) two failed expects built %d holes, not two" (List.length holes)
+  then fail "(d) two failed expects built %d holes rather than two" (List.length holes)
   else if List.length diags <> 1
   then
     fail
-      "(d) two failed expects at one position reported %d diagnostics, not one"
+      "(d) two failed expects at one position reported %d diagnostics rather than one"
       (List.length diags)
   else if payloads <> [ 1; 1 ]
   then

@@ -16,7 +16,9 @@ let start_node ?payload (c : Cursor.t) (k : Ir.Kind.t) =
 
 (* No skip here. The checkpoint came from {!mark}, which took the trivia
    before it, so the node this opens already starts where it should. *)
-let start_node_at ?payload (c : Cursor.t) cp (k : Ir.Kind.t) =
+let start_node_at ?payload (c : Cursor.t) (cp : Siesta.Builder.checkpoint) (k : Ir.Kind.t)
+  : unit
+  =
   Siesta.Builder.start_node_at ?payload (Cursor.builder c) cp k;
   Cursor.entered c
 ;;

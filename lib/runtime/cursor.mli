@@ -26,9 +26,9 @@ type t
 
 (** [create ?cache ~trivia_kinds tokens] starts a parse over [tokens].
 
-    [?cache] decides how siesta interns nodes. The default shares identical
-    subtrees between parses. An editor re-parsing on every keystroke wants
-    that. A tool that parses once and drops the tree should pass
+    [?cache] sets how siesta interns nodes. The default shares identical
+    subtrees between parses, which is what an editor re-parsing on every
+    keystroke gets most from. A tool that parses once and drops the tree should pass
     [Siesta.Cache.create_plain ()] and skip the hashing. *)
 val create : ?cache:Siesta.Cache.t -> trivia_kinds:Ir.Kind.t list -> Token.t array -> t
 
@@ -56,7 +56,7 @@ val eof : t -> bool
     [n = 0] is {!current}. {!Ir.Kind.none} past the end of the input. *)
 val peek_meaningful_at : t -> n:int -> Ir.Kind.t
 
-(** The byte range of the token {!current} answers for, half open. Leading
+(** The byte range of the token {!current} is on, half open. Leading
     trivia sits outside it, so a diagnostic points at the token rather than
     at the whitespace before it. Both ends are the end of the input once
     there is no token left. *)
@@ -87,19 +87,19 @@ val offset : t -> int
     {!range}.
 
     Use it to report on input the parse has already taken, because {!range}
-    answers for the token under the cursor and the cursor has moved past it. A
-    trailing separator is the case that needs this: a parse knows the
-    separator was trailing only once it has read what follows. *)
+    covers the token under the cursor and the cursor has moved past it. A
+    trailing separator is the case that needs this: a separator is trailing
+    only in the light of what follows it. *)
 val report_at : t -> int * int -> Diagnostic.kind -> unit
 
-(** The same, answering with the diagnostic's 1-based id. Stamp that id on
+(** The same, giving the diagnostic's 1-based id. Stamp that id on
     the recovery node as its payload, and a consumer walking the tree gets
     from a node to its diagnostic in one step.
 
     Two [Missing] diagnostics over one range fold into one, and both callers
     get its id. A committed production whose leading required children all
-    fail at the same cursor asks for one diagnostic per child. The tree keeps
-    a hole per child and the list keeps one entry. *)
+    fail at the same cursor reports once per child. The tree keeps a hole per
+    child and the list keeps one entry. *)
 val report_id : t -> Diagnostic.kind -> int
 
 (** How many times the parse has reported. Read it either side of a step,
@@ -125,7 +125,7 @@ val diagnostics : t -> Diagnostic.t list
 (** How many frames are open. It is [0] before the first node is started, and
     again once the last one closes.
 
-    {!Build.start_node} reads it to tell the root from every other node. At
+    {!Build.start_node} reads it to separate the root from every other node. At
     the root nothing is open yet, so leading trivia has nowhere to go but
     inside the root itself.
 

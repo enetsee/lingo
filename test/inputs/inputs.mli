@@ -9,7 +9,7 @@ type t =
   ; broken : string list (** Input it does not accept, here to reach recovery. *)
   }
 
-(** [all t] is [good] and then [broken]. A law that asks the same question at
+(** [all t] is [good] and then [broken]. A law that runs the same check at
     every position of either reads this. *)
 val all : t -> string list
 

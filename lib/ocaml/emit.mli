@@ -2,10 +2,10 @@
 
     A thin shell over [Ppxlib.Ast_builder] for putting together structures,
     expressions and patterns. It renders through [Pprintast], so nothing here
-    indents anything, escapes a newline, or decides between [let] and [and] by
+    indents anything, escapes a newline, or picks between [let] and [and] by
     editing a string.
 
-    {1 What it does not know}
+    {1 What it does not carry}
 
     Nothing about a grammar, a plan or a kind. An emitter reads those and
     calls this, and the two stay apart so a backend that emits something other
@@ -106,7 +106,7 @@ val ecase : ?guard:expr -> pat -> expr -> case
 (** [let name = body in rest]. *)
 val elet : ?rec_:bool -> string -> body:expr -> rest:expr -> expr
 
-(** [let rec f = … and g = … in rest]. An empty list answers the tail
+(** [let rec f = … and g = … in rest]. An empty list gives the tail
     unchanged. *)
 val elet_rec : (string * arg list * expr) list -> expr -> expr
 
@@ -179,7 +179,7 @@ val smodule : string -> sig_item list -> sig_item
 
 (** {1 Rendering}
 
-    Both answer valid OCaml source with the generated-file header on the
+    Both give valid OCaml source with the generated-file header on the
     front. The header is not a caller's to remember. *)
 
 val render : item list -> string

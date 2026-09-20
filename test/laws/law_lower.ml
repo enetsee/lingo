@@ -12,7 +12,7 @@
 
       Parts (b) and (c) are one walk over the plan, collecting the ids it
       names, against the catalogue's length. The walk is this law's own: the
-      lowering asks for an id where it needs one, and this counts them off the
+      lowering interns an id where it needs one, and this counts them off the
       plan afterwards.
 
       Part (c) is the one that bites. [Messages.Builder.intern] dedupes on the
@@ -38,7 +38,7 @@
       Falsification. Every mutation was applied, run and reverted, and the
       result recorded is the one observed.
 
-        M1  In [Lower.instr_of_child], ask for a message for every child rather
+        M1  In [Lower.instr_of_child], intern a message for every child rather
             than for the ones that report.
             -> part (c), shapes: "nothing in the plan names the message 4".
 
@@ -47,7 +47,7 @@
             named, so the leak disappeared into a live entry. shapes gives its
             optional child a wording of its own for this reason and for no
             other, and the mutation reddens now.
-        M2  In [Lower.kset], answer the kinds in descending order.
+        M2  In [Lower.kset], give the kinds in descending order.
             -> part (a), 55 findings across the eight grammars: every set in
                a plan is read as ascending and distinct.
 
@@ -56,9 +56,8 @@
                before [recovery] and 55 over the eight it holds now. A number
                carried over a corpus that grew, which is what re-running a
                record is for.
-        M3  In [Lower.delimited_tail], keep asking the catalogue for the
-            close's wording and name [Message.of_int 999] instead of the id
-            it answers.
+        M3  In [Lower.delimited_tail], intern the close's wording as before
+            and name [Message.of_int 999] instead of the id that comes back.
             -> part (b), six grammars, and part (c) on the wording that is no
                longer named: 6 and 9 findings. rassoc and recovery have no
                delimited production and are untouched.
@@ -76,7 +75,8 @@
 
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -84,7 +84,9 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 let corpus =
   [ "sexp", Lingo_grammars.Sexp_grammar.grammar
@@ -132,10 +134,10 @@ let ids_in (p : Ir.Plan.t) =
 ;;
 
 (* One tally per plan form. A form the corpus never lowers to is a form no
-   grammar asks for. *)
+   grammar reaches. *)
 let built : (string, int) Hashtbl.t = Hashtbl.create 32
 
-let saw name =
+let saw (name : string) : unit =
   Hashtbl.replace built name (1 + Option.value (Hashtbl.find_opt built name) ~default:0)
 ;;
 
@@ -273,7 +275,7 @@ let () =
   match List.filter (fun n -> not (Hashtbl.mem built n)) forms with
   | [] ->
     pass
-      "every plan form is one a grammar asks for (%s)"
+      "every plan form is one a grammar reaches (%s)"
       (String.concat
          " "
          (List.map (fun n -> Printf.sprintf "%s %d" n (Hashtbl.find built n)) forms))

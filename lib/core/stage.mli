@@ -1,27 +1,27 @@
 (** The staged derivation behind {!Facts.of_grammar}.
 
-    Facts come from a checked grammar, and a check reads facts. Staging is how 
-    how both are true at once. Each stage is total on its input. Each check runs
-    at the earliest stage that can answer it. {!Facts.of_grammar} stops at the
-    first stage that reports anything.
+    Facts come from a checked grammar, and a check reads facts. Staging is how
+    both are true at once. Each stage is total on its input. Each check runs at
+    the earliest stage that holds what it reads. {!Facts.of_grammar} stops at
+    the first stage that reports anything.
 
-    Take a grammar with a dangling rule reference. FIRST over it has no answer 
-    worth giving. The first stage reports the dangling reference and FIRST never 
+    Take a grammar with a dangling rule reference. FIRST over it is not worth
+    computing. The first stage reports the dangling reference and FIRST never
     runs.
 
     There are two stages, and a lexer beside them.
 
     - {!val-names} holds the kind table, the token definitions, the manifest,
-      and one rule slot per production, per block and per role. It is total on 
-      any grammar. It answers questions about declarations. Does a reference 
-      resolve? Is a name an identifier? Do two names mangle onto one? Does a 
-      token's regex match the empty string?
+      and one rule slot per production, per block and per role. It is total on
+      any grammar, and it holds what a check over declarations reads. Does a
+      reference resolve? Is a name an identifier? Do two names mangle onto one?
+      Does a token's regex match the empty string?
     - {!val-shape} holds the rules, with every symbol resolved to a {!Kind.t}, 
-      blocks desugared and framing normalised. It answers questions about \
-      resolved children. How many children does a frame wrap? Do two child slots 
-      admit one node?
-    - {!lexer} builds the token automaton. {!Fixpoint.compute} takes a 
-      {!type-shape} and answers the rest.
+      blocks desugared and framing normalised. It holds what a check over
+      resolved children reads. How many children does a frame wrap? Do two
+      child slots admit one node?
+    - {!lexer} builds the token automaton. {!Fixpoint.compute} takes a
+      {!type-shape} and derives the rest.
 
     Nothing here escapes {!Facts}. A backend holds a {!Facts.t}. *)
 

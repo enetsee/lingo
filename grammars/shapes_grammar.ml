@@ -16,7 +16,7 @@
    - [Let] has optional children, which are silent when absent where a
      required one reports;
    - [Block]'s separator allows a trailing one, where json's forbids it. The
-     two answers need two grammars, because the policy is per production.
+     two policies need two grammars, because the policy is per production.
 
    There is no expression block. grammars/calc_grammar.ml, rassoc and postfix
    carry those, and a failure here should have one cause.

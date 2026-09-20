@@ -17,7 +17,7 @@
       The interpreter is the oracle. It shares no parse code with the
       emitter: each brings its own dispatch, its own loops and its own
       balanced skip, so anything lost in writing the plan out as control flow
-      shows up as a disagreement. The emitter also decides shapes the plan
+      shows up as a disagreement. The emitter also settles shapes the plan
       does not: which arms a match holds, where a [let] goes, and which of
       the two recovery sets is in scope at a position.
 
@@ -69,7 +69,7 @@
                postfix 169, unicode 464, recovery 5,897, shapes 5,431. A body
                that meets junk runs to the closer instead of picking up at its
                next element.
-        M2  In [Ocaml.Parser.loop], have [stuck] answer [swept] whatever
+        M2  In [Ocaml.Parser.loop], have [stuck] give [swept] whatever
             [when_missing] holds.
             -> part (a), 1,045 inputs: json 466, postfix 69, unicode 307,
                recovery 35, shapes 168. Part (b), 1,559: json 774, postfix 147,
@@ -99,7 +99,7 @@
                recovery 840.
 
                The record used to read 579, recovery alone, from an edit its own
-               prose did not pin down. This one is named above and measured. A
+               prose never named exactly. This one is named above and measured. A
                commit's resume set holds the FIRST set of every later child and
                its recovery set stops at the first later child that is not
                nullable, so the two differ wherever two children follow the
@@ -155,7 +155,7 @@
                move: both roots end their body with a [Trivia], which has taken
                the trailing trivia before the drain runs.
        M15  In [Ocaml.Parser.hole_node], add one to the id [Cursor.report_id]
-            answers.
+            gives.
             -> part (a), 54,307 inputs, every grammar. Nothing but the payload
                in the dump reads this, which is why the dump carries it.
        M16  In [Ocaml.Parser.instr], pass [None] for an [Expect]'s placeholder.
@@ -170,7 +170,8 @@
 
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -178,7 +179,9 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 (* -- the corpus ------------------------------------------------------------- *)
 

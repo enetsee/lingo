@@ -1,0 +1,4 @@
+(library
+ (name sample)
+ (public_name lingo.sample)
+ (libraries core bolts))

@@ -18,7 +18,12 @@ type t =
    at every dispatch.
 
    Built right to left so each entry reads its successor. *)
-let create ?(cache = Siesta.Cache.create ()) ~trivia_kinds tokens =
+let create
+      ?(cache = Siesta.Cache.create ())
+      ~(trivia_kinds : Ir.Kind.t list)
+      (tokens : Token.t array)
+  : t
+  =
   let max_kind = List.fold_left trivia_kinds ~init:(-1) ~f:max in
   let trivia_lookup = Array.make (max_kind + 1) false in
   List.iter trivia_kinds ~f:(fun k -> if k >= 0 then trivia_lookup.(k) <- true);

@@ -12,7 +12,7 @@
     {1 Recovery holds the local half}
 
     A parser that fails at a required child skips forward until it reaches a
-    token it can resume on. Two things decide which tokens those are.
+    token it can resume on. Two things settle which tokens those are.
 
     The first is the child's own position: what can follow the child inside its
     rule, the rule's closer, and the rule's FOLLOW where the child is last. A
@@ -22,8 +22,9 @@
     opened those frames itself, so it carries them down its own call stack and
     unions them in at each child.
 
-    {!Core.Facts.recovery_set} answers both at once, from a table held per
-    rule. A table indexed by rule cannot tell one call site from another. So a
+    {!Core.Facts.recovery_set} gives both at once, from a table held per
+    rule. A table indexed by rule cannot separate one call site from another.
+    So a
     rule reached from inside [( … )] and from inside [\[ … \]] gets both
     closers at both sites, and a failure in the parenthesised call stops at a
     [\]] that no [\[] opened. *)

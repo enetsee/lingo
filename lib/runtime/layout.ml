@@ -119,7 +119,7 @@ let stronger (a : Ir.Layout.break) (b : Ir.Layout.break) : Ir.Layout.break =
   | Flat, Flat -> Flat
 ;;
 
-let rec breaks n =
+let rec breaks (n : int) : Ir.Kind.t Handsome.Ascii.t =
   if n <= 1 then Handsome.Ascii.hardline else Handsome.Ascii.hardline ^^ breaks (n - 1)
 ;;
 
@@ -139,7 +139,7 @@ type join =
   | Newline
   | None_at_all
 
-let join ~boundary ~run ~next =
+let join ~(boundary : string -> int -> bool) ~(run : string) ~(next : string) : join =
   if run = "" || next = ""
   then Touching
   else (
@@ -153,7 +153,7 @@ let join ~boundary ~run ~next =
     else None_at_all)
 ;;
 
-let name_of j =
+let name_of (j : join) : string =
   match j with
   | Touching -> "join-touching"
   | Blank -> "join-blank"
@@ -181,7 +181,7 @@ let token (lay : Ir.Layout.t) (k : Ir.Kind.t) =
   | None -> Ir.Layout.not_a_token
 ;;
 
-let joins (e : env) (st : state) ~next =
+let joins (e : env) (st : state) ~(next : string) : join =
   let j = join ~boundary:e.boundary ~run:st.run ~next in
   say e (name_of j);
   j
@@ -351,7 +351,7 @@ let sep_of (r : Ir.Layout.rule) =
   | Plain -> None
 ;;
 
-let all_space s =
+let all_space (s : string) : bool =
   String.for_all s ~f:(fun c -> c = ' ' || c = '\t' || c = '\n' || c = '\r')
 ;;
 
@@ -366,7 +366,7 @@ let sep_of (r : Ir.Layout.rule) =
    forward from the slot last filled, so two slots admitting the same kind stay
    apart: an infix role's [lhs] and [rhs] are both the block's own kinds, and
    only their order separates them. *)
-let slot_of (r : Ir.Layout.rule) ~prev k =
+let slot_of (r : Ir.Layout.rule) ~(prev : int) (k : Ir.Kind.t) : (int * bool) option =
   let n = Array.length r.slots in
   let holds i = Array.exists r.slots.(i).kinds ~f:(fun x -> x = k) in
   if prev >= 0 && r.slots.(prev).repeats && holds prev
@@ -512,7 +512,7 @@ let entries
    the line reads [Flat], and the layout settles that on its own, so a run's
    extent is known before anything is rendered. What a boundary prints is
    settled later, from the bytes. *)
-let rec flat_end es i stop =
+let rec flat_end (es : entry array) (i : int) (stop : int) : int =
   if i >= stop || es.(i).before <> Ir.Layout.Flat then i else flat_end es (i + 1) stop
 ;;
 
@@ -524,7 +524,14 @@ let nothing st = empty, st
    group measures them. Without that a group renders flat, a separator lands
    after it on the same line, and the two together run past the ruler with no
    break left. *)
-let rec walk (e : env) es i stop ~after st =
+let rec walk
+          (e : env)
+          (es : entry array)
+          (i : int)
+          (stop : int)
+          ~(after : state -> Ir.Kind.t Handsome.Ascii.t * state)
+          (st : state)
+  =
   if i >= stop
   then (
     let d, st = after st in
@@ -532,10 +539,10 @@ let rec walk (e : env) es i stop ~after st =
   else (
     let it = es.(i) in
     let j = flat_end es (i + 1) stop in
-    (* The break this boundary asks for, and what stood before it. A child that
+    (* The break this boundary carries, and what stood before it. A child that
        writes nothing had no boundary in front of it, so the request goes back:
        carried on, it would reach a token in some other frame and break a
-       boundary that frame knows nothing of. *)
+       boundary outside that frame. *)
     let stood = st.brk in
     let st = { st with brk = stronger st.brk it.before } in
     (* [after] lands on this child's line, so it goes in the tail rather than
@@ -555,7 +562,13 @@ let rec walk (e : env) es i stop ~after st =
       let l2, d2, st = walk e es j stop ~after st in
       lead, d ^^ l2 ^^ d2, st))
 
-and child (e : env) it ~tail ~stood st =
+and child
+      (e : env)
+      (it : entry)
+      ~(tail : state -> Ir.Kind.t Handsome.Ascii.t * state)
+      ~(stood : Ir.Layout.break)
+      (st : state)
+  =
   match it.child with
   | Siesta.Green.Token t ->
     let w = Written.of_token t in
@@ -564,7 +577,13 @@ and child (e : env) it ~tail ~stood st =
     lead, Written.doc w ^^ d, st
   | Siesta.Green.Node n -> node e n ~tail ~stood st
 
-and node (e : env) (n : Siesta.Green.node) ~tail ~stood st =
+and node
+      (e : env)
+      (n : Siesta.Green.node)
+      ~(tail : state -> Ir.Kind.t Handsome.Ascii.t * state)
+      ~(stood : Ir.Layout.break)
+      (st : state)
+  =
   let entry = st.written
   and stood_space = st.space_before in
   (* [undo] belongs to the boundary in front of this node, which is the enclosing
@@ -806,7 +825,14 @@ let doc
   lead ^^ d
 ;;
 
-let format ?trace (lay : Ir.Layout.t) ~boundary ~width n =
+let format
+      ?trace
+      (lay : Ir.Layout.t)
+      ~(boundary : string -> int -> bool)
+      ~(width : int)
+      (n : Siesta.Green.node)
+  : string
+  =
   Handsome.Ascii.to_string
     (fst (Handsome.Ascii.render ~width (doc ?trace lay ~boundary n)))
 ;;

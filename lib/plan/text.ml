@@ -10,7 +10,7 @@ let keyed name xs = Sexp.List (atom name :: xs)
    checker's business; the printer writes them in the order it is given. *)
 let ints name xs = keyed name (Array.to_list (Array.map xs ~f:num))
 
-let kopt name = function
+let kopt (name : string) : int option -> Sexp.t = function
   | None -> keyed name []
   | Some k -> keyed name [ num k ]
 ;;
@@ -170,13 +170,13 @@ let as_atom (s : Sexp.t) =
 ;;
 
 (* The tail of [(name ...)]. *)
-let key name (s : Sexp.t) =
+let key (name : string) (s : Sexp.t) : Sexp.t list =
   match s with
   | Sexp.List (Sexp.Atom k :: rest) when String.equal k name -> rest
   | _ -> bad "wanted (%s ...), got %s" name (show s)
 ;;
 
-let one name s =
+let one (name : string) (s : Sexp.t) : Sexp.t =
   match key name s with
   | [ x ] -> x
   | _ -> bad "(%s ...) takes one value: %s" name (show s)
@@ -184,14 +184,14 @@ let one name s =
 
 let ints_of name s = Array.of_list (List.map (key name s) ~f:as_int)
 
-let kopt_of name s =
+let kopt_of (name : string) (s : Sexp.t) : int option =
   match key name s with
   | [] -> None
   | [ x ] -> Some (as_int x)
   | _ -> bad "(%s ...) takes at most one kind: %s" name (show s)
 ;;
 
-let flag_of name s =
+let flag_of (name : string) (s : Sexp.t) : bool =
   match as_atom (one name s) with
   | "true" -> true
   | "false" -> false

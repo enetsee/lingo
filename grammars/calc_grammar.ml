@@ -4,8 +4,8 @@
 
    - [Expr] is a Pratt block, so precedence is a binding power rather than a
      production per level;
-   - [minus] is a prefix operator and an infix one, which the parser tells
-     apart by where the token sits;
+   - [minus] is a prefix operator and an infix one, separated by where the
+     token sits;
    - [Parens] is a delimited production used as an atom, so the block reaches
      back into ordinary productions.
 

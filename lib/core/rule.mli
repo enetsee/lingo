@@ -18,7 +18,7 @@
 (** An index into {!Facts.rules}. *)
 type id = int
 
-(** Where the rule came from. Ask here to tell a desugared role from a
+(** Where the rule came from. Read this to separate a desugared role from a
     production the author wrote. Matching on the name would work today and
     break on a grammar that names a production after a role. *)
 type origin =
@@ -58,7 +58,7 @@ type child =
 
           Alternative dispatch is a cascade. It takes the first arm whose
           FIRST set admits the cursor, so where two arms overlap the order
-          decides which one wins. *)
+          settles which one takes it. *)
   ; kinds : Kind.Set.t (** {!child.alts} as a set. *)
   ; modifier : Grammar.modifier
   ; greedy : bool

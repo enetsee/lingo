@@ -6,7 +6,7 @@
     turns into a decision tree; a state consuming a run of its own characters
     consumes it in a loop.
 
-    Both represent the same automaton and answer with the same tokens.
+    Both represent the same automaton and give the same tokens.
 
     [Table] is the default. *)
 type shape =

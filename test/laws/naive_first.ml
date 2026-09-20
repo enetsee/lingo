@@ -3,46 +3,47 @@
     It walks the grammar with [Set.Make(String)] over token names, where
     {!Core.Internal.Fixpoint} walks resolved rules with bitsets over
     kind integers. Two implementations of one fact, so a cross-check can
-    tell whether they agree.
+    see whether they agree.
 
     It follows the predecessor's algorithm, which has years of grammars run
     through it. Where the two disagree, the argument has to be made about
     which is right. *)
 
-open Core.Grammar
-module SS = Set.Make (String)
+module String_set = Set.Make (String)
 
 type tables =
   { nullable : (string, bool) Hashtbl.t
-  ; first : (string, SS.t) Hashtbl.t
-  ; follow : (string, SS.t) Hashtbl.t
+  ; first : (string, String_set.t) Hashtbl.t
+  ; follow : (string, String_set.t) Hashtbl.t
   }
 
 let syms_of = function
-  | Single s -> [ s ]
+  | Core.Grammar.Single s -> [ s ]
   | Alternatives ss -> ss
 ;;
 
-let compute (g : t) : tables =
+let compute (g : Core.Grammar.t) : tables =
   let null = Hashtbl.create 16 in
   List.iter
-    (fun (p : production) -> Hashtbl.replace null (Name.Rule.to_string p.kind_name) false)
+    (fun (p : Core.Grammar.production) ->
+       Hashtbl.replace null (Core.Grammar.Name.Rule.to_string p.kind_name) false)
     g.productions;
   List.iter
-    (fun (e : expr_def) -> Hashtbl.replace null (Name.Rule.to_string e.rule_name) false)
+    (fun (e : Core.Grammar.expr_def) ->
+       Hashtbl.replace null (Core.Grammar.Name.Rule.to_string e.rule_name) false)
     g.expr;
   let nullable_of r = Option.value ~default:false (Hashtbl.find_opt null r) in
   let sym_nullable = function
-    | Token _ -> false
+    | Core.Grammar.Token _ -> false
     | Rule r -> nullable_of r
   in
   let csym_nullable cs = List.exists sym_nullable (syms_of cs) in
-  let child_nullable (c : child) =
+  let child_nullable (c : Core.Grammar.child) =
     match c.modifier with
     | Zero_or_one | Zero_or_more -> true
     | Exactly_one | One_or_more -> csym_nullable c.sym
   in
-  let prod_nullable (p : production) =
+  let prod_nullable (p : Core.Grammar.production) =
     match p.framing with
     (* A delimited production takes its open token whatever its children do. A
        separated one is its children, and whether a list can be empty is the
@@ -54,53 +55,67 @@ let compute (g : t) : tables =
   while !changed do
     changed := false;
     List.iter
-      (fun (p : production) ->
+      (fun (p : Core.Grammar.production) ->
          let now = prod_nullable p in
-         if nullable_of (Name.Rule.to_string p.kind_name) <> now
+         if nullable_of (Core.Grammar.Name.Rule.to_string p.kind_name) <> now
          then (
-           Hashtbl.replace null (Name.Rule.to_string p.kind_name) now;
+           Hashtbl.replace null (Core.Grammar.Name.Rule.to_string p.kind_name) now;
            changed := true))
       g.productions
   done;
   (* ---- FIRST ---- *)
   let first = Hashtbl.create 16 in
   List.iter
-    (fun (p : production) ->
-       Hashtbl.replace first (Name.Rule.to_string p.kind_name) SS.empty)
+    (fun (p : Core.Grammar.production) ->
+       Hashtbl.replace
+         first
+         (Core.Grammar.Name.Rule.to_string p.kind_name)
+         String_set.empty)
     g.productions;
   List.iter
-    (fun (e : expr_def) ->
-       Hashtbl.replace first (Name.Rule.to_string e.rule_name) SS.empty)
+    (fun (e : Core.Grammar.expr_def) ->
+       Hashtbl.replace
+         first
+         (Core.Grammar.Name.Rule.to_string e.rule_name)
+         String_set.empty)
     g.expr;
-  let first_of r = Option.value ~default:SS.empty (Hashtbl.find_opt first r) in
+  let first_of r = Option.value ~default:String_set.empty (Hashtbl.find_opt first r) in
   let sym_first = function
-    | Token t -> SS.singleton t
+    | Core.Grammar.Token t -> String_set.singleton t
     | Rule r -> first_of r
   in
   let csym_first cs =
-    List.fold_left (fun acc s -> SS.union acc (sym_first s)) SS.empty (syms_of cs)
+    List.fold_left
+      (fun acc s -> String_set.union acc (sym_first s))
+      String_set.empty
+      (syms_of cs)
   in
   let rec children_first = function
-    | [] -> SS.empty
-    | (c : child) :: rest ->
+    | [] -> String_set.empty
+    | (c : Core.Grammar.child) :: rest ->
       let mine = csym_first c.sym in
-      if child_nullable c then SS.union mine (children_first rest) else mine
+      if child_nullable c then String_set.union mine (children_first rest) else mine
   in
-  let prod_first (p : production) =
+  let prod_first (p : Core.Grammar.production) =
     match p.framing with
-    | Delimited { open_tok; _ } -> SS.singleton (Name.Token.to_string open_tok)
+    | Delimited { open_tok; _ } ->
+      String_set.singleton (Core.Grammar.Name.Token.to_string open_tok)
     | Separated _ ->
       (match p.children with
        | c :: _ -> csym_first c.sym
-       | [] -> SS.empty)
+       | [] -> String_set.empty)
     | Plain | Committed _ -> children_first p.children
   in
-  let expr_first (e : expr_def) =
+  let expr_first (e : Core.Grammar.expr_def) =
     let atoms =
-      List.fold_left (fun acc s -> SS.union acc (sym_first s)) SS.empty e.atoms
+      List.fold_left
+        (fun acc s -> String_set.union acc (sym_first s))
+        String_set.empty
+        e.atoms
     in
     List.fold_left
-      (fun acc (o : operator) -> SS.add (Name.Token.to_string o.op_token) acc)
+      (fun acc (o : Core.Grammar.operator) ->
+         String_set.add (Core.Grammar.Name.Token.to_string o.op_token) acc)
       atoms
       e.prefix_ops
   in
@@ -108,72 +123,87 @@ let compute (g : t) : tables =
   while !changed do
     changed := false;
     List.iter
-      (fun (p : production) ->
+      (fun (p : Core.Grammar.production) ->
          let now = prod_first p in
-         if not (SS.equal (first_of (Name.Rule.to_string p.kind_name)) now)
+         if
+           not
+             (String_set.equal
+                (first_of (Core.Grammar.Name.Rule.to_string p.kind_name))
+                now)
          then (
-           Hashtbl.replace first (Name.Rule.to_string p.kind_name) now;
+           Hashtbl.replace first (Core.Grammar.Name.Rule.to_string p.kind_name) now;
            changed := true))
       g.productions;
     List.iter
-      (fun (e : expr_def) ->
+      (fun (e : Core.Grammar.expr_def) ->
          let now = expr_first e in
-         if not (SS.equal (first_of (Name.Rule.to_string e.rule_name)) now)
+         if
+           not
+             (String_set.equal
+                (first_of (Core.Grammar.Name.Rule.to_string e.rule_name))
+                now)
          then (
-           Hashtbl.replace first (Name.Rule.to_string e.rule_name) now;
+           Hashtbl.replace first (Core.Grammar.Name.Rule.to_string e.rule_name) now;
            changed := true))
       g.expr
   done;
   (* ---- FOLLOW ---- *)
   let follow = Hashtbl.create 16 in
   List.iter
-    (fun (p : production) ->
-       Hashtbl.replace follow (Name.Rule.to_string p.kind_name) SS.empty)
+    (fun (p : Core.Grammar.production) ->
+       Hashtbl.replace
+         follow
+         (Core.Grammar.Name.Rule.to_string p.kind_name)
+         String_set.empty)
     g.productions;
   List.iter
-    (fun (e : expr_def) ->
-       Hashtbl.replace follow (Name.Rule.to_string e.rule_name) SS.empty)
+    (fun (e : Core.Grammar.expr_def) ->
+       Hashtbl.replace
+         follow
+         (Core.Grammar.Name.Rule.to_string e.rule_name)
+         String_set.empty)
     g.expr;
-  let follow_of r = Option.value ~default:SS.empty (Hashtbl.find_opt follow r) in
+  let follow_of r = Option.value ~default:String_set.empty (Hashtbl.find_opt follow r) in
   let changed = ref true in
   let propagate r added =
     let cur = follow_of r in
-    let next = SS.union cur added in
-    if not (SS.equal cur next)
+    let next = String_set.union cur added in
+    if not (String_set.equal cur next)
     then (
       Hashtbl.replace follow r next;
       changed := true)
   in
   let rec remaining_first = function
-    | [] -> SS.empty, true
-    | (c : child) :: rest ->
+    | [] -> String_set.empty, true
+    | (c : Core.Grammar.child) :: rest ->
       let mine = csym_first c.sym in
       if child_nullable c
       then (
         let rf, re = remaining_first rest in
-        SS.union mine rf, re)
+        String_set.union mine rf, re)
       else mine, false
   in
   let targets cs =
     List.filter_map
       (function
-        | Rule r -> Some r
+        | Core.Grammar.Rule r -> Some r
         | Token _ -> None)
       (syms_of cs)
   in
   while !changed do
     changed := false;
     List.iter
-      (fun (p : production) ->
-         let parent = follow_of (Name.Rule.to_string p.kind_name) in
+      (fun (p : Core.Grammar.production) ->
+         let parent = follow_of (Core.Grammar.Name.Rule.to_string p.kind_name) in
          let trailing =
            match p.framing with
-           | Delimited { close_tok; _ } -> SS.singleton (Name.Token.to_string close_tok)
+           | Delimited { close_tok; _ } ->
+             String_set.singleton (Core.Grammar.Name.Token.to_string close_tok)
            | Separated _ | Plain | Committed _ -> parent
          in
          let rec walk = function
            | [] -> ()
-           | (c : child) :: rest ->
+           | (c : Core.Grammar.child) :: rest ->
              let rf, re = remaining_first rest in
              let rf =
                match c.modifier with
@@ -181,9 +211,10 @@ let compute (g : t) : tables =
                | Zero_or_more | One_or_more ->
                  (match p.framing with
                   | Delimited { sep_policy = With_sep { sep; _ }; _ } ->
-                    SS.add (Name.Token.to_string sep) rf
-                  | Separated { sep; _ } -> SS.add (Name.Token.to_string sep) rf
-                  | _ -> SS.union rf (csym_first c.sym))
+                    String_set.add (Core.Grammar.Name.Token.to_string sep) rf
+                  | Separated { sep; _ } ->
+                    String_set.add (Core.Grammar.Name.Token.to_string sep) rf
+                  | _ -> String_set.union rf (csym_first c.sym))
              in
              List.iter
                (fun r ->
@@ -195,38 +226,41 @@ let compute (g : t) : tables =
          walk p.children)
       g.productions;
     List.iter
-      (fun (e : expr_def) ->
+      (fun (e : Core.Grammar.expr_def) ->
          let own =
            let s =
              List.fold_left
-               (fun acc (o : operator) -> SS.add (Name.Token.to_string o.op_token) acc)
-               SS.empty
+               (fun acc (o : Core.Grammar.operator) ->
+                  String_set.add (Core.Grammar.Name.Token.to_string o.op_token) acc)
+               String_set.empty
                e.infix_ops
            in
            List.fold_left
-             (fun acc (p : postfix_op) ->
-                let acc = SS.add (Name.Token.to_string p.lead) acc in
+             (fun acc (p : Core.Grammar.postfix_op) ->
+                let acc = String_set.add (Core.Grammar.Name.Token.to_string p.lead) acc in
                 match p.body with
                 | Nothing | Then _ -> acc
                 | Enclosed { close; content } ->
-                  let acc = SS.add (Name.Token.to_string close) acc in
+                  let acc =
+                    String_set.add (Core.Grammar.Name.Token.to_string close) acc
+                  in
                   (match content with
                    | One _ -> acc
                    | Many { sep = With_sep { sep; _ }; _ } ->
-                     SS.add (Name.Token.to_string sep) acc
+                     String_set.add (Core.Grammar.Name.Token.to_string sep) acc
                    | Many { sep = No_sep; _ } -> acc))
              s
              e.postfix
          in
-         propagate (Name.Rule.to_string e.rule_name) own;
-         let ef = follow_of (Name.Rule.to_string e.rule_name) in
+         propagate (Core.Grammar.Name.Rule.to_string e.rule_name) own;
+         let ef = follow_of (Core.Grammar.Name.Rule.to_string e.rule_name) in
          List.iter
            (function
-             | Rule r -> propagate r ef
+             | Core.Grammar.Rule r -> propagate r ef
              | Token _ -> ())
            e.atoms;
          List.iter
-           (fun (p : postfix_op) ->
+           (fun (p : Core.Grammar.postfix_op) ->
               match p.body with
               | Nothing -> ()
               | Then (Rule r) -> propagate r ef
@@ -235,8 +269,11 @@ let compute (g : t) : tables =
                 let inside =
                   match content with
                   | Many { sep = With_sep { sep; _ }; _ } ->
-                    SS.of_list [ Name.Token.to_string close; Name.Token.to_string sep ]
-                  | _ -> SS.singleton (Name.Token.to_string close)
+                    String_set.of_list
+                      [ Core.Grammar.Name.Token.to_string close
+                      ; Core.Grammar.Name.Token.to_string sep
+                      ]
+                  | _ -> String_set.singleton (Core.Grammar.Name.Token.to_string close)
                 in
                 let syms =
                   match content with
@@ -245,7 +282,7 @@ let compute (g : t) : tables =
                 in
                 List.iter
                   (function
-                    | Rule r -> propagate r inside
+                    | Core.Grammar.Rule r -> propagate r inside
                     | Token _ -> ())
                   syms)
            e.postfix)

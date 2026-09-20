@@ -21,9 +21,9 @@ val pp : Format.formatter -> t -> unit
     FOLLOW, the recovery set at a position, and the kinds a child slot admits. 
     A backend adds a fifth, the guard on a dispatch arm.
 
-    A set does not know how many kinds exist. It knows only which bits are set. 
-    {!Set.empty} takes no size argument, and a binary operation pads the shorter 
-    side. *)
+    A set carries no count of the kinds that exist. It holds which bits are
+    set and nothing else. {!Set.empty} takes no size argument, and a binary
+    operation pads the shorter side. *)
 module Set : sig
   (** A kind. Named here because [Set.t] shadows it. *)
   type elt = t
@@ -93,7 +93,7 @@ module Name : sig
 
   (** {2 The built-ins}
 
-      Minted for every grammar, so all four are always in a table. *)
+      Every grammar has all four, so they are always in a table. *)
 
   val error : t
   val missing : t
@@ -112,9 +112,9 @@ module Table : sig
 
   (** Total on any list, duplicates included.
 
-      A duplicate is still two indices. {!find} answers with the first of
-      them, and {!val-name} answers for each index separately, so the table
-      stays a bijection on indices. A check reports the duplicate as
+      A duplicate is still two indices. {!find} gives the first of them, and
+      {!val-name} gives a name for each index separately, so the table stays a
+      bijection on indices. A check reports the duplicate as
       [dup-kind-name]. *)
   val of_names : Name.t list -> t
 

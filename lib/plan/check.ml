@@ -35,7 +35,7 @@ type problem =
       }
   | Close_without_open of { at : string }
 
-let pp_problem fmt = function
+let pp_problem (fmt : Format.formatter) : problem -> unit = function
   | Rule_out_of_range { at; id } -> Format.fprintf fmt "%s: no rule %d" at id
   | Block_out_of_range { at; id } -> Format.fprintf fmt "%s: no block %d" at id
   | Kinds_unordered { at; kinds } ->
@@ -86,7 +86,7 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
      entry already takes never reaches a later one, and the later entry is dead
      code on that kind.
 
-     Call [taker ()] once per cascade. Call what it answers once per entry, in
+     Call [taker ()] once per cascade. Call what it gives once per entry, in
      the order the entries are written. *)
   let taker () =
     let seen = Hashtbl.create 16 in

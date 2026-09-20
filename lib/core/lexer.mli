@@ -40,7 +40,7 @@ val initial : int
 val of_facts : Facts.t -> t
 
 (** The class of a codepoint, or [-1] where it is in none. Total on any int:
-    a surrogate and a value outside the codespace both answer [-1]. *)
+    a surrogate and a value outside the codespace both give [-1]. *)
 val class_of : t -> int -> int
 
 (** Where [state] goes on a character of [klass]. [-1] where the state stops,

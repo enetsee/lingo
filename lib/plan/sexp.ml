@@ -8,7 +8,7 @@ type t =
    [%S] for the writing put a byte such as 233 out as [\233] and the reader
    took that as the character 2 followed by the text 33, so a name needing
    quotes and holding a byte above 127 came back wrong and said nothing. *)
-let escaped c =
+let escaped (c : char) : string option =
   match c with
   | '"' -> Some "\\\""
   | '\\' -> Some "\\\\"
@@ -20,7 +20,7 @@ let escaped c =
   | _ -> None
 ;;
 
-let needs_quote s =
+let needs_quote (s : string) : bool =
   s = ""
   || String.exists s ~f:(fun c ->
     match c with
@@ -30,7 +30,7 @@ let needs_quote s =
 
 (* A byte above 127 goes out as it stands, so a name in UTF-8 reads as itself
    rather than as a run of escapes. *)
-let pp_atom fmt s =
+let pp_atom (fmt : Format.formatter) (s : string) : unit =
   if not (needs_quote s)
   then Format.pp_print_string fmt s
   else (
@@ -46,7 +46,7 @@ let pp_atom fmt s =
 
 (* A box per list, so a form that fits stays on its line and one that does not
    breaks between its elements at the depth it sits at. *)
-let rec pp fmt = function
+let rec pp (fmt : Format.formatter) : t -> unit = function
   | Atom s -> pp_atom fmt s
   | List xs ->
     Format.fprintf
@@ -115,7 +115,7 @@ let of_string (s : string) : (t, string) result =
              if code > 255 then fail "the escape \\%d is not a byte" code;
              Buffer.add_char b (Char.chr code);
              i := !i + 4
-           | c -> fail "an escape this does not know: \\%c, at byte %d" c !i);
+           | c -> fail "an escape with no case here: \\%c, at byte %d" c !i);
           go ()
         | c ->
           Buffer.add_char b c;

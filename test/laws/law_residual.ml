@@ -25,7 +25,7 @@
       of the same tables would show only that two walks agree, which is not the
       claim.
 
-      The probe takes a position, not a byte offset. Several positions sit at
+      The probe takes a position rather than a byte offset. Several positions sit at
       one token and they admit different things: the parse tests a production's
       FIRST set, chooses an arm, and then expects that arm's opener, all
       without moving.
@@ -53,9 +53,9 @@
       two, a fault in the emitter shows as a wrong set here and as a wrong
       literal there.
 
-      A byte is the meaningful token, not the raw index. The cursor looks past
+      A byte is the meaningful token rather than the raw index. The cursor looks past
       trivia, so the two positions either side of a space are looking at the
-      same token and deciding the same thing. Keying on the raw index instead
+      same token and settling the same thing. Keying on the raw index instead
       read 73 failures in sexp, json, postfix, recovery and shapes, all of
       them the trivia between a body's elements.
 
@@ -80,7 +80,7 @@
       named exactly, because a mutation nobody can re-create is a mutation
       nobody can check.
 
-        M1  In [Residual.entered], answer [whole plan null body] where the steps
+        M1  In [Residual.entered], give [whole plan null body] where the steps
             run out and the position is inclusive, rather than the gate.
             -> part (b), 64 pairs: sexp 18, json 26, postfix 2, unicode 10,
                recovery 3, shapes 5. A commit's body is often a bare [Bump],
@@ -91,7 +91,7 @@
                [gate, true] adds what follows the commit, and those are kinds
                that cannot be under the cursor at a body a dispatch chose, so no
                input puts the parse there to disagree.
-        M2  In [Residual.ends], answer [true] for [May_exit_reporting] as well.
+        M2  In [Residual.ends], give [true] for [May_exit_reporting] as well.
             -> part (a), 14: json 5, postfix 2, unicode 2, recovery 3, shapes 2.
                Part (g), the same 14. A body that forbids a trailing separator
                can still be ended at one, by taking the separator and reporting
@@ -104,7 +104,7 @@
             -> part (b), 123: calc 8, postfix 20, recovery 5, shapes 90.
                Part (g), 75. Part (h), 45. What follows a rule goes missing at
                every position the rule's own body can complete from.
-        M4  In [Residual.whole], answer [false] for an [Alt]'s nullability.
+        M4  In [Residual.whole], give [false] for an [Alt]'s nullability.
             -> part (b), 105, shapes alone. Part (g), 57. It is the grammar with
                optional children, and what follows one is what goes missing.
                shapes.residual moves.
@@ -128,7 +128,7 @@
                calc 121, rassoc 54, postfix 120, unicode 38, recovery 108,
                shapes 142. Part (g), 323 and 485. Part (h), 225. M12 is the same
                claim at the other end of the stack.
-        M8  In [Residual.expression], answer [first, false] at an [Operand]
+        M8  In [Residual.expression], give [first, false] at an [Operand]
             rather than letting a nullable operand's climb through.
             -> part (b), 10: calc 8, rassoc 2. Part (g), 10. Part (h), 3.
 
@@ -146,7 +146,7 @@
                18. Part (h), 16. The interpreter's half of M5. The claim fails
                whether the plan walk or the parse has the state wrong, which is
                what makes the threading worth testing rather than trusting.
-       M11  In [Residual.whole], answer [true] for a [Commit]'s nullability.
+       M11  In [Residual.whole], give [true] for a [Commit]'s nullability.
             -> part (a), 79: json 12, calc 5, postfix 29, recovery 27, shapes 6.
                Part (g), 77. All eight *.residual dumps move.
        M12  In [Residual.at]'s [walk], call the frame above with
@@ -187,7 +187,8 @@ open StdLabels
 
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -195,7 +196,9 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 (* -- the corpus ------------------------------------------------------------ *)
 
@@ -409,7 +412,7 @@ let unordered = ref []
 
 (* The first meaningful token at or after [index], as the parse reads it: the
    cursor looks past trivia, so two positions either side of a space are
-   looking at the same token and deciding on the same thing. *)
+   looking at the same token and settling the same thing. *)
 let meaningful (plan : Ir.Plan.t) (tokens : Lingo_runtime.Token.t array) (index : int)
   : int
   =
@@ -529,7 +532,7 @@ let () =
           let known = Ir.Residual.at plan state in
           let walked =
             (* A table the emitter got wrong can send the walk off the end of
-               itself. That is a failure to report, not one to die of. *)
+               itself. That is a failure to report rather than one to die of. *)
             match Lingo_runtime.Ahead.at c.tables root ~offset with
             | walked -> walked
             | exception Invalid_argument message ->

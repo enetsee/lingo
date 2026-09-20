@@ -41,7 +41,8 @@ let is_a_closer (plan : Ir.Plan.t) (kind : Ir.Kind.t) =
 
    It takes the closer it stopped at only where no frame is waiting for that
    kind. Reparsing [{{}], the stray [{] would otherwise take the [}] the open
-   frame wants, that frame's close goes missing again, and the text grows a [}]
+   frame is open for, that frame's close goes missing again, and the text grows
+   a [}]
    on every pass. *)
 let skip (plan : Ir.Plan.t) (cursor : Cursor.t) (stop_on : Ir.Kind.t list) : unit =
   if (not (Cursor.eof cursor)) && not (List.mem ~set:stop_on (Cursor.current cursor))
@@ -273,7 +274,7 @@ and loop
         (* Nothing this position accepts, and the body is not ending. Either
            something is missing here, or what is under the cursor is junk.
 
-           Some state accepting it is what tells the two apart. A body that
+           Some state accepting it is what separates the two. A body that
            could take this token somewhere has a gap at this position; a body
            that could take it nowhere is looking at junk. *)
         let could_continue =
@@ -319,7 +320,7 @@ and loop
 
    Associativity is the binding powers and nothing else. A left operator
    carries [(bp, bp + 1)] and a right one [(bp, bp)], so the one
-   [left_bp >= min_bp] test below tells them apart. *)
+   [left_bp >= min_bp] test below separates them. *)
 and pratt
       (t : t)
       ~(recover : Ir.Kind.t list)
@@ -450,8 +451,8 @@ and drain (cursor : Cursor.t) (message_id : Ir.Message.id) : unit =
 ;;
 
 (* A rule with an empty body opens no node, so a parse entered there builds
-   nothing and [Build.finish] raises. Its message is about the builder, which
-   tells a caller nothing about the entry they passed.
+   nothing and [Build.finish] raises. Its message is about the builder, and
+   says nothing of the entry a caller passed.
 
    The rules with empty bodies are an expression block's roles. Nothing calls
    them. They are in the plan so that a rule's index here matches its index in

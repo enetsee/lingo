@@ -6,7 +6,7 @@
 
       test/laws/law_lexer.ml says the table agrees with the automaton,
       whatever the partition turns out to be. How coarse the partition is
-      decides how big every emitted lexer gets, and the counts at the top are
+      sets how big every emitted lexer gets, and the counts at the top are
       where that shows.
 
       Generated. [dune promote] writes it, so a moved line is cheap to accept

@@ -28,7 +28,7 @@
         M4  Make [trailing_follow] the parent's FOLLOW for a delimited frame
             in place of its close token.
             -> this law and sexp_facts. FOLLOW reaches through every frame.
-        M5  Pin an expression block nullable.
+        M5  Force an expression block nullable.
             -> this law.
 
       One that reddens nothing, recorded as a finding.
@@ -48,16 +48,16 @@
       Coverage. The accepted corpus, and rules whose origin is [User] or
       [Pratt_block]. The naive side does not desugar, so it has no counterpart
       for a role rule. A role rule's FIRST is covered here by nothing; what
-      covers it is that the pratt grammars are accepted, which asks only that
+      covers it is that the pratt grammars are accepted, which requires only that
       it is non-empty.
    -------------------------------------------------------------------------- *)
 
-open Core
-module SS = Set.Make (String)
+module String_set = Set.Make (String)
 
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -65,43 +65,45 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 (* The fast side's sets are kinds; the naive side's are token names. Compare
    in the naive side's alphabet: a kind that is a token becomes the token's
-   name, and a kind that is not is a defect in itself — FIRST and FOLLOW
-   hold terminals. *)
-let to_token_names f set =
-  Kind.Set.fold
+   name, and a kind that is not is a defect in itself. FIRST and FOLLOW hold
+   terminals. *)
+let to_token_names (f : Core.Facts.t) (set : Core.Kind.Set.t) : String_set.t =
+  Core.Kind.Set.fold
     (fun k acc ->
-       match Facts.token_of_kind f k with
-       | Some t -> SS.add (Grammar.Name.Token.to_string t.Token.name) acc
+       match Core.Facts.token_of_kind f k with
+       | Some t -> String_set.add (Grammar.Name.Token.to_string t.Core.Token.name) acc
        | None ->
          incr failures;
          Printf.printf
            "FAIL a FIRST/FOLLOW set holds %s, which is not a token kind\n"
-           (Kind.Name.to_string (Facts.kind_name f k));
+           (Core.Kind.Name.to_string (Core.Facts.kind_name f k));
          acc)
     set
-    SS.empty
+    String_set.empty
 ;;
 
-let show s = "{" ^ String.concat ", " (SS.elements s) ^ "}"
+let show s = "{" ^ String.concat ", " (String_set.elements s) ^ "}"
 
-let check_grammar (name, g) =
-  match Facts.of_grammar g with
+let check_grammar ((name : string), (g : Core.Grammar.t)) : unit =
+  match Core.Facts.of_grammar g with
   | Error _ -> fail "%s: the corpus grammar was rejected" name
   | Ok f ->
     let naive = Naive_first.compute g in
-    let get tbl r = Option.value ~default:SS.empty (Hashtbl.find_opt tbl r) in
+    let get tbl r = Option.value ~default:String_set.empty (Hashtbl.find_opt tbl r) in
     Array.iter
-      (fun (d : Rule.def) ->
+      (fun (d : Core.Rule.def) ->
          match d.origin with
-         | Rule.Pratt_role _ -> ()
-         | Rule.User | Rule.Pratt_block ->
-           let fast_first = to_token_names f (Facts.first_of f d.id)
-           and fast_follow = to_token_names f (Facts.follow_of f d.id)
-           and fast_null = Facts.is_nullable f d.id in
+         | Core.Rule.Pratt_role _ -> ()
+         | Core.Rule.User | Core.Rule.Pratt_block ->
+           let fast_first = to_token_names f (Core.Facts.first_of f d.id)
+           and fast_follow = to_token_names f (Core.Facts.follow_of f d.id)
+           and fast_null = Core.Facts.is_nullable f d.id in
            let slow_first = get naive.first (Grammar.Name.Rule.to_string d.name)
            and slow_follow = get naive.follow (Grammar.Name.Rule.to_string d.name)
            and slow_null =
@@ -109,7 +111,7 @@ let check_grammar (name, g) =
                ~default:false
                (Hashtbl.find_opt naive.nullable (Grammar.Name.Rule.to_string d.name))
            in
-           if not (SS.equal fast_first slow_first)
+           if not (String_set.equal fast_first slow_first)
            then
              fail
                "%s/%s FIRST: bitset %s vs naive %s"
@@ -117,7 +119,7 @@ let check_grammar (name, g) =
                (Grammar.Name.Rule.to_string d.name)
                (show fast_first)
                (show slow_first);
-           if not (SS.equal fast_follow slow_follow)
+           if not (String_set.equal fast_follow slow_follow)
            then
              fail
                "%s/%s FOLLOW: bitset %s vs naive %s"
@@ -135,7 +137,7 @@ let check_grammar (name, g) =
                slow_null;
            (* B3 / B4, stated as one-sided containments so the direction is
               on the record even where equality happens to hold. *)
-           if not (SS.subset slow_follow fast_follow)
+           if not (String_set.subset slow_follow fast_follow)
            then fail "%s/%s FOLLOW is too small" name (Grammar.Name.Rule.to_string d.name);
            if slow_null && not fast_null
            then

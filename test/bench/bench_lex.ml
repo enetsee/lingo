@@ -123,7 +123,7 @@ let measure (kind : string) (src : string) (shape : shape) : float =
   min_ns
 ;;
 
-(* Both shapes have to answer what test/lex answers. Otherwise the numbers
+(* Both shapes have to give what test/lex gives. Otherwise the numbers
    below describe a lexer that does the wrong thing. *)
 let agree (name : string) (facts : Core.Facts.t) (src : string) (shapes : shape list)
   : unit

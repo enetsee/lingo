@@ -54,7 +54,7 @@ let arity (shape : Stage.shape) (acc : Error.t list) : Error.t list =
 
    Four shapes put the sequence and the rank out of step. Each returns the
    wrong node on a clean parse, with no diagnostic. *)
-let view_hazards (shape : Stage.shape) acc =
+let view_hazards (shape : Stage.shape) (acc : Error.t list) : Error.t list =
   let tbl = shape.names.kinds in
   Array.fold_left shape.rules ~init:acc ~f:(fun acc (rule_def : Rule.def) ->
     match rule_def.origin with

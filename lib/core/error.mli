@@ -2,8 +2,8 @@
 
     A finding holds the data the check found. Nothing in it is rendered.
     {!message} and {!hint} build the sentences from that data. A consumer
-    that wants the parts reads {!type-detail}, and never has to take a
-    rendered sentence back apart.
+    after the parts reads {!type-detail}, and never has to take a rendered
+    sentence back apart.
 
     {!code} is the stable string a consumer keys off. Renaming one is a
     breaking change. The mapping in {!code} is the definition, and the code
@@ -168,7 +168,7 @@ val severity : t -> severity
 
 (** {1 The codes}
 
-    Grouped by the derivation stage that can answer them; {!Facts} describes
+    Grouped by the derivation stage that reports them; {!Facts} describes
     the staging. {!codes} concatenates the three lists below. *)
 
 val names_stage_codes : string list

@@ -160,7 +160,7 @@ let shapes : t =
 ;;
 
 (* The formatter's inputs. Every comment here sits somewhere a boundary has to
-   decide about: at the head of a body, between two elements, and at the end of
+   settle: at the head of a body, between two elements, and at the end of
    the input with nothing to end its line. The long one is there to break, so
    the trailing separator that appears only on a break has an input that makes
    it appear. *)
@@ -176,8 +176,8 @@ let comments : t =
       ; "[aaaa, bbbb, cccc, dddd]"
       ; "[a] // after"
       ; "[1 . 5]"
-        (* The separator the source already has is the author asking for a broken
-           body. Nothing else in a grammar can ask for that directly. *)
+        (* The separator the source already has is how an author calls for a
+           broken body. Nothing else in a grammar calls for it directly. *)
       ; "[a, b,]"
       ; "[[a, b,], c]"
       ]

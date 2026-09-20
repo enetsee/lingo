@@ -58,7 +58,7 @@ type trailing =
 
 (** The separator of a delimited body or a separated list.
 
-    The fold reads {!sep.sep_kind} to know a separator when it meets one in the
+    The fold reads {!sep.sep_kind} to recognise a separator it meets in the
     tree: the boundary in front of one does not end the line, so [a,] never
     becomes [a\n,]. *)
 type sep =

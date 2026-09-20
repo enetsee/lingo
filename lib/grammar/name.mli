@@ -6,8 +6,8 @@
 
     Bare strings put all three in one namespace. A lookup can then reach the
     wrong table and still compile. Look a token name up among the rules and
-    the answer is "no production named lparen", which blames a name that was
-    never missing.
+    the report reads "no production named lparen", which blames a name that
+    was never missing.
 
     Each namespace is an abstract type over a string. The {!Grammar}
     constructors take string literals and tag them here. Every name a record

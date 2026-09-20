@@ -3,12 +3,12 @@
       (a) The table's shape holds. The segments ascend from zero, the two
           segment arrays are the same length, the state and class counts are
           the automaton's, and the cell count is their product.
-      (b) [class_of] answers the class the automaton was built on. Every
-          codepoint of a class answers that class, and one in no class
-          answers [-1].
-      (c) [step] answers the automaton's transition, for every state and
+      (b) [class_of] gives the class the automaton was built on. Every
+          codepoint of a class gives that class, and one in no class gives
+          [-1].
+      (c) [step] gives the automaton's transition, for every state and
           every codepoint probed.
-      (d) [accept] answers the token a state accepts, which is the one with
+      (d) [accept] gives the token a state accepts, which is the one with
           the lowest case id.
 
       Mechanism. Seven grammars. Every state of each is probed on every
@@ -17,7 +17,7 @@
       the codespace and the surrogate block.
 
       The oracle is the automaton itself, read a different way. Part (c)
-      searches the interval list [Dfa.transitions] answers with, and part (b)
+      searches the interval list [Dfa.transitions] gives, and part (b)
       reads the class sets from [Dfa.table]. The table under test is those
       two flattened, so anything the flattening lost shows up as a
       disagreement.
@@ -59,18 +59,19 @@
         T4  In [Core.Lexer.class_of], search with [<] where it searches with
             [<=].
             -> part (b), 182 probes, and part (c), 356. A codepoint that
-               starts a segment answers for the segment before it. The probes
+               starts a segment reads as the segment before it. The probes
                on both sides of every boundary are there for this.
         T5  In [Core.Lexer.flatten], leave the runs in the order the classes
             gave them rather than sorting by least codepoint.
             -> parts (a), (b) and (c): 10, 3,726 and 2,646. Part (a) reads it
                first. The segments stop ascending, and a binary search over
-               them then answers arbitrarily.
+               them then lands arbitrarily.
    -------------------------------------------------------------------------- *)
 
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -78,7 +79,9 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 let grammars : (string * Core.Grammar.t) list =
   [ "sexp", Lingo_grammars.Sexp_grammar.grammar

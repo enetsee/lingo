@@ -1,7 +1,7 @@
 (** The checks that read resolved children and normalised framing.
 
     Everything here is a statement about kinds. How many children does a
-    frame wrap? Do two child slots admit one node? Both questions want
+    frame wrap? Do two child slots admit one node? Both questions are over
     resolved kinds. Over the author's spellings they would redo the
     resolution the first stage has already done.
 

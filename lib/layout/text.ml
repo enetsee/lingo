@@ -2,14 +2,14 @@ open StdLabels
 
 let ints ppf ks = Array.iter ks ~f:(fun k -> Format.fprintf ppf " %d" k)
 
-let break ppf (b : Ir.Layout.break) =
+let break (ppf : Format.formatter) (b : Ir.Layout.break) : unit =
   match b with
   | Flat -> Format.pp_print_string ppf "flat"
   | Fit -> Format.pp_print_string ppf "fit"
   | Hard n -> Format.fprintf ppf "(hard %d)" n
 ;;
 
-let trailing ppf (t : Ir.Layout.trailing) =
+let trailing (ppf : Format.formatter) (t : Ir.Layout.trailing) : unit =
   Format.pp_print_string
     ppf
     (match t with
@@ -18,11 +18,11 @@ let trailing ppf (t : Ir.Layout.trailing) =
      | Always -> "always")
 ;;
 
-let sep ppf (s : Ir.Layout.sep) =
+let sep (ppf : Format.formatter) (s : Ir.Layout.sep) : unit =
   Format.fprintf ppf "(sep %d %a)" s.sep_kind trailing s.trailing
 ;;
 
-let frame ppf (f : Ir.Layout.frame) =
+let frame (ppf : Format.formatter) (f : Ir.Layout.frame) : unit =
   match f with
   | Plain -> Format.pp_print_string ppf "(frame plain)"
   | Delimited { open_; close; sep = s } ->
@@ -34,7 +34,7 @@ let frame ppf (f : Ir.Layout.frame) =
   | Separated s -> Format.fprintf ppf "(frame separated %a)" sep s
 ;;
 
-let token ppf (k : int) (t : Ir.Layout.token) =
+let token (ppf : Format.formatter) (k : int) (t : Ir.Layout.token) : unit =
   Format.fprintf
     ppf
     "  (token %d%s%s"
@@ -48,7 +48,7 @@ let token ppf (k : int) (t : Ir.Layout.token) =
   Format.pp_print_string ppf ")\n"
 ;;
 
-let slot ppf (s : Ir.Layout.slot) =
+let slot (ppf : Format.formatter) (s : Ir.Layout.slot) : unit =
   Format.fprintf
     ppf
     "    (slot (kinds%a)%s (before %a) (between %a))\n"
@@ -61,7 +61,7 @@ let slot ppf (s : Ir.Layout.slot) =
     s.between
 ;;
 
-let rule ppf (i : int) (r : Ir.Layout.rule) =
+let rule (ppf : Format.formatter) (i : int) (r : Ir.Layout.rule) : unit =
   Format.fprintf ppf "  (rule %d %s %d\n" i r.name r.kind;
   Format.fprintf ppf "    %a\n" frame r.frame;
   Format.fprintf
@@ -86,7 +86,7 @@ let rule ppf (i : int) (r : Ir.Layout.rule) =
 (* A kind with no token entry is a node's, and a node's layout is its rule. So
    the token section runs one line per token and the rule section one block per
    rule. *)
-let pp ppf (l : Ir.Layout.t) =
+let pp (ppf : Format.formatter) (l : Ir.Layout.t) : unit =
   Format.pp_print_string ppf "(layout\n";
   Array.iteri l.tokens ~f:(fun k t ->
     match t with

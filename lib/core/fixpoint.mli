@@ -1,18 +1,22 @@
-(** FIRST, FOLLOW and nullability, over integers.
+(** FIRST, FOLLOW, nullability and minimum size, over integers.
 
-    Every backend wants these, so they are computed once, into arrays
+    Every backend reads these, so they are computed once, into arrays
     indexed by {!Rule.type-id}.
 
-    - [nullable.(r)] — the rule can derive an empty token sequence.
-    - [first.(r)] — the token kinds a non-empty derivation of [r] can start
-      with.
-    - [follow.(r)] — the token kinds that can come immediately after a
+    - [nullable.(r)] is whether the rule can derive an empty token sequence.
+    - [first.(r)] holds the token kinds a non-empty derivation of [r] can
+      start with.
+    - [follow.(r)] holds the token kinds that can come immediately after a
       complete [r], across every site that references it.
-    - [enclosing.(r)] — the closers and separators of every frame [r] can
+    - [min_size.(r)] is the fewest tokens [r] derives, and [max_int] where it
+      derives nothing.
+    - [enclosing.(r)] holds the closers and separators of every frame [r] can
       sit inside, across every site that references it.
 
-    FIRST is exact. It holds what the rule's parser consumes, and nothing
-    else.
+    FIRST is exact, and so is the minimum size. FIRST holds what the rule's
+    parser consumes and nothing else. The minimum is what the sampler's
+    system carries for the same rule, derived from the species instead, and
+    the two have a law that says they agree.
 
     The other three may be larger than they need to be. Each owes a
     one-sided law:
@@ -29,9 +33,10 @@
 
     {2 Expression blocks}
 
-    A block's FIRST is its atoms' FIRST plus its prefix operator tokens. A
-    block is never nullable, because an expression takes at least one atom or
-    one prefix operator. That is assumed here rather than derived, and
+    A block's FIRST is its atoms' FIRST plus its prefix operator tokens. Its
+    minimum is its smallest atom, because every operator adds its own token
+    to an operand. A block is never nullable, because an expression
+    takes at least one atom or one prefix operator. That is assumed here rather than derived, and
     {!Check_full} rejects the nullable atom that would break it.
 
     A block's FOLLOW takes contributions from its own operator table. An
@@ -57,6 +62,7 @@ type tables =
   { first : Kind.Set.t array
   ; follow : Kind.Set.t array
   ; nullable : bool array
+  ; min_size : int array
   ; enclosing : Kind.Set.t array
   }
 
@@ -68,9 +74,8 @@ val compute
            terminal's FIRST is itself. *)
   -> tables
 
-(** The questions the walk asks while building the tables, asked once they
-    are built. A check over a finished {!tables} needs no copy of its
-    own. *)
+(** What the walk reads while building the tables, read once they are built.
+    A check over a finished {!tables} needs no copy of its own. *)
 module Reader : sig
   type t
 

@@ -1,9 +1,7 @@
 (** What every backend needs from a grammar, derived once.
 
-    More than one backend wants the kinds, the rules, the fixpoint tables and
+    More than one backend reads the kinds, the rules, the fixpoint tables and
     the lexer. Deriving them here means deriving them once.
-
-    {2 Building one runs the checks}
 
     {!t} is a private record. {!of_grammar} is the one function here whose
     result mentions it, so no other module can build one. A backend takes a
@@ -31,6 +29,9 @@ type t = private
   ; first : Kind.Set.t array (** Indexed by {!Rule.type-id}. *)
   ; follow : Kind.Set.t array (** Indexed by {!Rule.type-id}. *)
   ; nullable : bool array (** Indexed by {!Rule.type-id}. *)
+  ; min_size : int array
+    (** The fewest tokens the rule derives, and [max_int] where it derives
+          nothing. Indexed by {!Rule.type-id}. *)
   ; enclosing : Kind.Set.t array
     (** The closers of every frame the rule can sit inside. Indexed by
           {!Rule.type-id}. See {!recovery_set}. *)
@@ -75,6 +76,15 @@ val first_of : t -> Rule.id -> Kind.Set.t
 val follow_of : t -> Rule.id -> Kind.Set.t
 val is_nullable : t -> Rule.id -> bool
 
+(** The fewest tokens a rule derives. A block's number is its smallest atom,
+    because every operator adds its own token to an operand. A
+    desugared role's number describes the children the desugaring gave it;
+    the block's own number is what an expression derives.
+
+    The sampler's system carries this number too, derived from the species
+    rather than from the rules, and a law says the two agree. *)
+val min_size : t -> Rule.id -> int
+
 (** FIRST of a symbol. If the kind is a rule, this is that rule's FIRST. If
     it is a terminal, this is the kind itself. *)
 val first_of_kind : t -> Kind.t -> Kind.Set.t
@@ -88,18 +98,18 @@ val first_of_kind : t -> Kind.t -> Kind.Set.t
     A child's [recover_to] replaces all three.
 
     The rule's FOLLOW belongs at a trailing position only. Take it further
-    in and a recovery skips past the next item at the parent's level. The
-    position has no way to know that it did.
+    in and a recovery skips past the next item at the parent's level, and
+    nothing at the position records that it did.
 
-    This is half of the answer, and it is the half a caller can work out on
-    its own. The other half is the set of frames open around the rule.
+    This is half of the set, and it is the half a caller can work out on its
+    own. The other half is the set of frames open around the rule.
     {!recovery_set} reads those from the table. A parser that already tracks
     its own open frames should union them with this instead. *)
 val local_recovery_set : t -> Rule.id -> child:int -> Kind.Set.t
 
 (** The tokens a parser may resume on at a child position. This is
     {!local_recovery_set} together with {!t.enclosing}, for a caller that
-    does not know its own call path.
+    does not track its own call path.
 
     The enclosing closers keep a nested recovery from eating a delimiter that
     an outer frame is still waiting for. They apply at every position. The
@@ -107,7 +117,7 @@ val local_recovery_set : t -> Rule.id -> child:int -> Kind.Set.t
 
     {2 An over-approximation}
 
-    {!t.enclosing} is held per rule, not per call site. So a rule that is
+    {!t.enclosing} is held per rule rather than per call site. So a rule that is
     referenced from two places with different framing carries the closers of
     both frames, and it carries them at both sites.
 
@@ -137,7 +147,7 @@ val local_recovery_set : t -> Rule.id -> child:int -> Kind.Set.t
 
     A child's [recover_to] replaces {!local_recovery_set}. The enclosing
     closers still go on top. They belong to the frames around the rule. An
-    author cannot know which frames those are. The rule is referenced from
+    author cannot name which frames those are. The rule is referenced from
     several sites, and the framing differs between them. *)
 val recovery_set : t -> Rule.id -> child:int -> Kind.Set.t
 
@@ -156,5 +166,6 @@ val delimiter_pairs : t -> (Kind.t * Kind.t) list
 (** {1 Printing} *)
 
 (** A stable dump: the kind numbering, then each rule with its shape, FIRST,
-    FOLLOW and nullability. The same grammar gives the same bytes. *)
+    FOLLOW, nullability and minimum size. The same grammar gives the same
+    bytes. *)
 val pp : Format.formatter -> t -> unit

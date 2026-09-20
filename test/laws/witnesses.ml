@@ -16,7 +16,6 @@
       are quantified per entry, so a shared code costs nothing.
    -------------------------------------------------------------------------- *)
 
-open Core
 open Core.Grammar
 
 let t_a = punct_tight ~name:"ta" "a"
@@ -32,11 +31,13 @@ let base_tokens = [ t_a; t_b; t_t; t_m; t_lp; t_rp; t_comma ]
    it. *)
 let clean_root = prod "Root" [ child_req "x" (Token "ta") ]
 
-let with_root ?(tokens = base_tokens) ?(expr = []) ps =
+let with_root ?(tokens = base_tokens) ?(expr = []) (ps : production list) : Grammar.t =
   create ~expr ~tokens ~roots:[ "Root" ] (clean_root :: ps)
 ;;
 
-let only ?(tokens = base_tokens) ?(expr = []) ?(roots = [ "Root" ]) ps =
+let only ?(tokens = base_tokens) ?(expr = []) ?(roots = [ "Root" ]) (ps : production list)
+  : Grammar.t
+  =
   create ~expr ~tokens ~roots ps
 ;;
 
@@ -52,7 +53,7 @@ let invalid_name =
 let invalid_name_kind_suffix =
   (* A postfix operator's [kind_suffix]. It is spliced into a kind
      constructor, a view module and a formatter binding, and the grammar was
-     accepted while it minted [K_E_POSTFIX_A-B] for all three to trip over.
+     accepted while it gave all three [K_E_POSTFIX_A-B] to trip over.
      The block declares one postfix operator, so [postfix-suffix-missing] stays
      quiet about a missing or duplicated suffix, and every other name in the
      grammar is clean. *)
@@ -350,8 +351,8 @@ let first_first_conflict =
 ;;
 
 let first_follow_conflict =
-  (* Two rules rather than two tokens. Two same-kind children get an answer
-     from the shape stage, which runs first. *)
+  (* Two rules rather than two tokens. Two same-kind children are reported by
+     the shape stage, which runs first. *)
   only
     [ prod "Root" [ child_opt "o" (Rule "A"); child_req "r" (Rule "B") ]
     ; prod "A" [ child_req "x" (Token "ta") ]
@@ -524,7 +525,7 @@ let all : (string * Grammar.t) list =
 ;;
 
 (** Grammars the checker accepts. A checker that rejects everything passes
-    the completeness law, so the other side wants a corpus of its own: these
+    the completeness law, so the other side needs a corpus of its own: these
     take the shapes nearest to each rejection and stop short of them. *)
 let accepted : (string * Grammar.t) list =
   [ "sexp", Lingo_grammars.Sexp_grammar.grammar

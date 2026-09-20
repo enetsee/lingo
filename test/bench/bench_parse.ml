@@ -6,7 +6,7 @@
       What it is for: changing [Ocaml.Parser], rebuilding, running this again,
       and reading the emitted column against the run before. The lexer bench
       compares two shapes that both ship. A parser has one shape, so the
-      comparison that decides anything here is across builds rather than
+      comparison worth anything here is across builds rather than
       across columns.
 
       The interpreter column is the control. It is unchanged by any edit to
@@ -51,7 +51,7 @@
         row is where threading a recovery set as a list shows up if it shows
         up anywhere.
 
-      What a root admits decides how a row is built. sexp, json and calc take
+      What a root admits settles how a row is built. sexp, json and calc take
       one form and drain whatever follows, so their rows are one wide form
       rather than a sequence of forms; a sequence would measure the drain.
       shapes and recovery take a sequence of items, so theirs are sequences.
@@ -60,7 +60,7 @@
       Allocation is measured outside the timed loop, because a timed loop with
       the GC in it measures the GC. A parse allocates a tree, so the byte
       count is large by construction; what it is for is the difference between
-      two rows, not its own size.
+      two rows rather than its own size.
 
       Lexing happens once, before the clock starts. Both engines take the same
       [Token.t array], so nothing here times the lexer; test/bench/bench_lex.ml

@@ -688,7 +688,7 @@ let lhs_body (plan : Ir.Plan.t) (block : int) : Emit.expr =
 
 (* Associativity is the binding powers and nothing else. A left operator
    carries [(bp, bp + 1)] and a right one [(bp, bp)], so the one
-   [left_bp >= min_bp] guard below tells them apart.
+   [left_bp >= min_bp] guard below separates them.
 
    The postfix arms come before the infix ones, and an operator that binds
    too loosely falls out of its own arm into whatever follows it. *)
@@ -812,7 +812,7 @@ let add_all_item : Emit.item =
 ;;
 
 (* A kind past the end of the set is one no literal could have put there, so
-   the width test is the answer rather than a guard against it. *)
+   the width test settles it rather than guarding against it. *)
 let in_set_item : Emit.item =
   Emit.ilet
     ~args:[ Emit.arg_var "set"; Emit.arg_var "kind" ]
@@ -851,7 +851,7 @@ let in_set_item : Emit.item =
 
    It balances as it goes, and two rules keep a stray opener inside the error
    span from walking off with a delimiter a real production needs. It ends at
-   the next closer of any pair, not just its own. And it takes that closer
+   the next closer of any pair rather than just its own. And it takes that closer
    only where no frame above is waiting for the kind.
 
    lib/interp/interp.ml works the same way, and its comment carries the
@@ -908,8 +908,8 @@ let skip_item (plan : Ir.Plan.t) : Emit.item =
       [ (* The closer of a pair this skip opened. It needs no set walked, so
            the binding below sits in the other arm. *)
         Emit.ecase
-          ~guard:(Emit.eequal ~left:(Emit.evar "want") ~right:kind)
-          (Emit.pconstruct "::" [ Emit.pvar "want"; Emit.pvar "rest" ])
+          ~guard:(Emit.eequal ~left:(Emit.evar "closer") ~right:kind)
+          (Emit.pconstruct "::" [ Emit.pvar "closer"; Emit.pvar "rest" ])
           (Emit.eseq [ assign "open_closers" (Emit.evar "rest"); bump ])
       ; Emit.ecase
           Emit.pany

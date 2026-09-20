@@ -18,7 +18,7 @@
       two read the same fixture so neither drifts from what the other checks.
 
       Part (a)'s oracle is not a second printer. It is ppxlib's parser, which
-      knows nothing about how the tree was built, so the two agree only where
+      carries nothing of how the tree was built, so the two agree only where
       the source says what the tree said.
 
       Part (c) is the weaker claim that catches what part (a) cannot: a
@@ -50,11 +50,10 @@
       what put the source in test/expect/emit.expected beside it.
    -------------------------------------------------------------------------- *)
 
-open Ocaml.Emit
-
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -62,7 +61,9 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 (* A built tree carries no positions and a parsed one carries real ones, so
    the comparison sets both kinds aside.
@@ -83,13 +84,13 @@ let strip =
 (* -- the runs -------------------------------------------------------------- *)
 
 let () =
-  let src = render Fixture.structure in
+  let src = Ocaml.Emit.render Fixture.structure in
   match Ppxlib.Parse.implementation (Lexing.from_string src) with
   | exception e -> fail "(a) the source did not parse: %s" (Printexc.to_string e)
   | back ->
     if strip#structure back <> strip#structure Fixture.structure
     then fail "(a) the structure that came back is not the one rendered"
-    else if not (String.equal (render back) src)
+    else if not (String.equal (Ocaml.Emit.render back) src)
     then fail "(c) the structure rendered a second time gave different bytes"
     else
       pass
@@ -98,13 +99,13 @@ let () =
 ;;
 
 let () =
-  let src = render_signature Fixture.signature in
+  let src = Ocaml.Emit.render_signature Fixture.signature in
   match Ppxlib.Parse.interface (Lexing.from_string src) with
   | exception e -> fail "(b) the source did not parse: %s" (Printexc.to_string e)
   | back ->
     if strip#signature back <> strip#signature Fixture.signature
     then fail "(b) the signature that came back is not the one rendered"
-    else if not (String.equal (render_signature back) src)
+    else if not (String.equal (Ocaml.Emit.render_signature back) src)
     then fail "(c) the signature rendered a second time gave different bytes"
     else
       pass
@@ -115,7 +116,7 @@ let () =
 (* [longident] is the one value the structure above does not reach, because
    every builder that takes a path goes through it. *)
 let () =
-  match longident "A.B.c" with
+  match Ocaml.Emit.longident "A.B.c" with
   | Ppxlib.Longident.Ldot (Ppxlib.Longident.Ldot (Ppxlib.Longident.Lident "A", "B"), "c")
     -> pass "a dotted path reads left to right"
   | _ -> fail "longident did not read \"A.B.c\" as A then B then c"

@@ -199,8 +199,8 @@ let left_recursion (ctx : ctx) (acc : Error.t list) : Error.t list =
      Every cycle lies inside a strongly connected component, and a component
      of more than one rule holds a cycle. So the components to report are the
      ones with more than one rule, plus any rule that reaches itself. Every
-     rule is a component on its own, which is why the single-rule case has to
-     ask its edges. *)
+     rule is a component on its own, which is why the single-rule case reads
+     its edges. *)
   let n = Array.length ctx.shape.rules in
   let index = Array.make n (-1) in
   let low = Array.make n 0 in
@@ -240,8 +240,8 @@ let left_recursion (ctx : ctx) (acc : Error.t list) : Error.t list =
   done;
   (* Rule ids are assigned in declaration order. Sorting the members puts
      them in the author's order, and fixes which site the finding is filed
-     at. The traversal can enter the component anywhere and the answer is the
-     same. *)
+     at. The traversal can enter the component anywhere and the order comes
+     out the same. *)
   let cyclic =
     let elems =
       List.filter_map
@@ -297,16 +297,16 @@ let nullable_repeated (ctx : ctx) (acc : Error.t list) : Error.t list =
 ;;
 
 (* [Fixpoint] works out nullability from a rule's children. It does not do
-   that for an expression block or a separated production. It answers false
-   for those two whatever their children look like.
+   that for an expression block or a separated production. Those two come out
+   false whatever their children look like.
 
-   That answer is right so long as every atom and every separated element
-   consumes a token. An expression is then at least one atom or one prefix
+   That is right so long as every atom and every separated element consumes a
+   token. An expression is then at least one atom or one prefix
    operator, and a separated list is at least one element. Neither can be
    empty.
 
-   This check rejects a nullable atom and a nullable element, so the answer
-   stays right.
+   This check rejects a nullable atom and a nullable element, so it stays
+   right.
 
    Without it the table would say a construct cannot derive empty when it
    can. FIRST and FOLLOW would come out short. [first_follow] would stop

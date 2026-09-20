@@ -39,7 +39,7 @@ let grammar : t =
   (* One codepoint of a string body. [complement] is the complement of the
      language, so it takes in the empty string and strings of any length.
      Meeting it with [any] leaves the single codepoints, which is the
-     character class this wants. *)
+     character class this takes. *)
   let plain = Redfa.Regex.(inter any (complement (chars_of_char_list [ '"'; '\\' ]))) in
   let escape = Redfa.Regex.(seq (singleton_char '\\') any) in
   let string_ =

@@ -1,7 +1,7 @@
 (* -- a lexer over the facts' automaton -----------------------------------------
 
       The facts carry the DFA every token's regex compiles to, so a law can
-      lex a grammar it knows nothing about. Without this each law would carry
+      lex a grammar nothing here was written for. Without this each law would carry
       a hand-written lexer per grammar, and a law that only runs on the
       grammars someone wrote a lexer for is a law with a hole in it.
 
@@ -40,7 +40,7 @@ let uchar_at (s : string) (i : int) =
 (* Longest match from [pos]: the token it accepted, and where the scan
    stopped. [None] where no token starts here at all.
 
-   The scan end tells a run that ended inside a lexeme from one that met a
+   The scan end separates a run that ended inside a lexeme from one that met a
    character no state moves on. The two leave different tokens. *)
 let longest (f : Core.Facts.t) (dfa : Redfa.Dfa.t) (s : string) (pos : int) =
   let n = String.length s in
@@ -86,8 +86,8 @@ let run (f : Core.Facts.t) (s : string) : Lingo_runtime.Token.t array =
          appended after it re-lex into the same lexeme. *)
       push f.unterminated_kind n
     | None, _ ->
-      (* One codepoint, not one byte. Splitting a character across error
-         tokens would put bytes in the tree that the input never had as
+      (* The error token takes a whole codepoint. Splitting a character across
+         two of them would put bytes in the tree that the input never had as
          separate characters. *)
       let _, width = uchar_at s !i in
       push f.error_token_kind (!i + width)

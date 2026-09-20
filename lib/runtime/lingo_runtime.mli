@@ -20,7 +20,7 @@
     {1 What belongs here}
 
     This library owns the token stream and the tree. The parse itself is
-    emitted, so anything whose shape a grammar decides is written by the
+    emitted, so anything whose shape follows from a grammar is written by the
     emitter with the kinds as constants.
 
     {!Cursor.create} taking the trivia kinds is not an exception to that.

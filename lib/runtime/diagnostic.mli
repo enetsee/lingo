@@ -5,7 +5,7 @@
     the text. {!Message} says why.
 
     A recovery node resolves to its diagnostic in one step.
-    {!Cursor.report_id} answers with a 1-based id, the parser stamps that id
+    {!Cursor.report_id} gives a 1-based id, the parser stamps that id
     on the node as its payload, and the id indexes the list {!Build.finish}
     returns. *)
 
@@ -26,7 +26,7 @@ type missing =
 
 type kind =
   | Missing of missing
-  | Extra of Ir.Message.id (** Input the parse read and the grammar does not want. *)
+  | Extra of Ir.Message.id (** Input the parse read and the grammar has no place for. *)
   | Unexpected (** Input a recovery skipped. *)
 
 type t =

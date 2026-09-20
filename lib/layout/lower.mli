@@ -15,7 +15,7 @@
 
     {1 Where the operator goes}
 
-    An infix role's [operator_position] is not a mode the fold has to know
+    An infix role's [operator_position] is not a mode the fold has to read
     about. It is two boundaries: the one before the operator and the one after
     it, and the position settles which of them may end the line. So it lowers to
     the slots like everything else. *)

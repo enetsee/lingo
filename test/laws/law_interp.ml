@@ -123,7 +123,8 @@
 
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -131,7 +132,9 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 (* -- the corpus ------------------------------------------------------------ *)
 
@@ -174,7 +177,7 @@ let corpus =
    says nothing about, and the corpus is what has to grow. *)
 let reach : (string, int) Hashtbl.t = Hashtbl.create 32
 
-let ran name =
+let ran (name : string) : unit =
   Hashtbl.replace reach name (1 + Option.value (Hashtbl.find_opt reach name) ~default:0)
 ;;
 
@@ -311,7 +314,7 @@ let () =
     let tokens = Lex.run f "1" in
     (* The message has to name the call. An array access raises
        [Invalid_argument] on its own, so catching the exception alone cannot
-       tell a refusal from a bounds error that happened to surface. *)
+       separate a refusal from a bounds error that happened to surface. *)
     let names_the_call m =
       let prefix = "Interp.run" in
       String.length m >= String.length prefix

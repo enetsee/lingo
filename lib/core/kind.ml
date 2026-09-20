@@ -150,7 +150,7 @@ module Table = struct
     let by_index = Array.of_list names in
     let by_name = Hashtbl.create (Array.length by_index * 2) in
     (* First occurrence wins, so [find] stays total on a list that holds a
-       duplicate. A check reports the duplicate as [dup-kind-name]. *)
+       duplicate. *)
     Array.iteri
       ~f:(fun i n -> if not (Hashtbl.mem by_name n) then Hashtbl.add by_name n i)
       by_index;

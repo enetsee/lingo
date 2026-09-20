@@ -8,6 +8,7 @@ type t =
   ; first : Kind.Set.t array
   ; follow : Kind.Set.t array
   ; nullable : bool array
+  ; min_size : int array
   ; enclosing : Kind.Set.t array
   ; lexer : Redfa.Dfa.t
   ; names : Manifest.t
@@ -62,6 +63,7 @@ let of_grammar (g : Grammar.t) : (t, Error.t list) result =
             ; first = tables.first
             ; follow = tables.follow
             ; nullable = tables.nullable
+            ; min_size = tables.min_size
             ; enclosing = tables.enclosing
             ; lexer = dfa
             ; names = n.manifest
@@ -86,14 +88,14 @@ let token t (i : Token.id) = t.tokens.(i)
 
 (* The arrays are as long as the kind table was when they were built. A kind
    from a later table reads as absent, and does not run off the end. *)
-let rule_of_kind t k =
+let rule_of_kind (t : t) (k : Kind.t) : Rule.def option =
   let i = Kind.to_int k in
   if i >= Array.length t.kind_rule || t.kind_rule.(i) < 0
   then None
   else Some t.rules.(t.kind_rule.(i))
 ;;
 
-let token_of_kind t k =
+let token_of_kind (t : t) (k : Kind.t) : Token.def option =
   let i = Kind.to_int k in
   if i >= Array.length t.kind_token || t.kind_token.(i) < 0
   then None
@@ -105,14 +107,15 @@ let is_trivia_kind t k = Kind.Set.mem t.trivia k
 let first_of t (i : Rule.id) = t.first.(i)
 let follow_of t (i : Rule.id) = t.follow.(i)
 let is_nullable t (i : Rule.id) = t.nullable.(i)
+let min_size t (i : Rule.id) = t.min_size.(i)
 
-let first_of_kind t k =
+let first_of_kind (t : t) (k : Kind.t) : Kind.Set.t =
   match rule_of_kind t k with
   | Some d -> t.first.(d.id)
   | None -> Kind.Set.singleton k
 ;;
 
-let local_recovery_set t (i : Rule.id) ~child =
+let local_recovery_set (t : t) (i : Rule.id) ~(child : int) : Kind.Set.t =
   let d = t.rules.(i) in
   let cs = d.children in
   let len = Array.length cs in
@@ -170,24 +173,20 @@ let local_recovery_set t (i : Rule.id) ~child =
       Kind.Set.unions [ local; frame; ambient ])
 ;;
 
-let recovery_set t (i : Rule.id) ~child =
+let recovery_set (t : t) (i : Rule.id) ~(child : int) : Kind.Set.t =
   let d = t.rules.(i) in
   if child < 0 || child >= Array.length d.children
   then Kind.Set.empty
   else (
     (* An author's [recover_to] reaches what this position computes, and stops
-       there. The enclosing closers go on top either way.
-
-       They belong to the frames around the rule, and an author cannot know what
-       those are. The rule is referenced from several sites, and the framing
-       differs between them. *)
+       there. The enclosing closers go on top either way. *)
     let enclosing = t.enclosing.(i) in
     match d.children.(child).recover_to with
     | Some over -> Kind.Set.union over enclosing
     | None -> Kind.Set.union (local_recovery_set t i ~child) enclosing)
 ;;
 
-let delimiter_pairs t =
+let delimiter_pairs (t : t) : (Kind.t * Kind.t) list =
   let kinds =
     Array.fold_left t.rules ~init:[] ~f:(fun acc (d : Rule.def) ->
       match d.frame with
@@ -204,14 +203,14 @@ let delimiter_pairs t =
 
 (* -- printing -------------------------------------------------------------- *)
 
-let pp_modifier fmt = function
+let pp_modifier (fmt : Format.formatter) : Grammar.modifier -> unit = function
   | Grammar.Exactly_one -> Format.pp_print_string fmt "1"
   | Grammar.Zero_or_one -> Format.pp_print_string fmt "?"
   | Grammar.Zero_or_more -> Format.pp_print_string fmt "*"
   | Grammar.One_or_more -> Format.pp_print_string fmt "+"
 ;;
 
-let pp_frame t fmt (f : Rule.frame) =
+let pp_frame (t : t) (fmt : Format.formatter) (f : Rule.frame) : unit =
   let k (kind : Kind.t) : string = Kind.Name.to_string (Kind.Table.name t.kinds kind) in
   match f with
   | Rule.Plain -> Format.pp_print_string fmt "plain"
@@ -245,7 +244,7 @@ let pp_frame t fmt (f : Rule.frame) =
       boundary
 ;;
 
-let pp fmt t =
+let pp (fmt : Format.formatter) (t : t) : unit =
   let set = Kind.Table.pp_set t.kinds in
   Format.fprintf fmt "@[<v>kinds (%d):@," (Kind.Table.count t.kinds);
   List.iteri
@@ -288,8 +287,9 @@ let pp fmt t =
         d.children;
       Format.fprintf
         fmt
-        "        nullable=%b first=%a follow=%a@,"
+        "        nullable=%b min=%d first=%a follow=%a@,"
         t.nullable.(d.id)
+        t.min_size.(d.id)
         set
         t.first.(d.id)
         set

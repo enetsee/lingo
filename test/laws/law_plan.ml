@@ -46,7 +46,7 @@
             -> part (c), two cases: the empty arm and the two arms on one
                kind. The empty-alt case still reports, because that test is
                on the [Alt] itself.
-        M3  In [Check.run], answer [Ok ()] whatever it found.
+        M3  In [Check.run], give [Ok ()] whatever it found.
             -> part (c), all twenty-two broken plans.
         M4  In [Text.sexp_of_instr], drop the [at-child] field of an [expect].
             -> part (a), on the reader: an expect has five fields and four
@@ -82,7 +82,7 @@
                postfix tables. Nothing else, which is the point: the six are
                separate cascades and a token may sit in more than one.
         M12 In [Sexp.of_string], drop the branch that reads a [\ddd] escape.
-            -> part (a), both round trips: "an escape this does not know:
+            -> part (a), both round trips: "an escape with no case here:
                \0". The child name holds a byte below 32 and byte 127, and
                the printer has no other way to write either.
 
@@ -102,11 +102,10 @@
 
    -------------------------------------------------------------------------- *)
 
-open Plan
-
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -114,7 +113,10 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
+
 let msg n = Ir.Message.of_int n
 
 (* -- one plan that reaches every form -------------------------------------- *)
@@ -146,7 +148,7 @@ let n_index = 21
 let n_access = 22
 let n_try = 23
 
-let expect ?at_child ?hole ?placeholder tok =
+let expect ?at_child ?hole ?placeholder (tok : Ir.Kind.t) : Ir.Plan.instr =
   Ir.Plan.Expect { tok; message = msg 1; at_child; hole; placeholder }
 ;;
 
@@ -306,22 +308,24 @@ let good : Ir.Plan.t =
 (* -- (a) and (b) ----------------------------------------------------------- *)
 
 let () =
-  match Check.run good with
+  match Plan.Check.run good with
   | Error problems ->
     fail
       "check rejected the good plan: %a"
-      (Format.pp_print_list ~pp_sep:(fun f () -> Format.fprintf f "; ") Check.pp_problem)
+      (Format.pp_print_list
+         ~pp_sep:(fun f () -> Format.fprintf f "; ")
+         Plan.Check.pp_problem)
       problems
   | Ok () -> pass "check accepts a well-formed plan"
 ;;
 
 (* [Text.pp] breaks a form that does not fit, and the width it fits to comes
-   from the formatter. Pinning it here keeps part (b) about the printer. *)
+   from the formatter. Fixing it here keeps part (b) about the printer. *)
 let render (p : Ir.Plan.t) =
   let b = Buffer.create 4096 in
   let fmt = Format.formatter_of_buffer b in
   Format.pp_set_margin fmt 78;
-  Text.pp fmt p;
+  Plan.Text.pp fmt p;
   Format.pp_print_flush fmt ();
   Buffer.contents b
 ;;
@@ -329,7 +333,7 @@ let render (p : Ir.Plan.t) =
 let text = render good
 
 let () =
-  match Text.parse text with
+  match Plan.Text.parse text with
   | Error m -> fail "(a) the printer's own output did not parse: %s" m
   | Ok back when back <> good -> fail "(a) the plan that came back is not the one printed"
   | Ok back ->
@@ -346,7 +350,7 @@ let () =
    plan someone edits by hand has both. The printer writes neither. *)
 let () =
   let edited = "; a comment\n" ^ text ^ "\n  ; and another\n" in
-  match Text.parse edited with
+  match Plan.Text.parse edited with
   | Error m -> fail "(a) a commented plan did not parse: %s" m
   | Ok back when back <> good -> fail "(a) a commented plan read back as a different plan"
   | Ok _ -> pass "comments and surrounding whitespace do not change what is read"
@@ -356,7 +360,7 @@ let () =
 
 (* Each is the good plan with one thing changed. The other three rules stay,
    so a finding names the change rather than what went missing with it. *)
-let with_body body : Ir.Plan.t =
+let with_body (body : Ir.Plan.instr) : Ir.Plan.t =
   { good with rules = [| { file with body }; list_rule; item; paren |] }
 ;;
 
@@ -367,32 +371,32 @@ let broken =
   [ ( "a call to a rule that is not there"
     , with_body (open_ (Ir.Plan.Call 99))
     , function
-      | Check.Rule_out_of_range _ -> true
+      | Plan.Check.Rule_out_of_range _ -> true
       | _ -> false )
   ; ( "a pratt call to a block that is not there"
     , with_body (open_ (Ir.Plan.Pratt { block = 99; min_bp = 0 }))
     , function
-      | Check.Block_out_of_range _ -> true
+      | Plan.Check.Block_out_of_range _ -> true
       | _ -> false )
   ; ( "a set of kinds that repeats one"
     , with_file { file with first = [| k_lparen; k_lparen |] }
     , function
-      | Check.Kinds_unordered _ -> true
+      | Plan.Check.Kinds_unordered _ -> true
       | _ -> false )
   ; ( "a negative kind"
     , with_file { file with kind = -1 }
     , function
-      | Check.Negative_kind _ -> true
+      | Plan.Check.Negative_kind _ -> true
       | _ -> false )
   ; ( "an alt with no arms"
     , with_body (open_ (Ir.Plan.Alt { arms = [||] }))
     , function
-      | Check.Empty_alt _ -> true
+      | Plan.Check.Empty_alt _ -> true
       | _ -> false )
   ; ( "an arm no kind can take"
     , with_body (open_ (Ir.Plan.Alt { arms = [| [||], Ir.Plan.Bump |] }))
     , function
-      | Check.Empty_arm _ -> true
+      | Plan.Check.Empty_arm _ -> true
       | _ -> false )
   ; ( "two alt arms on the same kind"
     , with_body
@@ -400,7 +404,7 @@ let broken =
            (Ir.Plan.Alt
               { arms = [| [| k_word |], Ir.Plan.Bump; [| k_word |], Ir.Plan.Bump |] }))
     , function
-      | Check.Kind_taken_twice _ -> true
+      | Plan.Check.Kind_taken_twice _ -> true
       | _ -> false )
   ; ( "one loop state accepting a kind twice"
     , with_body
@@ -417,7 +421,7 @@ let broken =
                   |]
               }))
     , function
-      | Check.Kind_taken_twice _ -> true
+      | Plan.Check.Kind_taken_twice _ -> true
       | _ -> false )
   ; ( "two atoms on the same kind"
     , { good with
@@ -429,19 +433,19 @@ let broken =
           |]
       }
     , function
-      | Check.Kind_taken_twice _ -> true
+      | Plan.Check.Kind_taken_twice _ -> true
       | _ -> false )
   ; ( "the same infix operator twice"
     , { good with
         blocks = [| { block with infix = [| k_plus, (10, 11); k_plus, (20, 21) |] } |]
       }
     , function
-      | Check.Kind_taken_twice _ -> true
+      | Plan.Check.Kind_taken_twice _ -> true
       | _ -> false )
   ; ( "the same prefix operator twice"
     , { good with blocks = [| { block with prefix = [| k_minus, 50; k_minus, 60 |] } |] }
     , function
-      | Check.Kind_taken_twice _ -> true
+      | Plan.Check.Kind_taken_twice _ -> true
       | _ -> false )
   ; ( "two postfix operators on the same lead"
     , { good with
@@ -455,7 +459,7 @@ let broken =
           |]
       }
     , function
-      | Check.Kind_taken_twice _ -> true
+      | Plan.Check.Kind_taken_twice _ -> true
       | _ -> false )
   ; ( "a loop entering a state that is not there"
     , with_body
@@ -472,7 +476,7 @@ let broken =
                   |]
               }))
     , function
-      | Check.Loop_state_out_of_range _ -> true
+      | Plan.Check.Loop_state_out_of_range _ -> true
       | _ -> false )
   ; ( "a resume set with nothing in it"
     , with_body
@@ -488,44 +492,44 @@ let broken =
               ; body = Ir.Plan.Bump
               }))
     , function
-      | Check.Empty_resume _ -> true
+      | Plan.Check.Empty_resume _ -> true
       | _ -> false )
   ; ( "a node opened and not closed"
     , with_body (Ir.Plan.Seq [| Ir.Plan.Open n_file; Ir.Plan.Bump |])
     , function
-      | Check.Unbalanced _ -> true
+      | Plan.Check.Unbalanced _ -> true
       | _ -> false )
   ; ( "a node closed before any was opened"
     , with_body (Ir.Plan.Seq [| Ir.Plan.Close; Ir.Plan.Open n_file |])
     , function
-      | Check.Close_without_open _ -> true
+      | Plan.Check.Close_without_open _ -> true
       | _ -> false )
   ; ( "an infix operator on a kind below zero"
     , { good with blocks = [| { block with infix = [| -5, (10, 11) |] } |] }
     , function
-      | Check.Negative_kind _ -> true
+      | Plan.Check.Negative_kind _ -> true
       | _ -> false )
   ; ( "a prefix operator on a kind below zero"
     , { good with blocks = [| { block with prefix = [| -5, 50 |] } |] }
     , function
-      | Check.Negative_kind _ -> true
+      | Plan.Check.Negative_kind _ -> true
       | _ -> false )
   ; ( "delimiter pairs the wrong way round"
     , { good with pairs = [| k_lbrack, k_rbrack; k_lparen, k_rparen |] }
     , function
-      | Check.Pairs_unordered _ -> true
+      | Plan.Check.Pairs_unordered _ -> true
       | _ -> false )
   ; ( "the same delimiter pair twice"
     , { good with
         pairs = [| k_lparen, k_rparen; k_lparen, k_rparen; k_lbrack, k_rbrack |]
       }
     , function
-      | Check.Pairs_unordered _ -> true
+      | Plan.Check.Pairs_unordered _ -> true
       | _ -> false )
   ; ( "a delimiter pair on a kind below zero"
     , { good with pairs = [| -1, k_rparen; k_lbrack, k_rbrack |] }
     , function
-      | Check.Negative_kind _ -> true
+      | Plan.Check.Negative_kind _ -> true
       | _ -> false )
   ]
 ;;
@@ -534,7 +538,7 @@ let () =
   let wrong = ref 0 in
   List.iter
     (fun (what, plan, is_it) ->
-       match Check.run plan with
+       match Plan.Check.run plan with
        | Ok () ->
          incr wrong;
          fail "(c) check accepted %s" what
@@ -547,7 +551,7 @@ let () =
              what
              (Format.pp_print_list
                 ~pp_sep:(fun f () -> Format.fprintf f "; ")
-                Check.pp_problem)
+                Plan.Check.pp_problem)
              problems))
     broken;
   if !wrong = 0

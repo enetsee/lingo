@@ -99,3 +99,24 @@
   lex
   siesta
   sweep))
+
+; law_sample draws from the system the translation builds and parses what comes
+; back, so it needs the interpreter as well as the sampler. The parse is the
+; oracle for part (c): the sequences of kinds it accepts are the language, and
+; the system's structure count has to be that number.
+
+(tests
+ (names law_sample)
+ (modules law_sample sample_corpus)
+ (libraries
+  lingo.sample
+  lingo_witness
+  lingo.plan
+  lingo.interp
+  lingo.core
+  lingo_grammars
+  lingo_runtime
+  lingo_runtime.ir
+  bolts
+  lex
+  siesta))

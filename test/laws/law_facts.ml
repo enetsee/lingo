@@ -17,12 +17,12 @@
 
       Mechanism: (a) is a golden, and see the note on M9. (b) to (g) are
       oracles over the corpus, and (d), (e), (f) and (g) each add a grammar
-      built in the law for a case the corpus does not pin.
+      built in the law for a case the corpus does not cover.
 
-      Part (d) states what facts.mli promises. Its oracle asks, of every
-      frame in the grammar, which rules sit inside it, by taking the
+      Part (d) states what facts.mli promises. Its oracle works out, for
+      every frame in the grammar, which rules sit inside it, by taking the
       transitive closure of the reference graph forward from that frame's
-      body. [Fixpoint] answers the same question backwards, unioning into
+      body. [Fixpoint] arrives at the same set backwards, unioning into
       each rule over the sites that reference it, so the two arrive from
       opposite directions. The law this replaced recomputed [d.frame] and
       checked that, which is how a recovery set missing every enclosing
@@ -84,7 +84,7 @@
             -> sexp_facts reddens; part (a) does not. Determinism is checked
                by running the derivation twice in one process, and an
                unordered traversal is stable within one process.
-               Chasing that found the answer: every traversal in the
+               Chasing that found the cause: every traversal in the
                derivation is over an array or a list, and the two that fold a
                hash table ([Check_shape.view_hazards],
                [Check_full.empty_first_sets]) produce findings, which are
@@ -104,11 +104,10 @@
       reads and fails at zero, since only pratt-postfix carries one.
    -------------------------------------------------------------------------- *)
 
-open Core
-
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -116,13 +115,16 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-let dump f = Format.asprintf "%a" Facts.pp f
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
+
+let dump f = Format.asprintf "%a" Core.Facts.pp f
 
 let () =
   List.iter
     (fun (name, g) ->
-       match Facts.of_grammar g, Facts.of_grammar g with
+       match Core.Facts.of_grammar g, Core.Facts.of_grammar g with
        | Ok a, Ok b ->
          if dump a = dump b
          then pass "%s: deterministic" name
@@ -134,61 +136,66 @@ let () =
 let () =
   List.iter
     (fun (name, g) ->
-       match Facts.of_grammar g with
+       match Core.Facts.of_grammar g with
        | Error _ -> ()
        | Ok f ->
          let ok = ref true in
          List.iteri
            (fun i n ->
-              let spelled = Kind.Name.to_string n in
-              match Facts.find_kind f n with
+              let spelled = Core.Kind.Name.to_string n in
+              match Core.Facts.find_kind f n with
               | None ->
                 ok := false;
                 fail "%s: kind %S is not findable by name" name spelled
-              | Some k when Kind.to_int k <> i ->
+              | Some k when Core.Kind.to_int k <> i ->
                 ok := false;
-                fail "%s: kind %S numbers %d but finds %d" name spelled i (Kind.to_int k)
+                fail
+                  "%s: kind %S numbers %d but finds %d"
+                  name
+                  spelled
+                  i
+                  (Core.Kind.to_int k)
               | Some k ->
-                if not (Kind.Name.equal (Facts.kind_name f k) n)
+                if not (Core.Kind.Name.equal (Core.Facts.kind_name f k) n)
                 then (
                   ok := false;
                   fail
                     "%s: kind %d round-trips to %S, not %S"
                     name
                     i
-                    (Kind.Name.to_string (Facts.kind_name f k))
+                    (Core.Kind.Name.to_string (Core.Facts.kind_name f k))
                     spelled))
-           (Kind.Table.names f.kinds);
+           (Core.Kind.Table.names f.kinds);
          if !ok
          then
            pass
              "%s: name and kind are a bijection over %d kinds"
              name
-             (Facts.kind_count f))
+             (Core.Facts.kind_count f))
     Corpus.all
 ;;
 
 (* (c). The algebra, over sets that came out of real grammars. *)
 let () =
-  match Facts.of_grammar Lingo_grammars.Sexp_grammar.grammar with
+  match Core.Facts.of_grammar Lingo_grammars.Sexp_grammar.grammar with
   | Error _ -> fail "sexp was rejected"
   | Ok f ->
     let sets = Array.to_list f.first @ Array.to_list f.follow in
-    let all_kinds = Kind.Set.of_list (Kind.Table.kinds f.kinds) in
-    let sets = all_kinds :: Kind.Set.empty :: sets in
+    let all_kinds = Core.Kind.Set.of_list (Core.Kind.Table.kinds f.kinds) in
+    let sets = all_kinds :: Core.Kind.Set.empty :: sets in
     let ok = ref true in
     List.iter
       (fun a ->
-         let els = Kind.Set.elements a in
-         if List.sort_uniq Kind.compare els <> els
+         let els = Core.Kind.Set.elements a in
+         if List.sort_uniq Core.Kind.compare els <> els
          then (
            ok := false;
            fail "elements is not ascending-and-distinct");
-         if Kind.Set.cardinal a <> List.length els
+         if Core.Kind.Set.cardinal a <> List.length els
          then (
            ok := false;
            fail "cardinal disagrees with elements");
-         if not (Kind.Set.equal (Kind.Set.of_list els) a)
+         if not (Core.Kind.Set.equal (Core.Kind.Set.of_list els) a)
          then (
            ok := false;
            fail "of_list . elements is not the identity");
@@ -196,29 +203,34 @@ let () =
            (fun b ->
               if
                 not
-                  (Kind.Set.subset (Kind.Set.inter a b) a
-                   && Kind.Set.subset (Kind.Set.inter a b) b)
+                  (Core.Kind.Set.subset (Core.Kind.Set.inter a b) a
+                   && Core.Kind.Set.subset (Core.Kind.Set.inter a b) b)
               then (
                 ok := false;
                 fail "inter is not a lower bound");
               if
                 not
-                  (Kind.Set.subset a (Kind.Set.union a b)
-                   && Kind.Set.subset b (Kind.Set.union a b))
+                  (Core.Kind.Set.subset a (Core.Kind.Set.union a b)
+                   && Core.Kind.Set.subset b (Core.Kind.Set.union a b))
               then (
                 ok := false;
                 fail "union is not an upper bound");
-              if not (Kind.Set.is_empty (Kind.Set.inter (Kind.Set.diff a b) b))
+              if
+                not
+                  (Core.Kind.Set.is_empty
+                     (Core.Kind.Set.inter (Core.Kind.Set.diff a b) b))
               then (
                 ok := false;
                 fail "diff leaves something of b behind");
               if
                 not
-                  (Kind.Set.equal
-                     (Kind.Set.union a b)
-                     (Kind.Set.union
-                        (Kind.Set.diff a b)
-                        (Kind.Set.union (Kind.Set.inter a b) (Kind.Set.diff b a))))
+                  (Core.Kind.Set.equal
+                     (Core.Kind.Set.union a b)
+                     (Core.Kind.Set.union
+                        (Core.Kind.Set.diff a b)
+                        (Core.Kind.Set.union
+                           (Core.Kind.Set.inter a b)
+                           (Core.Kind.Set.diff b a))))
               then (
                 ok := false;
                 fail "union is not the disjoint sum of the three parts"))
@@ -226,51 +238,55 @@ let () =
          (* [add] must not disturb the set it was given. *)
          List.iter
            (fun k ->
-              let before = Kind.Set.elements a in
-              let a' = Kind.Set.add k a in
-              if Kind.Set.elements a <> before
+              let before = Core.Kind.Set.elements a in
+              let a' = Core.Kind.Set.add k a in
+              if Core.Kind.Set.elements a <> before
               then (
                 ok := false;
                 fail "add mutated its argument");
-              if not (Kind.Set.mem a' k)
+              if not (Core.Kind.Set.mem a' k)
               then (
                 ok := false;
                 fail "add did not add");
-              if not (Kind.Set.equal (Kind.Set.remove k a') (Kind.Set.remove k a))
+              if
+                not
+                  (Core.Kind.Set.equal
+                     (Core.Kind.Set.remove k a')
+                     (Core.Kind.Set.remove k a))
               then (
                 ok := false;
                 fail "remove does not undo add"))
-           (Kind.Table.kinds f.kinds))
+           (Core.Kind.Table.kinds f.kinds))
       sets;
     if !ok then pass "Kind.Set.t algebra holds over %d sets" (List.length sets)
 ;;
 
-let frame_closers (fr : Rule.frame) =
+let frame_closers (fr : Core.Rule.frame) =
   match fr with
-  | Rule.Delimited { close; sep; _ } ->
-    let s = Kind.Set.singleton close in
+  | Core.Rule.Delimited { close; sep; _ } ->
+    let s = Core.Kind.Set.singleton close in
     (match sep with
-     | Some { sep_tok; _ } -> Kind.Set.add sep_tok s
+     | Some { sep_tok; _ } -> Core.Kind.Set.add sep_tok s
      | None -> s)
-  | Rule.Separated { sep_tok; _ } -> Kind.Set.singleton sep_tok
-  | Rule.Plain | Rule.Committed _ -> Kind.Set.empty
+  | Core.Rule.Separated { sep_tok; _ } -> Core.Kind.Set.singleton sep_tok
+  | Core.Rule.Plain | Core.Rule.Committed _ -> Core.Kind.Set.empty
 ;;
 
 (* Which rules sit inside a given frame, by walking forward from it.
-   [Fixpoint] answers the same question backwards, unioning into each rule
+   [Fixpoint] arrives at the same set backwards, unioning into each rule
    over the sites that reference it, and going the other way keeps the
    oracle independent of it. Once a rule sits inside a frame, so does every
    rule it names, so this is the transitive closure of the reference graph
    from the frame's body. *)
-let inside (f : Facts.t) (owner : Rule.def) =
+let inside (f : Core.Facts.t) (owner : Core.Rule.def) =
   let n = Array.length f.rules in
   let block_at = Array.make n (-1) in
-  Array.iteri (fun j (b : Block.def) -> block_at.(b.rule_id) <- j) f.blocks;
+  Array.iteri (fun j (b : Core.Block.def) -> block_at.(b.rule_id) <- j) f.blocks;
   let targets ks =
     Array.fold_left
       (fun acc k ->
-         match Facts.rule_of_kind f k with
-         | Some d -> d.Rule.id :: acc
+         match Core.Facts.rule_of_kind f k with
+         | Some d -> d.Core.Rule.id :: acc
          | None -> acc)
       []
       ks
@@ -281,33 +297,33 @@ let inside (f : Facts.t) (owner : Rule.def) =
     then (
       seen.(r) <- true;
       let d = f.rules.(r) in
-      Array.iter (fun (c : Rule.child) -> List.iter go (targets c.alts)) d.children;
+      Array.iter (fun (c : Core.Rule.child) -> List.iter go (targets c.alts)) d.children;
       if block_at.(r) >= 0
       then (
         let b = f.blocks.(block_at.(r)) in
         List.iter go (targets b.atoms);
         Array.iter
-          (fun (p : Block.postfix) ->
+          (fun (p : Core.Block.postfix) ->
              (* A role node sits where the block sits. *)
              go p.p_rule;
              match p.p_body with
-             | Block.Nothing -> ()
-             | Block.Then rhs -> List.iter go (targets rhs)
-             | Block.Enclosed { content; _ } ->
+             | Core.Block.Nothing -> ()
+             | Core.Block.Then rhs -> List.iter go (targets rhs)
+             | Core.Block.Enclosed { content; _ } ->
                List.iter
                  go
                  (targets
                     (match content with
-                     | Block.One s -> s
-                     | Block.Many { elem; _ } -> elem)))
+                     | Core.Block.One s -> s
+                     | Core.Block.Many { elem; _ } -> elem)))
           b.postfix))
   in
   (* The body is what the frame wraps. A child before [body_from] is a
      postfix operand and sits to the left of the opener. *)
   Array.iteri
-    (fun idx (c : Rule.child) ->
-       if idx >= owner.Rule.body_from then List.iter go (targets c.alts))
-    owner.Rule.children;
+    (fun idx (c : Core.Rule.child) ->
+       if idx >= owner.Core.Rule.body_from then List.iter go (targets c.alts))
+    owner.Core.Rule.children;
   seen
 ;;
 
@@ -315,32 +331,33 @@ let inside (f : Facts.t) (owner : Rule.def) =
 let () =
   List.iter
     (fun (name, g) ->
-       match Facts.of_grammar g with
+       match Core.Facts.of_grammar g with
        | Error _ -> ()
        | Ok f ->
          let ok = ref true in
          (* What every frame in the grammar demands of the rules under it. *)
-         let owed = Array.make (Array.length f.rules) Kind.Set.empty in
+         let owed = Array.make (Array.length f.rules) Core.Kind.Set.empty in
          Array.iter
-           (fun (owner : Rule.def) ->
+           (fun (owner : Core.Rule.def) ->
               let closers = frame_closers owner.frame in
-              if not (Kind.Set.is_empty closers)
+              if not (Core.Kind.Set.is_empty closers)
               then (
                 let within = inside f owner in
                 Array.iteri
-                  (fun r yes -> if yes then owed.(r) <- Kind.Set.union owed.(r) closers)
+                  (fun r yes ->
+                     if yes then owed.(r) <- Core.Kind.Set.union owed.(r) closers)
                   within))
            f.rules;
          Array.iter
-           (fun (d : Rule.def) ->
+           (fun (d : Core.Rule.def) ->
               Array.iteri
-                (fun i (c : Rule.child) ->
-                   let r = Facts.recovery_set f d.id ~child:i in
+                (fun i (c : Core.Rule.child) ->
+                   let r = Core.Facts.recovery_set f d.id ~child:i in
                    match c.recover_to with
                    | Some _ -> ()
                    | None ->
                      (* Its own frame bounds a position in its body. *)
-                     if not (Kind.Set.subset (frame_closers d.frame) r)
+                     if not (Core.Kind.Set.subset (frame_closers d.frame) r)
                      then (
                        ok := false;
                        fail
@@ -349,7 +366,7 @@ let () =
                          (Grammar.Name.Rule.to_string d.name)
                          (Grammar.Name.Child.to_string c.child_name));
                      (* Every frame it sits inside stays open around it. *)
-                     if not (Kind.Set.subset owed.(d.id) r)
+                     if not (Core.Kind.Set.subset owed.(d.id) r)
                      then (
                        ok := false;
                        fail
@@ -358,8 +375,8 @@ let () =
                          name
                          (Grammar.Name.Rule.to_string d.name)
                          (Grammar.Name.Child.to_string c.child_name)
-                         (Kind.Table.pp_set f.kinds)
-                         (Kind.Set.diff owed.(d.id) r)))
+                         (Core.Kind.Table.pp_set f.kinds)
+                         (Core.Kind.Set.diff owed.(d.id) r)))
                 d.children)
            f.rules;
          if !ok
@@ -393,21 +410,22 @@ let () =
       ; prod "Inner" [ child_req "x" (Token "ta"); child_req "y" (Token "tb") ]
       ]
   in
-  match Facts.of_grammar g with
-  | Error es -> fail "the nested-frame grammar was rejected:@\n%a" Error.pp_list es
+  match Core.Facts.of_grammar g with
+  | Error es -> fail "the nested-frame grammar was rejected:@\n%a" Core.Error.pp_list es
   | Ok f ->
     let rule_named nm =
-      (Option.get (Facts.rule_of_kind f (Option.get (Facts.find_kind f nm)))).Rule.id
+      (Option.get (Core.Facts.rule_of_kind f (Option.get (Core.Facts.find_kind f nm))))
+        .Core.Rule.id
     in
-    let inner = rule_named (Kind.Name.node "Inner") in
-    let rparen = Option.get (Facts.find_kind f (Kind.Name.token "rparen")) in
-    let at i = Facts.recovery_set f inner ~child:i in
-    if not (Kind.Set.mem (at 0) rparen)
+    let inner = rule_named (Core.Kind.Name.node "Inner") in
+    let rparen = Option.get (Core.Facts.find_kind f (Core.Kind.Name.token "rparen")) in
+    let at i = Core.Facts.recovery_set f inner ~child:i in
+    if not (Core.Kind.Set.mem (at 0) rparen)
     then
       fail
         "a recovery at the first of two children inside a delimited parent may skip the \
          closer that parent is waiting for"
-    else if not (Kind.Set.mem (at 1) rparen)
+    else if not (Core.Kind.Set.mem (at 1) rparen)
     then fail "the trailing position lost the closer"
     else pass "a non-trailing position inside a delimited parent keeps the closer"
 ;;
@@ -439,31 +457,33 @@ let () =
       ; prod "Expr" [ child_req "l" (Token "a"); child_req "r" (Token "b") ]
       ]
   in
-  match Facts.of_grammar g with
-  | Error es -> fail "the two-context grammar was rejected:@\n%a" Error.pp_list es
+  match Core.Facts.of_grammar g with
+  | Error es -> fail "the two-context grammar was rejected:@\n%a" Core.Error.pp_list es
   | Ok f ->
     let expr =
       (Option.get
-         (Facts.rule_of_kind f (Option.get (Facts.find_kind f (Kind.Name.node "Expr")))))
-        .Rule.id
+         (Core.Facts.rule_of_kind
+            f
+            (Option.get (Core.Facts.find_kind f (Core.Kind.Name.node "Expr")))))
+        .Core.Rule.id
     in
-    let local = Facts.local_recovery_set f expr ~child:0 in
-    let whole = Facts.recovery_set f expr ~child:0 in
+    let local = Core.Facts.local_recovery_set f expr ~child:0 in
+    let whole = Core.Facts.recovery_set f expr ~child:0 in
     let encl = f.enclosing.(expr) in
-    if Kind.Set.cardinal encl <> 2
+    if Core.Kind.Set.cardinal encl <> 2
     then
       fail
         "a rule used inside two differently framed parents should carry both closers, \
          not %a"
-        (Kind.Table.pp_set f.kinds)
+        (Core.Kind.Table.pp_set f.kinds)
         encl
-    else if not (Kind.Set.is_empty (Kind.Set.inter local encl))
+    else if not (Core.Kind.Set.is_empty (Core.Kind.Set.inter local encl))
     then
       fail
         "the local recovery set carries %a, which came from an enclosing frame"
-        (Kind.Table.pp_set f.kinds)
-        (Kind.Set.inter local encl)
-    else if not (Kind.Set.equal whole (Kind.Set.union local encl))
+        (Core.Kind.Table.pp_set f.kinds)
+        (Core.Kind.Set.inter local encl)
+    else if not (Core.Kind.Set.equal whole (Core.Kind.Set.union local encl))
     then fail "the whole recovery set is not the local one plus the enclosing frames"
     else pass "the local recovery set holds nothing an enclosing frame put there"
 ;;
@@ -476,25 +496,25 @@ let () =
 let () =
   List.iter
     (fun (name, g) ->
-       match Facts.of_grammar g with
+       match Core.Facts.of_grammar g with
        | Error _ -> ()
        | Ok f ->
-         let got = Facts.delimiter_pairs f in
-         let want =
+         let got = Core.Facts.delimiter_pairs f in
+         let expected =
            Array.fold_left
-             (fun acc (d : Rule.def) ->
+             (fun acc (d : Core.Rule.def) ->
                 match d.frame with
-                | Rule.Delimited { open_; close; _ } -> (open_, close) :: acc
-                | Rule.Plain | Rule.Committed _ | Rule.Separated _ -> acc)
+                | Core.Rule.Delimited { open_; close; _ } -> (open_, close) :: acc
+                | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Separated _ -> acc)
              []
              f.rules
          in
          let norm l =
            List.sort_uniq
              compare
-             (List.map (fun (a, b) -> Kind.to_int a, Kind.to_int b) l)
+             (List.map (fun (a, b) -> Core.Kind.to_int a, Core.Kind.to_int b) l)
          in
-         if norm got <> norm want
+         if norm got <> norm expected
          then fail "%s: delimiter_pairs is not the set of framed rules' pairs" name
          else if List.length got <> List.length (List.sort_uniq compare (norm got))
          then fail "%s: delimiter_pairs repeats a pair" name
@@ -514,19 +534,19 @@ let () =
   let checked = ref 0 in
   List.iter
     (fun (name, g) ->
-       match Facts.of_grammar g with
+       match Core.Facts.of_grammar g with
        | Error _ -> ()
        | Ok f ->
-         let pairs = Facts.delimiter_pairs f in
+         let pairs = Core.Facts.delimiter_pairs f in
          Array.iter
-           (fun (d : Rule.def) ->
+           (fun (d : Core.Rule.def) ->
               match d.frame with
-              | Rule.Delimited { open_; close; _ } when Rule.is_synthetic d ->
+              | Core.Rule.Delimited { open_; close; _ } when Core.Rule.is_synthetic d ->
                 incr checked;
                 if
                   not
                     (List.exists
-                       (fun (o, c) -> Kind.equal o open_ && Kind.equal c close)
+                       (fun (o, c) -> Core.Kind.equal o open_ && Core.Kind.equal c close)
                        pairs)
                 then
                   fail
@@ -563,24 +583,24 @@ let () =
       ; prod "Item" [ child_req ~recover_to:[ "tb" ] "x" (Token "ta") ]
       ]
   in
-  match Facts.of_grammar g with
-  | Error es -> fail "the override grammar was rejected:@\n%a" Error.pp_list es
+  match Core.Facts.of_grammar g with
+  | Error es -> fail "the override grammar was rejected:@\n%a" Core.Error.pp_list es
   | Ok f ->
-    let item = Option.get (Facts.find_kind f (Kind.Name.node "Item")) in
-    let d = Option.get (Facts.rule_of_kind f item) in
-    let kind nm = Option.get (Facts.find_kind f (Kind.Name.token nm)) in
-    let show = Kind.Table.pp_set f.kinds in
-    let local = Facts.local_recovery_set f d.id ~child:0 in
-    let whole = Facts.recovery_set f d.id ~child:0 in
-    if not (Kind.Set.equal local (Kind.Set.singleton (kind "tb")))
+    let item = Option.get (Core.Facts.find_kind f (Core.Kind.Name.node "Item")) in
+    let d = Option.get (Core.Facts.rule_of_kind f item) in
+    let kind nm = Option.get (Core.Facts.find_kind f (Core.Kind.Name.token nm)) in
+    let show = Core.Kind.Table.pp_set f.kinds in
+    let local = Core.Facts.local_recovery_set f d.id ~child:0 in
+    let whole = Core.Facts.recovery_set f d.id ~child:0 in
+    if not (Core.Kind.Set.equal local (Core.Kind.Set.singleton (kind "tb")))
     then fail "recover_to did not replace what the position computes: got %a" show local
-    else if Kind.Set.mem whole (kind "ta")
+    else if Core.Kind.Set.mem whole (kind "ta")
     then
       (* [T_TA] is FIRST(Item), which the computed set would have held
          through Root's repeated body. Its absence is what says the override
          replaced something. *)
       fail "the override left the computed set behind: got %a" show whole
-    else if not (Kind.Set.mem whole (kind "rp"))
+    else if not (Core.Kind.Set.mem whole (kind "rp"))
     then fail "the override lost the closer of Item's enclosing frame: got %a" show whole
     else pass "recover_to replaces the computed set and keeps the enclosing closers"
 ;;

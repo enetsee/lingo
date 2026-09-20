@@ -1,7 +1,7 @@
-(* -- codepoints, not bytes ----------------------------------------------------
+(* -- a grammar the lexer must read by codepoint --------------------------------
 
-   Every other grammar here is ASCII, so nothing tells a lexer that reads
-   codepoints from one that reads bytes. Both answer the same for every input
+   Every other grammar here is ASCII, so nothing separates a lexer that reads
+   codepoints from one that reads bytes. Both give the same for every input
    the rest of the corpus offers.
 
    This one separates them. Each of its non-ASCII tokens is more than one byte

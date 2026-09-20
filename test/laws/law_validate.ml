@@ -41,22 +41,22 @@
             -> this law, part (e). Findings come back in fold order.
         M8  In [Check_names.collisions], skip the [View_accessor] scope.
             -> this law. dup-child-name's witness is accepted. Recorded here
-               rather than under law_manifest: that law asks the manifest
-               whether it sees the collision and it does.
+               rather than under law_manifest: that law reads the manifest
+               for the collision and finds it.
         M9  In [Check_full.left_recursion], report one finding per member of
             a cyclic component rather than one per component.
             -> this law, part (f), at every length above one, and nothing
                else. Part (a) compares sets of codes, so k copies of one code
                collapse, and part (e) rejects identical findings, where the
                members differ in their site and message. The check had this
-               shape before the component walk, and it is why (f) asks for
+               shape before the component walk, and it is why (f) carries
                the count.
         M10 In [Check_full.left_recursion], drop the self-edge test on a
             one-rule component, so every component reports.
             -> this law and four others. Every rule is a component of its
                own, so every grammar is rejected: parts (a), (d) and (f) here
                (15 failures), and law_facts, law_first_follow, law_manifest,
-               sexp_facts and pratt_desugar with it, since each wants a
+               sexp_facts and pratt_desugar with it, since each needs a
                [Facts.t] the checker now refuses to build. The blast radius
                is the observation. That one test is what separates a rule
                from a rule that reaches itself.
@@ -75,11 +75,10 @@
       the checker.
    -------------------------------------------------------------------------- *)
 
-open Core
-
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -87,25 +86,29 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
 
 let codes_of = function
   | Ok _ -> []
   | Error es ->
-    List.sort_uniq String.compare (List.map (fun (e : Error.t) -> Error.code e) es)
+    List.sort_uniq
+      String.compare
+      (List.map (fun (e : Core.Error.t) -> Core.Error.code e) es)
 ;;
 
-let stage_of_code code =
+let stage_of_code (code : string) : string option =
   List.find_map
     (fun (stage, cs) -> if List.mem code cs then Some stage else None)
-    Error.codes_by_stage
+    Core.Error.codes_by_stage
 ;;
 
 (* (a) and (b) *)
 let () =
   List.iter
     (fun (code, g) ->
-       match codes_of (Facts.of_grammar g) with
+       match codes_of (Core.Facts.of_grammar g) with
        | [] -> fail "%s: the witness grammar was accepted" code
        | [ c ] when c = code -> pass "%s: witness provokes exactly it" code
        | cs ->
@@ -120,7 +123,7 @@ let () =
   let witnessed =
     List.sort_uniq String.compare (List.map fst Lingo_witness.Witnesses.all)
   in
-  let declared = List.sort_uniq String.compare Error.codes in
+  let declared = List.sort_uniq String.compare Core.Error.codes in
   List.iter
     (fun c ->
        if not (List.mem c witnessed)
@@ -134,7 +137,7 @@ let () =
     (fun c ->
        if not (List.mem c declared) then fail "%s is emitted but not in Error.codes" c)
     witnessed;
-  if List.length Error.codes <> List.length declared
+  if List.length Core.Error.codes <> List.length declared
   then fail "Error.codes contains a duplicate";
   List.iter
     (fun c ->
@@ -147,29 +150,28 @@ let () =
    at the third stage passes the completeness law while reporting two
    derivations later than it could, and running the stages one at a time is
    how that shows. *)
-open Core.Internal
 
 let () =
   List.iter
     (fun (code, g) ->
        let declared = Option.get (stage_of_code code) in
-       let n = Stage.names g in
-       let s1 = Check_names.run n in
+       let n = Core.Internal.Stage.names g in
+       let s1 = Core.Internal.Check_names.run n in
        let observed =
          if s1 <> []
          then "names"
          else (
-           let shape = Stage.shape n in
-           if Check_shape.run shape <> []
+           let shape = Core.Internal.Stage.shape n in
+           if Core.Internal.Check_shape.run shape <> []
            then "shape"
            else if
-             Check_full.run
+             Core.Internal.Check_full.run
                shape
-               (Fixpoint.compute
+               (Core.Internal.Fixpoint.compute
                   ~rules:shape.rules
                   ~blocks:shape.blocks
                   ~kind_rule:shape.names.kind_rule)
-               (Stage.lexer n)
+               (Core.Internal.Stage.lexer n)
              <> []
            then "full"
            else "accepted")
@@ -185,12 +187,12 @@ let () =
 let () =
   List.iter
     (fun (code, g) ->
-       match Facts.of_grammar g with
+       match Core.Facts.of_grammar g with
        | Ok _ -> ()
        | Error es ->
-         if List.sort Error.compare es <> es
+         if List.sort Core.Error.compare es <> es
          then fail "%s: findings are not sorted" code
-         else if List.sort_uniq Error.compare es <> es
+         else if List.sort_uniq Core.Error.compare es <> es
          then fail "%s: findings contain a duplicate" code)
     Lingo_witness.Witnesses.all;
   if !failures = 0 then pass "findings are sorted and duplicate-free"
@@ -200,10 +202,10 @@ let () =
 let () =
   List.iter
     (fun (name, g) ->
-       match Facts.of_grammar g with
+       match Core.Facts.of_grammar g with
        | Ok _ -> pass "accepted: %s" name
        | Error es ->
-         fail "accepted corpus grammar %s was rejected:@\n%a" name Error.pp_list es)
+         fail "accepted corpus grammar %s was rejected:@\n%a" name Core.Error.pp_list es)
     Lingo_witness.Witnesses.accepted
 ;;
 
@@ -226,11 +228,11 @@ let () =
   in
   List.iter
     (fun n ->
-       match Facts.of_grammar (cycle n) with
+       match Core.Facts.of_grammar (cycle n) with
        | Ok _ -> fail "a cycle of %d rules was accepted" n
        | Error es ->
          let mine =
-           List.filter (fun (e : Error.t) -> Error.code e = "left-recursion") es
+           List.filter (fun (e : Core.Error.t) -> Core.Error.code e = "left-recursion") es
          in
          if List.length es <> 1 || List.length mine <> 1
          then

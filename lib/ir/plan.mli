@@ -50,7 +50,7 @@ type instr =
           operators that bind at least as tightly as [min_bp]. *)
   | Alt of { arms : (Kind.t array * instr) array }
   (** Take the first arm whose set holds the kind under the cursor. A
-          kind in no arm takes none of them. The order decides an overlap,
+          kind in no arm takes none of them. The order settles an overlap,
           so the checker rejects a grammar where a later arm is
           unreachable rather than leaving it to be discovered here. *)
   | Commit of
@@ -93,7 +93,7 @@ type instr =
               the next declaration.
 
               [Some \[||\]] is not [None]. It recovers to the end of the
-              input, which is what a root wants. *)
+              input, which is what a root takes. *)
       }
   (** A body of repeated elements, as an automaton.
 
@@ -112,15 +112,15 @@ type instr =
           input and be lost, and a meaningful token still there would be
           dropped with it. *)
 
-(** One position in a body, and everything that position decides.
+(** One position in a body, and everything that position settles.
 
-    Three questions, and a state answers all three. What continues the body
+    Three questions, and a state holds all three. What continues the body
     from here, in {!loop_state.accepts}. What ending here reports, in
     {!loop_state.exit}. What this position wanted, where the body carries on
     without it, in {!loop_state.when_missing}.
 
     Whether the body ends at all is the loop's question rather than a state's,
-    and [Loop]'s [ends_on] answers it. *)
+    and [Loop]'s [ends_on] holds it. *)
 and loop_state =
   { accepts : (Kind.t array * int) array
     (** On a kind in the set, run {!loop_state.emits} and move to that
@@ -133,7 +133,7 @@ and loop_state =
 (** What a position wanted, where nothing it accepts is under the cursor and
     the body carries on anyway.
 
-    A separated body is the case. After an element the body wants a separator,
+    A separated body is the case. After an element the body takes a separator,
     and [a b] has none. The separator is reported missing and the body carries
     on at {!missing.goto}, which is where taking one would have led, so the
     [b] is read as an element rather than swept away as junk.
@@ -157,9 +157,8 @@ and missing =
     one. The parser still takes the separator, because it is bytes the source
     had, and it reports the diagnostic to say the separator does not belong.
 
-    The report hangs off the exit rather than off a transition. A parser only
-    knows the separator was trailing once it sees that the next token ends the
-    body. *)
+    The report hangs off the exit rather than off a transition. A separator is
+    trailing only in the light of the next token ending the body. *)
 and exit_policy =
   | May_exit
   | May_exit_reporting of Message.id

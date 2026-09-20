@@ -58,7 +58,7 @@ type child_sym =
     {2 [greedy]}
 
     An optional or repeated child can start with the same token as whatever
-    follows it. The parser cannot tell which one it is looking at, so the
+    follows it. The parser cannot separate the two, so the
     grammar is rejected as [first-follow-conflict]. [greedy] says to take the
     child.
 
@@ -123,9 +123,8 @@ type recovery_strategy =
     [Delimited] is committed for the same reason: the opener has already been
     consumed, so recovery resumes at the closer.
 
-    - [Plain]: a sequence of children. The caller decides what a failure
-      means.
-    - [Committed]: errors stay inside. [boundary] decides what descendants
+    - [Plain]: a sequence of children. What a failure means is the caller's.
+    - [Committed]: errors stay inside. [boundary] sets what descendants
       recover on. With [false] they inherit the caller's recovery set. With
       [true] they start from empty, which stops a child resuming past this
       production's edge.
@@ -286,7 +285,7 @@ type token_class =
   | Pattern of pattern_spec
 
 (** Spacing the formatter puts around a token. Both sides default to [true].
-    Punctuation usually wants [false] on both. *)
+    Punctuation usually takes [false] on both. *)
 type token_format =
   { space_before : bool
   ; space_after : bool
@@ -299,7 +298,7 @@ type token_format =
 
     - [Some Reformat]: the formatter re-emits the spacing.
     - [Some Preserve]: the formatter keeps the matched text as it stands.
-      This is what a comment wants.
+      This is what a comment takes.
 
     The tree records trivia either way. That is how it stays lossless while
     productions say nothing about whitespace.
@@ -425,7 +424,7 @@ val child_opt : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> c
 val child_rep : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> child
 
 (** One or more, where [child_rep] is zero or more. A list with nothing
-    around it usually wants this: an empty one is not syntax anybody wrote. *)
+    around it usually takes this: an empty one is not syntax anybody wrote. *)
 val child_rep1 : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> child
 
 val child_alt
@@ -509,7 +508,7 @@ val with_delimited_sep
 
 (** A [sep]-separated list with nothing around it. The child's modifier says
     whether it can be empty, and {!child_rep1} is usually what one of these
-    wants: an empty list with nothing around it is no syntax at all. *)
+    takes: an empty list with nothing around it is no syntax at all. *)
 val with_separator
   :  sep:string
   -> ?trailing_sep:trailing_sep

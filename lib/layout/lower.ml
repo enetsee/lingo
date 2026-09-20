@@ -2,7 +2,7 @@ open StdLabels
 
 let kind (k : Core.Kind.t) : Ir.Kind.t = Core.Kind.to_int k
 
-let break (style : Grammar.break_style) ~lines : Ir.Layout.break =
+let break (style : Grammar.break_style) ~(lines : int) : Ir.Layout.break =
   match style with
   | Never -> Flat
   | Fit -> Fit
@@ -63,7 +63,9 @@ let expansion (f : Core.Facts.t) =
   tbl
 ;;
 
-let kinds_of expand (c : Core.Rule.child) =
+let kinds_of (expand : (Ir.Kind.t, Ir.Kind.t list) Hashtbl.t) (c : Core.Rule.child)
+  : Ir.Kind.t array
+  =
   let all =
     Array.fold_left c.alts ~init:[] ~f:(fun acc k ->
       let k = kind k in
@@ -100,7 +102,13 @@ let block_of (f : Core.Facts.t) (r : Core.Rule.def) =
 
    Slot zero describes a boundary that is not there: nothing of this rule
    precedes its first child. It reads [Flat] so the caller's boundary stands. *)
-let slots expand (r : Core.Rule.def) ~style ~lines =
+let slots
+      (expand : (Ir.Kind.t, Ir.Kind.t list) Hashtbl.t)
+      (r : Core.Rule.def)
+      ~(style : Grammar.break_style)
+      ~(lines : int)
+  : Ir.Layout.slot array
+  =
   Array.mapi r.children ~f:(fun i (c : Core.Rule.child) ->
     let before = if i = 0 then Ir.Layout.Flat else break style ~lines:1 in
     let rep = repeats c.modifier in
@@ -131,7 +139,12 @@ let operator_slots (e : Grammar.expr_format) (ss : Ir.Layout.slot array) =
   ss
 ;;
 
-let rule (f : Core.Facts.t) expand (r : Core.Rule.def) : Ir.Layout.rule =
+let rule
+      (f : Core.Facts.t)
+      (expand : (Ir.Kind.t, Ir.Kind.t list) Hashtbl.t)
+      (r : Core.Rule.def)
+  : Ir.Layout.rule
+  =
   let style, indent, lines =
     match block_of f r with
     | Some (b, _) -> Grammar.Fit, b.format.continuation_indent, 1

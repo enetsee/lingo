@@ -15,7 +15,7 @@
 
       The law that matters most is not here: manifest = what a backend emits,
       cross-checked by parsing the emitted text back and classifying every
-      name in it. It wants an emitter to read back and there is none, so the
+      name in it. It needs an emitter to read back and there is none, so the
       manifest's fidelity to emission is a claim. It is the claim here most
       likely to be wrong.
 
@@ -38,7 +38,7 @@
         M4  In [Check_names.collisions], skip the [View_accessor] scope.
             -> law_validate reddens; this law does not. The checker stops
                reporting the collision and [Manifest.collisions] still sees
-               it, and part (c) asks the manifest. law_validate is what says
+               it, and part (c) reads the manifest. law_validate is what says
                the checker acts on what the manifest reports.
 
       An earlier part (a) compared [Manifest.kind_names] against [Kind.Table.names].
@@ -47,11 +47,10 @@
       Coverage. The accepted corpus, and the witness grammars for (c).
    -------------------------------------------------------------------------- *)
 
-open Core
-
 let failures = ref 0
 
-let fail fmt =
+let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt ->
   Format.kasprintf
     (fun s ->
        incr failures;
@@ -59,24 +58,26 @@ let fail fmt =
     fmt
 ;;
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
+  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
+;;
+
 let starts_upper s = s <> "" && s.[0] >= 'A' && s.[0] <= 'Z'
 
 let () =
   List.iter
     (fun (name, g) ->
-       match Facts.of_grammar g with
+       match Core.Facts.of_grammar g with
        | Error _ -> fail "%s: the corpus grammar was rejected" name
        | Ok f ->
-         (* (a) — the numbering is the manifest's list, in the documented
+         (* (a) is the numbering: the manifest's list, in the documented
             order. Checking [Manifest.kind_names = Kind.Table.names] would be
-            checking nothing: the table is built from the list, so they are
-            equal by construction. What is worth pinning is the order
-            itself, since it is what every emitted kind integer is a
-            function of. *)
-         let listed = Manifest.kind_names f.names in
+            checking nothing, since the table is built from the list and they
+            are equal by construction. The order itself is what every emitted
+            kind integer is a function of, so the order is what this reads. *)
+         let listed = Core.Manifest.kind_names f.names in
          let prods = List.length g.Grammar.productions in
-         let listed = List.map Kind.Name.to_string listed in
+         let listed = List.map Core.Kind.Name.to_string listed in
          let index_of pred =
            List.filteri (fun _ n -> pred n) listed
            |> fun _ ->
@@ -105,7 +106,8 @@ let () =
            List.filteri (fun i _ -> i < prods) listed
            <> List.map
                 (fun (p : Grammar.production) ->
-                   "N_" ^ Mangle.screaming_snake (Grammar.Name.Rule.to_string p.kind_name))
+                   "N_"
+                   ^ Core.Mangle.screaming_snake (Grammar.Name.Rule.to_string p.kind_name))
                 g.Grammar.productions
          then
            fail "%s: the production kinds are not the first block of the numbering" name
@@ -117,52 +119,53 @@ let () =
            pass "%s: %d kinds, numbered in the documented order" name (List.length listed);
          (* (b) *)
          List.iter
-           (fun (e : Manifest.entry) ->
-              let s = Manifest.to_string e.emitted in
-              if not (Mangle.is_ident s)
+           (fun (e : Core.Manifest.entry) ->
+              let s = Core.Manifest.to_string e.emitted in
+              if not (Core.Mangle.is_ident s)
               then fail "%s: emitted name %S is not an identifier" name s
               else (
                 match e.scope with
-                | Manifest.Scope.View_module when not (starts_upper s) ->
+                | Core.Manifest.Scope.View_module when not (starts_upper s) ->
                   fail "%s: view module %S does not start with a capital" name s
-                | Manifest.Scope.Kind_enum when not (starts_upper s) ->
+                | Core.Manifest.Scope.Kind_enum when not (starts_upper s) ->
                   fail "%s: kind constructor %S does not start with a capital" name s
                 | _ -> ()))
-           (Manifest.entries f.names);
+           (Core.Manifest.entries f.names);
          (* (c) *)
          let real =
            List.filter
-             (fun (c : Manifest.collision) -> Manifest.Scope.fails_to_compile c.c_scope)
-             (Manifest.collisions f.names)
+             (fun (c : Core.Manifest.collision) ->
+                Core.Manifest.Scope.fails_to_compile c.c_scope)
+             (Core.Manifest.collisions f.names)
          in
          (match real with
           | [] -> pass "%s: no collisions in any scope that would fail to compile" name
           | cs ->
             List.iter
-              (fun (c : Manifest.collision) ->
+              (fun (c : Core.Manifest.collision) ->
                  fail
                    "%s: accepted grammar still collides on %s %S"
                    name
-                   (Manifest.Scope.name c.c_scope)
+                   (Core.Manifest.Scope.name c.c_scope)
                    c.c_emitted)
               cs);
          (* (d) *)
          let emitted =
            List.map
-             (fun (e : Manifest.entry) -> Manifest.to_string e.emitted)
+             (fun (e : Core.Manifest.entry) -> Core.Manifest.to_string e.emitted)
              (List.filter
-                (fun (e : Manifest.entry) -> e.base = Manifest.builtin)
-                (Manifest.entries f.names))
+                (fun (e : Core.Manifest.entry) -> e.base = Core.Manifest.builtin)
+                (Core.Manifest.entries f.names))
          in
          List.iter
-           (fun want ->
-              if not (List.mem want emitted)
+           (fun expected ->
+              if not (List.mem expected emitted)
               then
                 fail
                   "%s: %S is emitted for every grammar but is not a manifest entry, so a \
                    user name reaching it would not collide"
                   name
-                  want)
+                  expected)
            [ "parse_tokens"; "format_node"; "format_generic" ])
     Corpus.all
 ;;
@@ -177,8 +180,8 @@ let () =
            code
            [ "dup-kind-name"; "reserved-name"; "name-collision"; "dup-child-name" ]
        then (
-         let m = Manifest.of_grammar g in
-         match Manifest.collisions m with
+         let m = Core.Manifest.of_grammar g in
+         match Core.Manifest.collisions m with
          | [] -> fail "%s: the witness has no manifest collision to report" code
          | _ -> pass "%s: the manifest sees the collision" code))
     Lingo_witness.Witnesses.all

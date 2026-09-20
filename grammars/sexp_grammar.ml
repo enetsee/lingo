@@ -10,7 +10,7 @@
      from regexes rather than literals;
    - [ws] is trivia.
 
-   The facts it produces are pinned in test/units/sexp_facts.ml.
+   The facts it produces are checked in test/units/sexp_facts.ml.
    -------------------------------------------------------------------------- *)
 
 open Grammar

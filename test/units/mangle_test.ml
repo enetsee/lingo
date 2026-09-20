@@ -9,26 +9,24 @@
       stopped colliding the collision checks would have nothing to catch.
    -------------------------------------------------------------------------- *)
 
-open Core
-
 let failures = ref 0
 
-let check what got want =
-  if got = want
-  then Printf.printf "PASS %s = %S\n" what want
+let check (what : string) (got : string) (expected : string) : unit =
+  if got = expected
+  then Printf.printf "PASS %s = %S\n" what expected
   else (
     incr failures;
-    Printf.printf "FAIL %s = %S, expected %S\n" what got want)
+    Printf.printf "FAIL %s = %S, expected %S\n" what got expected)
 ;;
 
 let () =
-  check "snake_case FooBar" (Mangle.snake_case "FooBar") "foo_bar";
-  check "snake_case foo" (Mangle.snake_case "foo") "foo";
-  check "snake_case Foo" (Mangle.snake_case "Foo") "foo";
-  check "snake_case F" (Mangle.snake_case "F") "f";
-  check "snake_case (empty)" (Mangle.snake_case "") "";
-  check "snake_case Foo_Bar" (Mangle.snake_case "Foo_Bar") "foo__bar";
-  check "snake_case URLPattern" (Mangle.snake_case "URLPattern") "u_r_l_pattern"
+  check "snake_case FooBar" (Core.Mangle.snake_case "FooBar") "foo_bar";
+  check "snake_case foo" (Core.Mangle.snake_case "foo") "foo";
+  check "snake_case Foo" (Core.Mangle.snake_case "Foo") "foo";
+  check "snake_case F" (Core.Mangle.snake_case "F") "f";
+  check "snake_case (empty)" (Core.Mangle.snake_case "") "";
+  check "snake_case Foo_Bar" (Core.Mangle.snake_case "Foo_Bar") "foo__bar";
+  check "snake_case URLPattern" (Core.Mangle.snake_case "URLPattern") "u_r_l_pattern"
 ;;
 
 let () =
@@ -36,39 +34,39 @@ let () =
      capitals is one word. *)
   check
     "snake_case_acronym URLPattern"
-    (Mangle.snake_case_acronym "URLPattern")
+    (Core.Mangle.snake_case_acronym "URLPattern")
     "url_pattern";
   check
     "snake_case_acronym MatchBody"
-    (Mangle.snake_case_acronym "MatchBody")
+    (Core.Mangle.snake_case_acronym "MatchBody")
     "match_body";
-  check "snake_case_acronym HTTP" (Mangle.snake_case_acronym "HTTP") "http"
+  check "snake_case_acronym HTTP" (Core.Mangle.snake_case_acronym "HTTP") "http"
 ;;
 
 let () =
-  check "safe_snake Match" (Mangle.safe_snake "Match") "match_";
-  check "safe_snake Type" (Mangle.safe_snake "Type") "type_";
-  check "safe_snake Foo" (Mangle.safe_snake "Foo") "foo";
-  check "escape_reserved end" (Mangle.escape_reserved "end") "end_";
-  check "escape_reserved ending" (Mangle.escape_reserved "ending") "ending"
+  check "safe_snake Match" (Core.Mangle.safe_snake "Match") "match_";
+  check "safe_snake Type" (Core.Mangle.safe_snake "Type") "type_";
+  check "safe_snake Foo" (Core.Mangle.safe_snake "Foo") "foo";
+  check "escape_reserved end" (Core.Mangle.escape_reserved "end") "end_";
+  check "escape_reserved ending" (Core.Mangle.escape_reserved "ending") "ending"
 ;;
 
 let () =
-  check "upper_first FooBar" (Mangle.upper_first "FooBar") "Foo_bar";
-  check "upper_first foo" (Mangle.upper_first "foo") "Foo";
-  check "upper_first (empty)" (Mangle.upper_first "") "";
-  check "screaming_snake FooBar" (Mangle.screaming_snake "FooBar") "FOOBAR";
-  check "screaming_snake foo_bar" (Mangle.screaming_snake "foo_bar") "FOO_BAR"
+  check "upper_first FooBar" (Core.Mangle.upper_first "FooBar") "Foo_bar";
+  check "upper_first foo" (Core.Mangle.upper_first "foo") "Foo";
+  check "upper_first (empty)" (Core.Mangle.upper_first "") "";
+  check "screaming_snake FooBar" (Core.Mangle.screaming_snake "FooBar") "FOOBAR";
+  check "screaming_snake foo_bar" (Core.Mangle.screaming_snake "foo_bar") "FOO_BAR"
 ;;
 
 let () =
-  let ident s want =
-    let got = Mangle.is_ident s in
-    if got = want
-    then Printf.printf "PASS is_ident %S = %b\n" s want
+  let ident s expected =
+    let got = Core.Mangle.is_ident s in
+    if got = expected
+    then Printf.printf "PASS is_ident %S = %b\n" s expected
     else (
       incr failures;
-      Printf.printf "FAIL is_ident %S = %b, expected %b\n" s got want)
+      Printf.printf "FAIL is_ident %S = %b, expected %b\n" s got expected)
   in
   ident "foo" true;
   ident "Foo_bar'" true;
@@ -91,21 +89,21 @@ let () =
       incr failures;
       Printf.printf "FAIL %S and %S no longer collide in %s\n" a b what)
   in
-  collide Mangle.safe_snake "Match" "Match_" "the parser cluster";
-  collide Mangle.snake_case "FooBar" "Foo_bar" "the parser cluster";
-  collide Mangle.screaming_snake "Foo_hole" "FOO_HOLE" "the kind enum";
+  collide Core.Mangle.safe_snake "Match" "Match_" "the parser cluster";
+  collide Core.Mangle.snake_case "FooBar" "Foo_bar" "the parser cluster";
+  collide Core.Mangle.screaming_snake "Foo_hole" "FOO_HOLE" "the kind enum";
   (* A production [Expr_Root] and a root production [Expr]: [parse_expr__root]
      from two different derivations. Grouping only [parse_fn] compared
      [parse_expr] against [parse_expr__root], found them distinct, and
      accepted a grammar whose emitted parser binds one name twice. *)
-  if Mangle.snake_case "Expr_Root" = "expr__root"
+  if Core.Mangle.snake_case "Expr_Root" = "expr__root"
   then
     Printf.printf "PASS \"Expr_Root\" snakes to the same string as Expr's root variant\n"
   else (
     incr failures;
     Printf.printf
       "FAIL \"Expr_Root\" no longer snakes to %S\n"
-      (Mangle.snake_case "Expr_Root"))
+      (Core.Mangle.snake_case "Expr_Root"))
 ;;
 
 let () =
