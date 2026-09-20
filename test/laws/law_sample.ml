@@ -98,6 +98,14 @@
       processor time for the whole of it, on the machine this record was
       written on.
 
+      Depth 1 is what the suite runs, and it says nothing about a defect
+      waiting at a million. [LINGO_SWEEP=40] is 1,200,000 inputs carrying
+      432,041 comments and 67 MB of decoded source, in 52 s, and every part
+      still reads zero. Part (g) is the one that sharpens with depth rather
+      than only repeating: at depth 1 the means sit within 2.6 of the target
+      and at depth 40 within 0.8, which is the oracle being exact rather than
+      close.
+
       What the witnesses add, and what they do not. They add a delimited body
       with a separator, a separated body, two operators at one binding power,
       a block with three postfix shapes, and a root of two required tokens.
@@ -253,8 +261,22 @@ let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
    standard deviation from 525 to 60 at a mean of 40 and makes the window
    reject far less. Part (g) is what reads the difference. *)
 let mean = 40.
-let draws = 2000
 let seed = [| 0x5EED |]
+
+(* How many inputs each grammar contributes. The suite runs at 1, and
+   [LINGO_SWEEP] multiplies it, which is the knob law_layout and law_format
+   already take. A depth of 1 is 30,000 inputs and reads zero; that says
+   nothing about a defect waiting at a million, so the record below says what
+   a deep run found. *)
+let depth =
+  match Sys.getenv_opt "LINGO_SWEEP" with
+  | None -> 1
+  | Some s ->
+    (try int_of_string s with
+     | _ -> 1)
+;;
+
+let draws = 2000 * depth
 
 (* A species with a largest size cannot be asked for more than it has, and both
    bounds are reachable. The window is half the target to one and a half times
