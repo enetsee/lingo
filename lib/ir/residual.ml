@@ -42,6 +42,18 @@ module State = struct
   let postfix (t : t) (index : int) : t = Postfix index :: t
   let equal (t : t) (other : t) : bool = t = other
 
+  (* The steps down to and including the [Enter] that opened the frame. A
+     walk pushes [Enter] at every call, so the first one is the innermost. *)
+  let site (t : t) : t =
+    let rec go (steps : t) (acc : t) : t =
+      match steps with
+      | [] -> List.rev acc
+      | (Enter _ as step) :: _ -> List.rev (step :: acc)
+      | step :: rest -> go rest (step :: acc)
+    in
+    go t []
+  ;;
+
   (* The steps of a path come back in the order the walk took them, and the
      frames innermost first. *)
   let frames (t : t) : (int * step list) list =

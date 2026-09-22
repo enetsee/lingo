@@ -170,24 +170,40 @@
                fold cannot drop the separator, a flat body then carries a trailing
                one. It is legal and idempotent and reads badly, so only the
                goldens carry it.
-       M14  In [Layout.node], carry the state the folding *with* the separator
+       M14  In [Layout.body], carry the state the folding *with* the separator
             left, rather than the one without it.
-            -> (b) 5 formats, (d) 3 inputs. The flat branch writes no separator,
-               so its state is the one the closer glues against. Carrying the
-               other one puts the separator's bytes in the run twice over.
+            -> (b) 7 formats, (d) 1 input, and law_fuzz by 581 over five laws.
+               The flat branch writes no separator, so its state is the one the
+               closer glues against. Carrying the other one puts the
+               separator's bytes in the run twice over.
 
-               The first version of this was a shadowed name that made the second
-               folding start where the first one left off. It read one format,
-               and the corpus was the only thing that saw it.
-       M15  In [Layout.node], fold a body whose separator is already there in a
-            different shape from one that gains it.
-            -> (c) 209 formats. The document's shape then depends on where the
-               separator came from, and the glue lands somewhere else on the pass
-               after the one that added it.
-       M16  In [Layout.node], put the [On_break] separator in the flat branch.
-            -> (c) 2,699 formats. A flat body then carries a trailing separator,
-               the next parse reads that as a request to break, and the pass
-               after that takes it out of the flat branch again.
+               Re-measured after the fold moved this from [Layout.node] to
+               [Layout.body]. It read 5 formats and 3 inputs before, which is
+               the corpus reaching the same defect through a different
+               document.
+
+               The first version of this was a shadowed name that made the
+               second folding start where the first one left off. It read one
+               format, and the corpus was the only thing that saw it.
+       M15  In [Layout.body], fold a body whose separator is already there in a
+            different shape from one that gains it: let [`Present] skip the
+            split at the last element that [`Add] and [`Maybe] take.
+            -> nothing, here or in law_fuzz, where it read 209 formats before
+               the separator was folded once.
+
+               The two shapes are now the same document rather than two
+               documents kept in step: [`Present] is [rest ~sep:false] and a
+               flat [`Maybe] is the same call. So the property holds by
+               construction, and what this mutation now says is that no input
+               in either corpus reaches a case where the difference shows. A
+               shape that cannot be told apart is not the same as one that is
+               the same, and this is the entry that would notice if the
+               construction stopped holding.
+       M16  In [Layout.body], put the [On_break] separator in the flat branch.
+            -> (c), and law_fuzz by 2,388, every one of them Law B. A flat body
+               then carries a trailing separator, the next parse reads that as
+               a request to break, and the pass after that takes it out of the
+               flat branch again.
 
        M17  In [Layout.node], carry a break on out of the child that asked for
             it, rather than putting it back where the child writes nothing.
@@ -227,9 +243,77 @@
                a step the corpus cannot reach makes (g) and the coverage count
                both say less than they read.
 
-      Four of the twenty redden nothing and move the goldens instead. That is
-      the honest state of the parts: they say the fold is correct, and they do not
-      say it is good.
+       M22  In [Layout.flat_end], let a child that writes nothing end the run.
+       M23  In [Layout.node], start the body segment at the opener rather than
+            after its leading run.
+            -> nothing here, and no golden moves. Both redden
+               test/laws/law_fuzz.ml, which reads zero, by 8 and by 746, every
+               one of them Law F. They are two halves of one defect: a run
+               that lands on a group's line and sits outside it. This corpus
+               cannot reach it. The head of a frame is empty unless something
+               sits before the opener, and the only production shape that has
+               one is an enclosed postfix operator, whose operand is a group.
+               Nothing anyone wrote by hand in test/inputs puts a long enough
+               postfix chain at a narrow enough width, and a swept input
+               mangles the chain before it gets there.
+       M24  In [Layout.node], read [flat_through] as [false].
+            -> (e), 70 lines past the ruler, and law_fuzz by 59. The third
+               half of the same defect, and the one this corpus does reach:
+               it did not before the separator was folded once, and what
+               changed is that the body's document no longer splits around the
+               last run.
+       M25  In [Layout.body], split the walk at the last element under
+            [`Plain] as well.
+            -> (c), 13 formats, and law_fuzz by 21. A policy that adds nothing
+               has nothing to insert there, and cutting the walk truncates
+               every run that crosses the cut.
+       M26  In [Layout.node], take a plain group and a conditional that always
+            answers flat, so an [On_break] separator is never written.
+            -> nothing here, nothing in law_fuzz, and comments.format moves by
+               16 lines. No law says a body that broke carries its separator.
+               Law C allows one and does not require it, and a fold that never
+               writes one is stably idempotent. The golden is the whole of what
+               covers it.
+
+       M27  In [Lower.expansion], leave a block's rule atoms out of the kinds a
+            slot admits.
+            -> nothing here, and law_fuzz by 4 at depth 8 on
+               [fn a()->l{utlc/rnuL//\n(aeum//\n=r[//\n1630==3?]???*00,43=riLi.{})??;}].
+               calc.layout loses kind 1 from four slots, which is [Parens], its
+               only rule atom.
+
+               A slot whose symbol is an expression block admits the block, its
+               hole and its roles. A rule atom is the fourth thing that parse
+               builds, and it stands unwrapped, so without it the fold does not
+               count one as an element: the separator a body's policy adds goes
+               in front of the atom rather than after it, and the next parse
+               reads it as a real separator. rust's [f(0, i, {})] is the shape.
+       M28  In [Layout.node], write the policy separator after bytes an error
+            node swept up.
+       M29  In [Layout.node], read an inner frame the parse never closed as
+            closed, so the policy separator is written after it.
+            -> nothing here, and law_fuzz by 4 at depth 8 each, on one witness
+               between them.
+
+               Two ways for a separator to come back somewhere this fold cannot
+               see it. Under M28 recovery sweeps it into the error node at the
+               body's end, and [fn{match]{e(}] goes [e(] to [e(,] to [e(,,],
+               gaining one on every pass without ever settling. Under M29 a
+               frame still open there takes it as its own trailing separator,
+               and [fn{match]{e\te(!}] settles on the second pass rather than
+               the first: the call [e(] has no [)], and the comma this body
+               wrote becomes that call's.
+
+      All three read zero at depth 1, which is why the law takes a depth and
+      this one does not.
+
+      Five of the twenty-nine redden nothing here and move the goldens instead,
+      and six more redden nothing here at all: three of those redden law_fuzz,
+      two move no golden either, and M15 is the one whose property became
+      structural. That
+      is the honest state of the parts: they say the fold is correct on this
+      corpus, they do not say it is good, and law_fuzz is what says this corpus
+      is not the whole of what the fold has to be right about.
 
       No mutation of the fold reddens (h). It is a claim about the corpus, and
       what would falsify it is a generator that stops exploring.
@@ -522,17 +606,17 @@ let () =
                else Lingo_runtime.Layout.doc l ~boundary tree
              in
              incr count;
-             (match Handsome.Ascii.check d with
+             (match Handsome.Utf8.check d with
               | Ok () -> ()
               | Error es -> newlines := (c.name, src, List.length es) :: !newlines);
-             let stream, res = Handsome.Ascii.render ~width d in
-             let lines = Handsome.Ascii.lines stream in
+             let stream, res = Handsome.Utf8.render ~width d in
+             let lines = Handsome.Utf8.lines stream in
              List.iter
                (fun (ln, _) ->
                   if ln < Array.length lines && lines.(ln) > width
                   then past_ruler := (c.name, src, width, ln, lines.(ln)) :: !past_ruler)
                res.declined;
-             let once = Handsome.Ascii.to_string stream in
+             let once = Handsome.Utf8.to_string stream in
              let again = fst (parse once) in
              (* [format] is idempotent: its own output formats to itself.
                 [once] is already [format] of something, so anything but an

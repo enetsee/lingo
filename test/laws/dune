@@ -105,9 +105,18 @@
 ; oracle for part (c): the sequences of kinds it accepts are the language, and
 ; the system's structure count has to be that number.
 
+; The grammar list law_sample and law_fuzz both draw from. A library rather
+; than a module of either, because a module belongs to one stanza and two
+; lists of grammars are two corpora that drift apart.
+
+(library
+ (name sample_corpus)
+ (modules sample_corpus)
+ (libraries lingo.core lingo_grammars lingo_witness))
+
 (tests
  (names law_sample)
- (modules law_sample sample_corpus)
+ (modules law_sample)
  (libraries
   lingo.sample
   lingo_witness
@@ -119,4 +128,22 @@
   lingo_runtime.ir
   bolts
   lex
+  sample_corpus
+  siesta))
+
+; law_fuzz draws the grammars law_sample draws, and rust and effekt beside
+; them. What it adds is the mutation, the coverage and the oracles; what it
+; shares is the corpus list above.
+
+(tests
+ (names law_fuzz)
+ (modules law_fuzz)
+ (libraries
+  lingo.fuzz
+  lingo.sample
+  lingo.core
+  lingo_grammars
+  lingo_runtime
+  lex
+  sample_corpus
   siesta))

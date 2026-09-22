@@ -1,3 +1,19 @@
 (tests
  (names sexp_facts mangle_test pratt_desugar)
  (libraries lingo.core lingo_grammars))
+
+; width reads the fold rather than the tables, so it needs the plan, the
+; interpreter and a lexer where the three above need none of them.
+
+(tests
+ (names width)
+ (libraries
+  lingo.core
+  lingo.interp
+  lingo.layout
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  lingo_runtime.ir
+  lex
+  siesta))

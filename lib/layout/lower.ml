@@ -49,11 +49,21 @@ let frame (facts : Core.Facts.t) (f : Core.Rule.frame) : Ir.Layout.frame =
    holds the roles and the hole as well.
 
    Without this an infix operand fails to match its slot as soon as it is itself
-   an application, which is every expression but the shallowest. *)
+   an application, which is every expression but the shallowest.
+
+   And a rule atom, which is the other node that parse builds. A token atom is
+   wrapped in the base role, so the roles cover it; a rule atom stands as
+   itself. Without it the fold does not count one as an element: it writes the
+   separator a body's policy adds in front of the atom rather than after it,
+   the next parse reads that separator as a real one, and the two passes lay
+   the body out differently. rust's [f(0, i, {})] is the case, where [{}] is
+   the [Block] atom. *)
 let expansion (f : Core.Facts.t) =
   let tbl = Hashtbl.create 8 in
   Array.iter f.blocks ~f:(fun (b : Core.Block.def) ->
     let ks = ref [ kind b.kind; kind b.hole_kind ] in
+    Array.iter b.atoms ~f:(fun a ->
+      if not (Core.Facts.is_token_kind f a) then ks := kind a :: !ks);
     Array.iter f.rules ~f:(fun (r : Core.Rule.def) ->
       match r.origin with
       | Core.Rule.Pratt_role { block; _ } when block = b.rule_id ->

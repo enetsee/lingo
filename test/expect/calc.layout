@@ -32,12 +32,12 @@
   (rule 0 File 0
     (frame plain)
     (body fit) (inner fit) (indent 2)
-    (slot (kinds 10 11 12 15) (before flat) (between flat))
+    (slot (kinds 1 10 11 12 15) (before flat) (between flat))
   )
   (rule 1 Parens 1
     (frame delimited 2 3)
     (body fit) (inner fit) (indent 2)
-    (slot (kinds 10 11 12 15) (before flat) (between flat))
+    (slot (kinds 1 10 11 12 15) (before flat) (between flat))
   )
   (rule 2 Expr 10
     (frame plain)
@@ -47,14 +47,14 @@
   (rule 3 ExprBin 11
     (frame plain)
     (body fit) (inner fit) (indent 2)
-    (slot (kinds 10 11 12 15) (before flat) (between flat))
+    (slot (kinds 1 10 11 12 15) (before flat) (between flat))
     (slot (kinds 4 5 6 7) (before flat) (between flat))
-    (slot (kinds 10 11 12 15) (before fit) (between fit))
+    (slot (kinds 1 10 11 12 15) (before fit) (between fit))
   )
   (rule 4 ExprPrefix 12
     (frame plain)
     (body fit) (inner fit) (indent 2)
     (slot (kinds 5) (before flat) (between flat))
-    (slot (kinds 10 11 12 15) (before flat) (between flat))
+    (slot (kinds 1 10 11 12 15) (before flat) (between flat))
   )
 )

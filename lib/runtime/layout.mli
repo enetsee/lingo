@@ -16,6 +16,21 @@
     The lexer is the one thing it consults, and about the bytes it is about to
     write rather than the ones it wrote.
 
+    {1 The ruler}
+
+    A width is columns drawn, not bytes stored: the fold measures with
+    [Handsome.Utf8]. On ASCII the two are one number, and the difference shows
+    on everything else. [«αβγ → αβγ»] is 11 columns and 21 bytes, and it fits a
+    ruler of 16.
+
+    Bytes would be sound. Every UTF-8 encoding is at least as long in bytes as
+    it is wide, so a byte measure over-reports, and over-reporting costs a line
+    break earlier than the ruler asks for rather than a line past it. Sound,
+    and wrong about what a reader sees, which is what a ruler is for.
+
+    test/units/width.ml is what says which is in use, because no law here can:
+    both measures are sound, so every law reads zero under either.
+
     {1 The boundary}
 
     [boundary s i] is [true] where lexing [s] puts a token boundary at byte [i].
@@ -130,7 +145,7 @@ val doc
   -> Ir.Layout.t
   -> boundary:(string -> int -> bool)
   -> Siesta.Green.node
-  -> Ir.Kind.t Handsome.Ascii.t
+  -> Ir.Kind.t Handsome.Utf8.t
 
 (** [doc] rendered at [width]. *)
 val format

@@ -86,7 +86,9 @@
       the tokens the draw held, so a terminal translated uncounted, or
       translated to two tokens, moves it. Its second half is the oracle, and
       the tolerance is four standard errors of the spread the sampler itself
-      reports.
+      reports. A sampler reporting no finite spread fails outright, because the
+      comparison would otherwise hold of any mean at all. grammars/rust is such
+      a grammar, and it is drawn in test/laws/law_fuzz.ml for that reason.
 
       What this says nothing about. Whether the distribution inside a size is
       uniform, which part (c) establishes only through the counting. Nor where
@@ -804,7 +806,15 @@ let () =
        report
        := Printf.sprintf "%s %.0f:%.1f+-%.1f" case.name case.target measured error
           :: !report;
-       if abs_float (measured -. expected) > error
+       (* A sampler reporting no finite spread leaves the comparison below true
+          of every mean there is. That is the finding, rather than a tolerance
+          of infinity printed beside a PASS. *)
+       if not (Float.is_finite error)
+       then
+         fail
+           "(g) %s: the sampler reports no finite spread, so the mean has no tolerance"
+           case.name
+       else if abs_float (measured -. expected) > error
        then
          fail
            "(g) %s: %d draws mean %.1f tokens, and the oracle was tuned for %.1f (+- \

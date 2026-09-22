@@ -64,6 +64,17 @@ module State : sig
 
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
+
+  (** The innermost frame on its own: the rule the parse is in, and the path
+      inside that rule. Two states with the same one are at the same place in
+      the same rule, whatever called it.
+
+      Coverage is counted over this rather than over the whole stack. A stack
+      grows with the input's nesting, so the number of distinct stacks climbs
+      with depth however little of the plan a corpus reaches, and a count over
+      them measures the corpus's brackets. The number of sites follows from the
+      plan. *)
+  val site : t -> t
 end
 
 (** A rule's points, as an automaton over the node's own children.

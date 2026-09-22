@@ -1,0 +1,21 @@
+; The instrument. Split five ways so that a mutator's reach and an oracle's
+; soundness are separately assertable: an oracle that over-fires and a mutator
+; that reaches nothing are invisible in each other's numbers.
+;
+; It links the plan, the interpreter and the layout, so it is a consumer of
+; everything below it and nothing below it may depend on it.
+
+(library
+ (name fuzz)
+ (public_name lingo.fuzz)
+ (libraries
+  bolts
+  core
+  handsome
+  interp
+  ir
+  layout
+  lingo_runtime
+  plan
+  sample
+  siesta))

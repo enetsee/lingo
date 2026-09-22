@@ -9,6 +9,15 @@
       test/laws/corpus.ml holds the witness list alone and law_layout reads it.
       This one is the union, and it is here rather than there because widening
       that list would move four falsification records.
+
+      rust and effekt are not here, and the reason is the engine rather than
+      the grammars. law_sample fixes a one-pointing Boltzmann sampler so its
+      counts are reproducible, and rust rejects into the window at 5 ms a draw
+      under it, which is 10 s for one corpus against 0.07 s for every grammar
+      above. Worse, the sampler reports no finite spread for rust, so part (g)
+      would hold it to a tolerance of infinity and say nothing at all. Both are
+      drawn in test/laws/law_fuzz.ml, which fixes [Bolts.Exact] instead and
+      pays neither cost.
    -------------------------------------------------------------------------- *)
 
 let ladder : (string * Core.Grammar.t) list =
