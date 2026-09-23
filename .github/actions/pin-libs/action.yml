@@ -1,0 +1,29 @@
+name: Pin the libraries lingo is built on
+description: >
+  ucharset, redfa, siesta, handsome and bolts are not on the opam repository,
+  so opam cannot solve for lingo without being told where each one is. Each is
+  pinned at the commit this repository is built against.
+
+  Every revision here is the tip of a branch or a tag. A commit that is on
+  neither is fetchable by its hash and not by a clone, so opam cannot reach
+  it and the pin looks fine until CI runs.
+
+runs:
+  using: composite
+  steps:
+    # [-n] leaves the packages unbuilt. The [opam install] after this solves
+    # for them once, with everything else, rather than building each pin as it
+    # is added.
+    - shell: bash
+      run: |
+        set -eu
+        opam pin add -y -n ucharset.dev \
+          git+https://github.com/enetsee/ucharset.git#a95ff971807dc003a252a8e3061e2d89955b242e
+        opam pin add -y -n redfa.dev \
+          git+https://github.com/enetsee/redfa.git#6d6ae56dacb7a2dccdbf0c923c9ccb5a47b44273
+        opam pin add -y -n siesta.dev \
+          git+https://github.com/enetsee/siesta.git#53f8fe491376f31e71983da9788c207ff9374776
+        opam pin add -y -n handsome.dev \
+          git+https://github.com/enetsee/handsome.git#8dfc58ecf53ce81b6756ee43759546a52de2b12b
+        opam pin add -y -n bolts.dev \
+          git+https://github.com/enetsee/bolts.git#23a8183e577f855dce7af2dbafb2bb6630b07f40

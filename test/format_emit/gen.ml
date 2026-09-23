@@ -18,6 +18,7 @@ let grammars : (string * Core.Grammar.t) list =
   ; "comments", Lingo_grammars.Comments_grammar.grammar
   ; "rust", Lingo_grammars.Rust_grammar.grammar
   ; "effekt", Lingo_grammars.Effekt_grammar.grammar
+  ; "wide", Lingo_grammars.Wide_grammar.grammar
   ]
 ;;
 

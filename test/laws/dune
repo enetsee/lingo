@@ -12,7 +12,7 @@
   law_facts
   naive_first
   corpus)
- (libraries lingo.core lingo_grammars lingo_witness redfa))
+ (libraries law lingo.core lingo_grammars lingo_witness redfa))
 
 ; law_lexer reads the table [Core.Lexer] flattens the automaton into, against
 ; the automaton itself. It needs no emitter and no compiler in the loop.
@@ -20,7 +20,7 @@
 (tests
  (names law_lexer)
  (modules law_lexer)
- (libraries lingo.core lingo_grammars redfa ucharset))
+ (libraries law lingo.core lingo_grammars redfa ucharset))
 
 ; law_runtime links lingo_runtime and nothing else, which is the claim as well
 ; as the convenience: the runtime has to be usable without the generator.
@@ -28,22 +28,22 @@
 (tests
  (names law_runtime)
  (modules law_runtime)
- (libraries lingo_runtime siesta))
+ (libraries law lingo_runtime siesta))
 
 (tests
  (names law_plan)
  (modules law_plan)
- (libraries lingo.plan lingo_runtime.ir))
+ (libraries law lingo.plan lingo_runtime.ir))
 
 (tests
  (names law_emit)
  (modules law_emit)
- (libraries lingo.ocaml fixture ppxlib))
+ (libraries law lingo.ocaml fixture ppxlib))
 
 (tests
  (names law_lower)
  (modules law_lower)
- (libraries lingo.plan lingo.core lingo_grammars lingo_runtime.ir))
+ (libraries law lingo.plan lingo.core lingo_grammars lingo_runtime.ir))
 
 ; law_interp drives the interpreter over every grammar in the corpus. It lexes
 ; through test/lex, which reads the facts' own automaton, so adding a grammar
@@ -53,6 +53,7 @@
  (names law_interp)
  (modules law_interp)
  (libraries
+  law
   lingo.plan
   lingo.interp
   lingo.core
@@ -69,6 +70,7 @@
  (names law_residual)
  (modules law_residual)
  (libraries
+  law
   emitted_parsers
   lingo.plan
   lingo.interp
@@ -87,6 +89,7 @@
  (names law_layout)
  (modules law_layout)
  (libraries
+  law
   lingo.layout
   lingo.plan
   lingo.interp
@@ -118,6 +121,7 @@
  (names law_sample)
  (modules law_sample)
  (libraries
+  law
   lingo.sample
   lingo_witness
   lingo.plan
@@ -139,6 +143,7 @@
  (names law_fuzz)
  (modules law_fuzz)
  (libraries
+  law
   lingo.fuzz
   lingo.sample
   lingo.core
@@ -157,6 +162,7 @@
  (names law_textmate)
  (modules law_textmate)
  (libraries
+  law
   lingo.core
   lingo.scopes
   lingo_editors.textmate
@@ -174,6 +180,7 @@
  (names law_treesitter)
  (modules law_treesitter)
  (libraries
+  law
   lingo.core
   lingo.scopes
   lingo_editors.treesitter
@@ -189,6 +196,7 @@
  (names law_docs)
  (modules law_docs)
  (libraries
+  law
   lingo.core
   lingo.scopes
   lingo.docs

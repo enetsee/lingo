@@ -15,8 +15,10 @@ let grammars : (string * Core.Grammar.t) list =
   ; "shapes", Lingo_grammars.Shapes_grammar.grammar
   ; "unicode", Lingo_grammars.Unicode_grammar.grammar
   ; "recovery", Lingo_grammars.Recovery_grammar.grammar
+  ; "comments", Lingo_grammars.Comments_grammar.grammar
   ; "rust", Lingo_grammars.Rust_grammar.grammar
   ; "effekt", Lingo_grammars.Effekt_grammar.grammar
+  ; "wide", Lingo_grammars.Wide_grammar.grammar
   ]
 ;;
 

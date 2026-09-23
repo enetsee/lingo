@@ -42,21 +42,6 @@
 
 open Core.Grammar
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 let grammar =
   create
     ~tokens:
@@ -121,7 +106,7 @@ let rule_named (n : string) =
   match !r with
   | Some d -> d
   | None ->
-    fail "no rule named %s" (Grammar.Name.Rule.to_string n);
+    Law.fail "no rule named %s" (Grammar.Name.Rule.to_string n);
     exit 1
 ;;
 
@@ -143,11 +128,11 @@ let () =
   in
   if roles = expected
   then
-    pass
+    Law.pass
       "one rule per postfix operator, named by its kind_suffix, and none for the \
        inactive Bin and Prefix roles"
   else
-    fail
+    Law.fail
       "roles are %s, expected %s"
       (String.concat " " (List.map (fun (a, b) -> a ^ "/" ^ b) roles))
       (String.concat " " (List.map (fun (a, b) -> a ^ "/" ^ b) expected))
@@ -160,8 +145,8 @@ let () =
   if
     e.origin = Core.Rule.Pratt_block
     && Core.Kind.Name.to_string (Core.Facts.kind_name f e.kind) = "N_E"
-  then pass "the block rule carries the base role"
-  else fail "the block rule is not the base role"
+  then Law.pass "the block rule carries the base role"
+  else Law.fail "the block rule is not the base role"
 ;;
 
 (* -- the claim ------------------------------------------------------------- *)
@@ -172,11 +157,11 @@ let call_rule = rule_named "EPostfixCall"
 let () =
   if list_rule.frame = call_rule.frame
   then
-    pass
+    Law.pass
       "a delimited production and an enclosed postfix written with the same tokens \
        produce the same frame"
   else
-    fail
+    Law.fail
       "the frames differ: %s vs %s"
       (Format.asprintf "%a" Core.Facts.pp f |> fun _ -> "List")
       "EPostfixCall"
@@ -185,11 +170,11 @@ let () =
 let () =
   if list_rule.body_from = 0 && call_rule.body_from = 1
   then
-    pass
+    Law.pass
       "body_from is 0 for the production and 1 for the postfix, and that is the whole \
        difference"
   else
-    fail
+    Law.fail
       "body_from is %d for List and %d for EPostfixCall, expected 0 and 1"
       list_rule.body_from
       call_rule.body_from
@@ -223,12 +208,12 @@ let () =
   in
   if List.map strip l = List.map strip c && List.length l = 1
   then
-    pass
+    Law.pass
       "both frames wrap one repeated child of the same kind: %s / %s"
       (List.hd l)
       (List.hd c)
   else
-    fail
+    Law.fail
       "the framed bodies differ: [%s] vs [%s]"
       (String.concat " " l)
       (String.concat " " c)
@@ -237,9 +222,9 @@ let () =
 let () =
   match Array.to_list call_rule.children with
   | [ operand; _ ] when describe operand = "operand1:N_E" ->
-    pass "the postfix operand sits before the frame, at child 0"
+    Law.pass "the postfix operand sits before the frame, at child 0"
   | cs ->
-    fail "EPostfixCall's children are [%s]" (String.concat " " (List.map describe cs))
+    Law.fail "EPostfixCall's children are [%s]" (String.concat " " (List.map describe cs))
 ;;
 
 (* -- the other three bodies ------------------------------------------------ *)
@@ -248,9 +233,9 @@ let () =
   let expect name expected =
     let got = List.map describe (Array.to_list (rule_named name).children) in
     if got = expected
-    then pass "%s = [%s]" name (String.concat " " expected)
+    then Law.pass "%s = [%s]" name (String.concat " " expected)
     else
-      fail
+      Law.fail
         "%s = [%s], expected [%s]"
         name
         (String.concat " " got)
@@ -268,8 +253,8 @@ let () =
      the shape says which of the two it is, and nothing has to remember. *)
   let plain n =
     if (rule_named n).frame = Core.Rule.Plain && (rule_named n).body_from = 0
-    then pass "%s is plain and starts at child 0" n
-    else fail "%s should carry no frame" n
+    then Law.pass "%s is plain and starts at child 0" n
+    else Law.fail "%s should carry no frame" n
   in
   plain "EPostfixBang";
   plain "EPostfixDot";
@@ -279,14 +264,8 @@ let () =
          && Core.Kind.Name.equal
               (Core.Facts.kind_name f close)
               (Core.Kind.Name.token "rb") ->
-    pass "EPostfixIdx is delimited by lb .. rb with no separator"
-  | _ -> fail "EPostfixIdx does not carry the lb .. rb frame"
+    Law.pass "EPostfixIdx is delimited by lb .. rb with no separator"
+  | _ -> Law.fail "EPostfixIdx does not carry the lb .. rb frame"
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "pratt_desugar: 0 failures"
-  else (
-    Printf.printf "pratt_desugar: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "pratt_desugar"

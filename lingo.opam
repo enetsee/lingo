@@ -18,7 +18,6 @@ depends: [
   "bolts"
   "handsome"
   "ppxlib"
-  "alcotest" {with-test}
   "odoc" {with-doc}
 ]
 build: [

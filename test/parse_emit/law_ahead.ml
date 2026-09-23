@@ -3,7 +3,7 @@
       (a) The tables a grammar's module holds are the tables its plan gives.
       (b) The entry point over them gives the kinds a root starts with.
 
-      Mechanism. Ten grammars. For each, [Ir.Residual.Table.of_plan] is read
+      Mechanism. Twelve grammars. For each, [Ir.Residual.Table.of_plan] is read
       off the plan here and compared with the literal the emitter wrote into
       the generated module, point for point.
 
@@ -16,42 +16,27 @@
       library stanza beside this enforces: one reaching for a plan would not
       build.
 
-      Falsification. Re-run on 2026-09-19, after the body loop's progress guard
-      changed. Every mutation was applied, built, run and reverted, and the
+      Falsification. Re-run on 2026-09-23, after comments and wide joined the
+      corpus. Every mutation was applied, built, run and reverted, and the
       result recorded is the one observed.
 
         M1  In [Ocaml.Residual.point], write [may_end] as [true] always.
-            -> part (a), all ten grammars.
+            -> part (a), all twelve grammars.
         M2  In [Ocaml.Residual.generate], leave the last table out of
             [of_kind].
-            -> part (a), all ten grammars, and part (b) on one of them. The
-               record read part (a) alone before the guard changed: the kind
-               whose table goes missing is now reached by a walk from a root as
-               well as by the comparison.
+            -> part (a), all twelve grammars, and part (b) on one of them. The
+               record read part (a) alone before the body loop's progress
+               guard changed: the kind whose table goes missing is now reached
+               by a walk from a root as well as by the comparison.
         M3  In [Ocaml.Residual.generate], write the trivia kinds as empty.
-            -> part (a), all ten grammars.
+            -> part (a), all twelve grammars.
         M4  In [Ocaml.Residual.point], write the transition targets one too
             high.
-            -> part (a), all ten grammars, and part (b) on none of them: the
+            -> part (a), all twelve grammars, and part (b) on none of them: the
                root's own first point is reached before any transition runs.
    -------------------------------------------------------------------------- *)
 
 open StdLabels
-
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
 
 type case =
   { name : string
@@ -106,10 +91,20 @@ let corpus =
     ; tables = Emitted_parsers.Rust_residual.tables
     ; source = "fn f(a: int) -> int { let x = 1; }"
     }
+  ; { name = "comments"
+    ; grammar = Lingo_grammars.Comments_grammar.grammar
+    ; tables = Emitted_parsers.Comments_residual.tables
+    ; source = "[a /* mid */, b]"
+    }
   ; { name = "effekt"
     ; grammar = Lingo_grammars.Effekt_grammar.grammar
     ; tables = Emitted_parsers.Effekt_residual.tables
     ; source = "def f(x: Int): Int = x;"
+    }
+  ; { name = "wide"
+    ; grammar = Lingo_grammars.Wide_grammar.grammar
+    ; tables = Emitted_parsers.Wide_residual.tables
+    ; source = "select a from t where a > 10;"
     }
   ]
 ;;
@@ -119,7 +114,7 @@ let points = ref 0
 let () =
   List.iter corpus ~f:(fun c ->
     match Core.Facts.of_grammar c.grammar with
-    | Error _ -> fail "%s: the grammar does not check" c.name
+    | Error _ -> Law.fail "%s: the grammar does not check" c.name
     | Ok facts ->
       let plan, _ = Plan.Lower.of_facts facts in
       let entries = Ir.Residual.Table.of_plan plan in
@@ -127,23 +122,23 @@ let () =
       Array.iter from_plan ~f:(fun table -> points := !points + Array.length table);
       if c.tables.points <> from_plan
       then
-        fail
+        Law.fail
           "(a) %s emitted %d automata and its plan gives %d, or their points differ"
           c.name
           (Array.length c.tables.points)
           (Array.length from_plan);
       List.iteri entries ~f:(fun index (kind, _) ->
         if kind >= Array.length c.tables.of_kind || c.tables.of_kind.(kind) <> index
-        then fail "(a) %s sends kind %d to the wrong automaton" c.name kind);
+        then Law.fail "(a) %s sends kind %d to the wrong automaton" c.name kind);
       if c.tables.trivia <> plan.Ir.Plan.trivia
-      then fail "(a) %s emitted the wrong trivia kinds" c.name;
+      then Law.fail "(a) %s emitted the wrong trivia kinds" c.name;
       if c.tables.error_kind <> plan.Ir.Plan.error_kind
-      then fail "(a) %s emitted the wrong error kind" c.name)
+      then Law.fail "(a) %s emitted the wrong error kind" c.name)
 ;;
 
 let () =
-  if !failures = 0
-  then pass "every emitted table is the one its plan gives, over %d points" !points
+  if Law.failures () = 0
+  then Law.pass "every emitted table is the one its plan gives, over %d points" !points
 ;;
 
 (* -- (b) the entry point ---------------------------------------------------- *)
@@ -152,7 +147,7 @@ let () =
    starts with. The plan already carries that set, worked out by a different
    route. *)
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   List.iter corpus ~f:(fun c ->
     match Core.Facts.of_grammar c.grammar with
     | Error _ -> ()
@@ -163,22 +158,16 @@ let () =
       let first = plan.Ir.Plan.rules.(plan.Ir.Plan.roots.(0)).first in
       if given <> first
       then
-        fail
+        Law.fail
           "(b) %s gives %s at the first byte, where its root starts with %s"
           c.name
           (String.concat ~sep:" " (List.map (Array.to_list given) ~f:string_of_int))
           (String.concat ~sep:" " (List.map (Array.to_list first) ~f:string_of_int)));
-  if !failures = before
+  if Law.failures () = before
   then
-    pass
+    Law.pass
       "the entry point gives what the root starts with, over %d grammars"
       (List.length corpus)
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_ahead: 0 failures"
-  else (
-    Printf.printf "law_ahead: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_ahead"

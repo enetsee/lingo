@@ -16,8 +16,14 @@
       (j) Every {!Textmate.Check.problem} a grammar can reach has a witness.
       (k) A part spliced into a single-regex emission contributes exactly one
           capture group.
+      (l) A pattern list tries the specific before the general: [#tokens]
+          last, a literal before any literal it is a prefix of, and every
+          literal before every pattern token.
+      (m) Two guards the twelve grammars cannot reach, each on a grammar
+          written for it.
 
-      Mechanism. Parts (a) to (h) read the emitted JSON back and walk it. They
+      Mechanism. Parts (a) to (h) and (l) read the emitted JSON back and walk
+      it. They
       share no code with the emitter. The reference walk, the capture counter
       and the scope-path check are written here a second time. A law that
       calls the function it is checking proves only that the function agrees
@@ -101,37 +107,54 @@
                that names itself by a child does it once, and a body pattern
                fires everywhere.
 
-      Two mutations redden nothing and move no golden byte.
+      Part (l) is about order alone. A TextMate engine takes the leftmost
+      match, and among rules that match at the same position it takes the
+      first in the list. So a general pattern written ahead of a specific one
+      is the specific one deleted, and nothing says so: the file loads, the
+      editor runs, and the colour is the general one everywhere. Parts (a) to
+      (h) read what is in the document and never what order it is in.
+      [law_treesitter] part (m) is the same claim for the other engine, where
+      the rule runs the other way and the last pattern wins. That one found a
+      real defect; this one reads zero and holds the order in place.
+
+        M9  In [Emit.with_tails], put [#tokens] at the head of a body rather
+            than at its end.
+            -> part (l), 56 findings: effekt 26, rust 16, wide 3, json 2,
+               calc 2, and one each from the remaining five. Every body
+               pattern in the grammar goes dark, because the grammar-wide
+               token entry matches first at every position one of them would.
+        M10 In [Emit.tokens_entry], sort the literals shortest first.
+            -> part (l), 13 findings: effekt 7, rust 4, wide 2. [=] then
+               takes the first character of [==] and [=>], and the longer
+               operator never matches whole.
+        M11 In [Emit.tokens_entry], write the pattern tokens ahead of the
+            literals.
+            -> part (l), 309 findings: effekt 188, wide 69, rust 42, json 10.
+               An identifier pattern reaches the text of every keyword, so
+               each keyword is taken by the pattern instead and loses its own
+               scope.
+
+      Two mutations read zero over the corpus and now have a witness apiece.
+      Part (m) is where those witnesses live, and both reddened it when it was
+      written.
 
         N1  In [Shape.closing_text], drop the guard that the last child be
             required.
-            -> nothing. No rule in the corpus contains its own errors, opens
-               on a literal and ends on a child that may be absent. The guard
-               is there so that a region whose anchor the input never reaches
-               does not run to the end of the file. That claim is about an
-               input, and this law reads no input.
+            -> part (m), 1 finding, on its own witness. No rule in the twelve
+               grammars contains its own errors, opens on a literal and ends
+               on a child that may be absent. The witness does: a committed
+               [Decl] opening on [sig] with an optional [;] after the name.
+               Without the guard it becomes a region whose [end] is a
+               lookbehind past a [;] that need not be there.
         N2  In [Emit.bracket_only], stop subtracting the tokens that also
             appear as an ordinary child.
-            -> nothing. No token in the corpus is both half of a matched pair
-               and a child somewhere else. The subtraction keeps such a token
-               in the grammar-wide entry. Its occurrences outside any pair are
-               scoped there, and part (h) would report those going dark.
+            -> part (m), 1 finding, on its own witness. No token in the twelve
+               grammars is both half of a matched pair and a child somewhere
+               else. The witness has one: [\[] frames [File] and is an
+               alternative of [Item]. The subtraction keeps it in the
+               grammar-wide entry, where its occurrences outside any pair are
+               scoped.
    -------------------------------------------------------------------------- *)
-
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
 
 (* -- what the corpus emits ----------------------------------------------- *)
 
@@ -150,7 +173,7 @@ let emitted : emitted list =
        match Textmate.generate scopes ~language:entry.name () with
        | Error problems ->
          List.iter
-           (fun p -> fail "%s: %a" entry.name Textmate.Check.pp_problem p)
+           (fun p -> Law.fail "%s: %a" entry.name Textmate.Check.pp_problem p)
            problems;
          { name = entry.name
          ; facts = Scopes.facts scopes
@@ -245,20 +268,24 @@ let () =
               incr checked;
               if not (List.mem key known)
               then
-                fail "(a) %s: %s references #%s, which nothing declares" e.name where key)
+                Law.fail
+                  "(a) %s: %s references #%s, which nothing declares"
+                  e.name
+                  where
+                  key)
            (references_of json)
        in
        List.iter (check "the root") (root_patterns e);
        List.iter (fun (key, json) -> check key json) (entries e))
     emitted;
-  if !failures = 0
-  then pass "(a) every reference names an entry, over %d of them" !checked
+  if Law.failures () = 0
+  then Law.pass "(a) every reference names an entry, over %d of them" !checked
 ;;
 
 (* -- (b) every entry is reachable ---------------------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let total = ref 0 in
   List.iter
     (fun (e : emitted) ->
@@ -277,11 +304,11 @@ let () =
          (fun (key, _) ->
             incr total;
             if not (Hashtbl.mem seen key)
-            then fail "(b) %s: nothing reaches the entry %S" e.name key)
+            then Law.fail "(b) %s: nothing reaches the entry %S" e.name key)
          table)
     emitted;
-  if !failures = before
-  then pass "(b) every entry is reachable from the root, over %d of them" !total
+  if Law.failures () = before
+  then Law.pass "(b) every entry is reachable from the root, over %d of them" !total
 ;;
 
 (* -- (c) no cycle among reference-only entries --------------------------- *)
@@ -298,7 +325,7 @@ let is_flat (json : Yojson.Basic.t) : bool =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   List.iter
     (fun (e : emitted) ->
        let table = entries e in
@@ -315,7 +342,7 @@ let () =
            if not (Hashtbl.mem reported cycle)
            then (
              Hashtbl.replace reported cycle ();
-             fail "(c) %s: the reference-only entries %s form a cycle" e.name cycle))
+             Law.fail "(c) %s: the reference-only entries %s form a cycle" e.name cycle))
          else (
            match List.assoc_opt key table with
            | None -> ()
@@ -326,7 +353,8 @@ let () =
        in
        List.iter (fun (key, _) -> if flat key then walk ~stack:[] key) table)
     emitted;
-  if !failures = before then pass "(c) no cycle runs through a reference-only entry"
+  if Law.failures () = before
+  then Law.pass "(c) no cycle runs through a reference-only entry"
 ;;
 
 (* -- (d) regions are paired and captures exist --------------------------- *)
@@ -356,7 +384,7 @@ let capture_groups (regex : string) : int =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let checked = ref 0 in
   let groups = ref 0 in
   List.iter
@@ -366,8 +394,8 @@ let () =
          | `Assoc fields ->
            let has key = List.mem_assoc key fields in
            (match has "begin", has "end" with
-            | true, false -> fail "(d) %s: %s has a begin and no end" e.name where
-            | false, true -> fail "(d) %s: %s has an end and no begin" e.name where
+            | true, false -> Law.fail "(d) %s: %s has a begin and no end" e.name where
+            | false, true -> Law.fail "(d) %s: %s has an end and no begin" e.name where
             | _ -> ());
            List.iter
              (fun (map_key, regex_key) ->
@@ -381,7 +409,7 @@ let () =
                        match int_of_string_opt index with
                        | Some index when index <= available -> ()
                        | Some index ->
-                         fail
+                         Law.fail
                            "(d) %s: %s scopes capture %d of %S, which has %d groups"
                            e.name
                            where
@@ -389,23 +417,28 @@ let () =
                            regex
                            available
                        | None ->
-                         fail
+                         Law.fail
                            "(d) %s: %s scopes %S, which is no capture"
                            e.name
                            where
                            index)
                     indexed
                 | Some (`Assoc _), _ ->
-                  fail "(d) %s: %s has a %s map and no %s" e.name where map_key regex_key
+                  Law.fail
+                    "(d) %s: %s has a %s map and no %s"
+                    e.name
+                    where
+                    map_key
+                    regex_key
                 | _ -> ())
              [ "captures", "match"; "beginCaptures", "begin"; "endCaptures", "end" ]
          | _ -> ()
        in
        List.iter (fun (key, json) -> List.iter (check key) (patterns_in json)) (entries e))
     emitted;
-  if !failures = before
+  if Law.failures () = before
   then
-    pass
+    Law.pass
       "(d) every region is paired and every capture exists, over %d captures and %d \
        groups"
       !checked
@@ -415,7 +448,7 @@ let () =
 (* -- (e) every scope is a path ------------------------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let checked = ref 0 in
   let valid (c : char) : bool =
     match c with
@@ -433,12 +466,15 @@ let () =
                  | "name", `String scope when String.length e.name > 0 ->
                    incr checked;
                    if not (String.for_all valid scope)
-                   then fail "(e) %s: the scope %S is not a path" e.name scope;
+                   then Law.fail "(e) %s: the scope %S is not a path" e.name scope;
                    if String.split_on_char '.' scope |> List.exists (String.equal "")
-                   then fail "(e) %s: the scope %S has an empty segment" e.name scope;
+                   then Law.fail "(e) %s: the scope %S has an empty segment" e.name scope;
                    if not (Filename.check_suffix scope ("." ^ e.name))
                    then
-                     fail "(e) %s: the scope %S does not end in the language" e.name scope
+                     Law.fail
+                       "(e) %s: the scope %S does not end in the language"
+                       e.name
+                       scope
                  | _ -> ());
                 walk value)
              fields
@@ -450,30 +486,34 @@ let () =
        List.iter walk (root_patterns e);
        List.iter (fun (_, json) -> walk json) (entries e))
     emitted;
-  if !failures = before then pass "(e) every scope is a path, over %d of them" !checked
+  if Law.failures () = before
+  then Law.pass "(e) every scope is a path, over %d of them" !checked
 ;;
 
 (* -- (f) the same bytes every time --------------------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   List.iter
     (fun (e : emitted) ->
        match Textmate.generate e.scopes ~language:e.name () with
-       | Error _ -> fail "(f) %s: the second run rejected what the first emitted" e.name
+       | Error _ ->
+         Law.fail "(f) %s: the second run rejected what the first emitted" e.name
        | Ok again ->
          if not (String.equal again e.text)
-         then fail "(f) %s: two runs gave different bytes" e.name)
+         then Law.fail "(f) %s: two runs gave different bytes" e.name)
     emitted;
-  if !failures = before
+  if Law.failures () = before
   then
-    pass "(f) a grammar emits the same bytes twice, over %d of them" (List.length emitted)
+    Law.pass
+      "(f) a grammar emits the same bytes twice, over %d of them"
+      (List.length emitted)
 ;;
 
 (* -- (g) a region is a frame --------------------------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let regions = ref 0 in
   let plain = ref 0 in
   List.iter
@@ -493,7 +533,7 @@ let () =
                   | Core.Rule.Delimited _ ->
                     if not is_region
                     then
-                      fail
+                      Law.fail
                         "(g) %s: %s is framed by a matched pair and emits no region"
                         e.name
                         (Core.Grammar.Name.Rule.to_string rule.name)
@@ -501,15 +541,15 @@ let () =
                   | Core.Rule.Plain | Core.Rule.Separated _ ->
                     if is_region
                     then
-                      fail
+                      Law.fail
                         "(g) %s: %s emits a region and its framing contains nothing"
                         e.name
                         (Core.Grammar.Name.Rule.to_string rule.name))))
          Core.Facts.(e.facts.rules))
     emitted;
-  if !failures = before
+  if Law.failures () = before
   then
-    pass
+    Law.pass
       "(g) a region is a frame, over %d regions and %d entries beside them"
       !regions
       !plain
@@ -518,7 +558,7 @@ let () =
 (* -- (h) every scope reaches the document -------------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let carried = ref 0 in
   List.iter
     (fun (e : emitted) ->
@@ -545,7 +585,7 @@ let () =
            let rendered = Scopes.Scope.to_string ~language:e.name scope in
            if not (Hashtbl.mem names rendered)
            then
-             fail
+             Law.fail
                "(h) %s: %s is scoped %s and nothing in the document carries it"
                e.name
                what
@@ -570,8 +610,8 @@ let () =
               rule.children)
          Core.Facts.(e.facts.rules))
     emitted;
-  if !failures = before
-  then pass "(h) every scope reaches the document, over %d of them" !carried
+  if Law.failures () = before
+  then Law.pass "(h) every scope reaches the document, over %d of them" !carried
 ;;
 
 (* -- (i) a witness per finding ------------------------------------------- *)
@@ -583,11 +623,11 @@ let facts_of (grammar : Core.Grammar.t) : Core.Facts.t =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let facts = facts_of Lingo_grammars.Rust_grammar.grammar in
   let one (what : string) (override : Scopes.override) (expected : Scopes.finding) : unit =
     match Scopes.of_facts facts ~overrides:[ override ] with
-    | Ok _ -> fail "(i) %s: the override was accepted" what
+    | Ok _ -> Law.fail "(i) %s: the override was accepted" what
     | Error [ finding ] ->
       if
         not
@@ -595,13 +635,13 @@ let () =
              (Scopes.finding_to_string finding)
              (Scopes.finding_to_string expected))
       then
-        fail
+        Law.fail
           "(i) %s: reported %S where %S was expected"
           what
           (Scopes.finding_to_string finding)
           (Scopes.finding_to_string expected)
     | Error findings ->
-      fail
+      Law.fail
         "(i) %s: reported %d findings where one was expected"
         what
         (List.length findings)
@@ -642,13 +682,13 @@ let () =
              }
          ]
    with
-   | Ok _ -> fail "(i) a malformed scope: the override was accepted"
+   | Ok _ -> Law.fail "(i) a malformed scope: the override was accepted"
    | Error [ Scopes.Malformed_scope _ ] -> ()
    | Error findings ->
-     fail
+     Law.fail
        "(i) a malformed scope: reported %s"
        (String.concat ", " (List.map Scopes.finding_to_string findings)));
-  if !failures = before then pass "(i) every finding has a witness override"
+  if Law.failures () = before then Law.pass "(i) every finding has a witness override"
 ;;
 
 (* -- (j) a witness per problem ------------------------------------------- *)
@@ -660,7 +700,7 @@ let scopes_of (facts : Core.Facts.t) : Scopes.t =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let expect
         (what : string)
         (result : (string, Textmate.Check.problem list) result)
@@ -668,11 +708,11 @@ let () =
     : unit
     =
     match result with
-    | Ok _ -> fail "(j) %s: the grammar was accepted" what
+    | Ok _ -> Law.fail "(j) %s: the grammar was accepted" what
     | Error problems ->
       if not (List.exists expected problems)
       then
-        fail
+        Law.fail
           "(j) %s: reported %s"
           what
           (String.concat ", " (List.map Textmate.Check.problem_to_string problems))
@@ -802,7 +842,7 @@ let () =
              }
          ]
    with
-   | Error _ -> fail "(j) a scope with nowhere to go: the override was rejected"
+   | Error _ -> Law.fail "(j) a scope with nowhere to go: the override was rejected"
    | Ok scopes ->
      expect
        "a scope on a rule that emits a list"
@@ -810,7 +850,7 @@ let () =
        (function
        | Textmate.Check.Unattachable_scope _ -> true
        | _ -> false));
-  if !failures = before then pass "(j) every reachable problem has a witness"
+  if Law.failures () = before then Law.pass "(j) every reachable problem has a witness"
 ;;
 
 (* -- (k) a spliced part is one capture group ----------------------------- *)
@@ -825,7 +865,7 @@ let () =
    regex has, so it is in range and it is wrong. This counts the groups
    instead, over a token written with a group in it on purpose. *)
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let grammar =
     let open Core.Grammar in
     create
@@ -856,40 +896,182 @@ let () =
     ]
   in
   match Scopes.of_facts (facts_of grammar) ~overrides with
-  | Error fs -> List.iter (fun f -> fail "(k) %s" (Scopes.finding_to_string f)) fs
+  | Error fs -> List.iter (fun f -> Law.fail "(k) %s" (Scopes.finding_to_string f)) fs
   | Ok scopes ->
     (match Textmate.generate scopes ~language:"witness" () with
      | Error problems ->
-       List.iter (fun p -> fail "(k) %a" Textmate.Check.pp_problem p) problems
+       List.iter (fun p -> Law.fail "(k) %a" Textmate.Check.pp_problem p) problems
      | Ok text ->
        let document = Yojson.Basic.from_string text in
        (match
           Option.bind (field "repository" document) (fun repository ->
             field "pair" repository)
         with
-        | None -> fail "(k) the witness emitted no entry for its one production"
+        | None -> Law.fail "(k) the witness emitted no entry for its one production"
         | Some entry ->
           (match field "match" entry, field "captures" entry with
            | Some (`String regex), Some (`Assoc indexed) ->
              let groups = capture_groups regex in
              if groups <> 2
              then
-               fail
+               Law.fail
                  "(k) two parts were spliced and the regex %S has %d groups"
                  regex
                  groups;
              let named = List.sort compare (List.map fst indexed) in
              if named <> [ "1"; "2" ]
-             then fail "(k) the capture map names %s" (String.concat ", " named)
-           | _ -> fail "(k) the witness did not emit a single match with captures")));
-    if !failures = before
-    then pass "(k) a spliced part contributes exactly one capture group"
+             then Law.fail "(k) the capture map names %s" (String.concat ", " named)
+           | _ -> Law.fail "(k) the witness did not emit a single match with captures")));
+    if Law.failures () = before
+    then Law.pass "(k) a spliced part contributes exactly one capture group"
+;;
+
+(* -- (l) a pattern list tries the specific before the general ------------ *)
+
+(* A TextMate patterns list has no precedence beyond the order it is written
+   in. The engine takes the leftmost match, and among rules that match at the
+   same position it takes the first in the list. So a general pattern written
+   ahead of a specific one is the specific one deleted, and nothing anywhere
+   says so: the file loads, the editor runs, and the colour is the general
+   one everywhere.
+
+   Three orderings carry that weight, and each is stated in a comment in
+   [Emit] with nothing checking it.
+
+   - [#tokens] is the grammar-wide catch-all, so it comes last in any list
+     that includes it.
+   - Inside [#tokens], a literal comes before any literal it is a prefix of.
+     [=] written first would take the [=] of an [==].
+   - Inside [#tokens], every literal comes before every pattern token. An
+     identifier pattern reaches the text of a keyword, so the keyword has to
+     be tried first.
+
+   The sibling law for tree-sitter is [law_treesitter] part (m), where the
+   rule runs the other way: that engine takes the last pattern rather than
+   the first. *)
+
+let token_regex (token : Core.Token.def) : string option =
+  match Textmate.Oniguruma.of_token token with
+  | Ok regex -> Some regex
+  | Error _ -> None
+;;
+
+(* Where a token's own pattern sits in [#tokens], by the regex it emits. *)
+let position_in (patterns : Yojson.Basic.t list) (regex : string) : int option =
+  let rec look (index : int) (rest : Yojson.Basic.t list) : int option =
+    match rest with
+    | [] -> None
+    | pattern :: tl ->
+      (match field "match" pattern with
+       | Some (`String found) when found = regex -> Some index
+       | _ -> look (index + 1) tl)
+  in
+  look 0 patterns
+;;
+
+let () =
+  let before = Law.failures () in
+  let checked = ref 0 in
+  List.iter
+    (fun (e : emitted) ->
+       (* [#tokens] last, in every list that has it. *)
+       List.iter
+         (fun (key, entry) ->
+            List.iter
+              (fun pattern ->
+                 match field "patterns" pattern with
+                 | Some (`List items) ->
+                   let count = List.length items in
+                   List.iteri
+                     (fun index item ->
+                        if reference_of item = Some "tokens"
+                        then (
+                          incr checked;
+                          if index <> count - 1
+                          then
+                            Law.fail
+                              "(l) %s: %s includes #tokens at %d of %d, and every \
+                               pattern after it is unreachable wherever #tokens matches"
+                              e.name
+                              key
+                              index
+                              count))
+                     items
+                 | _ -> ())
+              (patterns_in entry))
+         (entries e);
+       (* Inside [#tokens], the specific literal and then the general one. *)
+       match List.assoc_opt "tokens" (entries e) with
+       | None -> ()
+       | Some entry ->
+         let items =
+           match field "patterns" entry with
+           | Some (`List items) -> items
+           | _ -> []
+         in
+         let placed =
+           Array.to_list Core.Facts.(e.facts.tokens)
+           |> List.filter_map (fun (token : Core.Token.def) ->
+             match token_regex token with
+             | None -> None
+             | Some regex ->
+               (match position_in items regex with
+                | None -> None
+                | Some index -> Some (token, index)))
+         in
+         let literals, patterns =
+           List.partition
+             (fun ((token : Core.Token.def), _) -> Core.Token.text token <> None)
+             placed
+         in
+         List.iter
+           (fun ((short : Core.Token.def), at_short) ->
+              let text = Option.get (Core.Token.text short) in
+              List.iter
+                (fun ((long : Core.Token.def), at_long) ->
+                   let longer = Option.get (Core.Token.text long) in
+                   if
+                     String.length longer > String.length text
+                     && String.sub longer 0 (String.length text) = text
+                   then (
+                     incr checked;
+                     if at_long > at_short
+                     then
+                       Law.fail
+                         "(l) %s: #tokens tries %S before %S, so %S never matches whole"
+                         e.name
+                         text
+                         longer
+                         longer))
+                literals)
+           literals;
+         List.iter
+           (fun ((literal : Core.Token.def), at_literal) ->
+              List.iter
+                (fun ((token : Core.Token.def), at_pattern) ->
+                   incr checked;
+                   if at_pattern < at_literal
+                   then
+                     Law.fail
+                       "(l) %s: #tokens tries the pattern token %S before the literal \
+                        %S, which it can swallow"
+                       e.name
+                       (Core.Grammar.Name.Token.to_string token.name)
+                       (Option.value (Core.Token.text literal) ~default:""))
+                patterns)
+           literals)
+    emitted;
+  if Law.failures () = before
+  then
+    Law.pass
+      "(l) a pattern list tries the specific before the general, over %d orderings"
+      !checked
 ;;
 
 (* -- a hand-written pattern reaches the document ------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let rust = scopes_of (facts_of Lingo_grammars.Rust_grammar.grammar) in
   match
     Textmate.generate
@@ -900,7 +1082,7 @@ let () =
   with
   | Error problems ->
     List.iter
-      (fun p -> fail "a hand-written pattern: %a" Textmate.Check.pp_problem p)
+      (fun p -> Law.fail "a hand-written pattern: %a" Textmate.Check.pp_problem p)
       problems
   | Ok text ->
     let document = Yojson.Basic.from_string text in
@@ -918,14 +1100,129 @@ let () =
          | None -> false)
       | _ -> false
     in
-    if not found then fail "a hand-written pattern did not reach the entry it names";
-    if !failures = before then pass "a hand-written pattern reaches the entry it names"
+    if not found then Law.fail "a hand-written pattern did not reach the entry it names";
+    if Law.failures () = before
+    then Law.pass "a hand-written pattern reaches the entry it names"
 ;;
 
+(* -- (m) two guards the corpus cannot reach ------------------------------ *)
+
+(* Both of these read zero over the twelve grammars, and were recorded as
+   findings rather than dropped. A witness grammar apiece measures them.
+
+   [Emit.bracket_only] keeps a token in the grammar-wide entry where the
+   token is half of a matched pair somewhere and an ordinary child somewhere
+   else. Without that, the token's own scope reaches nothing outside the
+   pairs.
+
+   [Shape.closing_text] gives a region no [end] anchor where the rule's last
+   child may be absent. The anchor is a lookbehind past that child's text, so
+   on input that leaves the child out the region would run to the end of the
+   file. *)
 let () =
-  if !failures = 0
-  then print_endline "law_textmate: 0 failures"
-  else (
-    Printf.printf "law_textmate: %d failures\n" !failures;
-    exit 1)
+  let before = Law.failures () in
+  (* [lbrack] frames [File] and is also an ordinary child of [Item]. *)
+  let both_bracket_and_child =
+    let open Core.Grammar in
+    create
+      ~tokens:
+        [ punct_tight ~name:"lbrack" "["
+        ; punct_tight ~name:"rbrack" "]"
+        ; pat "word" Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z'))
+        ]
+      ~roots:[ "File" ]
+      [ prod "File" [ child_rep "item" (Rule "Item") ]
+        |> with_delimited ~open_tok:"lbrack" ~close_tok:"rbrack"
+      ; prod
+          "Item"
+          [ child_alt ~modifier:Exactly_one "one" [ Token "word"; Token "lbrack" ] ]
+      ]
+  in
+  (match
+     Textmate.generate
+       (scopes_of (facts_of both_bracket_and_child))
+       ~language:"witness"
+       ()
+   with
+   | Error problems ->
+     List.iter
+       (fun p ->
+          Law.fail
+            "(m) a token that is a bracket and a child: %a"
+            Textmate.Check.pp_problem
+            p)
+       problems
+   | Ok text ->
+     let document = Yojson.Basic.from_string text in
+     (match field "repository" document with
+      | Some (`Assoc fields) ->
+        (match List.assoc_opt "tokens" fields with
+         | None -> Law.fail "(m) the witness emitted no grammar-wide token entry"
+         | Some entry ->
+           if
+             not
+               (List.exists
+                  (fun pattern ->
+                     match field "match" pattern with
+                     | Some (`String regex) -> regex = {|\[|}
+                     | _ -> false)
+                  (patterns_in entry))
+           then
+             Law.fail
+               "(m) [ is a bracket in one rule and a child in another, and the \
+                grammar-wide entry leaves it out, so its occurrences outside a pair are \
+                unscoped")
+      | _ -> Law.fail "(m) the witness emitted no repository"));
+  (* [Decl] contains its own errors and opens on [sig]. Its last child may be
+     absent, so no lookbehind can end it. *)
+  let optional_last_child =
+    let open Core.Grammar in
+    create
+      ~tokens:
+        [ kw "sig"
+        ; punct ~space_before:false ~name:"semi" ";"
+        ; pat "word" Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z'))
+        ]
+      ~roots:[ "File" ]
+      [ prod "File" [ child_rep "decl" (Rule "Decl") ]
+      ; prod
+          "Decl"
+          [ child_req "kw" (Token "sig")
+          ; child_req "name" (Token "word")
+          ; child_opt "semi" (Token "semi")
+          ]
+        |> with_committed
+      ]
+  in
+  (match
+     Textmate.generate (scopes_of (facts_of optional_last_child)) ~language:"witness" ()
+   with
+   | Error problems ->
+     List.iter
+       (fun p ->
+          Law.fail
+            "(m) a committed rule ending on an optional child: %a"
+            Textmate.Check.pp_problem
+            p)
+       problems
+   | Ok text ->
+     let document = Yojson.Basic.from_string text in
+     (match field "repository" document with
+      | Some (`Assoc fields) ->
+        (match List.assoc_opt "decl" fields with
+         | None -> Law.fail "(m) the witness emitted no entry for decl"
+         | Some entry ->
+           if
+             List.exists
+               (fun pattern -> field "begin" pattern <> None)
+               (patterns_in entry)
+           then
+             Law.fail
+               "(m) decl ends on a child that may be absent and still opened a region, \
+                which would run to the end of the file where the child is left out")
+      | _ -> Law.fail "(m) the witness emitted no repository"));
+  if Law.failures () = before
+  then Law.pass "(m) both guards the corpus cannot reach have a witness"
 ;;
+
+let () = Law.summarise "law_textmate"

@@ -79,11 +79,11 @@
       read 73 failures in sexp, json, postfix, recovery and shapes, all of
       them the trivia between a body's elements.
 
-      Coverage. The 221 inputs in test/inputs, over ten grammars: 3,823
-      positions, 74,394 pairs of a kind and a position settled and 55,734 the
-      parse cannot be put at. 111 of the positions are holes, where the kind
+      Coverage. The 250 inputs in test/inputs, over twelve grammars: 4,454
+      positions, 80,763 pairs of a kind and a position settled and 59,487 the
+      parse cannot be put at. 132 of the positions are holes, where the kind
       really under the cursor is one the residual leaves out. Part (g) covers
-      1,574 bytes and 52,010 pairs of a kind and a byte, with none left
+      1,799 bytes and 55,604 pairs of a kind and a byte, with none left
       undecided.
 
       Part (e) is what keeps the rest honest. It counts positions per grammar
@@ -93,7 +93,7 @@
       Which instruction forms these same parses run is law_interp part (d)'s
       count, over the same inputs.
 
-      Falsification. Re-run on 2026-09-22, after rust and effekt joined the
+      Falsification. Re-run on 2026-09-23, after comments and wide joined the
       corpus. Every mutation was applied, built, run and reverted, and the
       result recorded is the one observed. A count counts pairs of a kind and a
       position, and the grammars beside it are where they came from. Each edit is
@@ -102,42 +102,42 @@
 
         M1  In [Residual.entered], give [whole plan null body] where the steps
             run out and the position is inclusive, rather than the gate.
-            -> part (b), 85 pairs: sexp 18, json 26, postfix 2, unicode 10,
-               recovery 3, shapes 6, rust 10, effekt 10. A commit's body is
-               often a bare [Bump],
-               which names no kind of its own, so the position loses the set that
-               admitted it.
+            -> part (b), 141 pairs: sexp 18, json 26, postfix 2, unicode 10,
+               recovery 3, shapes 6, comments 53, rust 10, effekt 10, wide 3.
+               A commit's body is often a bare [Bump], which names no kind of
+               its own, so the position loses the set that admitted it.
 
                The other half of what [entered] buys reads nothing. Answering
                [gate, true] adds what follows the commit, and those are kinds
                that cannot be under the cursor at a body a dispatch chose, so no
                input puts the parse there to disagree.
         M2  In [Residual.ends], give [true] for [May_exit_reporting] as well.
-            -> part (a), 15: json 5, postfix 2, unicode 2, recovery 3,
-               shapes 2, rust 1. Part (g), the same 15. A body that forbids a
-               trailing separator
-               can still be ended at one, by taking the separator and reporting
-               it, and the residual then offers the closer straight after a
-               separator. This is the mutation that found the rule.
+            -> part (a), 16: json 5, postfix 2, unicode 2, recovery 3,
+               shapes 2, rust 1, wide 1. Part (g), the same 16. A body that
+               forbids a trailing separator can still be ended at one, by
+               taking the separator and reporting it, and the residual then
+               offers the closer straight after a separator. This is the
+               mutation that found the rule.
 
                It moves five of the eight *.residual dumps: json, postfix,
                recovery, shapes and unicode.
         M3  In [Residual.at]'s [walk], drop the recursion into the frame above.
-            -> part (b), 532: calc 8, postfix 20, recovery 5, shapes 94,
-               rust 66, effekt 339. Part (g), 374. Part (h), 207. What follows a
-               rule goes missing at every position the rule's own body can
-               complete from.
+            -> part (b), 867: calc 8, postfix 20, recovery 5, shapes 94,
+               comments 80, rust 66, effekt 339, wide 255. Part (g), 637.
+               Part (h), 286. What follows a rule goes missing at every
+               position the rule's own body can complete from.
         M4  In [Residual.whole], give [false] for an [Alt]'s nullability.
-            -> part (b), 1,503: shapes 110, rust 10, effekt 1,383. Part (g),
-               882. effekt is the grammar of optional children -- a parameter's
-               annotation, a definition's return type, a match arm's guard --
-               and what follows one is what goes missing. shapes.residual moves.
+            -> part (b), 1,903: shapes 110, rust 10, effekt 1,383, wide 400.
+               Part (g), 1,059. effekt is the grammar of optional children: a
+               parameter's annotation, a definition's return type, a match
+               arm's guard. What follows one is what goes missing.
+               shapes.residual moves.
         M5  In [Residual.remains], resume a loop at [e.state] rather than at
             [goto].
-            -> part (a), 185: postfix 16, shapes 40, rust 28, effekt 101.
-               Part (b), 75. Part (g), 149 and 51. Part (h), 49. After an
-               element a separator or the closer comes next, and the mutation
-               offers another element.
+            -> part (a), 319: postfix 16, shapes 40, comments 118, rust 28,
+               effekt 101, wide 16. Part (b), 123. Part (g), 274 and 94.
+               Part (h), 90. After an element a separator or the closer comes
+               next, and the mutation offers another element.
         M6  In [Residual.climb_set], take every operator whatever its binding
             power.
             -> nothing. Every climb sits under a chain of climbs reaching the
@@ -148,16 +148,18 @@
                that.
         M7  In [Residual.at], call [walk] on the innermost frame with
             [~inclusive:false].
-            -> part (a), 3,680: json 58, calc 52, rassoc 24, postfix 41,
-               recovery 98, shapes 94, rust 742, effekt 2,571. Part (b), 5,917:
-               sexp 136, json 806, calc 121, rassoc 54, postfix 120, unicode 38,
-               recovery 108, shapes 152, rust 720, effekt 3,662. Part (g), 1,720
-               and 2,549. Part (h), 820. M12 is the same claim at the other end
+            -> part (a), 4,008: json 58, calc 52, rassoc 24, postfix 41,
+               recovery 98, shapes 94, comments 13, rust 742, effekt 2,571,
+               wide 315. Part (b), 6,629: sexp 136, json 806, calc 121,
+               rassoc 54, postfix 120, unicode 38, recovery 108, shapes 152,
+               comments 328, rust 720, effekt 3,662, wide 384. Part (g), 1,971
+               and 2,681. Part (h), 900. M12 is the same claim at the other end
                of the stack.
         M8  In [Residual.expression], give [first, false] at an [Operand]
             rather than letting a nullable operand's climb through.
             -> part (b), 66: calc 8, rassoc 2, rust 8, effekt 48. Part (g),
-               45. Part (h), 15.
+               45. Part (h), 15. Neither comments nor wide reaches it: neither
+               has an expression block.
 
                This read nothing at all until the corpus reached an atom rule
                with a position it could complete from. The claim was about the
@@ -168,9 +170,9 @@
                Part (g), 44. calc.residual and rassoc.residual move.
        M10  In [Interp.loop], record [!state] as the state to resume at rather
             than [dest].
-            -> part (a), 60: postfix 7, shapes 18, rust 6, effekt 29.
-               Part (b), 162. Part (g), 40 and 132. Part (h), 39. The
-               interpreter's half of M5. The claim fails whether the plan walk
+            -> part (a), 94: postfix 7, shapes 18, comments 26, rust 6,
+               effekt 29, wide 8. Part (b), 251. Part (g), 68 and 212.
+               Part (h), 41. The interpreter's half of M5. The claim fails whether the plan walk
                or the parse has the state wrong, which is what makes the
                threading worth testing rather than trusting.
 
@@ -179,15 +181,17 @@
                body that resumes in the wrong state reports on a clean parse
                once the body has enough elements.
        M11  In [Residual.whole], give [true] for a [Commit]'s nullability.
-            -> part (a), 1,219: json 12, calc 5, postfix 29, recovery 27,
-               shapes 6, rust 346, effekt 794. Part (g), 1,194. All eight
-               *.residual dumps move; rust and effekt have none.
+            -> part (a), 1,693: json 12, calc 5, postfix 29, recovery 27,
+               shapes 6, comments 12, rust 346, effekt 794, wide 462.
+               Part (g), 1,444. All eight *.residual dumps move; the four
+               grammars added since have none.
        M12  In [Residual.at]'s [walk], call the frame above with
             [~inclusive:true].
-            -> part (a), 2,072: calc 78, rassoc 48, postfix 90, recovery 5,
-               shapes 23, rust 232, effekt 1,596. Part (b), 494. Part (g), 1,627
-               and 354. Part (h), 271. The call is counted twice: as the frame
-               above's pending instruction and as the frame below.
+            -> part (a), 2,421: calc 78, rassoc 48, postfix 90, recovery 5,
+               shapes 23, comments 118, rust 232, effekt 1,596, wide 231.
+               Part (b), 829. Part (g), 1,874 and 617. Part (h), 350. The call
+               is counted twice: as the frame above's pending instruction and
+               as the frame below.
        M13  In [Residual.taken], ignore [goto] and give an element every kind its
             state takes.
             -> nothing. The lowering writes one transition per loop state, so the
@@ -196,26 +200,31 @@
                separate them, and no lowering writes one.
        M14  In [Residual.nullable_rules], start [settled] at [true] so the
             fixpoint never runs.
-            -> nothing. No rule in the ten grammars is nullable, so the table
+            -> nothing. No rule in the twelve grammars is nullable, so the table
                reads false either way. A rule whose every child is optional would
-               read it, and none of the ten has one.
+               read it, and none of the twelve has one.
        M15  Empty calc's input list in test/inputs.
             -> part (e), twice: "no position came from these grammars: calc" and
                "no input lexes these token kinds: calc T_INT". Parts (a) to (d)
                stay green, which is the whole reason (e) is here.
        M16  Drop postfix's dotted inputs ["a.b"], ["a."], ["a.?"] and
             ["a.b\[2\]?+1"] from test/inputs.
-            -> part (e), "no position was one of these kinds: postfix". The
-               dotted forms are the only ones that reach a [Postfix] step with a
-               body, so the coverage claim rests on four inputs.
+            -> nothing, and it used to redden part (e) with "no position was
+               one of these kinds: postfix". Three grammars reach a [Postfix]
+               step with a body now. Dropping rust's ["g(1).field?"] as well
+               still leaves seven such positions, from effekt's trailing
+               block. The claim that the coverage rested on four inputs was
+               true of the eight small grammars and stopped being true when
+               rust and effekt joined. It is recorded rather than replaced,
+               because a coverage class reached three ways is the result.
 
        M17  In [Residual.Table.of_body], drop the [base_kind] gate on the
             rule-atom edge, so every rule atom carries a climb wherever it is a
             child.
-            -> part (h), 14, and calc.residual moves. rust's [Block] is an
+            -> part (h), 31, and calc.residual moves. rust's [Block] is an
                expression and it is also a function's body, and the mutation
                offers the operators after the second. Turning the split off
-               altogether reads the same 14 the other way round, which is the
+               altogether reads the same 31 the other way round, which is the
                defect this closed: see the note under part (h).
 
             Part (h) reads nothing for a mutation of the walk the *.residual
@@ -226,21 +235,6 @@
    -------------------------------------------------------------------------- *)
 
 open StdLabels
-
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
 
 (* -- the corpus ------------------------------------------------------------ *)
 
@@ -297,6 +291,11 @@ let corpus =
     ; tables = Emitted_parsers.Shapes_residual.tables
     ; inputs = Inputs.all Inputs.shapes
     }
+  ; { name = "comments"
+    ; grammar = Lingo_grammars.Comments_grammar.grammar
+    ; tables = Emitted_parsers.Comments_residual.tables
+    ; inputs = Inputs.all Inputs.comments
+    }
   ; { name = "rust"
     ; grammar = Lingo_grammars.Rust_grammar.grammar
     ; tables = Emitted_parsers.Rust_residual.tables
@@ -306,6 +305,11 @@ let corpus =
     ; grammar = Lingo_grammars.Effekt_grammar.grammar
     ; tables = Emitted_parsers.Effekt_residual.tables
     ; inputs = Inputs.all Inputs.effekt
+    }
+  ; { name = "wide"
+    ; grammar = Lingo_grammars.Wide_grammar.grammar
+    ; tables = Emitted_parsers.Wide_residual.tables
+    ; inputs = Inputs.all Inputs.wide
     }
   ]
 ;;
@@ -538,7 +542,7 @@ let ascending (kinds : Ir.Kind.t array) : bool =
 let () =
   List.iter corpus ~f:(fun c ->
     match Core.Facts.of_grammar c.grammar with
-    | Error _ -> fail "%s: the grammar does not check" c.name
+    | Error _ -> Law.fail "%s: the grammar does not check" c.name
     | Ok facts ->
       let plan, _ = Plan.Lower.of_facts facts in
       let entry = plan.Ir.Plan.roots.(0) in
@@ -588,7 +592,7 @@ let () =
             match Lingo_runtime.Ahead.at c.tables root ~offset with
             | walked -> walked
             | exception Invalid_argument message ->
-              fail "(h) %s on %S at %d: %s" c.name src offset message;
+              Law.fail "(h) %s on %S at %d: %s" c.name src offset message;
               known
           in
           if walked <> known
@@ -649,7 +653,11 @@ let report (what : string) (bad : (string * string * Ir.Residual.State.t * strin
       |> List.filter ~f:(fun (_, count) -> count > 0)
       |> List.map ~f:(fun (grammar, count) -> Printf.sprintf "%s %d" grammar count)
     in
-    fail "%s, %d times: %s" what (List.length bad) (String.concat ~sep:", " per_grammar);
+    Law.fail
+      "%s, %d times: %s"
+      what
+      (List.length bad)
+      (String.concat ~sep:", " per_grammar);
     List.iteri (List.rev bad) ~f:(fun index (grammar, src, state, kind) ->
       if index < 3
       then
@@ -669,14 +677,14 @@ let () =
   report "(g) at a byte, the parse takes a kind the residual leaves out" !under_byte;
   if !over_byte = [] && !under_byte = []
   then
-    pass
+    Law.pass
       "at a byte the residual is exactly what the parse takes: %d bytes, %d kinds, none \
        left undecided"
       !bytes
       !byte_pairs;
   if !over = [] && !under = []
   then
-    pass
+    Law.pass
       "the residual is what the parse admits: %d positions over %d inputs, %d parses, %d \
        kinds settled at a position and %d the parse cannot be put there to try"
       !positions
@@ -685,18 +693,18 @@ let () =
       !decided
       !unknown;
   (match !unordered with
-   | [] -> pass "every residual is ascending with no repeats"
+   | [] -> Law.pass "every residual is ascending with no repeats"
    | bad ->
-     fail "(c) %d residuals are not ascending with no repeats" (List.length bad);
+     Law.fail "(c) %d residuals are not ascending with no repeats" (List.length bad);
      List.iter bad ~f:(fun (grammar, src, state) ->
        Format.printf "     %s on %S at %a@." grammar src Ir.Residual.State.pp state));
   (match !tree_apart with
    | [] ->
-     pass
+     Law.pass
        "the emitted tables read off the tree give what the plan gives, over %d bytes"
        !from_tree
    | bad ->
-     fail "(h) the emitted tables and the plan disagree, %d times" (List.length bad);
+     Law.fail "(h) the emitted tables and the plan disagree, %d times" (List.length bad);
      List.iteri (List.rev bad) ~f:(fun index (grammar, src, offset, walked, known) ->
        if index < 6
        then
@@ -708,8 +716,8 @@ let () =
            walked
            known));
   if !holes = 0
-  then fail "(d) no position met a token the residual leaves out, so no hole was read"
-  else pass "%d of %d positions are holes" !holes !positions;
+  then Law.fail "(d) no position met a token the residual leaves out, so no hole was read"
+  else Law.pass "%d of %d positions are holes" !holes !positions;
   let tally
         (table : (string, int) Hashtbl.t)
         ~(each : string)
@@ -719,14 +727,14 @@ let () =
     =
     match List.filter keys ~f:(fun key -> not (Hashtbl.mem table key)) with
     | [] ->
-      pass
+      Law.pass
         "every %s was read (%s)"
         each
         (String.concat
            ~sep:" "
            (List.map keys ~f:(fun key ->
               Printf.sprintf "%s %d" key (Hashtbl.find table key))))
-    | missing -> fail "(e) %s: %s" none (String.concat ~sep:", " missing)
+    | missing -> Law.fail "(e) %s: %s" none (String.concat ~sep:", " missing)
   in
   tally
     by_grammar
@@ -735,9 +743,9 @@ let () =
     (List.map corpus ~f:(fun c -> c.name));
   tally by_form ~each:"kind of position" ~none:"no position was one of these kinds" forms;
   match !no_example with
-  | [] -> pass "every token kind has an example to splice"
+  | [] -> Law.pass "every token kind has an example to splice"
   | bad ->
-    fail
+    Law.fail
       "(e) no input lexes these token kinds, so nothing can be spliced for them: %s"
       (String.concat ~sep:", " (List.rev bad))
 ;;
@@ -750,7 +758,7 @@ let () =
    than the call. *)
 let () =
   match Core.Facts.of_grammar Lingo_grammars.Json_grammar.grammar with
-  | Error _ -> fail "(f) json does not check"
+  | Error _ -> Law.fail "(f) json does not check"
   | Ok facts ->
     let plan, _ = Plan.Lower.of_facts facts in
     let names_the_call (message : string) : bool =
@@ -762,12 +770,18 @@ let () =
       match Ir.Residual.at plan state with
       | exception Invalid_argument message when names_the_call message -> ()
       | exception Invalid_argument message ->
-        fail "(f) %s raised %S, which does not say what was wrong with it" what message
+        Law.fail
+          "(f) %s raised %S, which does not say what was wrong with it"
+          what
+          message
       | exception e ->
-        fail "(f) %s raised %s, which does not name the call" what (Printexc.to_string e)
-      | _ -> fail "(f) %s was accepted" what
+        Law.fail
+          "(f) %s raised %s, which does not name the call"
+          what
+          (Printexc.to_string e)
+      | _ -> Law.fail "(f) %s was accepted" what
     in
-    let before = !failures in
+    let before = Law.failures () in
     let enter = Ir.Residual.State.enter in
     refuses "a rule the plan does not hold" (enter (Array.length plan.rules));
     refuses
@@ -778,13 +792,7 @@ let () =
       "a path carrying on past a loop state"
       (Ir.Residual.State.child
          (Ir.Residual.State.loop (Ir.Residual.State.item (enter 4) 2) 0));
-    if !failures = before then pass "at refuses a state the plan does not fit"
+    if Law.failures () = before then Law.pass "at refuses a state the plan does not fit"
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_residual: 0 failures"
-  else (
-    Printf.printf "law_residual: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_residual"

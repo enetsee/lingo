@@ -54,21 +54,6 @@
 
 module String_set = Set.Make (String)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 (* The fast side's sets are kinds; the naive side's are token names. Compare
    in the naive side's alphabet: a kind that is a token becomes the token's
    name, and a kind that is not is a defect in itself. FIRST and FOLLOW hold
@@ -79,9 +64,8 @@ let to_token_names (f : Core.Facts.t) (set : Core.Kind.Set.t) : String_set.t =
        match Core.Facts.token_of_kind f k with
        | Some t -> String_set.add (Grammar.Name.Token.to_string t.Core.Token.name) acc
        | None ->
-         incr failures;
-         Printf.printf
-           "FAIL a FIRST/FOLLOW set holds %s, which is not a token kind\n"
+         Law.fail
+           "a FIRST/FOLLOW set holds %s, which is not a token kind"
            (Core.Kind.Name.to_string (Core.Facts.kind_name f k));
          acc)
     set
@@ -92,7 +76,7 @@ let show s = "{" ^ String.concat ", " (String_set.elements s) ^ "}"
 
 let check_grammar ((name : string), (g : Core.Grammar.t)) : unit =
   match Core.Facts.of_grammar g with
-  | Error _ -> fail "%s: the corpus grammar was rejected" name
+  | Error _ -> Law.fail "%s: the corpus grammar was rejected" name
   | Ok f ->
     let naive = Naive_first.compute g in
     let get tbl r = Option.value ~default:String_set.empty (Hashtbl.find_opt tbl r) in
@@ -113,7 +97,7 @@ let check_grammar ((name : string), (g : Core.Grammar.t)) : unit =
            in
            if not (String_set.equal fast_first slow_first)
            then
-             fail
+             Law.fail
                "%s/%s FIRST: bitset %s vs naive %s"
                name
                (Grammar.Name.Rule.to_string d.name)
@@ -121,7 +105,7 @@ let check_grammar ((name : string), (g : Core.Grammar.t)) : unit =
                (show slow_first);
            if not (String_set.equal fast_follow slow_follow)
            then
-             fail
+             Law.fail
                "%s/%s FOLLOW: bitset %s vs naive %s"
                name
                (Grammar.Name.Rule.to_string d.name)
@@ -129,7 +113,7 @@ let check_grammar ((name : string), (g : Core.Grammar.t)) : unit =
                (show slow_follow);
            if fast_null <> slow_null
            then
-             fail
+             Law.fail
                "%s/%s nullable: bitset %b vs naive %b"
                name
                (Grammar.Name.Rule.to_string d.name)
@@ -138,23 +122,20 @@ let check_grammar ((name : string), (g : Core.Grammar.t)) : unit =
            (* B3 / B4, stated as one-sided containments so the direction is
               on the record even where equality happens to hold. *)
            if not (String_set.subset slow_follow fast_follow)
-           then fail "%s/%s FOLLOW is too small" name (Grammar.Name.Rule.to_string d.name);
+           then
+             Law.fail
+               "%s/%s FOLLOW is too small"
+               name
+               (Grammar.Name.Rule.to_string d.name);
            if slow_null && not fast_null
            then
-             fail
+             Law.fail
                "%s/%s nullability is under-declared"
                name
                (Grammar.Name.Rule.to_string d.name))
       f.rules;
-    pass "%s: %d rules agree" name (Array.length f.rules)
+    Law.pass "%s: %d rules agree" name (Array.length f.rules)
 ;;
 
 let () = List.iter check_grammar Corpus.all
-
-let () =
-  if !failures = 0
-  then print_endline "law_first_follow: 0 failures"
-  else (
-    Printf.printf "law_first_follow: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_first_follow"

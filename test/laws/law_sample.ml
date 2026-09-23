@@ -240,16 +240,6 @@
       would show, and nowhere else.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail fmt =
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
 let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
 
 (* -- the corpus ------------------------------------------------------------ *)
@@ -338,14 +328,14 @@ let kind_names (f : Core.Facts.t) : string array =
 let prepare ((name : string), (grammar : Core.Grammar.t)) : case option =
   match Core.Facts.of_grammar grammar with
   | Error _ ->
-    fail "%s: the corpus grammar was rejected" name;
+    Law.fail "%s: the corpus grammar was rejected" name;
     None
   | Ok facts ->
     let sys, map = Sample.system_of facts in
     let root = List.hd facts.roots in
     (match Sample.nonterminal map root with
      | None ->
-       fail "%s: the root rule has no species" name;
+       Law.fail "%s: the root rule has no species" name;
        None
      | Some root_nt ->
        let plan, _ = Plan.Lower.of_facts facts in
@@ -374,7 +364,7 @@ let prepare ((name : string), (grammar : Core.Grammar.t)) : case option =
             }
         with
         | e ->
-          fail "%s: the system has no sampler (%s)" name (Printexc.to_string e);
+          Law.fail "%s: the system has no sampler (%s)" name (Printexc.to_string e);
           None))
 ;;
 
@@ -408,7 +398,7 @@ let drawn (case : case) (sampler : Sample.token list Bolts.Sampler.t) (map : Sam
 let guarded (name : string) (what : string) (attempt : unit -> 'a) : 'a option =
   try Some (attempt ()) with
   | e ->
-    fail "%s: %s raised (%s)" name what (Printexc.to_string e);
+    Law.fail "%s: %s raised (%s)" name what (Printexc.to_string e);
     None
 ;;
 
@@ -537,7 +527,7 @@ let is_the_sample (case : case) (input : sample) : bool =
 ;;
 
 let () =
-  let failures_before = !failures in
+  let failures_before = Law.failures () in
   let strayed = ref 0 in
   let drew_comments = ref 0 in
   List.iter
@@ -556,11 +546,11 @@ let () =
          samples)
     everything;
   if !strayed > 0
-  then fail "(a) %d decoded inputs do not lex back to the tokens drawn" !strayed;
+  then Law.fail "(a) %d decoded inputs do not lex back to the tokens drawn" !strayed;
   (* A second corpus that held no comment would be the first corpus over again,
      and every reading below it would be one grammar short without saying so. *)
   if commented <> [] && !drew_comments = 0
-  then fail "(a) the corpus drawn with comments holds none";
+  then Law.fail "(a) the corpus drawn with comments holds none";
   let table =
     List.sort
       (fun (_, (a, _)) (_, (b, _)) -> compare b a)
@@ -570,7 +560,7 @@ let () =
    | [] -> ()
    | _ ->
      let unclean = List.fold_left (fun acc (_, (n, _)) -> acc + n) 0 table in
-     fail
+     Law.fail
        "(a) %d of %d inputs did not parse clean, in %d classes"
        unclean
        inputs
@@ -582,9 +572,9 @@ let () =
        (fun i (key, (n, witness)) ->
           if i < 20 then Printf.printf "     %d x %s -- %S\n" n key witness)
        table);
-  if !failures = failures_before
+  if Law.failures () = failures_before
   then
-    pass
+    Law.pass
       "(a) every sampled input is its sample and parses clean, over %d inputs and %d \
        corpora holding %d comments"
       inputs
@@ -607,8 +597,11 @@ let () =
     everything;
   if !lossy = 0
   then
-    pass "(b) every parse rebuilds its input, over %d inputs and %d bytes" inputs !bytes
-  else fail "(b) %d parses did not rebuild their input" !lossy
+    Law.pass
+      "(b) every parse rebuilds its input, over %d inputs and %d bytes"
+      inputs
+      !bytes
+  else Law.fail "(b) %d parses did not rebuild their input" !lossy
 ;;
 
 (* -- (c) the structures of a size are the sequences of that length --------- *)
@@ -636,7 +629,7 @@ let accepted (case : case) (kinds : int list) : bool =
 ;;
 
 let () =
-  let failures_before = !failures in
+  let failures_before = Law.failures () in
   let reached = ref [] in
   List.iter
     (fun ((case : case), _) ->
@@ -670,7 +663,7 @@ let () =
              abs_float (float_of_int !taken -. structures)
              > 1e-6 *. (1. +. abs_float structures)
            then
-             fail
+             Law.fail
                "(c) %s at length %d: the parser takes %d sequences and the system holds \
                 %.0f structures"
                case.name
@@ -680,9 +673,9 @@ let () =
          done;
          reached := Printf.sprintf "%s %d" case.name last :: !reached)
     corpus;
-  if !failures = failures_before
+  if Law.failures () = failures_before
   then
-    pass
+    Law.pass
       "(c) the structures of a size are the sequences of that length, up to (%s)"
       (String.concat " " (List.rev !reached))
 ;;
@@ -696,7 +689,7 @@ let in_system (case : case) : (Core.Rule.def * Sample.token list Bolts.nontermin
 ;;
 
 let () =
-  let failures_before = !failures in
+  let failures_before = Law.failures () in
   let checked = ref 0 in
   List.iter
     (fun ((case : case), _) ->
@@ -707,7 +700,7 @@ let () =
             let ours = Core.Facts.is_nullable case.facts d.id in
             if theirs <> ours
             then
-              fail
+              Law.fail
                 "(d) %s %s: the system says nullable=%b and the grammar says %b"
                 case.name
                 (Core.Grammar.Name.Rule.to_string d.name)
@@ -715,12 +708,12 @@ let () =
                 ours)
          (in_system case))
     corpus;
-  if !failures = failures_before
-  then pass "(d) nullability agrees, over %d rules" !checked
+  if Law.failures () = failures_before
+  then Law.pass "(d) nullability agrees, over %d rules" !checked
 ;;
 
 let () =
-  let failures_before = !failures in
+  let failures_before = Law.failures () in
   let checked = ref 0 in
   List.iter
     (fun ((case : case), _) ->
@@ -731,7 +724,7 @@ let () =
             let ours = Core.Facts.min_size case.facts d.id in
             if theirs <> ours
             then
-              fail
+              Law.fail
                 "(e) %s %s: the system says min=%d and the grammar says %d"
                 case.name
                 (Core.Grammar.Name.Rule.to_string d.name)
@@ -739,8 +732,8 @@ let () =
                 ours)
          (in_system case))
     corpus;
-  if !failures = failures_before
-  then pass "(e) the minimum size agrees, over %d rules" !checked
+  if Law.failures () = failures_before
+  then Law.pass "(e) the minimum size agrees, over %d rules" !checked
 ;;
 
 (* -- (f) every active role appears ----------------------------------------- *)
@@ -755,7 +748,7 @@ let rec kinds_in (node : Siesta.Green.node) (seen : (int, unit) Hashtbl.t) : uni
 ;;
 
 let () =
-  let failures_before = !failures in
+  let failures_before = Law.failures () in
   let counted = ref [] in
   List.iter
     (fun ((case : case), samples) ->
@@ -769,11 +762,12 @@ let () =
               let name = Core.Grammar.Name.Rule.to_string d.name in
               if Hashtbl.mem seen (Core.Kind.to_int d.kind)
               then counted := Printf.sprintf "%s.%s" case.name name :: !counted
-              else fail "(f) %s %s: no sample in the corpus holds one" case.name name)
+              else Law.fail "(f) %s %s: no sample in the corpus holds one" case.name name)
          case.facts.rules)
     corpus;
-  if !failures = failures_before
-  then pass "(f) every active role appears (%s)" (String.concat " " (List.rev !counted))
+  if Law.failures () = failures_before
+  then
+    Law.pass "(f) every active role appears (%s)" (String.concat " " (List.rev !counted))
 ;;
 
 (* -- (g) the measured mean tracks the target ------------------------------- *)
@@ -781,7 +775,7 @@ let () =
 (* Without a window, so the mean measured is the mean the oracle was tuned for
    rather than that mean conditioned on a window. *)
 let () =
-  let failures_before = !failures in
+  let failures_before = Law.failures () in
   let report = ref [] in
   let miscounted = ref 0 in
   List.iter
@@ -811,12 +805,12 @@ let () =
           of infinity printed beside a PASS. *)
        if not (Float.is_finite error)
        then
-         fail
+         Law.fail
            "(g) %s: the sampler reports no finite spread, so the mean has no tolerance"
            case.name
        else if abs_float (measured -. expected) > error
        then
-         fail
+         Law.fail
            "(g) %s: %d draws mean %.1f tokens, and the oracle was tuned for %.1f (+- \
             %.1f)"
            case.name
@@ -826,19 +820,16 @@ let () =
            error)
     corpus;
   if !miscounted > 0
-  then fail "(g) %d draws held a number of tokens the sampler did not count" !miscounted;
-  if !failures = failures_before
   then
-    pass
+    Law.fail "(g) %d draws held a number of tokens the sampler did not count" !miscounted;
+  if Law.failures () = failures_before
+  then
+    Law.pass
       "(g) size is tokens and each mean tracks its target (%s)"
       (String.concat " " (List.rev !report))
 ;;
 
 let () =
   Printf.printf "law_sample: %.1f s of processor time\n" (Sys.time ());
-  if !failures = 0
-  then print_endline "law_sample: 0 failures"
-  else (
-    Printf.printf "law_sample: %d failures\n" !failures;
-    exit 1)
+  Law.summarise "law_sample"
 ;;

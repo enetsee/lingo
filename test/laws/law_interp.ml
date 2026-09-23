@@ -8,8 +8,8 @@
       (f) [run] refuses an entry that names no rule, and one that names a rule
           opening no node of its own.
 
-      Mechanism. Ten grammars, and for each of them a list of inputs written
-      here. Every input goes through part (a) and part (b). The ones marked
+      Mechanism. Twelve grammars, and for each of them a list of inputs
+      written here. Every input goes through part (a) and part (b). The ones marked
       good go through part (c) as well, and the ones marked broken are there
       to reach the recovery paths that part (d) counts.
 
@@ -21,9 +21,9 @@
       Before postfix and shapes were written, seven instruction forms read
       zero and nothing said so.
 
-      Coverage. Ten grammars, 118 inputs the grammar accepts and 103 it does
-      not, from test/inputs. A count per instruction prints beside the result,
-      and the law fails where one reads zero.
+      Coverage. Twelve grammars, 134 inputs the grammar accepts and 116 it
+      does not, from test/inputs. A count per instruction prints beside the
+      result, and the law fails where one reads zero.
 
       Part (e) is the one claim here about the tree's shape, and it is the one
       that can be made without a second implementation to compare against.
@@ -46,22 +46,22 @@
       is it. Part (c) is the nearest thing available: a grammar that accepts
       an input has to parse it without complaint.
 
-      Falsification. Re-run on 2026-09-19, after the body loop's progress guard
-      changed. Every mutation was applied, built, run and reverted, and the
+      Falsification. Re-run on 2026-09-23, after comments and wide joined the
+      corpus. Every mutation was applied, built, run and reverted, and the
       result recorded is the one observed. Where a mutation reddens nothing here,
       the expect goldens it moves are named, because that is then the only thing
       that sees it.
 
         M1  In [Interp.drain], drop the trailing [Cursor.skip_trivia].
-            -> part (a), 3 of 221 parses, and test/expect/comments.format moves.
+            -> part (a), 4 of 250 parses, and test/expect/comments.format moves.
                [Cursor.eof] looks past trivia, so the sweep stops with the
                trailing trivia unread and it never reaches the tree.
         M2  In [Interp.exec], let an [Alt] take its first arm whatever the kind
             under the cursor is.
-            -> part (c), 79 inputs: effekt 36, rust 17, shapes 8, sexp 7,
-               json 7, recovery 4. An alt
-               over rules picks the wrong one, and the parse then reports what
-               the arm it took could not find. Nine expect goldens move with it.
+            -> part (c), 85 inputs: effekt 36, rust 17, shapes 8, sexp 7,
+               json 7, wide 6, recovery 4. An alt over rules picks the wrong
+               one, and the parse then reports what the arm it took could not
+               find. Nine expect goldens move with it.
         M3  In [Lower.repetition], drop the [Trivia] after the loop.
             -> nothing here, and three hunks in test/expect/*.plan: sexp, shapes
                and recovery. The sweep matters for where trivia lands and not for
@@ -69,7 +69,7 @@
                it either way, because taking a token takes the trivia in front of
                it too. So the bytes still reach the tree, in a different frame.
         M4  In [Build.start_node], drop the [Cursor.skip_trivia].
-            -> part (e), 253 nodes: rust 106, effekt 78, recovery 23,
+            -> part (e), 299 nodes: rust 106, effekt 78, wide 46, recovery 23,
                shapes 21, sexp 13, json 12. It is the one change that makes
                leading trivia land inside the node it precedes, which is what
                part (e) exists to catch.
@@ -91,7 +91,8 @@
         M8  In [Interp.loop], end the body where no state accepts, instead of
             recovering.
             -> part (d), ["loop-recover"] reads zero, and json.parse,
-               recovery.parse, shapes.format and shapes.parse move. This is the arm pigeon has
+               recovery.parse, shapes.format and shapes.parse move. This is
+               the arm pigeon has
                and this loop did not: a body that meets a token it cannot use
                sweeps it into an error node and carries on, rather than ending
                and leaving the rest to the caller. On json's ["\[1 : 2\]"] the old
@@ -101,9 +102,9 @@
             -> part (d), ["loop-missing"] reads zero, and five goldens move.
                Recovery still reports there, through the sweep, so no part here
                sees it, which is the coverage count's reason for being.
-               test/laws/law_residual.ml does: its part (b) reads 477 and its
-               part (g) 295, because a sweep and a report leave the parse at
-               different positions. That is new with rust and effekt; on the
+               test/laws/law_residual.ml does: its part (b) reads 701 and its
+               part (g) 412 and 2, because a sweep and a report leave the parse
+               at different positions. That is new with rust and effekt; on the
                eight small grammars the coverage count was the whole of it.
        M10  In [Lower.ends_on_of], leave the resync anchors out of what ends a
             body.
@@ -113,10 +114,10 @@
                anchor is meant to stop.
        M11  In [Lower.repeat_ends_on_of], give a root's repeated body [None] so
             it ends where no element can start.
-            -> nothing here, and seven hunks in test/expect: recovery.parse,
+            -> nothing here, and eight hunks in test/expect: recovery.parse,
                recovery.plan, recovery.residual, and shapes.format beside the
-               same three for shapes. A
-               stray token between two declarations loses every declaration after
+               same three for shapes, where shapes.parse moves twice. A stray
+               token between two declarations loses every declaration after
                it.
 
                The two *.residual hunks are what [ends_on] buys the tables: a
@@ -131,21 +132,6 @@
       shape of what recovery built. test/expect/*.parse is that reader, and
       M3, M10, M11 and M12 are the mutations that show it.
    -------------------------------------------------------------------------- *)
-
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
 
 (* -- the corpus ------------------------------------------------------------ *)
 
@@ -179,11 +165,16 @@ let corpus =
     ; grammar = Lingo_grammars.Shapes_grammar.grammar
     ; inputs = Inputs.shapes
     }
+  ; { name = "comments"
+    ; grammar = Lingo_grammars.Comments_grammar.grammar
+    ; inputs = Inputs.comments
+    }
   ; { name = "rust"; grammar = Lingo_grammars.Rust_grammar.grammar; inputs = Inputs.rust }
   ; { name = "effekt"
     ; grammar = Lingo_grammars.Effekt_grammar.grammar
     ; inputs = Inputs.effekt
     }
+  ; { name = "wide"; grammar = Lingo_grammars.Wide_grammar.grammar; inputs = Inputs.wide }
   ]
 ;;
 
@@ -266,7 +257,7 @@ let () =
   List.iter
     (fun c ->
        match Core.Facts.of_grammar c.grammar with
-       | Error _ -> fail "%s: the grammar does not check" c.name
+       | Error _ -> Law.fail "%s: the grammar does not check" c.name
        | Ok f ->
          let plan, _ = Plan.Lower.of_facts f in
          let entry = plan.Ir.Plan.roots.(0) in
@@ -294,29 +285,31 @@ let () =
          List.iter (run ~expect_clean:false) c.inputs.broken)
     corpus;
   (match !runaway with
-   | [] -> pass "every parse stopped, over %d parses" !parses
+   | [] -> Law.pass "every parse stopped, over %d parses" !parses
    | rs ->
      List.iter
-       (fun (g, src) -> fail "(b) %s ran past %d instructions on %S" g ceiling src)
+       (fun (g, src) -> Law.fail "(b) %s ran past %d instructions on %S" g ceiling src)
        rs);
   if !not_lossless > 0
-  then fail "(a) %d of %d parses did not rebuild their input" !not_lossless !parses
-  else pass "a parse rebuilds its input, over %d parses" (!parses - List.length !runaway);
+  then Law.fail "(a) %d of %d parses did not rebuild their input" !not_lossless !parses
+  else
+    Law.pass "a parse rebuilds its input, over %d parses" (!parses - List.length !runaway);
   (match !noisy with
    | [] ->
-     pass
+     Law.pass
        "input the grammar accepts parses clean, over %d inputs"
        (List.length (List.concat_map (fun c -> c.inputs.good) corpus))
    | bad ->
      List.iter
-       (fun (g, src, n) -> fail "(c) %s accepts %S, and the parse reported %d" g src n)
+       (fun (g, src, n) ->
+          Law.fail "(c) %s accepts %S, and the parse reported %d" g src n)
        bad);
   match !trivia_first with
-  | [] -> pass "no node but the root begins with trivia, over %d parses" !parses
+  | [] -> Law.pass "no node but the root begins with trivia, over %d parses" !parses
   | bad ->
     List.iter
       (fun (g, src, k) ->
-         fail "(e) %s on %S: a node of kind %d begins with trivia" g src k)
+         Law.fail "(e) %s on %S: a node of kind %d begins with trivia" g src k)
       bad
 ;;
 
@@ -324,7 +317,7 @@ let () =
 
 let () =
   match Core.Facts.of_grammar Lingo_grammars.Calc_grammar.grammar with
-  | Error _ -> fail "(f) calc does not check"
+  | Error _ -> Law.fail "(f) calc does not check"
   | Ok f ->
     let plan, _ = Plan.Lower.of_facts f in
     let tokens = Lex.run f "1" in
@@ -340,10 +333,13 @@ let () =
       match Interp.run plan entry tokens with
       | exception Invalid_argument m when names_the_call m -> ()
       | exception Invalid_argument m ->
-        fail "(f) %s raised %S, which does not say what was wrong with it" what m
+        Law.fail "(f) %s raised %S, which does not say what was wrong with it" what m
       | exception e ->
-        fail "(f) %s raised %s, which does not name the entry" what (Printexc.to_string e)
-      | _ -> fail "(f) %s was accepted" what
+        Law.fail
+          "(f) %s raised %s, which does not name the entry"
+          what
+          (Printexc.to_string e)
+      | _ -> Law.fail "(f) %s was accepted" what
     in
     refuses "an entry below zero" (-1);
     refuses "an entry past the last rule" (Array.length plan.rules);
@@ -353,7 +349,7 @@ let () =
        |> List.mapi (fun i (r : Ir.Plan.rule) -> i, r)
        |> List.find_opt (fun (_, (r : Ir.Plan.rule)) -> r.body = Ir.Plan.Seq [||])
      with
-     | None -> fail "(f) calc holds no rule with an empty body, so this reads nothing"
+     | None -> Law.fail "(f) calc holds no rule with an empty body, so this reads nothing"
      | Some (i, _) -> refuses "an entry naming a rule with nothing to run" i);
     (* A block's rule is the other shape [Interp.may_enter] turns down. It has
        a body, and it still opens no node: its parse takes a checkpoint in the
@@ -367,30 +363,24 @@ let () =
          | Ir.Plan.Seq [| Ir.Plan.Pratt _ |] -> true
          | _ -> false)
      with
-     | None -> fail "(f) calc holds no block rule, so this reads nothing"
+     | None -> Law.fail "(f) calc holds no block rule, so this reads nothing"
      | Some (i, _) -> refuses "an entry naming a rule that opens no node" i);
-    if !failures = 0 then pass "run refuses an entry it cannot parse with"
+    if Law.failures () = 0 then Law.pass "run refuses an entry it cannot parse with"
 ;;
 
 let () =
   let missing = List.filter (fun n -> not (Hashtbl.mem reach n)) forms in
   if missing <> []
   then
-    fail
+    Law.fail
       "(d) no parse ran %s, so this law says nothing about it"
       (String.concat ", " missing)
   else
-    pass
+    Law.pass
       "every instruction form ran (%s)"
       (String.concat
          " "
          (List.map (fun n -> Printf.sprintf "%s %d" n (Hashtbl.find reach n)) forms))
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_interp: 0 failures"
-  else (
-    Printf.printf "law_interp: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_interp"

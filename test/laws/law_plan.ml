@@ -102,21 +102,6 @@
 
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 let msg n = Ir.Message.of_int n
 
 (* -- one plan that reaches every form -------------------------------------- *)
@@ -310,13 +295,13 @@ let good : Ir.Plan.t =
 let () =
   match Plan.Check.run good with
   | Error problems ->
-    fail
+    Law.fail
       "check rejected the good plan: %a"
       (Format.pp_print_list
          ~pp_sep:(fun f () -> Format.fprintf f "; ")
          Plan.Check.pp_problem)
       problems
-  | Ok () -> pass "check accepts a well-formed plan"
+  | Ok () -> Law.pass "check accepts a well-formed plan"
 ;;
 
 (* [Text.pp] breaks a form that does not fit, and the width it fits to comes
@@ -334,14 +319,15 @@ let text = render good
 
 let () =
   match Plan.Text.parse text with
-  | Error m -> fail "(a) the printer's own output did not parse: %s" m
-  | Ok back when back <> good -> fail "(a) the plan that came back is not the one printed"
+  | Error m -> Law.fail "(a) the printer's own output did not parse: %s" m
+  | Ok back when back <> good ->
+    Law.fail "(a) the plan that came back is not the one printed"
   | Ok back ->
     let again = render back in
     if not (String.equal again text)
-    then fail "(b) printing the plan a second time gave different bytes"
+    then Law.fail "(b) printing the plan a second time gave different bytes"
     else
-      pass
+      Law.pass
         "a plan prints, reads back and prints the same, over %d bytes"
         (String.length text)
 ;;
@@ -351,9 +337,10 @@ let () =
 let () =
   let edited = "; a comment\n" ^ text ^ "\n  ; and another\n" in
   match Plan.Text.parse edited with
-  | Error m -> fail "(a) a commented plan did not parse: %s" m
-  | Ok back when back <> good -> fail "(a) a commented plan read back as a different plan"
-  | Ok _ -> pass "comments and surrounding whitespace do not change what is read"
+  | Error m -> Law.fail "(a) a commented plan did not parse: %s" m
+  | Ok back when back <> good ->
+    Law.fail "(a) a commented plan read back as a different plan"
+  | Ok _ -> Law.pass "comments and surrounding whitespace do not change what is read"
 ;;
 
 (* -- (c) one broken plan per problem --------------------------------------- *)
@@ -541,12 +528,12 @@ let () =
        match Plan.Check.run plan with
        | Ok () ->
          incr wrong;
-         fail "(c) check accepted %s" what
+         Law.fail "(c) check accepted %s" what
        | Error problems ->
          if not (List.exists is_it problems)
          then (
            incr wrong;
-           fail
+           Law.fail
              "(c) check reported the wrong thing about %s: %a"
              what
              (Format.pp_print_list
@@ -556,15 +543,9 @@ let () =
     broken;
   if !wrong = 0
   then
-    pass
+    Law.pass
       "check reports each of %d broken plans with the right problem"
       (List.length broken)
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_plan: 0 failures"
-  else (
-    Printf.printf "law_plan: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_plan"

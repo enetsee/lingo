@@ -208,6 +208,46 @@
   effekt_residual.mli
   (run ./gen.exe effekt residual-mli)))
 
+(rule
+ (with-stdout-to
+  comments_parser.ml
+  (run ./gen.exe comments parser)))
+
+(rule
+ (with-stdout-to
+  comments_parser.mli
+  (run ./gen.exe comments mli)))
+
+(rule
+ (with-stdout-to
+  comments_residual.ml
+  (run ./gen.exe comments residual)))
+
+(rule
+ (with-stdout-to
+  comments_residual.mli
+  (run ./gen.exe comments residual-mli)))
+
+(rule
+ (with-stdout-to
+  wide_parser.ml
+  (run ./gen.exe wide parser)))
+
+(rule
+ (with-stdout-to
+  wide_parser.mli
+  (run ./gen.exe wide mli)))
+
+(rule
+ (with-stdout-to
+  wide_residual.ml
+  (run ./gen.exe wide residual)))
+
+(rule
+ (with-stdout-to
+  wide_residual.mli
+  (run ./gen.exe wide residual-mli)))
+
 ; [emitted_parsers] links lingo_runtime and nothing else of ours, so a
 ; generated parser that reached for lingo.plan or lingo.core would not build.
 
@@ -230,10 +270,14 @@
   shapes_residual
   unicode_residual
   recovery_residual
+  comments_parser
+  comments_residual
   rust_parser
   effekt_parser
   rust_residual
-  effekt_residual)
+  effekt_residual
+  wide_parser
+  wide_residual)
  (libraries lingo_runtime))
 
 ; law_ahead reads the emitted tables back and compares them with the plan they
@@ -243,6 +287,7 @@
  (names law_ahead)
  (modules law_ahead)
  (libraries
+  law
   emitted_parsers
   inputs
   lex
@@ -257,7 +302,10 @@
  (names law_parse)
  (modules law_parse)
  (libraries
+  law
   emitted_parsers
+  lingo.fuzz
+  lingo.sample
   inputs
   lex
   lingo.core

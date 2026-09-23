@@ -1,0 +1,6 @@
+; What every law prints and the count it exits on. Twenty-five test
+; executables held a copy of this apiece.
+
+(library
+ (name law)
+ (modules law))

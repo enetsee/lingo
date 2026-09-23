@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A push on top of a running build makes that build stale, so it is cancelled.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        # lingo_runtime keeps its diagnostics in a Dynarray, which arrived in
+        # 5.2, and the other two packages depend on it. So 5.2 is the floor
+        # for the repository, whatever a single package declares.
+        ocaml-compiler: ["5.2", "5.3", "5.4"]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+
+      - uses: ./.github/actions/pin-libs
+
+      - run: opam install . --deps-only --with-test
+
+      - run: opam exec -- dune build
+
+      # Every law is an oracle with no baseline, so a silent run is the pass.
+      - run: opam exec -- dune runtest
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.4"
+
+      - uses: ./.github/actions/pin-libs
+
+      # pinned in .ocamlformat, so this checks the exact version the repo uses
+      - uses: ocaml/setup-ocaml/lint-fmt@v3
+
+      - uses: ocaml/setup-ocaml/lint-doc@v3
+
+      - uses: ocaml/setup-ocaml/lint-opam@v3

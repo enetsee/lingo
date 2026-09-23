@@ -154,21 +154,6 @@
                before the order was reversed.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 (* -- what the corpus emits ----------------------------------------------- *)
 
 type emitted =
@@ -194,7 +179,7 @@ let emitted : emitted list =
        match Treesitter.generate scopes ~language:entry.name () with
        | Error problems ->
          List.iter
-           (fun p -> fail "%s: %a" entry.name Treesitter.Check.pp_problem p)
+           (fun p -> Law.fail "%s: %a" entry.name Treesitter.Check.pp_problem p)
            problems;
          common
        | Ok out -> { common with out })
@@ -441,7 +426,7 @@ let () =
                  incr checked;
                  if not (List.mem target names)
                  then
-                   fail
+                   Law.fail
                      "(a) %s: %s refers to $.%s, and no rule declares it"
                      e.name
                      owner
@@ -449,24 +434,25 @@ let () =
               (references body))
          bodies)
     emitted;
-  if !failures = 0 then pass "(a) every reference names a rule, over %d of them" !checked
+  if Law.failures () = 0
+  then Law.pass "(a) every reference names a rule, over %d of them" !checked
 ;;
 
 (* -- (b) every rule is reachable, and (c) the first is the root ---------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let total = ref 0 in
   List.iter
     (fun (e : emitted) ->
        let bodies = rule_bodies e.out.grammar_js in
        (match bodies, Core.Facts.(e.facts.roots) with
-        | [], _ -> fail "(c) %s: the grammar has no rules" e.name
+        | [], _ -> Law.fail "(c) %s: the grammar has no rules" e.name
         | (first, _) :: _, root :: _ ->
           let expected = Treesitter.Node.of_rule (Core.Facts.rule e.facts root).name in
           if first <> expected
           then
-            fail
+            Law.fail
               "(c) %s: tree-sitter would start at %S, and the grammar's root is %S"
               e.name
               first
@@ -492,17 +478,18 @@ let () =
          (fun (name, _) ->
             incr total;
             if not (Hashtbl.mem seen name)
-            then fail "(b) %s: nothing reaches the rule %S" e.name name)
+            then Law.fail "(b) %s: nothing reaches the rule %S" e.name name)
          bodies)
     emitted;
-  if !failures = before
-  then pass "(b) every rule is reachable and the first is the root, over %d rules" !total
+  if Law.failures () = before
+  then
+    Law.pass "(b) every rule is reachable and the first is the root, over %d rules" !total
 ;;
 
 (* -- (d) every query names something that exists ------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let checked = ref 0 in
   List.iter
     (fun (e : emitted) ->
@@ -513,7 +500,7 @@ let () =
          incr checked;
          (match query.node with
           | Some node when not (List.mem node names) ->
-            fail
+            Law.fail
               "(d) %s: %s names the node %S, and the grammar has none"
               e.name
               where
@@ -523,7 +510,7 @@ let () =
           | Some node, Some field ->
             (match List.assoc_opt node bodies with
              | Some body when not (List.mem field (fields body)) ->
-               fail
+               Law.fail
                  "(d) %s: %s names the field %S of %S, and the rule has no such field"
                  e.name
                  where
@@ -533,7 +520,7 @@ let () =
           | _ -> ());
          (match query.inner with
           | Some inner when not (List.mem inner names) ->
-            fail
+            Law.fail
               "(d) %s: %s names the node %S, and the grammar has none"
               e.name
               where
@@ -541,7 +528,7 @@ let () =
           | _ -> ());
          match query.literal with
          | Some literal when not (List.mem literal literals) ->
-           fail
+           Law.fail
              "(d) %s: %s names the literal %S, and the grammar matches no such text"
              e.name
              where
@@ -552,14 +539,14 @@ let () =
        List.iter (check "folds.scm") (queries e.out.folds);
        List.iter (check "locals.scm") (queries e.out.locals))
     emitted;
-  if !failures = before
-  then pass "(d) every query names something that exists, over %d patterns" !checked
+  if Law.failures () = before
+  then Law.pass "(d) every query names something that exists, over %d patterns" !checked
 ;;
 
 (* -- (e) one precedence per operator ------------------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let total = ref 0 in
   List.iter
     (fun (e : emitted) ->
@@ -587,7 +574,7 @@ let () =
        total := !total + found;
        if found <> expected
        then
-         fail
+         Law.fail
            "(e) %s: %d operators and a greedy child apiece need %d precedences, and the \
             grammar has %d"
            e.name
@@ -595,34 +582,37 @@ let () =
            expected
            found)
     emitted;
-  if !failures = before
-  then pass "(e) one precedence per operator, over %d of them" !total
+  if Law.failures () = before
+  then Law.pass "(e) one precedence per operator, over %d of them" !total
 ;;
 
 (* -- (f) the same bytes every time --------------------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   List.iter
     (fun (e : emitted) ->
        match Treesitter.generate e.scopes ~language:e.name () with
-       | Error _ -> fail "(f) %s: the second run rejected what the first emitted" e.name
+       | Error _ ->
+         Law.fail "(f) %s: the second run rejected what the first emitted" e.name
        | Ok again ->
          if
            again.grammar_js <> e.out.grammar_js
            || again.highlights <> e.out.highlights
            || again.folds <> e.out.folds
-         then fail "(f) %s: two runs gave different bytes" e.name)
+         then Law.fail "(f) %s: two runs gave different bytes" e.name)
     emitted;
-  if !failures = before
+  if Law.failures () = before
   then
-    pass "(f) a grammar emits the same bytes twice, over %d of them" (List.length emitted)
+    Law.pass
+      "(f) a grammar emits the same bytes twice, over %d of them"
+      (List.length emitted)
 ;;
 
 (* -- (g) every scope that translates reaches the queries ----------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let carried = ref 0 in
   List.iter
     (fun (e : emitted) ->
@@ -654,7 +644,7 @@ let () =
            (match scope, Treesitter.Queries.capture scope with
             | (Scopes.Scope.Meta _ | Scopes.Scope.Custom _), _ -> ()
             | _, None ->
-              fail
+              Law.fail
                 "(g) %s: %s is scoped %a and nothing here translates it"
                 e.name
                 what
@@ -667,7 +657,7 @@ let () =
               incr carried;
               if not (List.mem capture captures)
               then
-                fail
+                Law.fail
                   "(g) %s: %s translates to @%s and nothing in highlights.scm carries it"
                   e.name
                   what
@@ -691,9 +681,11 @@ let () =
               rule.children)
          Core.Facts.(e.facts.rules))
     emitted;
-  if !failures = before
+  if Law.failures () = before
   then
-    pass "(g) every scope that translates reaches the queries, over %d of them" !carried
+    Law.pass
+      "(g) every scope that translates reaches the queries, over %d of them"
+      !carried
 ;;
 
 (* -- (h) every regex is groupless and balanced --------------------------- *)
@@ -740,7 +732,7 @@ let unbalanced (regex : string) : bool =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let checked = ref 0 in
   List.iter
     (fun (e : emitted) ->
@@ -749,19 +741,19 @@ let () =
             incr checked;
             (match capture_groups regex with
              | 0 -> ()
-             | n -> fail "(h) %s: the regex %S has %d capturing groups" e.name regex n);
+             | n -> Law.fail "(h) %s: the regex %S has %d capturing groups" e.name regex n);
             if unbalanced regex
-            then fail "(h) %s: the regex %S does not balance" e.name regex)
+            then Law.fail "(h) %s: the regex %S does not balance" e.name regex)
          (regexes e.out.grammar_js))
     emitted;
-  if !failures = before
-  then pass "(h) every regex is groupless and balanced, over %d of them" !checked
+  if Law.failures () = before
+  then Law.pass "(h) every regex is groupless and balanced, over %d of them" !checked
 ;;
 
 (* -- (i) the keyword-extraction token ------------------------------------ *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let tested = ref 0 in
   List.iter
     (fun (e : emitted) ->
@@ -802,24 +794,24 @@ let () =
          let expected = "  word: $ => $." ^ Treesitter.Node.of_token only.name ^ "," in
          if not (List.exists (fun line -> line = expected) (lines e.out.grammar_js))
          then
-           fail
+           Law.fail
              "(i) %s: the token that holds every keyword is %S and the directive names \
               another"
              e.name
              (Core.Grammar.Name.Token.to_string only.name)
        | [ _ ], false ->
-         fail "(i) %s: one token holds every keyword and no directive names it" e.name
+         Law.fail "(i) %s: one token holds every keyword and no directive names it" e.name
        | _, true ->
-         fail
+         Law.fail
            "(i) %s: %d tokens hold every keyword, so no directive should have been \
             written"
            e.name
            (List.length holders)
        | _, false -> ())
     emitted;
-  if !failures = before
+  if Law.failures () = before
   then
-    pass
+    Law.pass
       "(i) keyword extraction runs against the token that holds them, over %d grammars"
       !tested
 ;;
@@ -839,7 +831,7 @@ let scopes_of (facts : Core.Facts.t) : Scopes.t =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let expect
         (what : string)
         (result : (Treesitter.output, Treesitter.Check.problem list) result)
@@ -847,11 +839,11 @@ let () =
     : unit
     =
     match result with
-    | Ok _ -> fail "(j) %s: the grammar was accepted" what
+    | Ok _ -> Law.fail "(j) %s: the grammar was accepted" what
     | Error problems ->
       if not (List.exists expected problems)
       then
-        fail
+        Law.fail
           "(j) %s: reported %s"
           what
           (String.concat ", " (List.map Treesitter.Check.problem_to_string problems))
@@ -877,7 +869,7 @@ let () =
   (match Core.Facts.of_grammar no_regex with
    | Error es ->
      (* A silent skip here let this witness prove nothing for a while. *)
-     fail
+     Law.fail
        "(j) a token with no JavaScript regex: the grammar was rejected, %a"
        Core.Error.pp_list
        es
@@ -905,7 +897,7 @@ let () =
   in
   (match Core.Facts.of_grammar collision with
    | Error _ ->
-     fail "(j) a rule and a token sharing a node name: the grammar was rejected"
+     Law.fail "(j) a rule and a token sharing a node name: the grammar was rejected"
    | Ok facts ->
      expect
        "a rule and a token sharing a node name"
@@ -922,7 +914,7 @@ let () =
     (function
       | Treesitter.Check.Bad_setting _ -> true
       | _ -> false);
-  if !failures = before then pass "(j) every problem has a witness"
+  if Law.failures () = before then Law.pass "(j) every problem has a witness"
 ;;
 
 (* -- (c) the root is the rule tree-sitter starts at ---------------------- *)
@@ -931,7 +923,7 @@ let () =
    invisible there. Another grammar could declare it anywhere, and tree-sitter
    parses from the first rule in the map whatever the author meant. *)
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let grammar =
     let open Core.Grammar in
     create
@@ -949,16 +941,16 @@ let () =
   (match Treesitter.generate (scopes_of (facts_of grammar)) ~language:"witness" () with
    | Error problems ->
      List.iter
-       (fun p -> fail "(c) a root declared second: %a" Treesitter.Check.pp_problem p)
+       (fun p -> Law.fail "(c) a root declared second: %a" Treesitter.Check.pp_problem p)
        problems
    | Ok out ->
      (match rule_bodies out.grammar_js with
       | (first, _) :: _ when first = "second" -> ()
       | (first, _) :: _ ->
-        fail "(c) a root declared second: tree-sitter would start at %S" first
-      | [] -> fail "(c) a root declared second: no rules were emitted"));
-  if !failures = before
-  then pass "(c) the root is the rule tree-sitter starts at, wherever it was declared"
+        Law.fail "(c) a root declared second: tree-sitter would start at %S" first
+      | [] -> Law.fail "(c) a root declared second: no rules were emitted"));
+  if Law.failures () = before
+  then Law.pass "(c) the root is the rule tree-sitter starts at, wherever it was declared"
 ;;
 
 let negated_class = "[^*" ^ "\\" ^ "/]+"
@@ -974,7 +966,7 @@ let negated_class = "[^*" ^ "\\" ^ "/]+"
    The reduction stays because an author can still write the longer form. This
    part measures it. *)
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let grammar =
     let open Core.Grammar in
     create
@@ -994,25 +986,29 @@ let () =
    | Error problems ->
      List.iter
        (fun p ->
-          fail "(k) an intersection over a complement: %a" Treesitter.Check.pp_problem p)
+          Law.fail
+            "(k) an intersection over a complement: %a"
+            Treesitter.Check.pp_problem
+            p)
        problems
    | Ok out ->
      (match List.assoc_opt "word" (rule_bodies out.grammar_js) with
-      | None -> fail "(k) an intersection over a complement: no rule was emitted for it"
+      | None ->
+        Law.fail "(k) an intersection over a complement: no rule was emitted for it"
       | Some body ->
         (match regexes body with
          | [ one ] when one = negated_class -> ()
          | [ other ] ->
-           fail
+           Law.fail
              "(k) an intersection over a complement came out as %S rather than a negated \
               class"
              other
          | found ->
-           fail
+           Law.fail
              "(k) an intersection over a complement gave %d regexes"
              (List.length found))));
-  if !failures = before
-  then pass "(k) an intersection that denotes a class comes out as one"
+  if Law.failures () = before
+  then Law.pass "(k) an intersection that denotes a class comes out as one"
 ;;
 
 (* -- (m) the specific pattern comes after the catch-all it has to beat --- *)
@@ -1039,7 +1035,7 @@ let capture_target (q : query) : string option =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let checked = ref 0 in
   List.iter
     (fun (e : emitted) ->
@@ -1056,7 +1052,7 @@ let () =
                 (fun (general, other) ->
                    if general > specific && capture_target other = Some target
                    then
-                     fail
+                     Law.fail
                        "(m) %s: highlights.scm captures %S at one position and then \
                         again for the node itself, so the second one wins everywhere"
                        e.name
@@ -1064,9 +1060,9 @@ let () =
                 catch_alls)
          at_a_position)
     emitted;
-  if !failures = before
+  if Law.failures () = before
   then
-    pass
+    Law.pass
       "(m) a specific pattern comes after the catch-all it has to beat, over %d of them"
       !checked
 ;;
@@ -1087,7 +1083,7 @@ let () =
    on anything but a single pattern token. The [fail] below is what ties the
    two together. *)
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let total = ref 0 in
   let binder_token (prod : Core.Grammar.production) (name : Core.Grammar.Name.Child.t)
     : string option
@@ -1122,7 +1118,7 @@ let () =
                      let named = Core.Grammar.Name.Child.to_string name in
                      match binder_token prod name with
                      | None ->
-                       fail
+                       Law.fail
                          "(l) %s: the binder %s.%s does not hold a single token"
                          e.name
                          node
@@ -1153,7 +1149,7 @@ let () =
             incr total;
             if not (List.mem pattern written)
             then
-              fail
+              Law.fail
                 "(l) %s: the grammar declares %s and locals.scm does not carry it"
                 e.name
                 pattern)
@@ -1162,7 +1158,7 @@ let () =
          (fun pattern ->
             if not (List.mem pattern declared)
             then
-              fail
+              Law.fail
                 "(l) %s: locals.scm carries %s and the grammar declares no such binder \
                  or scope"
                 e.name
@@ -1178,20 +1174,15 @@ let () =
          in
          if not (List.mem pattern (lines e.out.locals))
          then
-           fail
+           Law.fail
              "(l) %s: the language's identifier is %S and locals.scm carries no \
               reference to it"
              e.name
              (Core.Grammar.Name.Token.to_string token.name))
     emitted;
-  if !failures = before
-  then pass "(l) every binder and every scope reaches locals.scm, over %d of them" !total
+  if Law.failures () = before
+  then
+    Law.pass "(l) every binder and every scope reaches locals.scm, over %d of them" !total
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_treesitter: 0 failures"
-  else (
-    Printf.printf "law_treesitter: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_treesitter"

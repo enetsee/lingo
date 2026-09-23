@@ -73,21 +73,6 @@
                surface rather than about how much of it the corpus uses.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 let corpus =
   [ "sexp", Lingo_grammars.Sexp_grammar.grammar
   ; "json", Lingo_grammars.Json_grammar.grammar
@@ -234,7 +219,7 @@ let () =
   List.iter
     (fun (name, g) ->
        match Core.Facts.of_grammar g with
-       | Error _ -> fail "%s: the grammar does not check" name
+       | Error _ -> Law.fail "%s: the grammar does not check" name
        | Ok f ->
          let plan, msgs = Plan.Lower.of_facts f in
          incr checked;
@@ -243,28 +228,34 @@ let () =
          (match Plan.Check.run plan with
           | Ok () -> ()
           | Error problems ->
-            List.iter (fun p -> fail "(a) %s: %a" name Plan.Check.pp_problem p) problems);
+            List.iter
+              (fun p -> Law.fail "(a) %s: %a" name Plan.Check.pp_problem p)
+              problems);
          let named = ids_in plan in
          let n = Plan.Messages.count msgs in
          Hashtbl.iter
            (fun id () ->
               if id < 0 || id >= n
               then
-                fail "(b) %s names the message %d, and the catalogue holds %d" name id n)
+                Law.fail
+                  "(b) %s names the message %d, and the catalogue holds %d"
+                  name
+                  id
+                  n)
            named;
          for id = 0 to n - 1 do
            if not (Hashtbl.mem named id)
            then
-             fail
+             Law.fail
                "(c) %s: nothing in the plan names the message %d, %S"
                name
                id
                (Plan.Messages.text msgs (Ir.Message.of_int id))
          done)
     corpus;
-  if !failures = 0
+  if Law.failures () = 0
   then
-    pass
+    Law.pass
       "every lowering checks, and its plan and catalogue agree, over %d grammars and %d \
        entries"
       !checked
@@ -274,21 +265,15 @@ let () =
 let () =
   match List.filter (fun n -> not (Hashtbl.mem built n)) forms with
   | [] ->
-    pass
+    Law.pass
       "every plan form is one a grammar reaches (%s)"
       (String.concat
          " "
          (List.map (fun n -> Printf.sprintf "%s %d" n (Hashtbl.find built n)) forms))
   | missing ->
-    fail
+    Law.fail
       "(d) no grammar lowers to %s, so nothing in the corpus needs it"
       (String.concat ", " missing)
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_lower: 0 failures"
-  else (
-    Printf.printf "law_lower: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_lower"

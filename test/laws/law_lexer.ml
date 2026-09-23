@@ -68,21 +68,6 @@
                them then lands arbitrarily.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 let grammars : (string * Core.Grammar.t) list =
   [ "sexp", Lingo_grammars.Sexp_grammar.grammar
   ; "json", Lingo_grammars.Json_grammar.grammar
@@ -150,18 +135,18 @@ let check (name : string) (facts : Core.Facts.t) : unit =
   (* (a) *)
   if Array.length table.segments <> Array.length table.segment_class
   then
-    fail
+    Law.fail
       "%s: %d segments against %d classes"
       name
       (Array.length table.segments)
       (Array.length table.segment_class);
   if table.segments.(0) <> 0
-  then fail "%s: the first segment starts at %d" name table.segments.(0);
+  then Law.fail "%s: the first segment starts at %d" name table.segments.(0);
   Array.iteri
     (fun (index : int) (lo : int) ->
        if index > 0 && lo <= table.segments.(index - 1)
        then
-         fail
+         Law.fail
            "%s: segment %d starts at %d, after %d"
            name
            index
@@ -170,21 +155,21 @@ let check (name : string) (facts : Core.Facts.t) : unit =
     table.segments;
   if table.num_classes <> Array.length classes
   then
-    fail
+    Law.fail
       "%s: %d classes against the automaton's %d"
       name
       table.num_classes
       (Array.length classes);
   if table.num_states <> Redfa.Dfa.num_states dfa
   then
-    fail
+    Law.fail
       "%s: %d states against the automaton's %d"
       name
       table.num_states
       (Redfa.Dfa.num_states dfa);
   if Array.length table.next <> table.num_states * table.num_classes
   then
-    fail
+    Law.fail
       "%s: %d cells for %d states and %d classes"
       name
       (Array.length table.next)
@@ -201,7 +186,7 @@ let check (name : string) (facts : Core.Facts.t) : unit =
        in
        if c <> expected
        then
-         fail
+         Law.fail
            "%s: U+%X is in class %d, and the automaton puts it in %d"
            name
            codepoint
@@ -217,7 +202,7 @@ let check (name : string) (facts : Core.Facts.t) : unit =
          in
          if dest <> oracle
          then
-           fail
+           Law.fail
              "%s: state %d on U+%X goes to %d, and the automaton goes to %d"
              name
              state
@@ -237,7 +222,7 @@ let check (name : string) (facts : Core.Facts.t) : unit =
        in
        if not (Option.equal Core.Kind.equal accept expected)
        then
-         fail
+         Law.fail
            "%s: state %d accepts %s, and the automaton accepts %s"
            name
            state
@@ -258,16 +243,13 @@ let () =
          List.iter
            (fun (error : Core.Error.t) -> Format.printf "%a@." Core.Error.pp error)
            errors;
-         fail "%s: the grammar does not check" name
+         Law.fail "%s: the grammar does not check" name
        | Ok facts -> check name facts)
     grammars;
-  pass
+  Law.pass
     "%d states and %d state-codepoint probes over %d grammars"
     !states
     !probes
     (List.length grammars);
-  if !failures > 0
-  then (
-    Printf.printf "%d failures\n" !failures;
-    exit 1)
+  Law.exit_on_failure ()
 ;;

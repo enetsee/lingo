@@ -90,21 +90,6 @@
             -> part (c), 6 findings, one per grammar with a block.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 (* -- what the corpus emits ----------------------------------------------- *)
 
 type page =
@@ -143,7 +128,7 @@ let () =
          | Error errors ->
            List.iter
              (fun error ->
-                fail "(a) %s: %s holds %a" p.name what Handsome.Utf8.pp_error error)
+                Law.fail "(a) %s: %s holds %a" p.name what Handsome.Utf8.pp_error error)
              errors
        in
        List.iter
@@ -162,8 +147,8 @@ let () =
          (fun (caption, source) -> check caption (Docs.Highlight.example p.scopes source))
          p.examples)
     pages;
-  if !failures = 0
-  then pass "(a) no document holds a newline in a text node, over %d of them" !checked
+  if Law.failures () = 0
+  then Law.pass "(a) no document holds a newline in a text node, over %d of them" !checked
 ;;
 
 (* -- (b) the markup balances --------------------------------------------- *)
@@ -207,7 +192,7 @@ let tags (html : string) : string list =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let counted = ref 0 in
   List.iter
     (fun (p : page) ->
@@ -221,17 +206,18 @@ let () =
               match !stack with
               | top :: rest when top = name -> stack := rest
               | top :: _ ->
-                fail "(b) %s: </%s> closes <%s>" p.name name top;
+                Law.fail "(b) %s: </%s> closes <%s>" p.name name top;
                 stack := []
-              | [] -> fail "(b) %s: </%s> closes nothing" p.name name)
+              | [] -> Law.fail "(b) %s: </%s> closes nothing" p.name name)
             else stack := tag :: !stack)
          (tags p.out.body);
        match !stack with
        | [] -> ()
-       | open_ -> fail "(b) %s: %s left open" p.name (String.concat ", " (List.rev open_)))
+       | open_ ->
+         Law.fail "(b) %s: %s left open" p.name (String.concat ", " (List.rev open_)))
     pages;
-  if !failures = before
-  then pass "(b) every tag is closed by its own closer, over %d of them" !counted
+  if Law.failures () = before
+  then Law.pass "(b) every tag is closed by its own closer, over %d of them" !counted
 ;;
 
 (* -- (c) every production reaches the page ------------------------------- *)
@@ -249,16 +235,16 @@ let contains ~(needle : string) (haystack : string) : bool =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let counted = ref 0 in
   List.iter
     (fun (p : page) ->
        let named (name : string) : unit =
          incr counted;
          if not (contains ~needle:(Printf.sprintf "<h3>%s</h3>" name) p.out.body)
-         then fail "(c) %s: the page has no section for %s" p.name name;
+         then Law.fail "(c) %s: the page has no section for %s" p.name name;
          if not (List.mem_assoc name p.out.diagrams)
-         then fail "(c) %s: nothing drew a diagram for %s" p.name name
+         then Law.fail "(c) %s: nothing drew a diagram for %s" p.name name
        in
        List.iter
          (fun (production : Core.Grammar.production) ->
@@ -269,8 +255,9 @@ let () =
             named (Core.Grammar.Name.Rule.to_string block.rule_name))
          p.grammar.expr)
     pages;
-  if !failures = before
-  then pass "(c) every production has a section and a diagram, over %d of them" !counted
+  if Law.failures () = before
+  then
+    Law.pass "(c) every production has a section and a diagram, over %d of them" !counted
 ;;
 
 (* -- (d) a diagram holds together ---------------------------------------- *)
@@ -282,7 +269,7 @@ let () =
    A loop with a separator on its return row used to draw the rail straight
    through the separator. *)
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let counted = ref 0 in
   List.iter
     (fun (p : page) ->
@@ -291,7 +278,7 @@ let () =
          let placed, extent = Docs.Railroad.place shape in
          List.iter
            (fun fault ->
-              fail "(d) %s: %s, and %a" p.name name Docs.Railroad.pp_fault fault)
+              Law.fail "(d) %s: %s, and %a" p.name name Docs.Railroad.pp_fault fault)
            (Docs.Railroad.check placed extent)
        in
        List.iter
@@ -307,14 +294,14 @@ let () =
               (Docs.Railroad.of_block p.grammar block))
          p.grammar.expr)
     pages;
-  if !failures = before
-  then pass "(d) every diagram holds together, over %d of them" !counted
+  if Law.failures () = before
+  then Law.pass "(d) every diagram holds together, over %d of them" !counted
 ;;
 
 (* -- (e) a listing holds everything the production does ------------------ *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let counted = ref 0 in
   List.iter
     (fun (p : page) ->
@@ -340,7 +327,7 @@ let () =
               incr counted;
               if not (contains ~needle:what text)
               then
-                fail
+                Law.fail
                   "(e) %s: the listing of %s says nothing about %s"
                   p.name
                   (Core.Grammar.Name.Rule.to_string production.kind_name)
@@ -367,8 +354,9 @@ let () =
             | Core.Grammar.Plain | Core.Grammar.Committed _ -> ())
          p.grammar.productions)
     pages;
-  if !failures = before
-  then pass "(e) a listing holds everything its production does, over %d parts" !counted
+  if Law.failures () = before
+  then
+    Law.pass "(e) a listing holds everything its production does, over %d parts" !counted
 ;;
 
 (* -- (f) an example keeps its own bytes ---------------------------------- *)
@@ -405,7 +393,7 @@ let strip_markup (html : string) : string =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let bytes = ref 0 in
   List.iter
     (fun (p : page) ->
@@ -418,7 +406,7 @@ let () =
             bytes := !bytes + String.length source;
             if back <> source
             then
-              fail
+              Law.fail
                 "(f) %s: %s came back as %S where %S went in"
                 p.name
                 caption
@@ -426,8 +414,8 @@ let () =
                 source)
          p.examples)
     pages;
-  if !failures = before
-  then pass "(f) an example keeps its own bytes, over %d of them" !bytes
+  if Law.failures () = before
+  then Law.pass "(f) an example keeps its own bytes, over %d of them" !bytes
 ;;
 
 (* -- (g) a coloured span is text its token matches ----------------------- *)
@@ -468,7 +456,7 @@ let spans (html : string) : (string * string) list =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let counted = ref 0 in
   List.iter
     (fun (p : page) ->
@@ -510,7 +498,7 @@ let () =
                  in
                  if not matched
                  then
-                   fail
+                   Law.fail
                      "(g) %s: %s colours %S, and no token with that scope matches it"
                      p.name
                      caption
@@ -518,14 +506,15 @@ let () =
               (spans rendered))
          p.examples)
     pages;
-  if !failures = before
-  then pass "(g) every coloured span is text its token matches, over %d of them" !counted
+  if Law.failures () = before
+  then
+    Law.pass "(g) every coloured span is text its token matches, over %d of them" !counted
 ;;
 
 (* -- (h) every token reaches the table ----------------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let counted = ref 0 in
   List.iter
     (fun (p : page) ->
@@ -535,26 +524,30 @@ let () =
             incr counted;
             let name = Core.Grammar.Name.Token.to_string token.name in
             if not (contains ~needle:("<code>" ^ name ^ "</code>") table)
-            then fail "(h) %s: the token table has no row for %s" p.name name)
+            then Law.fail "(h) %s: the token table has no row for %s" p.name name)
          Core.Facts.(Scopes.facts p.scopes).tokens)
     pages;
-  if !failures = before then pass "(h) every token has a row, over %d of them" !counted
+  if Law.failures () = before
+  then Law.pass "(h) every token has a row, over %d of them" !counted
 ;;
 
 (* -- (i) the same bytes every time --------------------------------------- *)
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   List.iter
     (fun (p : page) ->
        let again =
          Docs.generate p.grammar p.scopes ~title:p.name ~examples:p.examples ()
        in
        if again.page <> p.out.page
-       then fail "(i) %s: two runs gave different bytes" p.name)
+       then Law.fail "(i) %s: two runs gave different bytes" p.name)
     pages;
-  if !failures = before
-  then pass "(i) a grammar gives the same page twice, over %d of them" (List.length pages)
+  if Law.failures () = before
+  then
+    Law.pass
+      "(i) a grammar gives the same page twice, over %d of them"
+      (List.length pages)
 ;;
 
 (* -- (j) every link lands somewhere -------------------------------------- *)
@@ -599,7 +592,7 @@ let targets (html : string) : string list =
 ;;
 
 let () =
-  let before = !failures in
+  let before = Law.failures () in
   let counted = ref 0 in
   List.iter
     (fun (p : page) ->
@@ -609,20 +602,17 @@ let () =
             incr counted;
             if not (List.mem target carried)
             then
-              fail
+              Law.fail
                 "(j) %s: a link goes to %S, and the page has no such anchor"
                 p.name
                 target)
          (targets p.out.body))
     pages;
-  if !failures = before
-  then pass "(j) every link lands on an anchor the page carries, over %d of them" !counted
+  if Law.failures () = before
+  then
+    Law.pass
+      "(j) every link lands on an anchor the page carries, over %d of them"
+      !counted
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_docs: 0 failures"
-  else (
-    Printf.printf "law_docs: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_docs"

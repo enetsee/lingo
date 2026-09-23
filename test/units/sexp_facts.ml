@@ -53,21 +53,6 @@
                    one position where an empty recovery set is right.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 let f =
   match Core.Facts.of_grammar Lingo_grammars.Sexp_grammar.grammar with
   | Ok f -> f
@@ -100,9 +85,9 @@ let expected_kinds =
 let () =
   let got = List.map Core.Kind.Name.to_string (Core.Kind.Table.names f.kinds) in
   if got = expected_kinds
-  then pass "kind numbering: 15 kinds, in the order written down"
+  then Law.pass "kind numbering: 15 kinds, in the order written down"
   else
-    fail
+    Law.fail
       "kind numbering differs.@\n  expected: %s@\n  got:      %s"
       (String.concat " " expected_kinds)
       (String.concat " " got)
@@ -117,8 +102,8 @@ let () =
        let spelled = Core.Kind.Name.to_string n in
        match Core.Facts.find_kind f n with
        | Some k when Core.Kind.to_int k = i -> ()
-       | Some k -> fail "%s numbers %d, not %d" spelled (Core.Kind.to_int k) i
-       | None -> fail "%s is missing from the table" spelled)
+       | Some k -> Law.fail "%s numbers %d, not %d" spelled (Core.Kind.to_int k) i
+       | None -> Law.fail "%s is missing from the table" spelled)
     (Core.Kind.Table.names f.kinds)
 ;;
 
@@ -127,13 +112,13 @@ let () =
 let rule (name : string) : Core.Rule.def =
   match Core.Facts.find_kind f (Core.Kind.Name.node name) with
   | None ->
-    fail "no kind for rule %s" name;
+    Law.fail "no kind for rule %s" name;
     exit 1
   | Some k ->
     (match Core.Facts.rule_of_kind f k with
      | Some d -> d
      | None ->
-       fail "no rule for kind of %s" name;
+       Law.fail "no rule for kind of %s" name;
        exit 1)
 ;;
 
@@ -143,8 +128,8 @@ let group = rule "Group"
 
 let () =
   if file.id = 0 && sexp.id = 1 && group.id = 2
-  then pass "rule ids: File=0 Sexp=1 Group=2"
-  else fail "rule ids are %d %d %d, not 0 1 2" file.id sexp.id group.id
+  then Law.pass "rule ids: File=0 Sexp=1 Group=2"
+  else Law.fail "rule ids are %d %d %d, not 0 1 2" file.id sexp.id group.id
 ;;
 
 let set_names (s : Core.Kind.Set.t) : string list =
@@ -158,9 +143,9 @@ let set_names (s : Core.Kind.Set.t) : string list =
 let expect (what : string) (got : string list) (expected : string list) : unit =
   let expected = List.sort String.compare expected in
   if got = expected
-  then pass "%s = {%s}" what (String.concat ", " expected)
+  then Law.pass "%s = {%s}" what (String.concat ", " expected)
   else
-    fail
+    Law.fail
       "%s = {%s}, expected {%s}"
       what
       (String.concat ", " got)
@@ -171,9 +156,9 @@ let () =
   List.iter
     (fun ((d : Core.Rule.def), expected) ->
        if Core.Facts.is_nullable f d.id = expected
-       then pass "nullable(%s) = %b" (Grammar.Name.Rule.to_string d.name) expected
+       then Law.pass "nullable(%s) = %b" (Grammar.Name.Rule.to_string d.name) expected
        else
-         fail
+         Law.fail
            "nullable(%s) = %b, expected %b"
            (Grammar.Name.Rule.to_string d.name)
            (not expected)
@@ -216,14 +201,15 @@ let () =
           && Core.Kind.Name.equal
                (Core.Facts.kind_name f close)
                (Core.Kind.Name.token "rparen") ->
-     pass "Group is delimited by lparen .. rparen with no separator"
-   | _ -> fail "Group's frame is not the delimited lparen .. rparen it was declared as");
+     Law.pass "Group is delimited by lparen .. rparen with no separator"
+   | _ ->
+     Law.fail "Group's frame is not the delimited lparen .. rparen it was declared as");
   if group.body_from = 0
-  then pass "Group's body starts at child 0, as every production's does"
-  else fail "Group's body_from is %d, not 0" group.body_from;
+  then Law.pass "Group's body starts at child 0, as every production's does"
+  else Law.fail "Group's body_from is %d, not 0" group.body_from;
   if Array.length group.children = 1 && group.children.(0).modifier = Grammar.Zero_or_more
-  then pass "Group wraps one repeated child"
-  else fail "Group does not wrap exactly one repeated child"
+  then Law.pass "Group wraps one repeated child"
+  else Law.fail "Group does not wrap exactly one repeated child"
 ;;
 
 let () =
@@ -233,12 +219,12 @@ let () =
       List.map (fun k -> Core.Kind.Name.to_string (Core.Facts.kind_name f k)) [ a; b; c ]
     in
     if ns = [ "T_IDENT"; "T_NUMBER"; "N_GROUP" ]
-    then pass "Sexp.kind keeps its alternatives in declaration order"
+    then Law.pass "Sexp.kind keeps its alternatives in declaration order"
     else
-      fail
+      Law.fail
         "Sexp.kind's alternatives are %s rather than the declared order"
         (String.concat " " ns)
-  | _ -> fail "Sexp.kind does not have three alternatives"
+  | _ -> Law.fail "Sexp.kind does not have three alternatives"
 ;;
 
 (* -- trivia ---------------------------------------------------------------- *)
@@ -246,8 +232,8 @@ let () =
 let () =
   let ws = Option.get (Core.Facts.find_kind f (Core.Kind.Name.token "ws")) in
   if Core.Facts.is_trivia_kind f ws && Core.Kind.Set.cardinal f.trivia = 1
-  then pass "trivia is exactly {T_WS}"
-  else fail "trivia is %s, expected {T_WS}" (String.concat ", " (set_names f.trivia))
+  then Law.pass "trivia is exactly {T_WS}"
+  else Law.fail "trivia is %s, expected {T_WS}" (String.concat ", " (set_names f.trivia))
 ;;
 
 (* -- the recovery equation ------------------------------------------------- *)
@@ -260,10 +246,4 @@ let () =
   expect "recover(File.root)" (set_names (Core.Facts.recovery_set f file.id ~child:0)) []
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "sexp_facts: 0 failures"
-  else (
-    Printf.printf "sexp_facts: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "sexp_facts"

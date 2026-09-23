@@ -50,21 +50,6 @@
       what put the source in test/expect/emit.expected beside it.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 (* A built tree carries no positions and a parsed one carries real ones, so
    the comparison sets both kinds aside.
 
@@ -86,14 +71,14 @@ let strip =
 let () =
   let src = Ocaml.Emit.render Fixture.structure in
   match Ppxlib.Parse.implementation (Lexing.from_string src) with
-  | exception e -> fail "(a) the source did not parse: %s" (Printexc.to_string e)
+  | exception e -> Law.fail "(a) the source did not parse: %s" (Printexc.to_string e)
   | back ->
     if strip#structure back <> strip#structure Fixture.structure
-    then fail "(a) the structure that came back is not the one rendered"
+    then Law.fail "(a) the structure that came back is not the one rendered"
     else if not (String.equal (Ocaml.Emit.render back) src)
-    then fail "(c) the structure rendered a second time gave different bytes"
+    then Law.fail "(c) the structure rendered a second time gave different bytes"
     else
-      pass
+      Law.pass
         "a structure renders, parses back and renders the same, over %d bytes"
         (String.length src)
 ;;
@@ -101,14 +86,14 @@ let () =
 let () =
   let src = Ocaml.Emit.render_signature Fixture.signature in
   match Ppxlib.Parse.interface (Lexing.from_string src) with
-  | exception e -> fail "(b) the source did not parse: %s" (Printexc.to_string e)
+  | exception e -> Law.fail "(b) the source did not parse: %s" (Printexc.to_string e)
   | back ->
     if strip#signature back <> strip#signature Fixture.signature
-    then fail "(b) the signature that came back is not the one rendered"
+    then Law.fail "(b) the signature that came back is not the one rendered"
     else if not (String.equal (Ocaml.Emit.render_signature back) src)
-    then fail "(c) the signature rendered a second time gave different bytes"
+    then Law.fail "(c) the signature rendered a second time gave different bytes"
     else
-      pass
+      Law.pass
         "a signature renders, parses back and renders the same, over %d bytes"
         (String.length src)
 ;;
@@ -118,14 +103,8 @@ let () =
 let () =
   match Ocaml.Emit.longident "A.B.c" with
   | Ppxlib.Longident.Ldot (Ppxlib.Longident.Ldot (Ppxlib.Longident.Lident "A", "B"), "c")
-    -> pass "a dotted path reads left to right"
-  | _ -> fail "longident did not read \"A.B.c\" as A then B then c"
+    -> Law.pass "a dotted path reads left to right"
+  | _ -> Law.fail "longident did not read \"A.B.c\" as A then B then c"
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_emit: 0 failures"
-  else (
-    Printf.printf "law_emit: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_emit"

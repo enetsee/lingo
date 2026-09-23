@@ -324,21 +324,6 @@
       what would falsify it is a generator that stops exploring.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 (* -- the corpus ------------------------------------------------------------ *)
 
 type case =
@@ -579,14 +564,14 @@ let () =
   List.iter
     (fun c ->
        match Core.Facts.of_grammar c.grammar with
-       | Error _ -> fail "%s: the grammar does not check" c.name
+       | Error _ -> Law.fail "%s: the grammar does not check" c.name
        | Ok f ->
          grammar := c.name;
          let l = Layout.Lower.of_facts f in
          (match Layout.Check.run l with
           | Ok () -> ()
           | Error ps ->
-            List.iter (fun p -> fail "(a) %s: %a" c.name Layout.Check.pp_problem p) ps);
+            List.iter (fun p -> Law.fail "(a) %s: %a" c.name Layout.Check.pp_problem p) ps);
          let plan, _ = Plan.Lower.of_facts f in
          let entry = plan.Ir.Plan.roots.(0) in
          let seps = separators l in
@@ -654,24 +639,25 @@ let () =
            (Sweep.inputs ~depth f seeds))
     corpus;
   let formats = !hand + !swept in
-  if !failures = 0 then pass "every layout the lowering builds passes its own check";
+  if Law.failures () = 0
+  then Law.pass "every layout the lowering builds passes its own check";
   (match !newlines with
-   | [] -> pass "(f) no text node holds a newline, over %d documents" formats
+   | [] -> Law.pass "(f) no text node holds a newline, over %d documents" formats
    | bad ->
      List.iter
-       (fun (g, src, n) -> fail "(f) %s on %S: %d text nodes hold a newline" g src n)
+       (fun (g, src, n) -> Law.fail "(f) %s on %S: %d text nodes hold a newline" g src n)
        (List.filteri (fun i _ -> i < 10) bad);
-     fail "(f) %d documents hold a newline in a text node" (List.length bad));
+     Law.fail "(f) %d documents hold a newline in a text node" (List.length bad));
   (match !lossy with
-   | [] -> pass "(b) every token reaches the output, over %d formats" formats
+   | [] -> Law.pass "(b) every token reaches the output, over %d formats" formats
    | bad ->
      List.iter
-       (fun (g, src, w, d) -> fail "(b) %s on %S at %d: %s" g src w d)
+       (fun (g, src, w, d) -> Law.fail "(b) %s on %S at %d: %s" g src w d)
        (List.filteri (fun i _ -> i < 10) bad);
-     fail "(b) %d formats lost or gained a token" (List.length bad));
+     Law.fail "(b) %d formats lost or gained a token" (List.length bad));
   (match !unstable with
    | [] ->
-     pass
+     Law.pass
        "(c) format is idempotent, over %d formats: %d written here and %d generated at \
         depth %d, from %d trees that recovered"
        formats
@@ -682,24 +668,26 @@ let () =
    | bad ->
      List.iter
        (fun (g, src, w, once, twice) ->
-          fail "(c) %s on %S at %d:\n  once  %S\n  twice %S" g src w once twice)
+          Law.fail "(c) %s on %S at %d:\n  once  %S\n  twice %S" g src w once twice)
        (List.filteri (fun i _ -> i < 10) bad);
-     fail "(c) %d formats are not idempotent" (List.length bad));
+     Law.fail "(c) %d formats are not idempotent" (List.length bad));
   (match !variant with
-   | [] -> pass "(d) the tokens do not depend on the width"
+   | [] -> Law.pass "(d) the tokens do not depend on the width"
    | bad ->
      List.iter
-       (fun (g, src, w) -> fail "(d) %s on %S differs at width %d" g src w)
+       (fun (g, src, w) -> Law.fail "(d) %s on %S differs at width %d" g src w)
        (List.filteri (fun i _ -> i < 10) bad);
-     fail "(d) %d inputs vary with the width" (List.length bad));
+     Law.fail "(d) %d inputs vary with the width" (List.length bad));
   match !past_ruler with
-  | [] -> pass "(e) every declined break sits inside the ruler"
+  | [] -> Law.pass "(e) every declined break sits inside the ruler"
   | bad ->
     List.iter
       (fun (g, src, w, ln, got) ->
-         fail "(e) %s on %S at %d: line %d is %d wide" g src w ln got)
+         Law.fail "(e) %s on %S at %d: line %d is %d wide" g src w ln got)
       (List.filteri (fun i _ -> i < 10) bad);
-    fail "(e) %d lines past the ruler had a break the printer declined" (List.length bad)
+    Law.fail
+      "(e) %d lines past the ruler had a break the printer declined"
+      (List.length bad)
 ;;
 
 (* -- (h) the search is searching ------------------------------------------- *)
@@ -742,13 +730,13 @@ let () =
       (depth * 2);
     if deep <= shallow
     then
-      fail
+      Law.fail
         "(h) depth %d reached no edge depth %d had not, over %d"
         (depth * 2)
         depth
         shallow
     else
-      pass
+      Law.pass
         "(h) depth %d adds %d edges to depth %d's %d"
         (depth * 2)
         (deep - shallow)
@@ -760,21 +748,15 @@ let () =
   let missing = List.filter (fun n -> not (Hashtbl.mem reach n)) steps in
   if missing <> []
   then
-    fail
+    Law.fail
       "(g) the fold never took the step %s, so this law says nothing about it"
       (String.concat ", " missing)
   else
-    pass
+    Law.pass
       "every step the fold takes was taken (%s)"
       (String.concat
          " "
          (List.map (fun n -> Printf.sprintf "%s %d" n (Hashtbl.find reach n)) steps))
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_layout: 0 failures"
-  else (
-    Printf.printf "law_layout: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_layout"

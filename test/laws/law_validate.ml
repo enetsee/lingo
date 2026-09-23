@@ -78,21 +78,6 @@
       the checker.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 let codes_of = function
   | Ok _ -> []
   | Error es ->
@@ -112,10 +97,10 @@ let () =
   List.iter
     (fun (code, g) ->
        match codes_of (Core.Facts.of_grammar g) with
-       | [] -> fail "%s: the witness grammar was accepted" code
-       | [ c ] when c = code -> pass "%s: witness provokes exactly it" code
+       | [] -> Law.fail "%s: the witness grammar was accepted" code
+       | [ c ] when c = code -> Law.pass "%s: witness provokes exactly it" code
        | cs ->
-         fail
+         Law.fail
            "%s: witness provokes {%s} instead of exactly it"
            code
            (String.concat ", " cs))
@@ -131,22 +116,24 @@ let () =
     (fun c ->
        if not (List.mem c witnessed)
        then
-         fail
+         Law.fail
            "%s is in Error.codes but has no witness: it is untested or unreachable, and \
             both are findings"
            c)
     declared;
   List.iter
     (fun c ->
-       if not (List.mem c declared) then fail "%s is emitted but not in Error.codes" c)
+       if not (List.mem c declared) then Law.fail "%s is emitted but not in Error.codes" c)
     witnessed;
   if List.length Core.Error.codes <> List.length declared
-  then fail "Error.codes contains a duplicate";
+  then Law.fail "Error.codes contains a duplicate";
   List.iter
     (fun c ->
-       if stage_of_code c = None then fail "%s is in Error.codes but in no stage list" c)
+       if stage_of_code c = None
+       then Law.fail "%s is in Error.codes but in no stage list" c)
     declared;
-  if !failures = 0 then pass "Error.codes and the witness table are the same set"
+  if Law.failures () = 0
+  then Law.pass "Error.codes and the witness table are the same set"
 ;;
 
 (* (c). The one caller of [Internal]. A code filed under "names" and caught
@@ -180,8 +167,8 @@ let () =
            else "accepted")
        in
        if observed = declared
-       then pass "%s: rejected at stage %s, as filed" code declared
-       else fail "%s: filed under stage %s but rejected at %s" code declared observed)
+       then Law.pass "%s: rejected at stage %s, as filed" code declared
+       else Law.fail "%s: filed under stage %s but rejected at %s" code declared observed)
     Lingo_witness.Witnesses.all
 ;;
 
@@ -194,11 +181,11 @@ let () =
        | Ok _ -> ()
        | Error es ->
          if List.sort Core.Error.compare es <> es
-         then fail "%s: findings are not sorted" code
+         then Law.fail "%s: findings are not sorted" code
          else if List.sort_uniq Core.Error.compare es <> es
-         then fail "%s: findings contain a duplicate" code)
+         then Law.fail "%s: findings contain a duplicate" code)
     Lingo_witness.Witnesses.all;
-  if !failures = 0 then pass "findings are sorted and duplicate-free"
+  if Law.failures () = 0 then Law.pass "findings are sorted and duplicate-free"
 ;;
 
 (* (d) *)
@@ -206,9 +193,13 @@ let () =
   List.iter
     (fun (name, g) ->
        match Core.Facts.of_grammar g with
-       | Ok _ -> pass "accepted: %s" name
+       | Ok _ -> Law.pass "accepted: %s" name
        | Error es ->
-         fail "accepted corpus grammar %s was rejected:@\n%a" name Core.Error.pp_list es)
+         Law.fail
+           "accepted corpus grammar %s was rejected:@\n%a"
+           name
+           Core.Error.pp_list
+           es)
     Lingo_witness.Witnesses.accepted
 ;;
 
@@ -232,27 +223,22 @@ let () =
   List.iter
     (fun n ->
        match Core.Facts.of_grammar (cycle n) with
-       | Ok _ -> fail "a cycle of %d rules was accepted" n
+       | Ok _ -> Law.fail "a cycle of %d rules was accepted" n
        | Error es ->
          let mine =
            List.filter (fun (e : Core.Error.t) -> Core.Error.code e = "left-recursion") es
          in
          if List.length es <> 1 || List.length mine <> 1
          then
-           fail
+           Law.fail
              "a cycle of %d rules reports %d findings, %d of them left-recursion: one \
               cycle is one left recursion"
              n
              (List.length es)
              (List.length mine))
     [ 1; 2; 3; 4; 5; 8 ];
-  if !failures = 0 then pass "one left recursion is one finding, at every cycle length"
+  if Law.failures () = 0
+  then Law.pass "one left recursion is one finding, at every cycle length"
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_validate: 0 failures"
-  else (
-    Printf.printf "law_validate: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_validate"

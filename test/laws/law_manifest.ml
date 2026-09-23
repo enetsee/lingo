@@ -47,28 +47,13 @@
       Coverage. The accepted corpus, and the witness grammars for (c).
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 let starts_upper s = s <> "" && s.[0] >= 'A' && s.[0] <= 'Z'
 
 let () =
   List.iter
     (fun (name, g) ->
        match Core.Facts.of_grammar g with
-       | Error _ -> fail "%s: the corpus grammar was rejected" name
+       | Error _ -> Law.fail "%s: the corpus grammar was rejected" name
        | Ok f ->
          (* (a) is the numbering: the manifest's list, in the documented
             order. Checking [Manifest.kind_names = Kind.Table.names] would be
@@ -101,7 +86,7 @@ let () =
          let last_token = List.fold_left max (-1) tokens in
          let first_hole = List.fold_left min max_int holes in
          if first_hole < last_token
-         then fail "%s: a hole kind is numbered before a token kind" name
+         then Law.fail "%s: a hole kind is numbered before a token kind" name
          else if
            List.filteri (fun i _ -> i < prods) listed
            <> List.map
@@ -110,25 +95,30 @@ let () =
                    ^ Core.Mangle.screaming_snake (Grammar.Name.Rule.to_string p.kind_name))
                 g.Grammar.productions
          then
-           fail "%s: the production kinds are not the first block of the numbering" name
+           Law.fail
+             "%s: the production kinds are not the first block of the numbering"
+             name
          else if
            List.filteri (fun i _ -> i >= List.length listed - 4) listed
            <> [ "T_ERROR"; "N_ERROR"; "N_MISSING"; "T_UNTERMINATED" ]
-         then fail "%s: the four built-in kinds are not last" name
+         then Law.fail "%s: the four built-in kinds are not last" name
          else
-           pass "%s: %d kinds, numbered in the documented order" name (List.length listed);
+           Law.pass
+             "%s: %d kinds, numbered in the documented order"
+             name
+             (List.length listed);
          (* (b) *)
          List.iter
            (fun (e : Core.Manifest.entry) ->
               let s = Core.Manifest.to_string e.emitted in
               if not (Core.Mangle.is_ident s)
-              then fail "%s: emitted name %S is not an identifier" name s
+              then Law.fail "%s: emitted name %S is not an identifier" name s
               else (
                 match e.scope with
                 | Core.Manifest.Scope.View_module when not (starts_upper s) ->
-                  fail "%s: view module %S does not start with a capital" name s
+                  Law.fail "%s: view module %S does not start with a capital" name s
                 | Core.Manifest.Scope.Kind_enum when not (starts_upper s) ->
-                  fail "%s: kind constructor %S does not start with a capital" name s
+                  Law.fail "%s: kind constructor %S does not start with a capital" name s
                 | _ -> ()))
            (Core.Manifest.entries f.names);
          (* (c) *)
@@ -139,11 +129,12 @@ let () =
              (Core.Manifest.collisions f.names)
          in
          (match real with
-          | [] -> pass "%s: no collisions in any scope that would fail to compile" name
+          | [] ->
+            Law.pass "%s: no collisions in any scope that would fail to compile" name
           | cs ->
             List.iter
               (fun (c : Core.Manifest.collision) ->
-                 fail
+                 Law.fail
                    "%s: accepted grammar still collides on %s %S"
                    name
                    (Core.Manifest.Scope.name c.c_scope)
@@ -161,7 +152,7 @@ let () =
            (fun expected ->
               if not (List.mem expected emitted)
               then
-                fail
+                Law.fail
                   "%s: %S is emitted for every grammar but is not a manifest entry, so a \
                    user name reaching it would not collide"
                   name
@@ -182,15 +173,9 @@ let () =
        then (
          let m = Core.Manifest.of_grammar g in
          match Core.Manifest.collisions m with
-         | [] -> fail "%s: the witness has no manifest collision to report" code
-         | _ -> pass "%s: the manifest sees the collision" code))
+         | [] -> Law.fail "%s: the witness has no manifest collision to report" code
+         | _ -> Law.pass "%s: the manifest sees the collision" code))
     Lingo_witness.Witnesses.all
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_manifest: 0 failures"
-  else (
-    Printf.printf "law_manifest: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_manifest"

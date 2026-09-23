@@ -3,7 +3,7 @@
       (a) The table a grammar's module holds is the table its facts lower to.
       (b) Formatting through that module writes the bytes the fold writes.
 
-      Mechanism. Eleven grammars. [Layout.Lower.of_facts] is read off the facts
+      Mechanism. Twelve grammars. [Layout.Lower.of_facts] is read off the facts
       here and compared with the literal the emitter wrote, field for field.
       Then both format the same trees and the bytes are compared, over the hand
       corpus at four widths and a generated one at two.
@@ -22,35 +22,37 @@
       suite runs it at 1, which is 370,568 formats over 2,804 fields, and a
       deep run is green: depth 32 is 11,828,168 formats.
 
-      Falsification. Every mutation was applied, built, run and reverted, and
-      the result recorded is the one observed.
+      Falsification. Re-run on 2026-09-23, after wide joined the corpus. Every
+      mutation was applied, built, run and reverted, and the result recorded is
+      the one observed.
 
         M1  In [Ocaml.Formatter.break], write [Fit] where the layout says
             [Hard].
-            -> (a) 34 fields, (b) 17,004 formats.
+            -> (a) 37 fields, (b) 17,008 formats.
         M2  In [Ocaml.Formatter.generate], write every [of_kind] entry as -1.
-            -> (a) 11 fields, (b) 41,836 formats. Every node is then unruled, and
+            -> (a) 12 fields, (b) 45,186 formats. Every node is then unruled, and
                an unruled node is laid out by the fold's own account of it.
         M3  In [Ocaml.Formatter.trailing], write [On_break] as [Never].
-            -> (a) 10 fields, (b) 3,403 formats.
+            -> (a) 10 fields, (b) 3,403 formats. comments, rust and effekt
+               alone; wide declares no trailing separator.
         M4  In [Ocaml.Formatter.slot], write [repeats] as [false].
-            -> (a) 39 fields, (b) 11,032 formats. A slot that stops after one
+            -> (a) 44 fields, (b) 11,032 formats. A slot that stops after one
                child sends the next one to the slot after it.
         M5  In [Ocaml.Formatter.token], write every [trivia] as [None].
-            -> (a) 16 fields, (b) 286,039 formats. The source's whitespace is
+            -> (a) 17 fields, (b) 307,495 formats. The source's whitespace is
                then written out as it stood and indented again.
         M6  In [Ocaml.Formatter.rule], write [indent] as zero.
-            -> (a) 138 fields, (b) 26,962 formats.
+            -> (a) 160 fields, (b) 30,223 formats.
         M7  In [Ocaml.Formatter.rule], write [edge_before] and [edge_after] as
             [None].
-            -> (a) 2 fields, (b) 1,985 formats. Unmoved by rust and effekt,
-               which set neither override, so sexp's [Group] is still the only
-               production in the corpus that does. This read nothing at all
+            -> (a) 2 fields, (b) 1,985 formats. Unmoved by rust, effekt and
+               wide, none of which sets either override, so sexp's [Group] is
+               still the only production in the corpus that does. This read nothing at all
                until 2026-09-20, when that override went in: every grammar had
                [None] there before, so the mutation moved no byte of the
                emitted source and the emitter could have left both fields out.
         M8  In [Ocaml.Formatter.rule], write [name] as the empty string.
-            -> (a) 140 fields, and (b) nothing. The name is for a dump and a
+            -> (a) 162 fields, and (b) nothing. The name is for a dump and a
                diagnostic. The fold reads none of it, so (a) is the only part
                the mutation reaches.
         M9  In [Ocaml.Formatter.generate], give [format] a boundary that is
@@ -58,7 +60,7 @@
             -> (b) 2,185 formats, and (a) nothing. This is the wiring, which a
                comparison of tables cannot reach. Part (b) is here for it.
        M10  In [Ocaml.Formatter.sep], write every [sep_kind] as zero.
-            -> (a) 21 fields, (b) 5,244 formats.
+            -> (a) 24 fields, (b) 5,278 formats.
 
       What (b) does not cover. Both sides build their boundary from the same
       helper, so a defect in [Lingo_runtime.Layout.boundary] moves the two
@@ -67,21 +69,6 @@
    -------------------------------------------------------------------------- *)
 
 open StdLabels
-
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
 
 let first_ten l = List.filteri l ~f:(fun i _ -> i < 10)
 
@@ -179,6 +166,13 @@ let corpus =
         (fun ~lex ~width root -> Emitted_formatters.Effekt_layout.format ~lex ~width root)
     ; inputs = Inputs.effekt
     }
+  ; { name = "wide"
+    ; grammar = Lingo_grammars.Wide_grammar.grammar
+    ; emitted = Emitted_formatters.Wide_layout.layout
+    ; format =
+        (fun ~lex ~width root -> Emitted_formatters.Wide_layout.format ~lex ~width root)
+    ; inputs = Inputs.wide
+    }
   ]
 ;;
 
@@ -186,7 +180,7 @@ let facts_of (c : case) : Core.Facts.t option =
   match Core.Facts.of_grammar c.grammar with
   | Ok f -> Some f
   | Error _ ->
-    fail "%s: the grammar does not check" c.name;
+    Law.fail "%s: the grammar does not check" c.name;
     None
 ;;
 
@@ -303,26 +297,20 @@ let () =
 let () =
   (match !wrong_field with
    | [] ->
-     pass "(a) every emitted table is the one its facts give, over %d fields" !fields
+     Law.pass "(a) every emitted table is the one its facts give, over %d fields" !fields
    | bad ->
-     List.iter (first_ten bad) ~f:(fun (g, at) -> fail "(a) %s: %s" g at);
-     fail "(a) %d fields differ from what the facts give" (List.length bad));
+     List.iter (first_ten bad) ~f:(fun (g, at) -> Law.fail "(a) %s: %s" g at);
+     Law.fail "(a) %d fields differ from what the facts give" (List.length bad));
   match !wrong_bytes with
   | [] ->
-    pass
+    Law.pass
       "(b) the emitted formatter writes the fold's bytes, over %d formats at depth %d"
       !formats
       depth
   | bad ->
     List.iter (first_ten bad) ~f:(fun (g, src, w, generated, folded) ->
-      fail "(b) %s on %S at %d:\n  module %S\n  fold   %S" g src w generated folded);
-    fail "(b) %d formats differ from the fold's" (List.length bad)
+      Law.fail "(b) %s on %S at %d:\n  module %S\n  fold   %S" g src w generated folded);
+    Law.fail "(b) %d formats differ from the fold's" (List.length bad)
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_format: 0 failures"
-  else (
-    Printf.printf "law_format: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_format"

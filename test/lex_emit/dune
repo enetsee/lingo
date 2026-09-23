@@ -171,4 +171,4 @@
 (tests
  (names law_lex)
  (modules law_lex)
- (libraries emitted lex lingo.core lingo_grammars lingo_runtime))
+ (libraries law emitted lex lingo.core lingo_grammars lingo_runtime))

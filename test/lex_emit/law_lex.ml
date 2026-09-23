@@ -124,21 +124,6 @@
                and every run comes out as a one-character token.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 (* -- the corpus ------------------------------------------------------------ *)
 
 type case =
@@ -316,7 +301,7 @@ let show (src : string) : string =
 let part_a (name : string) (src : string) (ts : Lingo_runtime.Token.t array) : unit =
   let rebuilt = Array.fold_left (fun b (t : Lingo_runtime.Token.t) -> b ^ t.text) "" ts in
   if not (String.equal rebuilt src)
-  then fail "%s: %S rebuilds as %S" name (show src) (show rebuilt)
+  then Law.fail "%s: %S rebuilds as %S" name (show src) (show rebuilt)
 ;;
 
 let part_b
@@ -329,7 +314,8 @@ let part_b
   Array.iter
     (fun (t : Lingo_runtime.Token.t) ->
        incr tokens;
-       if String.length t.text = 0 then fail "%s: %S has an empty token" name (show src);
+       if String.length t.text = 0
+       then Law.fail "%s: %S has an empty token" name (show src);
        let k = List.nth (Core.Kind.Table.kinds facts.kinds) t.kind in
        if
          Core.Facts.token_of_kind facts k = None
@@ -337,7 +323,7 @@ let part_b
               (Core.Kind.equal k facts.error_token_kind
                || Core.Kind.equal k facts.unterminated_kind)
        then
-         fail
+         Law.fail
            "%s: %S holds kind %s"
            name
            (show src)
@@ -369,11 +355,16 @@ let part_c
              (match longer asts src !lo !lo with
               | None -> ()
               | Some e ->
-                fail "%s: %S has no token at %d, and one ends at %d" name (show src) !lo e)
+                Law.fail
+                  "%s: %S has no token at %d, and one ends at %d"
+                  name
+                  (show src)
+                  !lo
+                  e)
            | Some (def : Core.Token.def) ->
              if not (List.mem def.id ids)
              then
-               fail
+               Law.fail
                  "%s: %S takes %S as %s, which does not match it"
                  name
                  (show src)
@@ -382,7 +373,7 @@ let part_c
              (match List.find_opt (fun (token_id : int) -> token_id < def.id) ids with
               | None -> ()
               | Some earlier ->
-                fail
+                Law.fail
                   "%s: %S takes %S as token %d, and token %d also holds it"
                   name
                   (show src)
@@ -392,7 +383,7 @@ let part_c
              (match longer asts src !lo hi with
               | None -> ()
               | Some e ->
-                fail
+                Law.fail
                   "%s: %S takes %d..%d, and a longer match ends at %d"
                   name
                   (show src)
@@ -418,7 +409,7 @@ let part_d
        then (
          incr unterminated;
          if i <> Array.length ts - 1
-         then fail "%s: %S continues past an unterminated token" name (show src)))
+         then Law.fail "%s: %S continues past an unterminated token" name (show src)))
     ts
 ;;
 
@@ -448,7 +439,7 @@ let part_e
             emitted
             walked)
   then
-    fail
+    Law.fail
       "%s/%s: %S lexes as [%s] here and [%s] over the automaton"
       name
       shape
@@ -467,7 +458,7 @@ let () =
          List.iter
            (fun (error : Core.Error.t) -> Format.printf "%a@." Core.Error.pp error)
            errors;
-         fail "%s: the grammar does not check" case.name
+         Law.fail "%s: the grammar does not check" case.name
        | Ok facts ->
          let asts =
            Array.map
@@ -497,17 +488,14 @@ let () =
 ;;
 
 let () =
-  if !unterminated = 0 then fail "no input ended inside a lexeme";
-  if !errors = 0 then fail "no input held a character no token starts with";
-  pass
+  if !unterminated = 0 then Law.fail "no input ended inside a lexeme";
+  if !errors = 0 then Law.fail "no input held a character no token starts with";
+  Law.pass
     "%d inputs, %d tokens, %d extents checked (%d skipped as malformed UTF-8)"
     !inputs
     !tokens
     !extents
     !skipped;
-  pass "%d unterminated tokens, %d error tokens" !unterminated !errors;
-  if !failures > 0
-  then (
-    Printf.printf "%d failures\n" !failures;
-    exit 1)
+  Law.pass "%d unterminated tokens, %d error tokens" !unterminated !errors;
+  Law.exit_on_failure ()
 ;;

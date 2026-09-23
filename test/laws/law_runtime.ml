@@ -111,21 +111,6 @@
       in is a question about a parser.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 (* -- the law's own alphabet ------------------------------------------------ *)
 
 (* Parentheses, brackets, braces, a word, a separator and whitespace. A
@@ -323,7 +308,10 @@ let () =
   done;
   if !lossless <> streams
   then
-    fail "(a) %d of %d streams did not rebuild their input" (streams - !lossless) streams
+    Law.fail
+      "(a) %d of %d streams did not rebuild their input"
+      (streams - !lossless)
+      streams
   else if
     reach.opened = 0
     || reach.wrapped = 0
@@ -331,7 +319,7 @@ let () =
     || reach.skipped = 0
     || reach.bumped = 0
   then
-    fail
+    Law.fail
       "(a) the walk never reached an event: open %d, wrap %d, missing %d, skip %d, bump \
        %d"
       reach.opened
@@ -340,7 +328,7 @@ let () =
       reach.skipped
       reach.bumped
   else
-    pass
+    Law.pass
       "a tree rebuilds its input on %d streams, %d tokens (open %d, wrap %d, missing %d, \
        skip %d, bump %d)"
       streams
@@ -351,23 +339,24 @@ let () =
       reach.skipped
       reach.bumped;
   if !backwards > 0
-  then fail "(b) the cursor went backwards at %d of %d steps" !backwards !steps
+  then Law.fail "(b) the cursor went backwards at %d of %d steps" !backwards !steps
   else if !overrun > 0
-  then fail "(b) the cursor went past the last token at %d of %d steps" !overrun !steps
+  then
+    Law.fail "(b) the cursor went past the last token at %d of %d steps" !overrun !steps
   else if !stuck > 0
   then
-    fail
+    Law.fail
       "(b) the drain hit its ceiling on %d of %d streams, so the cursor stopped advancing"
       !stuck
       streams
   else if !off_wrong > 0
   then
-    fail
+    Law.fail
       "(e) the offset disagreed with the tokens taken at %d of %d steps"
       !off_wrong
       !steps
   else
-    pass
+    Law.pass
       "the cursor moves forward only over %d steps, every drain reached the end, and the \
        offset tracked the tokens taken"
       !steps
@@ -438,10 +427,10 @@ let () =
     | Some _, [] -> incr wrong
   done;
   if !spans = 0
-  then fail "(e) no stream reported a span, so this says nothing"
+  then Law.fail "(e) no stream reported a span, so this says nothing"
   else if !wrong > 0
-  then fail "(e) %d of %d spans did not name the bytes the parse took" !wrong !spans
-  else pass "report_at names the bytes the parse took, over %d spans" !spans
+  then Law.fail "(e) %d of %d spans did not name the bytes the parse took" !wrong !spans
+  else Law.pass "report_at names the bytes the parse took, over %d spans" !spans
 ;;
 
 (* -- (c) finish refuses an open frame -------------------------------------- *)
@@ -451,8 +440,8 @@ let () =
   Lingo_runtime.Build.start_node c k_file;
   Lingo_runtime.Build.start_node c k_node;
   match Lingo_runtime.Build.finish c with
-  | _ -> fail "(c) finish returned a tree with a frame still open"
-  | exception Failure _ -> pass "finish refuses a tree with a frame still open"
+  | _ -> Law.fail "(c) finish returned a tree with a frame still open"
+  | exception Failure _ -> Law.pass "finish refuses a tree with a frame still open"
 ;;
 
 (* -- (d) expect ----------------------------------------------------------- *)
@@ -548,40 +537,43 @@ let () =
   done;
   if !bad_hit > 0
   then
-    fail
+    Law.fail
       "(d) expect did not take the token it asked for, on %d of %d tries"
       !bad_hit
       !hits
   else if !bad_miss > 0
   then
-    fail
+    Law.fail
       "(d) a failed expect moved the cursor or reported the wrong number of diagnostics, \
        on %d of %d tries"
       !bad_miss
       !misses
   else if !bad_holes > 0
   then
-    fail
+    Law.fail
       "(d) the tree held the wrong number of holes on %d of %d streams"
       !bad_holes
       streams
   else if !bad_payload > 0
   then
-    fail
+    Law.fail
       "(d) %d holes carried a payload that does not index a Missing diagnostic"
       !bad_payload
   else if !lost_bytes > 0
   then
-    fail "(d) a parse with holes in it lost bytes on %d of %d streams" !lost_bytes streams
+    Law.fail
+      "(d) a parse with holes in it lost bytes on %d of %d streams"
+      !lost_bytes
+      streams
   else if !hits = 0 || !misses = 0 || !placeholders = 0
   then
-    fail
+    Law.fail
       "(d) a branch was never taken: %d hits, %d misses, %d placeholders"
       !hits
       !misses
       !placeholders
   else
-    pass
+    Law.pass
       "expect takes it or reports it: %d hits, %d misses, %d placeholders over %d streams"
       !hits
       !misses
@@ -604,24 +596,19 @@ let () =
   let holes = List.filter (fun (k, _, _) -> k = k_missing) (nodes root []) in
   let payloads = List.map (fun (_, p, _) -> p) holes in
   if List.length holes <> 2
-  then fail "(d) two failed expects built %d holes rather than two" (List.length holes)
+  then
+    Law.fail "(d) two failed expects built %d holes rather than two" (List.length holes)
   else if List.length diags <> 1
   then
-    fail
+    Law.fail
       "(d) two failed expects at one position reported %d diagnostics rather than one"
       (List.length diags)
   else if payloads <> [ 1; 1 ]
   then
-    fail
+    Law.fail
       "(d) the two holes carry ids %s, and both should be 1"
       (String.concat "," (List.map string_of_int payloads))
-  else pass "two failed expects at one position give two holes and one diagnostic"
+  else Law.pass "two failed expects at one position give two holes and one diagnostic"
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_runtime: 0 failures"
-  else (
-    Printf.printf "law_runtime: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_runtime"

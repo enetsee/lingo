@@ -16,14 +16,10 @@
       claim for the cost of one file.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
 let check (what : string) (expected : string) (got : string) : unit =
   if String.equal expected got
-  then Printf.printf "PASS %s\n" what
-  else (
-    incr failures;
-    Printf.printf "FAIL %s\n  expected %S\n  got      %S\n" what expected got)
+  then Law.pass "%s" what
+  else Law.fail "%s\n  expected %S\n  got      %S" what expected got
 ;;
 
 let () =
@@ -63,9 +59,5 @@ let () =
     \  \xce\xb1\xce\xb2\xce\xb3\n\
      \xc2\xbb"
     (format 16 long);
-  if !failures = 0
-  then print_endline "width: 0 failures"
-  else (
-    Printf.printf "width: %d failures\n" !failures;
-    exit 1)
+  Law.summarise "width"
 ;;

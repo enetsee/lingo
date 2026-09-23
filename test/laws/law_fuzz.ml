@@ -385,21 +385,6 @@
 
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 let first_ten l = List.filteri (fun i _ -> i < 10) l
 
 (* -- the run --------------------------------------------------------------- *)
@@ -490,7 +475,7 @@ let build (label : string) (facts : Core.Facts.t) (comments : float) : corpus op
   match Fuzz.Harness.make ~lex:(Lex.run facts) ~comments ~engine ~name:label facts with
   | h -> Some { label; h; mut = Fuzz.Mutate.create h; cover = Fuzz.Coverage.create () }
   | exception e ->
-    fail "%s: no harness (%s)" label (Printexc.to_string e);
+    Law.fail "%s: no harness (%s)" label (Printexc.to_string e);
     None
 ;;
 
@@ -499,7 +484,7 @@ let corpora : corpus list =
     (fun (name, grammar) ->
        match Core.Facts.of_grammar grammar with
        | Error _ ->
-         fail "%s: the grammar was rejected" name;
+         Law.fail "%s: the grammar was rejected" name;
          []
        | Ok facts when not (formattable facts) ->
          unformattable := name :: !unformattable;
@@ -611,10 +596,10 @@ let show
        match reduce k with
        | None ->
          incr unreduced;
-         fail "%s, %d times, shortest %S%s" k.key k.count k.witness where
+         Law.fail "%s, %d times, shortest %S%s" k.key k.count k.witness where
        | Some cut ->
          reductions := (k.key, cut) :: !reductions;
-         fail
+         Law.fail
            "%s, %d times, shortest %S%s, %d bytes from %d in %d moves of %d candidates%s"
            k.key
            k.count
@@ -780,7 +765,7 @@ let () =
 let () =
   (match Fuzz.Report.classes good with
    | [] ->
-     pass
+     Law.pass
        "(a) the corpus is good, over %d inputs in %d corpora holding %d comments (%s \
         declare no whitespace and are left out)"
        !clean_inputs
@@ -789,7 +774,7 @@ let () =
        (String.concat " " (List.rev !unformattable))
    | _ ->
      show good ~reduce:(cut_down ~draw:true ~holds:still_unclean);
-     fail "(a) %d inputs of the corpus are not clean draws" (Fuzz.Report.total good));
+     Law.fail "(a) %d inputs of the corpus are not clean draws" (Fuzz.Report.total good));
   Printf.printf
     "DRAWN by %s; findings over the good corpus %s\n"
     (match corpora with
@@ -797,10 +782,10 @@ let () =
      | [] -> "nothing")
     (per_law sound_counts);
   match Fuzz.Report.classes sound with
-  | [] -> pass "(a) every oracle reads zero over it"
+  | [] -> Law.pass "(a) every oracle reads zero over it"
   | _ ->
     show sound ~reduce:(cut_down ~draw:true ~holds:fires_on_clean);
-    fail
+    Law.fail
       "(a) %d findings over a corpus that is good, so an oracle over-fires"
       (Fuzz.Report.total sound)
 ;;
@@ -897,15 +882,15 @@ let () =
   if Fuzz.Report.total good > good_when_read
   then (
     show good ~reduce:(cut_down ~draw:true ~holds:still_unclean);
-    fail
+    Law.fail
       "(b) %d draws the sweep took are not clean, so the corpus stopped being good under \
        it"
       (Fuzz.Report.total good - good_when_read));
   match Fuzz.Report.classes broken with
-  | [] -> pass "(b) every oracle reads zero over the mutated corpus"
+  | [] -> Law.pass "(b) every oracle reads zero over the mutated corpus"
   | _ ->
     show broken ~reduce:(cut_down ~draw:false ~holds:fires);
-    fail "(b) %d findings over the mutated corpus" (Fuzz.Report.total broken)
+    Law.fail "(b) %d findings over the mutated corpus" (Fuzz.Report.total broken)
 ;;
 
 (* -- (c) an edge is a transition, and the count climbs --------------------- *)
@@ -923,16 +908,18 @@ let () =
     deep_e;
   if deep_e <= shallow_e
   then
-    fail "(c) twice the corpus reached no edge the first half had not, over %d" shallow_e
+    Law.fail
+      "(c) twice the corpus reached no edge the first half had not, over %d"
+      shallow_e
   else if deep_p - shallow_p >= shallow_p / 2
   then
-    fail
+    Law.fail
       "(c) doubling the corpus added %d points to %d, so the points are tracking the \
        corpus rather than the plan and an edge count over them measures nothing"
       (deep_p - shallow_p)
       shallow_p
   else
-    pass
+    Law.pass
       "(c) the points saturate, %d and %d new, where the edges climb %d to %d"
       shallow_p
       (deep_p - shallow_p)
@@ -948,7 +935,7 @@ let () =
       (fun c -> List.map (fun r -> c.label, r) (Fuzz.Mutate.reach c.mut))
       corpora
   in
-  let failures_before = !failures in
+  let failures_before = Law.failures () in
   (* [attempts = fired + sum declines] on every row. The table is written from
      one site, so a breach here is the counting and not the mutator. *)
   List.iter
@@ -956,7 +943,7 @@ let () =
        let declined = List.fold_left (fun sum (_, n) -> sum + n) 0 r.declines in
        if r.attempts <> r.fired + declined
        then
-         fail
+         Law.fail
            "(d) %s %s: %d attempts against %d fired and %d declined"
            label
            r.mutator
@@ -976,10 +963,10 @@ let () =
          List.fold_left (fun s (_, (r : Fuzz.Mutate.reach)) -> s + r.fired) 0 mine
        in
        if attempts = 0
-       then fail "(d) %s was never called, so nothing here covers it" name
+       then Law.fail "(d) %s was never called, so nothing here covers it" name
        else if fired = 0
        then
-         fail
+         Law.fail
            "(d) %s fired on no grammar; it declined %s"
            name
            (String.concat
@@ -989,9 +976,9 @@ let () =
                     (fun (_, (r : Fuzz.Mutate.reach)) -> List.map fst r.declines)
                     mine))))
     Fuzz.Mutate.names;
-  if !failures = failures_before
+  if Law.failures () = failures_before
   then
-    pass
+    Law.pass
       "(d) every mutator is reached (%s)"
       (String.concat
          " "
@@ -1029,7 +1016,7 @@ let () =
     corpora;
   match List.filter (fun s -> not (Hashtbl.mem sources s)) Fuzz.Mutate.shapes with
   | [] ->
-    pass
+    Law.pass
       "(d) every shape at an alternation is swapped out, and %d arms are swapped in (%s)"
       (Hashtbl.length arms)
       (String.concat
@@ -1038,7 +1025,7 @@ let () =
             (fun s -> Printf.sprintf "%s %d" s (Hashtbl.find sources s))
             Fuzz.Mutate.shapes))
   | missing ->
-    fail
+    Law.fail
       "(d) no swap took a %s, so this law says nothing about that end of an alternation"
       (String.concat " or a " missing)
 ;;
@@ -1049,7 +1036,7 @@ let () =
   let rounds = iterations * 2 * List.length corpora in
   match Fuzz.Report.check_skips skips ~iterations:rounds with
   | [] ->
-    pass
+    Law.pass
       "(e) every skip class is inside its ceiling, over %d iterations (%s)"
       rounds
       (String.concat
@@ -1057,7 +1044,7 @@ let () =
          (List.map
             (fun (k : Fuzz.Report.klass) -> Printf.sprintf "%s %d" k.key k.count)
             (Fuzz.Report.classes skips)))
-  | bad -> List.iter (fun m -> fail "(e) %s" m) bad
+  | bad -> List.iter (fun m -> Law.fail "(e) %s" m) bad
 ;;
 
 (* -- (f) every rule the grammar can reach is one the corpus built ---------- *)
@@ -1233,27 +1220,27 @@ let () =
      List.iter
        (fun (label, id) ->
           let c = List.find (fun c -> String.equal c.label label) corpora in
-          fail
+          Law.fail
             "(f) %s builds %s, which the walk over the grammar never reaches"
             label
             (Core.Grammar.Name.Rule.to_string c.h.facts.rules.(id).name))
        (first_ten bad));
   (match List.rev !short with
-   | [] -> pass "(f) every rule the grammar reaches is built, over %d rules" !total
+   | [] -> Law.pass "(f) every rule the grammar reaches is built, over %d rules" !total
    | bad ->
      List.iter
        (fun (label, names) ->
-          fail "(f) %s never builds %s" label (String.concat " " names))
+          Law.fail "(f) %s never builds %s" label (String.concat " " names))
        (first_ten bad);
-     fail
+     Law.fail
        "(f) %d of %d rules the grammars reach are in no tree the corpus holds"
        (!total - !reached)
        !total);
   match Fuzz.Report.classes fragments with
-  | [] -> pass "(f) every oracle reads zero over the fragments"
+  | [] -> Law.pass "(f) every oracle reads zero over the fragments"
   | _ ->
     show fragments ~reduce:(cut_down ~draw:false ~holds:fires);
-    fail "(f) %d findings over the fragments" (Fuzz.Report.total fragments)
+    Law.fail "(f) %d findings over the fragments" (Fuzz.Report.total fragments)
 ;;
 
 (* -- (g) every witness reproduces on its own ------------------------------- *)
@@ -1269,7 +1256,7 @@ let () =
   let lost =
     List.filter (fun (_, (cut : Fuzz.Shrink.reduced)) -> not cut.reproduces) reduced
   in
-  let failures_before = !failures in
+  let failures_before = Law.failures () in
   if reduced <> []
   then
     Printf.printf
@@ -1280,26 +1267,27 @@ let () =
       (sum (fun cut -> cut.tried));
   List.iter
     (fun (key, (cut : Fuzz.Shrink.reduced)) ->
-       fail "(g) %s reduced to %S, which does not reproduce it" key cut.src)
+       Law.fail "(g) %s reduced to %S, which does not reproduce it" key cut.src)
     (first_ten lost);
   if lost <> []
   then
-    fail
+    Law.fail
       "(g) %d of %d witnesses do not reproduce"
       (List.length lost)
       (List.length reduced);
   if !unreduced > 0
-  then fail "(g) %d classes carry a witness with nothing to reproduce it from" !unreduced;
+  then
+    Law.fail "(g) %d classes carry a witness with nothing to reproduce it from" !unreduced;
   if List.length settled < List.length reduced
   then
-    fail
+    Law.fail
       "(g) %d of %d reductions stopped at the candidate cap, which leaves the moves past \
        it untried"
       (List.length reduced - List.length settled)
       (List.length reduced);
-  if !failures = failures_before
+  if Law.failures () = failures_before
   then
-    pass
+    Law.pass
       "(g) every witness reproduces on its own and no further move reduces it, over %d \
        classes"
       (List.length reduced)
@@ -1307,9 +1295,5 @@ let () =
 
 let () =
   Printf.printf "law_fuzz: %.1f s of processor time\n" (Sys.time ());
-  if !failures = 0
-  then print_endline "law_fuzz: 0 failures"
-  else (
-    Printf.printf "law_fuzz: %d failures\n" !failures;
-    exit 1)
+  Law.summarise "law_fuzz"
 ;;

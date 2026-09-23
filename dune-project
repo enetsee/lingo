@@ -35,7 +35,6 @@
    (>= 5.2))
   siesta
   handsome
-  (alcotest :with-test)
   (odoc :with-doc)))
 
 (package
@@ -55,7 +54,6 @@
   bolts
   handsome
   ppxlib
-  (alcotest :with-test)
   (odoc :with-doc)))
 
 (package
@@ -68,7 +66,6 @@
    (>= 5.0))
   lingo
   yojson
-  (alcotest :with-test)
   (odoc :with-doc))
  ; yojson belongs to this package alone, so the two backends sit in a package
  ; of their own. The tree-sitter backend writes its files directly: a

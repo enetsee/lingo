@@ -104,21 +104,6 @@
       reads and fails at zero, since only pratt-postfix carries one.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
-let fail : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt ->
-  Format.kasprintf
-    (fun s ->
-       incr failures;
-       print_endline ("FAIL " ^ s))
-    fmt
-;;
-
-let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
-  fun fmt -> Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-;;
-
 let dump f = Format.asprintf "%a" Core.Facts.pp f
 
 let () =
@@ -127,9 +112,9 @@ let () =
        match Core.Facts.of_grammar g, Core.Facts.of_grammar g with
        | Ok a, Ok b ->
          if dump a = dump b
-         then pass "%s: deterministic" name
-         else fail "%s: two checks of one grammar gave different facts" name
-       | _ -> fail "%s: the corpus grammar was rejected" name)
+         then Law.pass "%s: deterministic" name
+         else Law.fail "%s: two checks of one grammar gave different facts" name
+       | _ -> Law.fail "%s: the corpus grammar was rejected" name)
     Corpus.all
 ;;
 
@@ -146,10 +131,10 @@ let () =
               match Core.Facts.find_kind f n with
               | None ->
                 ok := false;
-                fail "%s: kind %S is not findable by name" name spelled
+                Law.fail "%s: kind %S is not findable by name" name spelled
               | Some k when Core.Kind.to_int k <> i ->
                 ok := false;
-                fail
+                Law.fail
                   "%s: kind %S numbers %d but finds %d"
                   name
                   spelled
@@ -159,7 +144,7 @@ let () =
                 if not (Core.Kind.Name.equal (Core.Facts.kind_name f k) n)
                 then (
                   ok := false;
-                  fail
+                  Law.fail
                     "%s: kind %d round-trips to %S, not %S"
                     name
                     i
@@ -168,7 +153,7 @@ let () =
            (Core.Kind.Table.names f.kinds);
          if !ok
          then
-           pass
+           Law.pass
              "%s: name and kind are a bijection over %d kinds"
              name
              (Core.Facts.kind_count f))
@@ -178,7 +163,7 @@ let () =
 (* (c). The algebra, over sets that came out of real grammars. *)
 let () =
   match Core.Facts.of_grammar Lingo_grammars.Sexp_grammar.grammar with
-  | Error _ -> fail "sexp was rejected"
+  | Error _ -> Law.fail "sexp was rejected"
   | Ok f ->
     let sets = Array.to_list f.first @ Array.to_list f.follow in
     let all_kinds = Core.Kind.Set.of_list (Core.Kind.Table.kinds f.kinds) in
@@ -190,15 +175,15 @@ let () =
          if List.sort_uniq Core.Kind.compare els <> els
          then (
            ok := false;
-           fail "elements is not ascending-and-distinct");
+           Law.fail "elements is not ascending-and-distinct");
          if Core.Kind.Set.cardinal a <> List.length els
          then (
            ok := false;
-           fail "cardinal disagrees with elements");
+           Law.fail "cardinal disagrees with elements");
          if not (Core.Kind.Set.equal (Core.Kind.Set.of_list els) a)
          then (
            ok := false;
-           fail "of_list . elements is not the identity");
+           Law.fail "of_list . elements is not the identity");
          List.iter
            (fun b ->
               if
@@ -207,21 +192,21 @@ let () =
                    && Core.Kind.Set.subset (Core.Kind.Set.inter a b) b)
               then (
                 ok := false;
-                fail "inter is not a lower bound");
+                Law.fail "inter is not a lower bound");
               if
                 not
                   (Core.Kind.Set.subset a (Core.Kind.Set.union a b)
                    && Core.Kind.Set.subset b (Core.Kind.Set.union a b))
               then (
                 ok := false;
-                fail "union is not an upper bound");
+                Law.fail "union is not an upper bound");
               if
                 not
                   (Core.Kind.Set.is_empty
                      (Core.Kind.Set.inter (Core.Kind.Set.diff a b) b))
               then (
                 ok := false;
-                fail "diff leaves something of b behind");
+                Law.fail "diff leaves something of b behind");
               if
                 not
                   (Core.Kind.Set.equal
@@ -233,7 +218,7 @@ let () =
                            (Core.Kind.Set.diff b a))))
               then (
                 ok := false;
-                fail "union is not the disjoint sum of the three parts"))
+                Law.fail "union is not the disjoint sum of the three parts"))
            sets;
          (* [add] must not disturb the set it was given. *)
          List.iter
@@ -243,11 +228,11 @@ let () =
               if Core.Kind.Set.elements a <> before
               then (
                 ok := false;
-                fail "add mutated its argument");
+                Law.fail "add mutated its argument");
               if not (Core.Kind.Set.mem a' k)
               then (
                 ok := false;
-                fail "add did not add");
+                Law.fail "add did not add");
               if
                 not
                   (Core.Kind.Set.equal
@@ -255,10 +240,10 @@ let () =
                      (Core.Kind.Set.remove k a))
               then (
                 ok := false;
-                fail "remove does not undo add"))
+                Law.fail "remove does not undo add"))
            (Core.Kind.Table.kinds f.kinds))
       sets;
-    if !ok then pass "Kind.Set.t algebra holds over %d sets" (List.length sets)
+    if !ok then Law.pass "Kind.Set.t algebra holds over %d sets" (List.length sets)
 ;;
 
 let frame_closers (fr : Core.Rule.frame) =
@@ -360,7 +345,7 @@ let () =
                      if not (Core.Kind.Set.subset (frame_closers d.frame) r)
                      then (
                        ok := false;
-                       fail
+                       Law.fail
                          "%s/%s.%s: the recovery set omits a closer of its own frame"
                          name
                          (Grammar.Name.Rule.to_string d.name)
@@ -369,7 +354,7 @@ let () =
                      if not (Core.Kind.Set.subset owed.(d.id) r)
                      then (
                        ok := false;
-                       fail
+                       Law.fail
                          "%s/%s.%s: the recovery set omits %a, a closer of an enclosing \
                           frame, so a recovery here walks off with it"
                          name
@@ -381,7 +366,7 @@ let () =
            f.rules;
          if !ok
          then
-           pass
+           Law.pass
              "%s: every recovery set contains the closers of its own frame and of every \
               frame it sits inside"
              name)
@@ -411,7 +396,8 @@ let () =
       ]
   in
   match Core.Facts.of_grammar g with
-  | Error es -> fail "the nested-frame grammar was rejected:@\n%a" Core.Error.pp_list es
+  | Error es ->
+    Law.fail "the nested-frame grammar was rejected:@\n%a" Core.Error.pp_list es
   | Ok f ->
     let rule_named nm =
       (Option.get (Core.Facts.rule_of_kind f (Option.get (Core.Facts.find_kind f nm))))
@@ -422,12 +408,12 @@ let () =
     let at i = Core.Facts.recovery_set f inner ~child:i in
     if not (Core.Kind.Set.mem (at 0) rparen)
     then
-      fail
+      Law.fail
         "a recovery at the first of two children inside a delimited parent may skip the \
          closer that parent is waiting for"
     else if not (Core.Kind.Set.mem (at 1) rparen)
-    then fail "the trailing position lost the closer"
-    else pass "a non-trailing position inside a delimited parent keeps the closer"
+    then Law.fail "the trailing position lost the closer"
+    else Law.pass "a non-trailing position inside a delimited parent keeps the closer"
 ;;
 
 (* (f). The local half holds what the position contributes and stops there.
@@ -458,7 +444,8 @@ let () =
       ]
   in
   match Core.Facts.of_grammar g with
-  | Error es -> fail "the two-context grammar was rejected:@\n%a" Core.Error.pp_list es
+  | Error es ->
+    Law.fail "the two-context grammar was rejected:@\n%a" Core.Error.pp_list es
   | Ok f ->
     let expr =
       (Option.get
@@ -472,20 +459,20 @@ let () =
     let encl = f.enclosing.(expr) in
     if Core.Kind.Set.cardinal encl <> 2
     then
-      fail
+      Law.fail
         "a rule used inside two differently framed parents should carry both closers, \
          not %a"
         (Core.Kind.Table.pp_set f.kinds)
         encl
     else if not (Core.Kind.Set.is_empty (Core.Kind.Set.inter local encl))
     then
-      fail
+      Law.fail
         "the local recovery set carries %a, which came from an enclosing frame"
         (Core.Kind.Table.pp_set f.kinds)
         (Core.Kind.Set.inter local encl)
     else if not (Core.Kind.Set.equal whole (Core.Kind.Set.union local encl))
-    then fail "the whole recovery set is not the local one plus the enclosing frames"
-    else pass "the local recovery set holds nothing an enclosing frame put there"
+    then Law.fail "the whole recovery set is not the local one plus the enclosing frames"
+    else Law.pass "the local recovery set holds nothing an enclosing frame put there"
 ;;
 
 (* (g). Every delimiter pair, and in particular the ones an expression
@@ -515,10 +502,11 @@ let () =
              (List.map (fun (a, b) -> Core.Kind.to_int a, Core.Kind.to_int b) l)
          in
          if norm got <> norm expected
-         then fail "%s: delimiter_pairs is not the set of framed rules' pairs" name
+         then Law.fail "%s: delimiter_pairs is not the set of framed rules' pairs" name
          else if List.length got <> List.length (List.sort_uniq compare (norm got))
-         then fail "%s: delimiter_pairs repeats a pair" name
-         else pass "%s: %d delimiter pairs, one per framed rule" name (List.length got))
+         then Law.fail "%s: delimiter_pairs repeats a pair" name
+         else
+           Law.pass "%s: %d delimiter pairs, one per framed rule" name (List.length got))
     Corpus.all
 ;;
 
@@ -549,7 +537,7 @@ let () =
                        (fun (o, c) -> Core.Kind.equal o open_ && Core.Kind.equal c close)
                        pairs)
                 then
-                  fail
+                  Law.fail
                     "%s/%s: an enclosed postfix's delimiters are missing from \
                      delimiter_pairs"
                     name
@@ -558,9 +546,9 @@ let () =
            f.rules)
     Corpus.all;
   if !checked = 0
-  then fail "no corpus grammar has an enclosed postfix, so this law read nothing"
-  else if !failures = 0
-  then pass "every enclosed postfix's delimiters are in the pair list (%d)" !checked
+  then Law.fail "no corpus grammar has an enclosed postfix, so this law read nothing"
+  else if Law.failures () = 0
+  then Law.pass "every enclosed postfix's delimiters are in the pair list (%d)" !checked
 ;;
 
 (* (e). Built here, so the computed set and the override are known to
@@ -584,7 +572,7 @@ let () =
       ]
   in
   match Core.Facts.of_grammar g with
-  | Error es -> fail "the override grammar was rejected:@\n%a" Core.Error.pp_list es
+  | Error es -> Law.fail "the override grammar was rejected:@\n%a" Core.Error.pp_list es
   | Ok f ->
     let item = Option.get (Core.Facts.find_kind f (Core.Kind.Name.node "Item")) in
     let d = Option.get (Core.Facts.rule_of_kind f item) in
@@ -593,22 +581,18 @@ let () =
     let local = Core.Facts.local_recovery_set f d.id ~child:0 in
     let whole = Core.Facts.recovery_set f d.id ~child:0 in
     if not (Core.Kind.Set.equal local (Core.Kind.Set.singleton (kind "tb")))
-    then fail "recover_to did not replace what the position computes: got %a" show local
+    then
+      Law.fail "recover_to did not replace what the position computes: got %a" show local
     else if Core.Kind.Set.mem whole (kind "ta")
     then
       (* [T_TA] is FIRST(Item), which the computed set would have held
          through Root's repeated body. Its absence is what says the override
          replaced something. *)
-      fail "the override left the computed set behind: got %a" show whole
+      Law.fail "the override left the computed set behind: got %a" show whole
     else if not (Core.Kind.Set.mem whole (kind "rp"))
-    then fail "the override lost the closer of Item's enclosing frame: got %a" show whole
-    else pass "recover_to replaces the computed set and keeps the enclosing closers"
+    then
+      Law.fail "the override lost the closer of Item's enclosing frame: got %a" show whole
+    else Law.pass "recover_to replaces the computed set and keeps the enclosing closers"
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "law_facts: 0 failures"
-  else (
-    Printf.printf "law_facts: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "law_facts"

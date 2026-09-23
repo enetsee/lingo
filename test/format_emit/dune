@@ -117,6 +117,16 @@
   effekt_layout.mli
   (run ./gen.exe effekt mli)))
 
+(rule
+ (with-stdout-to
+  wide_layout.ml
+  (run ./gen.exe wide layout)))
+
+(rule
+ (with-stdout-to
+  wide_layout.mli
+  (run ./gen.exe wide mli)))
+
 ; [emitted_formatters] links lingo_runtime and nothing else of ours, so a
 ; generated formatter that reached for lingo.layout would not build.
 
@@ -133,13 +143,15 @@
   recovery_layout
   comments_layout
   rust_layout
-  effekt_layout)
+  effekt_layout
+  wide_layout)
  (libraries lingo_runtime))
 
 (tests
  (names law_format)
  (modules law_format)
  (libraries
+  law
   emitted_formatters
   inputs
   lex

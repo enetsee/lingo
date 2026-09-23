@@ -9,14 +9,10 @@
       stopped colliding the collision checks would have nothing to catch.
    -------------------------------------------------------------------------- *)
 
-let failures = ref 0
-
 let check (what : string) (got : string) (expected : string) : unit =
   if got = expected
-  then Printf.printf "PASS %s = %S\n" what expected
-  else (
-    incr failures;
-    Printf.printf "FAIL %s = %S, expected %S\n" what got expected)
+  then Law.pass "%s = %S" what expected
+  else Law.fail "%s = %S, expected %S" what got expected
 ;;
 
 let () =
@@ -63,10 +59,8 @@ let () =
   let ident s expected =
     let got = Core.Mangle.is_ident s in
     if got = expected
-    then Printf.printf "PASS is_ident %S = %b\n" s expected
-    else (
-      incr failures;
-      Printf.printf "FAIL is_ident %S = %b, expected %b\n" s got expected)
+    then Law.pass "is_ident %S = %b" s expected
+    else Law.fail "is_ident %S = %b, expected %b" s got expected
   in
   ident "foo" true;
   ident "Foo_bar'" true;
@@ -84,10 +78,8 @@ let () =
      grouped the way it is. *)
   let collide f a b what =
     if f a = f b
-    then Printf.printf "PASS %S and %S collide in %s\n" a b what
-    else (
-      incr failures;
-      Printf.printf "FAIL %S and %S no longer collide in %s\n" a b what)
+    then Law.pass "%S and %S collide in %s" a b what
+    else Law.fail "%S and %S no longer collide in %s" a b what
   in
   collide Core.Mangle.safe_snake "Match" "Match_" "the parser cluster";
   collide Core.Mangle.snake_case "FooBar" "Foo_bar" "the parser cluster";
@@ -97,19 +89,9 @@ let () =
      [parse_expr] against [parse_expr__root], found them distinct, and
      accepted a grammar whose emitted parser binds one name twice. *)
   if Core.Mangle.snake_case "Expr_Root" = "expr__root"
-  then
-    Printf.printf "PASS \"Expr_Root\" snakes to the same string as Expr's root variant\n"
-  else (
-    incr failures;
-    Printf.printf
-      "FAIL \"Expr_Root\" no longer snakes to %S\n"
-      (Core.Mangle.snake_case "Expr_Root"))
+  then Law.pass "\"Expr_Root\" snakes to the same string as Expr's root variant"
+  else
+    Law.fail "\"Expr_Root\" no longer snakes to %S" (Core.Mangle.snake_case "Expr_Root")
 ;;
 
-let () =
-  if !failures = 0
-  then print_endline "mangle_test: 0 failures"
-  else (
-    Printf.printf "mangle_test: %d failures\n" !failures;
-    exit 1)
-;;
+let () = Law.summarise "mangle_test"

@@ -13,7 +13,6 @@ depends: [
   "ocaml" {>= "5.0"}
   "lingo"
   "yojson"
-  "alcotest" {with-test}
   "odoc" {with-doc}
 ]
 build: [
