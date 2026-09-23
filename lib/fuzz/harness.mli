@@ -82,6 +82,30 @@ val engine_of : t -> string
 (** One input, drawn from the root's species inside {!t.window}. *)
 val draw : t -> Random.State.t -> Sample.token list
 
+(** A draw and the decisions that made it.
+
+    [size] is the size it was drawn at. Editing the trace changes which
+    structure of that size comes back and leaves the size alone, so a shorter
+    input has to be replayed at a smaller size as well. *)
+type trace =
+  { size : int
+  ; events : Bolts.Source.trace
+  }
+
+(** {!draw}, with the decisions recorded as they are made. [None] under
+    {!Measured}, which gives back a bare [rng -> 'a] and records nothing.
+
+    Recording changes no decision, so this draws the corpus {!draw} draws. *)
+val draw_traced : t -> Random.State.t -> (Sample.token list * trace) option
+
+(** The draw a trace describes, which is a draw from the root's species like
+    any other. [None] under {!Measured}, and for a size no structure has.
+
+    A cut trace covers the first decisions and the simplest choice fills in the
+    rest, so every edit of one still replays to a structure. That is what makes
+    trace editing a reduction that stays inside the language. *)
+val replay : t -> trace -> Sample.token list option
+
 (** The sizes a rule's species has, clipped to what a mutation may splice.
     [None] for a rule with no species -- an expression block's role, which
     nothing references -- and for one whose tables bolts declined to build. *)
@@ -157,6 +181,57 @@ val relex : t -> string -> (int * string) list
 
 (** A draw read the way {!written} and {!relex} read a tree and a string. *)
 val of_tokens : Sample.token list -> (int * string) list
+
+(** The tokens a source string lexes back to, as a draw.
+
+    The kinds come from the facts, because {!Core.Kind.t} is abstract and a
+    kind nothing drew is one no system can decode. [None] where the lexer reads
+    a byte as something the grammar does not declare. The tokens the formatter
+    respells are dropped, as {!relex} drops them.
+
+    [decode t (tokens_of t src)] is [src] wherever the joiners held, which is
+    the equality {!relex} states from the other side. It is the way back in for
+    a mutant, whose own trace describes the draw the mutation was applied to. *)
+val tokens_of : t -> string -> Sample.token list option
+
+(** The tree read as ranges of the token list it was parsed from.
+
+    A draw is a flat list and a node is a range of it, so the tree is what says
+    which tokens belong to which rule. The index space counts every token but
+    the whitespace {!decode} wrote and the holes recovery inserted, which is
+    the space a drawn list is in. *)
+module Span : sig
+  type t =
+    { kind : int
+    ; from : int
+    ; upto : int (** Half-open. *)
+    ; items : item list
+    }
+
+  and item =
+    | Kid of t
+    | Leaf of
+        { kind : int
+        ; at : int
+        }
+
+  (** This node and every node under it. *)
+  val every : t -> t list
+
+  (** The node children, in the order they were parsed. *)
+  val kids : t -> t list
+end
+
+val spans : t -> Siesta.Green.node -> Span.t
+
+(** [splice tokens ~from ~upto insert] is the list with that range replaced.
+    The range is one a {!Span.t} names, clipped to the list. *)
+val splice
+  :  Sample.token list
+  -> from:int
+  -> upto:int
+  -> Sample.token list
+  -> Sample.token list
 
 (** Every rule a walk from the root reaches: a child slot's symbols, a block's
     atoms, and the roles a block's parse builds.

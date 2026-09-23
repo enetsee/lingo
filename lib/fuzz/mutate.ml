@@ -95,77 +95,7 @@ let reach (t : t) : reach list =
 let arms (t : t) : (string * int) list = commonest t.arms
 let sources (t : t) : (string * int) list = commonest t.sources
 
-(* -- the tree as spans of the token list ----------------------------------- *)
-
-type item =
-  | Kid of span
-  | Leaf of
-      { kind : int
-      ; at : int
-      }
-
-and span =
-  { kind : int
-  ; from : int
-  ; upto : int
-  ; items : item list
-  }
-
-(* Every node, with the half-open range of token indices it covers. The index
-   space counts every token but the whitespace [Sample.decode] wrote and the
-   holes recovery inserted, which is the space the drawn token list is in. *)
-let spans (h : Harness.t) (tree : Siesta.Green.node) : span =
-  let next = ref 0 in
-  let rec go (node : Siesta.Green.node) : span =
-    let from = !next in
-    let items =
-      Array.fold_left (Siesta.Green.children_array node) ~init:[] ~f:(fun acc child ->
-        match child with
-        | Siesta.Green.Node inner -> Kid (go inner) :: acc
-        | Siesta.Green.Token tok ->
-          let kind = Siesta.Green.Token.kind tok in
-          if h.respelt.(kind) || Siesta.Green.Token.text tok = ""
-          then acc
-          else (
-            let at = !next in
-            incr next;
-            Leaf { kind; at } :: acc))
-    in
-    { kind = Siesta.Green.kind node; from; upto = !next; items = List.rev items }
-  in
-  go tree
-;;
-
-let rec every (s : span) (acc : span list) : span list =
-  List.fold_left s.items ~init:(s :: acc) ~f:(fun acc item ->
-    match item with
-    | Kid kid -> every kid acc
-    | Leaf _ -> acc)
-;;
-
-let kids (s : span) : span list =
-  List.filter_map s.items ~f:(function
-    | Kid kid -> Some kid
-    | Leaf _ -> None)
-;;
-
 (* -- editing the list ------------------------------------------------------ *)
-
-let splice
-      (tokens : Sample.token list)
-      ~(from : int)
-      ~(upto : int)
-      (insert : Sample.token list)
-  : Sample.token list
-  =
-  let all = Array.of_list tokens in
-  let n = Array.length all in
-  let from = max 0 (min n from) in
-  let upto = max from (min n upto) in
-  Array.to_list (Array.sub all ~pos:0 ~len:from)
-  @ insert
-  @ Array.to_list (Array.sub all ~pos:upto ~len:(n - upto))
-;;
 
 let same (a : Sample.token list) (b : Sample.token list) : bool =
   List.length a = List.length b
@@ -231,7 +161,7 @@ type alternation =
   | At_slot of Core.Rule.child
   | At_atoms of Core.Block.def
 
-let alternation (t : t) (parent : span) (child_kind : int) : alternation option =
+let alternation (t : t) (parent : Harness.Span.t) (child_kind : int) : alternation option =
   match rule_at t parent.kind with
   | None -> None
   | Some d ->
@@ -304,8 +234,8 @@ let build_arm (t : t) (rng : Random.State.t) ~(target : int) (arm : Core.Kind.t)
 
 (* A node at a rule with a species, other than the root: replacing the root's
    whole span is a fresh draw rather than an edit. *)
-let targets (t : t) (root : span) : span list =
-  List.filter (every root []) ~f:(fun s ->
+let targets (t : t) (root : Harness.Span.t) : Harness.Span.t list =
+  List.filter (Harness.Span.every root) ~f:(fun s ->
     (not (s == root))
     &&
     match Harness.rule_of t.h s.kind with
@@ -315,7 +245,7 @@ let targets (t : t) (root : span) : span list =
 
 let regenerate (t : t) (rng : Random.State.t) (subject : subject) : outcome =
   tally t "regenerate" (fun () ->
-    let root = spans t.h subject.tree in
+    let root = Harness.spans t.h subject.tree in
     match pick rng (targets t root) with
     | None -> Declined "no node sits at a rule with a species"
     | Some target ->
@@ -323,7 +253,9 @@ let regenerate (t : t) (rng : Random.State.t) (subject : subject) : outcome =
       (match draw_near t rng rule ~target:(target.upto - target.from) with
        | None -> Declined "no size near the span has a structure"
        | Some drawn ->
-         let edited = splice subject.tokens ~from:target.from ~upto:target.upto drawn in
+         let edited =
+           Harness.splice subject.tokens ~from:target.from ~upto:target.upto drawn
+         in
          if same edited subject.tokens
          then Declined "the draw is the span it replaces"
          else Fired edited))
@@ -331,12 +263,12 @@ let regenerate (t : t) (rng : Random.State.t) (subject : subject) : outcome =
 
 let repeat (t : t) (rng : Random.State.t) (subject : subject) : outcome =
   tally t "repeat" (fun () ->
-    let root = spans t.h subject.tree in
+    let root = Harness.spans t.h subject.tree in
     (* A pair of adjacent children of one kind, in a slot the rule repeats.
        Two children of the same kind at fixed positions are not a repetition,
        and duplicating one adds a slot the grammar does not admit. *)
     let pairs =
-      List.concat_map (every root []) ~f:(fun parent ->
+      List.concat_map (Harness.Span.every root) ~f:(fun (parent : Harness.Span.t) ->
         match rule_at t parent.kind with
         | None -> []
         | Some d ->
@@ -347,7 +279,8 @@ let repeat (t : t) (rng : Random.State.t) (subject : subject) : outcome =
                | Core.Grammar.Exactly_one | Core.Grammar.Zero_or_one -> false)
               && Array.exists c.alts ~f:(fun alt -> Core.Kind.to_int alt = kind))
           in
-          let rec adjacent = function
+          let rec adjacent (kids : Harness.Span.t list) =
+            match kids with
             | first :: (second :: _ as rest) ->
               (if first.kind = second.kind && repeats second.kind
                then [ first, second ]
@@ -355,7 +288,7 @@ let repeat (t : t) (rng : Random.State.t) (subject : subject) : outcome =
               @ adjacent rest
             | [ _ ] | [] -> []
           in
-          adjacent (kids parent))
+          adjacent (Harness.Span.kids parent))
     in
     match pick rng pairs with
     | None -> Declined "no parent repeats a child of one kind twice"
@@ -369,13 +302,13 @@ let repeat (t : t) (rng : Random.State.t) (subject : subject) : outcome =
       in
       if slice = []
       then Declined "the element between them holds no token"
-      else Fired (splice subject.tokens ~from:second.upto ~upto:second.upto slice))
+      else Fired (Harness.splice subject.tokens ~from:second.upto ~upto:second.upto slice))
 ;;
 
 let admit (t : t) (subject : subject) : unit =
   observe t subject;
-  let root = spans t.h subject.tree in
-  List.iter (targets t root) ~f:(fun s ->
+  let root = Harness.spans t.h subject.tree in
+  List.iter (targets t root) ~f:(fun (s : Harness.Span.t) ->
     let rule = Option.get (Harness.rule_of t.h s.kind) in
     let slice = List.filteri subject.tokens ~f:(fun i _ -> i >= s.from && i < s.upto) in
     if slice <> []
@@ -390,9 +323,9 @@ let admit (t : t) (subject : subject) : unit =
 
 let graft (t : t) (rng : Random.State.t) (subject : subject) : outcome =
   tally t "graft" (fun () ->
-    let root = spans t.h subject.tree in
+    let root = Harness.spans t.h subject.tree in
     let offered =
-      List.filter_map (targets t root) ~f:(fun s ->
+      List.filter_map (targets t root) ~f:(fun (s : Harness.Span.t) ->
         let rule = Option.get (Harness.rule_of t.h s.kind) in
         match Hashtbl.find_opt t.donors rule with
         | None | Some [] -> None
@@ -404,7 +337,9 @@ let graft (t : t) (rng : Random.State.t) (subject : subject) : outcome =
       (match pick rng pool with
        | None -> Declined "no donor matches a node in the tree"
        | Some donor ->
-         let edited = splice subject.tokens ~from:target.from ~upto:target.upto donor in
+         let edited =
+           Harness.splice subject.tokens ~from:target.from ~upto:target.upto donor
+         in
          if same edited subject.tokens
          then Declined "the donor is the span it replaces"
          else Fired edited))
@@ -413,17 +348,17 @@ let graft (t : t) (rng : Random.State.t) (subject : subject) : outcome =
 let swap_arm (t : t) (rng : Random.State.t) (subject : subject) : outcome =
   tally t "swap-arm" (fun () ->
     observe t subject;
-    let root = spans t.h subject.tree in
+    let root = Harness.spans t.h subject.tree in
     (* Both ends of both alternations. A slot holds whichever shape the arm it
        matched has, so a slot whose every arm is a token is one no node can
        stand in, and a walk that saw only nodes would never reach it. *)
     let sites =
-      List.concat_map (every root []) ~f:(fun parent ->
-        List.filter_map parent.items ~f:(fun item ->
+      List.concat_map (Harness.Span.every root) ~f:(fun (parent : Harness.Span.t) ->
+        List.filter_map parent.items ~f:(fun (item : Harness.Span.item) ->
           let kind, from, upto, shape =
             match item with
-            | Kid kid -> kid.kind, kid.from, kid.upto, "node"
-            | Leaf leaf -> leaf.kind, leaf.at, leaf.at + 1, "token"
+            | Harness.Span.Kid kid -> kid.kind, kid.from, kid.upto, "node"
+            | Harness.Span.Leaf leaf -> leaf.kind, leaf.at, leaf.at + 1, "token"
           in
           Option.map
             (fun where -> where, kind, from, upto, shape)
@@ -457,7 +392,7 @@ let swap_arm (t : t) (rng : Random.State.t) (subject : subject) : outcome =
           | [] -> Declined "no other arm could be built"
           | built ->
             let tokens, arm = List.nth built (Random.State.int rng (List.length built)) in
-            let edited = splice subject.tokens ~from ~upto tokens in
+            let edited = Harness.splice subject.tokens ~from ~upto tokens in
             if same edited subject.tokens
             then Declined "the arm built is the arm that was there"
             else (

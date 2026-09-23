@@ -4,27 +4,32 @@ type klass =
   { key : string
   ; count : int
   ; witness : string
+  ; at : Core.Rule.id option
   }
 
-type t = (string, int * string) Hashtbl.t
+type t = (string, klass) Hashtbl.t
 
 let create () : t = Hashtbl.create 32
 
-let note (t : t) (key : string) ~(witness : string) : unit =
+let note (t : t) ?(at : Core.Rule.id option) (key : string) ~(witness : string) : unit =
   match Hashtbl.find_opt t key with
-  | None -> Hashtbl.replace t key (1, witness)
-  | Some (count, held) ->
-    let shorter = if String.length witness < String.length held then witness else held in
-    Hashtbl.replace t key (count + 1, shorter)
+  | None -> Hashtbl.replace t key { key; count = 1; witness; at }
+  | Some held ->
+    let shorter =
+      if String.length witness < String.length held.witness
+      then { held with witness; at }
+      else held
+    in
+    Hashtbl.replace t key { shorter with count = held.count + 1 }
 ;;
 
 let classes (t : t) : klass list =
-  Hashtbl.fold (fun key (count, witness) acc -> { key; count; witness } :: acc) t []
+  Hashtbl.fold (fun _ klass acc -> klass :: acc) t []
   |> List.sort ~cmp:(fun a b ->
     if a.count = b.count then compare a.key b.key else compare b.count a.count)
 ;;
 
-let total (t : t) : int = Hashtbl.fold (fun _ (count, _) sum -> sum + count) t 0
+let total (t : t) : int = Hashtbl.fold (fun _ klass sum -> sum + klass.count) t 0
 
 (* -- skip classes ---------------------------------------------------------- *)
 

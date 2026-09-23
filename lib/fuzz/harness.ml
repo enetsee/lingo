@@ -11,6 +11,10 @@ let subtree_cap = 32
 
 type draws =
   { root : Random.State.t -> Sample.token list
+  ; traced : (Sample.token list Bolts.Exact.t * int array) option
+    (* The root's tables and the sizes it draws at, held so that a draw can be
+       recorded and a recording replayed. [None] under [Measured], which hands
+       back a closure and exposes no engine. *)
   ; how : string
   ; subtrees : Sample.token list Bolts.Exact.t option option array
     (* Indexed by rule id. The outer option is whether the tables have been
@@ -127,11 +131,12 @@ let make
   let window =
     window_of (Bolts.Analysis.min_size system nt) (Bolts.Analysis.max_size system nt) mean
   in
-  let root_draw, how =
+  let root_draw, traced, how =
     match engine with
     | Measured ->
       let draw, choice = Bolts.Strategy.auto system nt window in
       ( draw
+      , None
       , (match choice.strategy with
          | Bolts.Strategy.Exact k -> Printf.sprintf "measured, exact %d" k
          | Bolts.Strategy.Boltzmann b ->
@@ -153,7 +158,7 @@ let make
              name
              (fst window)
              (snd window));
-      uniform exact sizes, Printf.sprintf "tables to %d" (snd window)
+      uniform exact sizes, Some (exact, sizes), Printf.sprintf "tables to %d" (snd window)
   in
   let plan, _ = Plan.Lower.of_facts facts in
   let layout = Layout.Lower.of_facts facts in
@@ -173,6 +178,7 @@ let make
   ; respelt = respelt_of facts
   ; draws =
       { root = root_draw
+      ; traced
       ; how
       ; subtrees = Array.make rules None
       ; bands = Array.make rules None
@@ -182,6 +188,29 @@ let make
 
 let engine_of (t : t) : string = t.draws.how
 let draw (t : t) (rng : Random.State.t) : Sample.token list = t.draws.root rng
+
+type trace =
+  { size : int
+  ; events : Bolts.Source.trace
+  }
+
+(* The size is drawn first and the structure after, which is the order
+   [uniform] takes them in. Recording adds a write per decision and draws
+   nothing of its own, so the generator is left in the same state either way. *)
+let draw_traced (t : t) (rng : Random.State.t) : (Sample.token list * trace) option =
+  match t.draws.traced with
+  | None -> None
+  | Some (exact, sizes) ->
+    let size = sizes.(Random.State.int rng (Array.length sizes)) in
+    let tokens, events = Bolts.Exact.sample_traced exact size rng in
+    Some (tokens, { size; events })
+;;
+
+let replay (t : t) (trace : trace) : Sample.token list option =
+  match t.draws.traced with
+  | None -> None
+  | Some (exact, _) -> Bolts.Exact.replay exact trace.size trace.events
+;;
 
 let decode (t : t) (tokens : Sample.token list) : string =
   Sample.decode t.facts t.map tokens
@@ -304,6 +333,96 @@ let relex (t : t) (src : string) : (int * string) list =
 
 let of_tokens (tokens : Sample.token list) : (int * string) list =
   List.map tokens ~f:(fun (tok : Sample.token) -> Core.Kind.to_int tok.kind, tok.text)
+;;
+
+(* [Core.Kind.t] is abstract, so the kind a token carries has to be the one the
+   facts hold rather than the integer siesta records. *)
+let tokens_of (t : t) (src : string) : Sample.token list option =
+  let kinds = Hashtbl.create 64 in
+  Array.iter t.facts.tokens ~f:(fun (tok : Core.Token.def) ->
+    Hashtbl.replace kinds (Core.Kind.to_int tok.kind) tok.kind);
+  let rec go (acc : Sample.token list) (read : (int * string) list)
+    : Sample.token list option
+    =
+    match read with
+    | [] -> Some (List.rev acc)
+    | (kind, text) :: rest ->
+      (match Hashtbl.find_opt kinds kind with
+       | None -> None
+       | Some kind -> go ({ Sample.kind; text } :: acc) rest)
+  in
+  go [] (relex t src)
+;;
+
+(* -- the tree as spans of the token list ----------------------------------- *)
+
+module Span = struct
+  type t =
+    { kind : int
+    ; from : int
+    ; upto : int
+    ; items : item list
+    }
+
+  and item =
+    | Kid of t
+    | Leaf of
+        { kind : int
+        ; at : int
+        }
+
+  let rec under (s : t) (acc : t list) : t list =
+    List.fold_left s.items ~init:(s :: acc) ~f:(fun acc item ->
+      match item with
+      | Kid kid -> under kid acc
+      | Leaf _ -> acc)
+  ;;
+
+  let every (s : t) : t list = under s []
+
+  let kids (s : t) : t list =
+    List.filter_map s.items ~f:(function
+      | Kid kid -> Some kid
+      | Leaf _ -> None)
+  ;;
+end
+
+let spans (t : t) (tree : Siesta.Green.node) : Span.t =
+  let next = ref 0 in
+  let rec go (node : Siesta.Green.node) : Span.t =
+    let from = !next in
+    let items =
+      Array.fold_left (Siesta.Green.children_array node) ~init:[] ~f:(fun acc child ->
+        match child with
+        | Siesta.Green.Node inner -> Span.Kid (go inner) :: acc
+        | Siesta.Green.Token tok ->
+          let kind = Siesta.Green.Token.kind tok in
+          if t.respelt.(kind) || Siesta.Green.Token.text tok = ""
+          then acc
+          else (
+            let at = !next in
+            incr next;
+            Span.Leaf { kind; at } :: acc))
+    in
+    { Span.kind = Siesta.Green.kind node; from; upto = !next; items = List.rev items }
+  in
+  go tree
+;;
+
+let splice
+      (tokens : Sample.token list)
+      ~(from : int)
+      ~(upto : int)
+      (insert : Sample.token list)
+  : Sample.token list
+  =
+  let all = Array.of_list tokens in
+  let n = Array.length all in
+  let from = max 0 (min n from) in
+  let upto = max from (min n upto) in
+  Array.to_list (Array.sub all ~pos:0 ~len:from)
+  @ insert
+  @ Array.to_list (Array.sub all ~pos:upto ~len:(n - upto))
 ;;
 
 (* Every rule a walk from the root can reach: a child slot's symbols, a block's

@@ -1,4 +1,4 @@
-; The instrument. Split five ways so that a mutator's reach and an oracle's
+; The instrument. Split six ways so that a mutator's reach and an oracle's
 ; soundness are separately assertable: an oracle that over-fires and a mutator
 ; that reaches nothing are invisible in each other's numbers.
 ;

@@ -9,13 +9,17 @@
       (e) Every skip class is inside its ceiling.
       (f) Every rule the grammar can reach is one the corpus built, and every
           oracle reads zero over the fragments drawn to reach the rest.
+      (g) Every witness a class carries reproduces on its own, and no further
+          move reduces it.
 
       Mechanism. Eleven grammars from grammars/ and the witness grammars
       beside them, less the five that declare no whitespace. For each one a
       harness: the plan, the layout, the species a rule became, and an engine
       over them. A draw is a token list, [Sample.decode] writes the bytes, and
       the oracles run on those bytes at three widths, two fixed and one drawn.
-      Then a mutator edits the token list and the same oracles run again.
+      Then a mutator edits the token list and the same oracles run again. A
+      class that fires keeps the shortest input that reached it, and each of
+      the ten a report prints is reduced before it is printed.
 
       There are two corpora here and they are drawn differently. One is a draw
       from a root, which is a whole program. The other is a draw at a rule,
@@ -143,9 +147,33 @@
       the whole of the falsification. The witnesses are shorter by an order of magnitude as
       well: [{//\nnh(h,chi}] against a 180-byte rust program.
 
+      Part (g) is about reading the witnesses the other six leave. A class
+      keeps the shortest input that reached it, and the shortest of thousands
+      is 90 bytes of rust. The three separator defects M17 to M19 name were
+      each reduced by hand before anybody could say what they were, and a
+      throwaway probe was written to do the reducing. {!Fuzz.Shrink} does it in
+      the run that finds them, and M17's 90 bytes come out as [fn{a(//\nN{})].
+
+      There are two reductions here, and which one runs follows from the claim
+      a finding breaks. Part (a) says the corpus is clean, so a witness for it
+      has to stay a clean draw: the reduction edits the trace the draw was
+      recorded under, and every replay of an edited trace is a draw. Parts (b)
+      and (f) run on mutants and on fragments, where a broken witness is a fine
+      witness, so the token list is edited directly. M25 collapses the two, and
+      under M5 it leaves 16 of 26 classes with a witness that no longer
+      reproduces: the class there is the decoded input failing to lex back to
+      the tokens drawn, and reading a witness back through the lexer makes the
+      two agree by construction.
+
+      The claim has two halves and a mutation reddens each. M24 takes a
+      candidate whatever the predicate says, and every witness then reduces to
+      [""] and reproduces nothing. M26 admits a candidate that is no smaller,
+      and two of thirty reductions then stop at the cap rather than running out
+      of moves. The cap is 1,200 candidates a class.
+
       The corpus. 3,500 clean inputs, 7,000 mutated and 7,050 fragments with
       6,694 mutants of their own, over 14 corpora holding 4,422 comments, in
-      12.4 s of processor time on the machine this record was written on. Every
+      13.0 s of processor time on the machine this record was written on. Every
       grammar with [Preserve] trivia is drawn twice, once from a system that
       draws comments and once from one that does not, so Law B is asked of
       comment placement as well as of spacing.
@@ -162,6 +190,14 @@
       [Strategy.auto] is the other engine and it measures to choose, which is
       right for a sweep and wrong for a law; [LINGO_FUZZ_ENGINE=measured]
       selects it.
+
+      Every clean draw is recorded as it is made, and part (g) edits the
+      recording. It costs 0.3 s of the 54 at depth 8 and nothing measurable at
+      depth 1, and the corpus is the same either way. [Strategy.auto] records
+      nothing, so under it part (g) reduces part (a)'s witnesses by editing the
+      token list. That is M25. The oracle half still reduces, and the half
+      about a draw lexing back to its tokens does not, because reading a
+      witness back through the lexer makes the two agree.
 
       What this says nothing about. Whether the emitted parser and the emitted
       formatter agree with the interpreter and the fold on this corpus, which
@@ -202,7 +238,8 @@
                sweep took are not clean. (d), the token arm at an atom is then
                never reached, because the corpus holds far fewer expressions to
                swap one into. (f), 678 Law A findings: a fragment whose tokens
-               fused is one the rule stops partway through.
+               fused is one the rule stops partway through. (g) reduces the 26
+               classes from 785 bytes to 245, all of them through the trace.
         M6  In [Lingo_runtime.Layout.flat_end], let a child that writes nothing
             end the run.
             -> (b), 5 findings, and (f), 2. All Law F, and (a) reads zero.
@@ -241,7 +278,9 @@
             -> (a), 4,754 findings over Laws C and D on a corpus that is good;
                (b), 9,592; (f), 9,790. This is the mutation part (a) exists
                for: the oracle is wrong and every other part reads exactly what
-               it read before.
+               it read before. (g) reduces the 30 classes from 632 bytes to
+               144, and [{{let a};}] and [enum u{C}] are what part (a)'s two
+               longest come to.
        M14  In [Lingo_runtime.Layout.body], split the walk at the last element
             under [`Plain] as well.
             -> (b), 60 findings, all Law B; law_layout (c), 11 formats. A
@@ -266,16 +305,20 @@
        M17  In [Layout.Lower.expansion], leave a block's rule atoms out of the
             kinds a slot admits.
             -> (b), 4 findings at depth 1 and 10 at depth 8; (f), 1 and 11.
-               All Law B, and law_layout does not move.
-       M18  In [Lingo_runtime.Layout.node], write the policy separator after
-            bytes an error node swept up.
+               All Law B, and law_layout does not move. (g) takes the 90-byte
+               witness to [fn{a(//\nN{})] and the 77-byte one at depth 8 to
+               [val 1(y b unbox)].
+       M18  In [Lingo_runtime.Layout.node], read [swept_tail] as false, so the
+            policy separator goes after bytes an error node swept up.
             -> (f), 27 findings at depth 1 and 195 at depth 8. (b) reads zero
-               at both.
-       M19  In [Lingo_runtime.Layout.node], read an inner frame the parse never
-            closed as closed.
+               at both. (g) takes the four witnesses from 134 bytes to 21, and
+               the shortest at depth 8 is [enum{H(h}] read at [File].
+       M19  In [Lingo_runtime.Layout.node], read an inner frame [swept_tail]
+            walks into and the parse never closed as closed.
             -> (f), 14 findings at depth 1 and 147 at depth 8. (b) reads zero
-               at both. The two share their witnesses, and the shortest at
-               depth 8 is [enum r{Ge(l}].
+               at both. The two share their witnesses, and this is the narrower
+               half of M18. (g) takes the three witnesses from 110 bytes to 17,
+               and the shortest at depth 8 is [enum{H(h}] read at [File].
 
                Three ways for the separator a body's policy adds to come back
                somewhere the fold cannot see it: in front of the last element,
@@ -309,16 +352,31 @@
                directions, and this is the direction that says the first walk
                is not short.
 
+       M24  In [Fuzz.Shrink.reduce], take a candidate whatever [holds] says.
+            -> (g) under M17, both witnesses reduced to [""] and neither
+               reproducing. The check is a fresh call to the predicate on the
+               witness that came back, so it does not depend on what the loop
+               did to get there.
+       M25  In law_fuzz, reduce part (a)'s witnesses by editing the token list.
+            -> (g) under M5, 16 of 26 witnesses no longer reproducing, and the
+               bytes come out at 660 against 245. This is the two reductions
+               collapsed into one.
+       M26  In [Fuzz.Shrink.reduce], admit a candidate that is no smaller.
+            -> (g) under M13, 2 of 30 reductions stopping at the cap. The
+               candidates go from 1,552 to 5,790 and the witnesses come out a
+               third longer, 192 bytes against 144.
+
       Depth. 1 is what the suite runs. [LINGO_SWEEP=8] is 28,000 clean inputs,
-      56,000 mutated and 56,509 fragments in 52 s; 16 is 112,000 mutated and 32
+      56,000 mutated and 56,509 fragments in 54 s; 16 is 112,000 mutated and 32
       is 224,000. Depth multiplies the draws and not the rules: the same 197
       rules are drawn at whatever the depth, which is what keeps the fragments
       a property of the grammar. Every law reads zero at every depth, on all
       three corpora.
 
       Depth is what found M17. It reads 4 findings at depth 1 and 10 at 8, and
-      the shortest witness each time was a rust input of about 180 bytes that
-      no one would have looked at twice. Reducing one took it to 13.
+      the shortest witness is 90 bytes of rust at depth 1 and 77 of effekt at
+      8. Neither is a thing anyone would look at twice. Part (g) takes them to
+      12 and 16 bytes.
 
       Nothing is open. The Law B findings this record carried until 2026-09-22
       were three defects in the separator a body's policy adds, and M17 to M19
@@ -375,6 +433,11 @@ let widths (rng : Random.State.t) : int list =
   [ 80; 20; width_pool.(Random.State.int rng (Array.length width_pool)) ]
 ;;
 
+(* Every width the run lays out at. A class is keyed on the law rather than on
+   a width, so a reduction tests whether the same law still fires anywhere in
+   the set. Redrawing one width per candidate leaves the loop chasing a class
+   that comes and goes. *)
+let every_width : int list = 80 :: 20 :: Array.to_list width_pool
 let iterations = 250 * depth
 let comment_density = 0.15
 
@@ -454,13 +517,37 @@ let corpora : corpus list =
 
 (* -- what a finding is reported as ----------------------------------------- *)
 
-let note (report : Fuzz.Report.t) (c : corpus) (src : string) (f : Fuzz.Oracles.finding)
+(* Which corpus a finding came from, and the trace of the draw behind it where
+   the draw was traced. A report holds a class key and a witness, and neither
+   of them carries the harness that reads it back. Written per finding and read
+   once per class, so a run with no findings writes nothing. *)
+let context : (string * string, corpus * Fuzz.Harness.trace option) Hashtbl.t =
+  Hashtbl.create 8
+;;
+
+let keep
+      (report : Fuzz.Report.t)
+      (c : corpus)
+      ?(at : Core.Rule.id option)
+      ?(trace : Fuzz.Harness.trace option)
+      (key : string)
+      (src : string)
   : unit
   =
-  Fuzz.Report.note
-    report
-    (Printf.sprintf "%s %s" c.label (Fuzz.Oracles.describe f))
-    ~witness:src
+  Hashtbl.replace context (key, src) (c, trace);
+  Fuzz.Report.note report ?at key ~witness:src
+;;
+
+let note
+      (report : Fuzz.Report.t)
+      (c : corpus)
+      ?(at : Core.Rule.id option)
+      ?(trace : Fuzz.Harness.trace option)
+      (src : string)
+      (f : Fuzz.Oracles.finding)
+  : unit
+  =
+  keep report c ?at ?trace (Printf.sprintf "%s %s" c.label (Fuzz.Oracles.describe f)) src
 ;;
 
 let tally (counts : (string, int) Hashtbl.t) (f : Fuzz.Oracles.finding) : unit =
@@ -480,11 +567,75 @@ let per_law (counts : (string, int) Hashtbl.t) : string =
        Fuzz.Oracles.laws)
 ;;
 
-let show (report : Fuzz.Report.t) : unit =
+(* Part (g) reads this at the end, which is the one place the claim over all
+   three reports can be made. *)
+let reductions : (string * Fuzz.Shrink.reduced) list ref = ref []
+let unreduced = ref 0
+
+(* A class reduces where a context was kept for it. [None] is a class noted by
+   a path that kept none, and part (g) fails on it: a witness nobody can re-run
+   is a witness nobody can reduce either. *)
+let cut_down
+      ~(draw : bool)
+      ~(holds : corpus -> Fuzz.Report.klass -> Sample.token list -> string -> bool)
+      (k : Fuzz.Report.klass)
+  : Fuzz.Shrink.reduced option
+  =
+  match Hashtbl.find_opt context (k.key, k.witness) with
+  | None -> None
+  | Some (c, trace) ->
+    let edit =
+      match draw, trace with
+      | true, Some trace -> Fuzz.Shrink.Trace trace
+      | true, None | false, _ -> Fuzz.Shrink.Tokens
+    in
+    Some (Fuzz.Shrink.reduce c.h ?at:k.at edit ~holds:(holds c k) k.witness)
+;;
+
+let rule_at (c : corpus) (at : Core.Rule.id) : string =
+  Core.Grammar.Name.Rule.to_string c.h.facts.rules.(at).name
+;;
+
+let show
+      (report : Fuzz.Report.t)
+      ~(reduce : Fuzz.Report.klass -> Fuzz.Shrink.reduced option)
+  : unit
+  =
   List.iter
     (fun (k : Fuzz.Report.klass) ->
-       fail "%s, %d times, shortest %S" k.key k.count k.witness)
+       let where =
+         match k.at, Hashtbl.find_opt context (k.key, k.witness) with
+         | Some at, Some (c, _) -> Printf.sprintf " read at %s" (rule_at c at)
+         | Some _, None | None, _ -> ""
+       in
+       match reduce k with
+       | None ->
+         incr unreduced;
+         fail "%s, %d times, shortest %S%s" k.key k.count k.witness where
+       | Some cut ->
+         reductions := (k.key, cut) :: !reductions;
+         fail
+           "%s, %d times, shortest %S%s, %d bytes from %d in %d moves of %d candidates%s"
+           k.key
+           k.count
+           cut.src
+           where
+           cut.after
+           cut.before
+           cut.moves
+           cut.tried
+           (if cut.capped then ", capped" else ""))
     (first_ten (Fuzz.Report.classes report))
+;;
+
+(* The class key a candidate has to keep. *)
+let fires (c : corpus) (k : Fuzz.Report.klass) (_ : Sample.token list) (src : string)
+  : bool
+  =
+  List.exists
+    (fun (f : Fuzz.Oracles.finding) ->
+       String.equal (Printf.sprintf "%s %s" c.label (Fuzz.Oracles.describe f)) k.key)
+    (Fuzz.Oracles.run c.h ?at:k.at ~widths:every_width src)
 ;;
 
 (* -- (a) the corpus is good, and every oracle reads zero over it ------------ *)
@@ -531,37 +682,84 @@ let sound_counts : (string, int) Hashtbl.t = Hashtbl.create 8
 let clean_inputs = ref 0
 let clean_comments = ref 0
 
-let draw_one (c : corpus) (rng : Random.State.t) : Fuzz.Mutate.subject * string =
-  let tokens = Fuzz.Harness.draw c.h rng in
-  let src = Fuzz.Harness.decode c.h tokens in
-  let tree, diags = Fuzz.Harness.parse c.h src in
-  (* The corpus is only known good while these hold. law_sample states the same
-     two over its own grammars; rust and effekt are not among them, so for
-     those this is the only place it is said. *)
-  if diags <> []
-  then
-    Fuzz.Report.note
-      good
-      (Printf.sprintf
+(* The corpus is only known good while this gives nothing back. law_sample
+   states the same two over its own grammars; rust and effekt are not among
+   them, so for those this is the only place it is said.
+
+   It gives the keys rather than writing the reports, because part (g) reduces
+   a witness under the same two checks and has to arrive at the same class. *)
+let uncleanness
+      (c : corpus)
+      (tokens : Sample.token list)
+      (src : string)
+      (diags : Lingo_runtime.Diagnostic.t list)
+  : string list
+  =
+  (match diags with
+   | [] -> []
+   | first :: _ ->
+     [ Printf.sprintf
          "%s: %s"
          c.label
-         (Format.asprintf "%a" Lingo_runtime.Diagnostic.pp (List.hd diags)))
-      ~witness:src;
+         (Format.asprintf "%a" Lingo_runtime.Diagnostic.pp first)
+     ])
+  @
   if Fuzz.Harness.relex c.h src <> Fuzz.Harness.of_tokens tokens
   then
-    Fuzz.Report.note
-      good
-      (Printf.sprintf
-         "%s: the decoded input does not lex back to the tokens drawn"
-         c.label)
-      ~witness:src;
+    [ Printf.sprintf "%s: the decoded input does not lex back to the tokens drawn" c.label
+    ]
+  else []
+;;
+
+let still_unclean
+      (c : corpus)
+      (k : Fuzz.Report.klass)
+      (tokens : Sample.token list)
+      (src : string)
+  : bool
+  =
+  let _, diags = Fuzz.Harness.parse c.h src in
+  List.mem k.key (uncleanness c tokens src diags)
+;;
+
+(* Part (a) is a claim over a corpus that is good, so a witness for it has to
+   stay a clean draw. Editing the trace keeps every candidate a draw, and M25
+   is the mutation that stops it. *)
+let fires_on_clean
+      (c : corpus)
+      (k : Fuzz.Report.klass)
+      (tokens : Sample.token list)
+      (src : string)
+  : bool
+  =
+  let _, diags = Fuzz.Harness.parse c.h src in
+  uncleanness c tokens src diags = [] && fires c k tokens src
+;;
+
+(* The draw is recorded, so that a finding over the clean corpus reduces by
+   editing the decisions that drew it and every candidate stays a draw.
+   [Strategy.auto] records nothing, so under it the trace is [None] and part
+   (g) falls back to editing the token list. *)
+let draw_one (c : corpus) (rng : Random.State.t)
+  : Fuzz.Mutate.subject * string * Fuzz.Harness.trace option
+  =
+  let tokens, trace =
+    match Fuzz.Harness.draw_traced c.h rng with
+    | Some (tokens, trace) -> tokens, Some trace
+    | None -> Fuzz.Harness.draw c.h rng, None
+  in
+  let src = Fuzz.Harness.decode c.h tokens in
+  let tree, diags = Fuzz.Harness.parse c.h src in
+  List.iter
+    (fun (key : string) -> keep good c ?trace key src)
+    (uncleanness c tokens src diags);
   List.iter
     (fun (tok : Sample.token) ->
        if Core.Facts.is_trivia_kind c.h.facts tok.kind then incr clean_comments)
     tokens;
   incr clean_inputs;
   note_built c tree;
-  { Fuzz.Mutate.tokens; tree }, src
+  { Fuzz.Mutate.tokens; tree }, src, trace
 ;;
 
 let () =
@@ -569,11 +767,11 @@ let () =
     (fun c ->
        let rng = Random.State.make seed in
        for _ = 1 to iterations do
-         let _, src = draw_one c rng in
+         let _, src, trace = draw_one c rng in
          List.iter
            (fun f ->
               tally sound_counts f;
-              note sound c src f)
+              note sound c ?trace src f)
            (Fuzz.Oracles.run c.h ~widths:(widths rng) src)
        done)
     corpora
@@ -590,7 +788,7 @@ let () =
        !clean_comments
        (String.concat " " (List.rev !unformattable))
    | _ ->
-     show good;
+     show good ~reduce:(cut_down ~draw:true ~holds:still_unclean);
      fail "(a) %d inputs of the corpus are not clean draws" (Fuzz.Report.total good));
   Printf.printf
     "DRAWN by %s; findings over the good corpus %s\n"
@@ -601,7 +799,7 @@ let () =
   match Fuzz.Report.classes sound with
   | [] -> pass "(a) every oracle reads zero over it"
   | _ ->
-    show sound;
+    show sound ~reduce:(cut_down ~draw:true ~holds:fires_on_clean);
     fail
       "(a) %d findings over a corpus that is good, so an oracle over-fires"
       (Fuzz.Report.total sound)
@@ -634,7 +832,9 @@ let sweep
     let subject =
       match !held with
       | Some s -> s
-      | None -> fst (draw_one c rng)
+      | None ->
+        let subject, _, _ = draw_one c rng in
+        subject
     in
     match Fuzz.Mutate.apply c.mut rng subject with
     | None ->
@@ -696,7 +896,7 @@ let () =
     (per_law broken_counts);
   if Fuzz.Report.total good > good_when_read
   then (
-    show good;
+    show good ~reduce:(cut_down ~draw:true ~holds:still_unclean);
     fail
       "(b) %d draws the sweep took are not clean, so the corpus stopped being good under \
        it"
@@ -704,7 +904,7 @@ let () =
   match Fuzz.Report.classes broken with
   | [] -> pass "(b) every oracle reads zero over the mutated corpus"
   | _ ->
-    show broken;
+    show broken ~reduce:(cut_down ~draw:false ~holds:fires);
     fail "(b) %d findings over the mutated corpus" (Fuzz.Report.total broken)
 ;;
 
@@ -917,7 +1117,7 @@ let check (c : corpus) ~(at : Core.Rule.id) (rng : Random.State.t) (src : string
   List.iter
     (fun f ->
        tally fragment_counts f;
-       note fragments c src f)
+       note fragments c ~at src f)
     (Fuzz.Oracles.run c.h ~at ~widths:(widths rng) src)
 ;;
 
@@ -1052,8 +1252,57 @@ let () =
   match Fuzz.Report.classes fragments with
   | [] -> pass "(f) every oracle reads zero over the fragments"
   | _ ->
-    show fragments;
+    show fragments ~reduce:(cut_down ~draw:false ~holds:fires);
     fail "(f) %d findings over the fragments" (Fuzz.Report.total fragments)
+;;
+
+(* -- (g) every witness reproduces on its own ------------------------------- *)
+
+let () =
+  let reduced = List.rev !reductions in
+  let sum (f : Fuzz.Shrink.reduced -> int) : int =
+    List.fold_left (fun total (_, cut) -> total + f cut) 0 reduced
+  in
+  let settled =
+    List.filter (fun (_, (cut : Fuzz.Shrink.reduced)) -> not cut.capped) reduced
+  in
+  let lost =
+    List.filter (fun (_, (cut : Fuzz.Shrink.reduced)) -> not cut.reproduces) reduced
+  in
+  let failures_before = !failures in
+  if reduced <> []
+  then
+    Printf.printf
+      "REDUCED %d witnesses, %d bytes to %d, over %d candidates\n"
+      (List.length reduced)
+      (sum (fun cut -> cut.before))
+      (sum (fun cut -> cut.after))
+      (sum (fun cut -> cut.tried));
+  List.iter
+    (fun (key, (cut : Fuzz.Shrink.reduced)) ->
+       fail "(g) %s reduced to %S, which does not reproduce it" key cut.src)
+    (first_ten lost);
+  if lost <> []
+  then
+    fail
+      "(g) %d of %d witnesses do not reproduce"
+      (List.length lost)
+      (List.length reduced);
+  if !unreduced > 0
+  then fail "(g) %d classes carry a witness with nothing to reproduce it from" !unreduced;
+  if List.length settled < List.length reduced
+  then
+    fail
+      "(g) %d of %d reductions stopped at the candidate cap, which leaves the moves past \
+       it untried"
+      (List.length reduced - List.length settled)
+      (List.length reduced);
+  if !failures = failures_before
+  then
+    pass
+      "(g) every witness reproduces on its own and no further move reduces it, over %d \
+       classes"
+      (List.length reduced)
 ;;
 
 let () =

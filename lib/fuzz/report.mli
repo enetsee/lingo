@@ -15,13 +15,18 @@ type t
 val create : unit -> t
 
 (** [note t key ~witness] records one occurrence. The witness kept is the
-    shortest seen for that key, and ties go to the first. *)
-val note : t -> string -> witness:string -> unit
+    shortest seen for that key, and ties go to the first.
+
+    [at] is the rule the input is read at, and it defaults to the root. A
+    fragment is drawn at a rule and read back at the same one, so a witness
+    without it is one nobody can reproduce. *)
+val note : t -> ?at:Core.Rule.id -> string -> witness:string -> unit
 
 type klass =
   { key : string
   ; count : int
   ; witness : string
+  ; at : Core.Rule.id option (** Where the witness is read. *)
   }
 
 (** Commonest first, and by key where two are equally common, so two runs of
