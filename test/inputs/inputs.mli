@@ -28,3 +28,4 @@ val shapes : t
 val comments : t
 val rust : t
 val effekt : t
+val wide : t

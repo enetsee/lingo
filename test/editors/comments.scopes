@@ -1,0 +1,15 @@
+tokens
+  lbrack               punctuation.section.brackets.begin
+  rbrack               punctuation.section.brackets.end
+  comma                punctuation.separator
+  dot                  punctuation.separator
+  name                 -
+  number               -
+  ws                   -
+  line                 comment.line.double-slash
+  block                comment.block
+rules
+  File                 -
+  List                 -
+  Item                 -
+  Field                -

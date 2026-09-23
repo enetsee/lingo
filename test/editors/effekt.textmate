@@ -1,0 +1,601 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Effekt",
+  "scopeName": "source.effekt",
+  "patterns": [
+    { "include": "#file" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "file": {
+      "patterns": [ { "include": "#module" }, { "include": "#item" } ]
+    },
+    "module": {
+      "name": "meta.module.effekt",
+      "begin": "\\bmodule\\b",
+      "end": "(?<=;)",
+      "beginCaptures": { "0": { "name": "keyword.other.module.effekt" } },
+      "patterns": [
+        { "include": "#path" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "doc_block": { "patterns": [] },
+    "item": {
+      "patterns": [
+        { "include": "#doc_block" }, { "include": "#definition" }
+      ]
+    },
+    "definition": {
+      "patterns": [
+        { "include": "#import" },
+        { "include": "#def" },
+        { "include": "#val_def" },
+        { "include": "#var_def" },
+        { "include": "#type_def" },
+        { "include": "#record" },
+        { "include": "#interface" },
+        { "include": "#effect" },
+        { "include": "#namespace" }
+      ]
+    },
+    "path": { "patterns": [ { "include": "#path_segment" } ] },
+    "path_segment": {
+      "name": "meta.path.segment.effekt",
+      "match": "(::)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "captures": {
+        "1": { "name": "punctuation.separator.effekt" },
+        "2": { "name": "variable.other.effekt" }
+      }
+    },
+    "import": {
+      "name": "meta.import.effekt",
+      "begin": "\\bimport\\b",
+      "end": "(?<=;)",
+      "beginCaptures": { "0": { "name": "keyword.other.import.effekt" } },
+      "patterns": [
+        { "include": "#path" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "param": { "patterns": [ { "include": "#type" } ] },
+    "params": {
+      "name": "meta.params.effekt",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.parens.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.parens.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#param" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "def": {
+      "name": "meta.def.effekt",
+      "begin": "(\\bdef\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=;)",
+      "beginCaptures": {
+        "1": { "name": "storage.type.def.effekt" },
+        "2": { "name": "variable.other.effekt" }
+      },
+      "patterns": [
+        { "include": "#params" },
+        { "include": "#type" },
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "val_def": {
+      "name": "meta.val.def.effekt",
+      "begin": "(\\bval\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=;)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.val.effekt" },
+        "2": { "name": "variable.other.effekt" }
+      },
+      "patterns": [
+        { "include": "#type" },
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "var_def": {
+      "name": "meta.var.def.effekt",
+      "begin": "(\\bvar\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=;)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.var.effekt" },
+        "2": { "name": "variable.other.effekt" }
+      },
+      "patterns": [
+        { "include": "#type" },
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "type_def": {
+      "name": "meta.type.def.effekt",
+      "begin": "(\\btype\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=;)",
+      "beginCaptures": {
+        "1": { "name": "storage.type.type.effekt" },
+        "2": { "name": "variable.other.effekt" }
+      },
+      "patterns": [
+        { "include": "#type" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "record": {
+      "name": "meta.record.effekt",
+      "begin": "(\\brecord\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=\\))",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.record.effekt" },
+        "2": { "name": "variable.other.effekt" }
+      },
+      "patterns": [
+        { "include": "#params" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "operation": {
+      "patterns": [
+        { "include": "#params" },
+        { "include": "#doc_block" },
+        { "include": "#type" }
+      ]
+    },
+    "interface_body": {
+      "name": "meta.interface.body.effekt",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#operation" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "interface": {
+      "name": "meta.interface.effekt",
+      "begin": "(\\binterface\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=\\})",
+      "beginCaptures": {
+        "1": { "name": "storage.type.interface.effekt" },
+        "2": { "name": "variable.other.effekt" }
+      },
+      "patterns": [
+        { "include": "#interface_body" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "effect": {
+      "name": "meta.effect.effekt",
+      "begin": "(\\beffect\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=;)",
+      "beginCaptures": {
+        "1": { "name": "storage.type.effect.effekt" },
+        "2": { "name": "variable.other.effekt" }
+      },
+      "patterns": [
+        { "include": "#params" },
+        { "include": "#type" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "namespace_body": {
+      "name": "meta.namespace.body.effekt",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#item" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "namespace": {
+      "name": "meta.namespace.effekt",
+      "begin": "(\\bnamespace\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=\\})",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.namespace.effekt" },
+        "2": { "name": "variable.other.effekt" }
+      },
+      "patterns": [
+        { "include": "#namespace_body" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "type": {
+      "patterns": [
+        { "include": "#boxed_type" }, { "include": "#boxed_type" }
+      ]
+    },
+    "boxed_type": {
+      "patterns": [
+        { "include": "#atomic_type" }, { "include": "#capture_list" }
+      ]
+    },
+    "capture_list": {
+      "name": "meta.capture.list.effekt",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.effekt" }
+      },
+      "patterns": [ { "include": "#trivia" }, { "include": "#tokens" } ]
+    },
+    "atomic_type": { "patterns": [ { "include": "#type_args" } ] },
+    "type_args": {
+      "name": "meta.type.args.effekt",
+      "begin": "\\[",
+      "end": "\\]",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.brackets.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.brackets.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#type" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "block": {
+      "name": "meta.block.effekt",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#stmt" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "stmt": {
+      "patterns": [
+        { "include": "#val_def" },
+        { "include": "#var_def" },
+        { "include": "#def" },
+        { "include": "#expr" }
+      ]
+    },
+    "if": { "patterns": [ { "include": "#paren" } ] },
+    "while": { "patterns": [ { "include": "#paren" } ] },
+    "paren": {
+      "name": "meta.paren.effekt",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.parens.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.parens.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "do": {
+      "name": "meta.do.effekt",
+      "begin": "(\\bdo\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=\\))",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.do.effekt" },
+        "2": { "name": "variable.other.effekt" }
+      },
+      "patterns": [
+        { "include": "#args" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "args": {
+      "name": "meta.args.effekt",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.parens.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.parens.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "return": { "patterns": [] },
+    "resume": {
+      "name": "meta.resume.effekt",
+      "begin": "\\bresume\\b",
+      "end": "(?<=\\))",
+      "beginCaptures": { "0": { "name": "keyword.other.resume.effekt" } },
+      "patterns": [
+        { "include": "#args" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "box": { "patterns": [] },
+    "unbox": { "patterns": [] },
+    "fn": { "patterns": [ { "include": "#params" } ] },
+    "try": {
+      "patterns": [ { "include": "#block" }, { "include": "#handler_body" } ]
+    },
+    "handler_body": {
+      "name": "meta.handler.body.effekt",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#clause" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "clause": {
+      "patterns": [ { "include": "#params" }, { "include": "#expr" } ]
+    },
+    "match": {
+      "name": "meta.match.effekt",
+      "begin": "\\bmatch\\b",
+      "end": "(?<=\\})",
+      "beginCaptures": { "0": { "name": "keyword.other.match.effekt" } },
+      "patterns": [
+        { "include": "#paren" },
+        { "include": "#match_body" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "match_body": {
+      "name": "meta.match.body.effekt",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#match_arm" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "match_arm": {
+      "patterns": [
+        { "include": "#pattern" },
+        { "include": "#pattern" },
+        { "include": "#expr" },
+        { "include": "#expr" }
+      ]
+    },
+    "pattern": { "patterns": [ { "include": "#pattern_args" } ] },
+    "pattern_args": {
+      "name": "meta.pattern.args.effekt",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.parens.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.parens.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#pattern" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "hole": {
+      "name": "meta.hole.effekt",
+      "begin": "<\\{",
+      "end": "\\}>",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.lhole.begin.effekt" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.rhole.end.effekt" }
+      },
+      "patterns": [
+        { "include": "#stmt" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "expr": {
+      "patterns": [
+        { "include": "#block" },
+        { "include": "#paren" },
+        { "include": "#hole" },
+        { "include": "#if" },
+        { "include": "#while" },
+        { "include": "#try" },
+        { "include": "#match" },
+        { "include": "#do" },
+        { "include": "#return" },
+        { "include": "#resume" },
+        { "include": "#box" },
+        { "include": "#unbox" },
+        { "include": "#fn" },
+        {
+          "name": "meta.expr.postfix.select.effekt",
+          "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n/][^\\n]*|//)|(?:/\\*(?:[^*]|\\*+[^*/])*\\*+/))*([A-Z_a-z][0-9A-Z_a-z]*)",
+          "captures": {
+            "1": { "name": "punctuation.accessor.effekt" },
+            "2": { "name": "variable.other.effekt" }
+          }
+        },
+        {
+          "name": "meta.expr.postfix.typed.effekt",
+          "begin": "\\[",
+          "end": "\\]",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.brackets.begin.effekt" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.brackets.end.effekt" }
+          },
+          "patterns": [ { "include": "#expr" } ]
+        },
+        {
+          "name": "meta.expr.postfix.call.effekt",
+          "begin": "\\(",
+          "end": "\\)",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.parens.begin.effekt" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.parens.end.effekt" }
+          },
+          "patterns": [ { "include": "#expr" } ]
+        },
+        {
+          "name": "meta.expr.postfix.block.effekt",
+          "begin": "\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.braces.begin.effekt" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.braces.end.effekt" }
+          },
+          "patterns": [ { "include": "#expr" } ]
+        },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "trivia": {
+      "patterns": [
+        { "match": "[\\t\\n\\r ]+" },
+        {
+          "name": "comment.line.double-slash.effekt",
+          "match": "//[^\\n/][^\\n]*|//"
+        },
+        {
+          "name": "comment.block.effekt",
+          "match": "/\\*(?:[^*]|\\*+[^*/])*\\*+/"
+        }
+      ]
+    },
+    "tokens": {
+      "patterns": [
+        {
+          "name": "storage.type.interface.effekt",
+          "match": "\\binterface\\b"
+        },
+        {
+          "name": "keyword.other.namespace.effekt",
+          "match": "\\bnamespace\\b"
+        },
+        { "name": "keyword.other.module.effekt", "match": "\\bmodule\\b" },
+        { "name": "keyword.other.import.effekt", "match": "\\bimport\\b" },
+        { "name": "keyword.other.record.effekt", "match": "\\brecord\\b" },
+        { "name": "storage.type.effect.effekt", "match": "\\beffect\\b" },
+        { "name": "keyword.control.return.effekt", "match": "\\breturn\\b" },
+        { "name": "keyword.other.resume.effekt", "match": "\\bresume\\b" },
+        { "name": "keyword.control.while.effekt", "match": "\\bwhile\\b" },
+        { "name": "keyword.other.match.effekt", "match": "\\bmatch\\b" },
+        { "name": "keyword.other.unbox.effekt", "match": "\\bunbox\\b" },
+        { "name": "keyword.other.false.effekt", "match": "\\bfalse\\b" },
+        { "name": "storage.type.type.effekt", "match": "\\btype\\b" },
+        { "name": "keyword.control.else.effekt", "match": "\\belse\\b" },
+        { "name": "keyword.control.with.effekt", "match": "\\bwith\\b" },
+        { "name": "keyword.other.case.effekt", "match": "\\bcase\\b" },
+        { "name": "keyword.other.true.effekt", "match": "\\btrue\\b" },
+        { "name": "storage.type.def.effekt", "match": "\\bdef\\b" },
+        { "name": "keyword.control.val.effekt", "match": "\\bval\\b" },
+        { "name": "keyword.control.var.effekt", "match": "\\bvar\\b" },
+        { "name": "keyword.control.try.effekt", "match": "\\btry\\b" },
+        { "name": "keyword.other.box.effekt", "match": "\\bbox\\b" },
+        { "name": "keyword.operator.and.effekt", "match": "\\band\\b" },
+        { "name": "keyword.control.if.effekt", "match": "\\bif\\b" },
+        { "name": "keyword.control.do.effekt", "match": "\\bdo\\b" },
+        { "name": "keyword.other.fn.effekt", "match": "\\bfn\\b" },
+        { "name": "keyword.other.at.effekt", "match": "\\bat\\b" },
+        { "name": "punctuation.separator.effekt", "match": "::" },
+        { "name": "punctuation.separator.effekt", "match": "->" },
+        { "name": "punctuation.separator.effekt", "match": "=>" },
+        { "name": "keyword.operator.eqeq.effekt", "match": "==" },
+        { "name": "keyword.operator.bangeq.effekt", "match": "!=" },
+        { "name": "keyword.operator.le.effekt", "match": "<=" },
+        { "name": "keyword.operator.ge.effekt", "match": ">=" },
+        { "name": "punctuation.separator.effekt", "match": "," },
+        { "name": "punctuation.separator.effekt", "match": ";" },
+        { "name": "punctuation.separator.effekt", "match": ":" },
+        { "name": "punctuation.accessor.effekt", "match": "\\." },
+        { "name": "punctuation.separator.effekt", "match": "=" },
+        { "name": "keyword.operator.lt.effekt", "match": "<" },
+        { "name": "keyword.operator.gt.effekt", "match": ">" },
+        { "name": "keyword.operator.plus.effekt", "match": "\\+" },
+        { "name": "keyword.operator.minus.effekt", "match": "-" },
+        { "name": "keyword.operator.star.effekt", "match": "\\*" },
+        { "name": "keyword.operator.slash.effekt", "match": "/" },
+        { "name": "punctuation.separator.effekt", "match": "\\|" },
+        { "name": "keyword.operator.bang.effekt", "match": "!" },
+        {
+          "name": "variable.other.effekt",
+          "match": "[A-Z_a-z][0-9A-Z_a-z]*"
+        },
+        { "name": "constant.numeric.integer.effekt", "match": "[0-9]+" },
+        {
+          "name": "string.quoted.double.effekt",
+          "match": "\"(?:[^\"\\\\]|\\\\[\\s\\S])*\""
+        },
+        {
+          "name": "comment.line.documentation.effekt",
+          "match": "///[^\\n]*"
+        }
+      ]
+    }
+  }
+}

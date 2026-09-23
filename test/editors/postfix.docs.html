@@ -1,0 +1,127 @@
+<article class="lingo-reference">
+  <h1>postfix</h1>
+  <h2 id="productions">Productions</h2>
+  <ul class="lg-contents">
+    <li><a href="#rule-File"><code>File</code></a></li>
+    <li><a href="#rule-Field"><code>Field</code></a></li>
+    <li><a href="#rule-Expr"><code>Expr</code></a></li>
+  </ul>
+  <section id="rule-File">
+  <h3>File</h3>
+  <pre class="lg-listing"><span class="lg-rule">File</span> <span class="lg-notation">=</span> <span class="lg-child">expr</span><span class="lg-notation">:</span><a href="#rule-Expr"><span class="lg-ref">Expr</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 84 56" width="84" height="56" xmlns="http://www.w3.org/2000/svg">
+    <title>File</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">expr</text>
+    <a href="#rule-Expr">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="42" y="39">Expr</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="68,35 82,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="82,28 82,42" />
+  </svg>
+  </section>
+  <section id="rule-Field">
+  <h3>Field</h3>
+  <pre class="lg-listing"><span class="lg-rule">Field</span> <span class="lg-notation">=</span> <span class="lg-child">name</span><span class="lg-notation">:</span><a href="#token-name"><span class="lg-token">name</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 84 56" width="84" height="56" xmlns="http://www.w3.org/2000/svg">
+    <title>Field</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">name</text>
+    <a href="#token-name">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="42" y="39">name</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="68,35 82,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="82,28 82,42" />
+  </svg>
+  </section>
+  <section id="rule-Expr">
+  <h3>Expr</h3>
+  <pre class="lg-listing"><span class="lg-rule">Expr</span> <span class="lg-notation">= expression</span>
+
+  <span class="lg-notation">atoms</span> <a href="#token-int"><span class="lg-token">int</span></a> <a href="#token-name"><span class="lg-token">name</span></a>
+  <span class="lg-notation">infix</span> <a href="#token-plus"><span class="lg-literal">&#39;+&#39;</span></a> <span class="lg-notation">(10 left)</span>
+  <span class="lg-notation">postfix</span>
+    <span class="lg-notation">x</span><a href="#token-question"><span class="lg-literal">&#39;?&#39;</span></a> <span class="lg-notation">(90)</span>
+    <span class="lg-notation">x</span><a href="#token-dot"><span class="lg-literal">&#39;.&#39;</span></a><a href="#rule-Field"><span class="lg-ref">Field</span></a> <span class="lg-notation">(90)</span>
+    <span class="lg-notation">x</span><a href="#token-lbracket"><span class="lg-literal">&#39;[&#39;</span></a><a href="#rule-Expr"><span class="lg-ref">Expr</span></a><a href="#token-rbracket"><span class="lg-literal">&#39;]&#39;</span></a> <span class="lg-notation">(90)</span>
+    <span class="lg-notation">x</span><a href="#token-lbrace"><span class="lg-literal">&#39;{&#39;</span></a><a href="#rule-Expr"><span class="lg-ref">Expr</span></a><a href="#token-rbrace"><span class="lg-literal">&#39;}&#39;</span></a> <span class="lg-notation">(90)</span>
+    <span class="lg-notation">x</span><a href="#token-lparen"><span class="lg-literal">&#39;(&#39;</span></a><a href="#rule-Expr"><span class="lg-ref">Expr</span></a> <span class="lg-notation">sep</span> <a href="#token-comma"><span class="lg-literal">&#39;,&#39;</span></a><a href="#token-rparen"><span class="lg-literal">&#39;)&#39;</span></a> <span class="lg-notation">(90)</span>
+</pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 180 118" width="180" height="118" xmlns="http://www.w3.org/2000/svg">
+    <title>Expr</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,14 2,28" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,21 16,21" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,21 40,21" />
+    <path class="lg-arrow" fill="currentColor" d="M 33 21 L 23 17 L 23 25 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="40,21 68,21" />
+    <path class="lg-arrow" fill="currentColor" d="M 59 21 L 49 17 L 49 25 Z" />
+    <a href="#token-int">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="68" y="8" width="44" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="90" y="25">int</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="112,21 140,21" />
+    <path class="lg-arrow" fill="currentColor" d="M 131 21 L 121 17 L 121 25 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="40,21 52,21 52,59 64,59" />
+    <a href="#token-name">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="64" y="46" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="90" y="63">name</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="116,59 128,59 128,21 140,21" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="140,21 164,21" />
+    <path class="lg-arrow" fill="currentColor" d="M 157 21 L 147 17 L 147 25 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,21 28,21 28,97 76,97" />
+    <path class="lg-arrow" fill="currentColor" d="M 47 97 L 57 93 L 57 101 Z" />
+    <a href="#token-plus">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="76" y="84" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="90" y="101">+</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="104,97 152,97 152,21 164,21" />
+    <path class="lg-arrow" fill="currentColor" d="M 123 97 L 133 93 L 133 101 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="164,21 178,21" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="178,14 178,28" />
+  </svg>
+  </section>
+  <h2 id="operators">Operators</h2>
+  <table id="precedence">
+    <tr><th>binds</th><th>shape</th><th>operators</th></tr>
+    <tr><td>10</td><td>infix, left</td><td><code>+</code></td></tr>
+    <tr><td>90</td><td>postfix</td><td><code>?</code> <code>.</code> <code>[</code> <code>{</code> <code>(</code></td></tr>
+  </table>
+  <h2 id="tokens">Tokens</h2>
+  <table id="tokens">
+    <tr><th>token</th><th>kind</th><th>matches</th></tr>
+    <tr id="token-lparen"><td><code>lparen</code></td><td>punctuation</td><td><code>(</code></td></tr>
+    <tr id="token-rparen"><td><code>rparen</code></td><td>punctuation</td><td><code>)</code></td></tr>
+    <tr id="token-lbracket"><td><code>lbracket</code></td><td>punctuation</td><td><code>[</code></td></tr>
+    <tr id="token-rbracket"><td><code>rbracket</code></td><td>punctuation</td><td><code>]</code></td></tr>
+    <tr id="token-lbrace"><td><code>lbrace</code></td><td>punctuation</td><td><code>{</code></td></tr>
+    <tr id="token-rbrace"><td><code>rbrace</code></td><td>punctuation</td><td><code>}</code></td></tr>
+    <tr id="token-dot"><td><code>dot</code></td><td>punctuation</td><td><code>.</code></td></tr>
+    <tr id="token-comma"><td><code>comma</code></td><td>punctuation</td><td><code>,</code></td></tr>
+    <tr id="token-question"><td><code>question</code></td><td>punctuation</td><td><code>?</code></td></tr>
+    <tr id="token-plus"><td><code>plus</code></td><td>punctuation</td><td><code>+</code></td></tr>
+    <tr id="token-int"><td><code>int</code></td><td>pattern</td><td><code>[0-9]+</code></td></tr>
+    <tr id="token-name"><td><code>name</code></td><td>pattern</td><td><code>[a-z]+</code></td></tr>
+    <tr id="token-ws"><td><code>ws</code></td><td>pattern, skipped</td><td><code>[\t\n\r ]+</code></td></tr>
+  </table>
+  <h2 id="sets">What starts and follows a production</h2>
+  <table id="first-follow">
+    <tr><th>production</th><th>starts with</th><th>followed by</th><th>may be empty</th></tr>
+    <tr><td><a href="#rule-File"><code>File</code></a></td><td><code>int</code> <code>name</code></td><td><em>nothing</em></td><td></td></tr>
+    <tr><td><a href="#rule-Field"><code>Field</code></a></td><td><code>name</code></td><td><code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>{</code> <code>}</code> <code>.</code> <code>,</code> <code>?</code> <code>+</code></td><td></td></tr>
+    <tr><td><a href="#rule-Expr"><code>Expr</code></a></td><td><code>int</code> <code>name</code></td><td><code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>{</code> <code>}</code> <code>.</code> <code>,</code> <code>?</code> <code>+</code></td><td></td></tr>
+  </table>
+  <h2 id="examples">Examples</h2>
+  <section>
+  <h3>Example 1</h3>
+  <pre class="lg-example">a</pre>
+  </section>
+  <section>
+  <h3>Example 2</h3>
+  <pre class="lg-example">a<span class="lg-s-keyword lg-s-keyword-operator lg-s-keyword-operator-question">?</span></pre>
+  </section>
+</article>

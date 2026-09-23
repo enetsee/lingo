@@ -1,0 +1,45 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Shapes",
+  "scopeName": "source.shapes",
+  "patterns": [
+    { "include": "#program" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "program": { "patterns": [ { "include": "#decl" } ] },
+    "decl": {
+      "patterns": [ { "include": "#let" }, { "include": "#block" } ]
+    },
+    "let": { "patterns": [ { "match": "[a-z]+" }, { "include": "#names" } ] },
+    "names": { "patterns": [ { "match": "[a-z]+" } ] },
+    "block": {
+      "name": "meta.block.shapes",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.shapes" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.shapes" }
+      },
+      "patterns": [
+        { "include": "#decl" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },
+    "tokens": {
+      "patterns": [
+        { "name": "keyword.other.let.shapes", "match": "\\blet\\b" },
+        { "name": "keyword.other.end.shapes", "match": "\\bend\\b" },
+        { "name": "punctuation.separator.shapes", "match": ";" },
+        { "name": "punctuation.separator.shapes", "match": "," },
+        { "name": "punctuation.separator.shapes", "match": "=" },
+        { "name": "punctuation.separator.shapes", "match": "@" }
+      ]
+    }
+  }
+}

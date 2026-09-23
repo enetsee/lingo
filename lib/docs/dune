@@ -1,0 +1,11 @@
+; Documentation from the grammar. This backend takes the grammar as well as
+; the facts, because a manual shows the grammar as the author wrote it.
+;
+; handsome is here because a formatted example has to be laid out and then
+; marked up, and a rendered stream lets one document do both. Nothing here
+; emits code or configuration, so there is no ppxlib and no JSON.
+
+(library
+ (name docs)
+ (public_name lingo.docs)
+ (libraries core scopes handsome redfa))

@@ -3,7 +3,7 @@ opam-version: "2.0"
 synopsis:
   "A grammar toolkit: lossless recovering parsers, formatters, editors"
 description:
-  "Takes a grammar as a value -- tokens, productions with typed children, an optional Pratt expression block -- and emits a lossless recovering parser, a pretty-printer, a lexer, typed views, and editor integrations."
+  "Takes a grammar as a value: tokens, productions with typed children, an optional Pratt expression block. Emits a lossless recovering parser, a pretty-printer, a lexer, typed views, a reference manual, and editor integrations."
 maintainer: ["Michael Thomas <mthomas180@gmail.com>"]
 authors: ["Michael Thomas <mthomas180@gmail.com>"]
 license: "MIT"
@@ -16,6 +16,7 @@ depends: [
   "ucharset"
   "redfa"
   "bolts"
+  "handsome"
   "ppxlib"
   "alcotest" {with-test}
   "odoc" {with-doc}

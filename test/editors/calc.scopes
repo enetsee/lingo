@@ -1,0 +1,15 @@
+tokens
+  lparen               punctuation.section.parens.begin
+  rparen               punctuation.section.parens.end
+  plus                 keyword.operator.plus
+  minus                keyword.operator.minus
+  star                 keyword.operator.star
+  slash                keyword.operator.slash
+  int                  -
+  ws                   -
+rules
+  File                 -
+  Parens               -
+  Expr                 -
+  ExprBin              -
+  ExprPrefix           -

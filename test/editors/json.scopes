@@ -1,0 +1,20 @@
+tokens
+  true                 constant.language
+  false                constant.language
+  null                 constant.language
+  lbrace               punctuation.section.braces.begin
+  rbrace               punctuation.section.braces.end
+  lbracket             punctuation.section.brackets.begin
+  rbracket             punctuation.section.brackets.end
+  comma                punctuation.separator
+  colon                punctuation.separator
+  number               constant.numeric
+  string               string.quoted.double
+  ws                   -
+rules
+  File                 -
+  Value                -
+  Member               -
+    key                support.type.property-name
+  Object               -
+  Array                -

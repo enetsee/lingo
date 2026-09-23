@@ -1,0 +1,10 @@
+; The tree-sitter backend. It reads a [Scopes.t] and writes three files, so
+; it is a peer of the TextMate backend and of the OCaml emitter.
+;
+; A tree-sitter grammar is JavaScript and its queries are s-expressions. This
+; backend writes both out directly, with no JSON library.
+
+(library
+ (name treesitter)
+ (public_name lingo_editors.treesitter)
+ (libraries lingo.core lingo.scopes redfa ucharset))

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Recovery",
+  "scopeName": "source.recovery",
+  "patterns": [
+    { "include": "#file" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "file": { "patterns": [ { "include": "#item" } ] },
+    "item": {
+      "patterns": [
+        { "include": "#leaf" },
+        { "include": "#group" },
+        { "include": "#fields" }
+      ]
+    },
+    "group": {
+      "name": "meta.group.recovery",
+      "begin": "\\(",
+      "end": "(?<=\\))",
+      "beginCaptures": { "0": { "name": "punctuation.separator.recovery" } },
+      "patterns": [
+        { "include": "#leaf" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "fields": { "patterns": [ { "include": "#leaf" } ] },
+    "leaf": { "patterns": [ { "match": "[a-z]+" } ] },
+    "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },
+    "tokens": {
+      "patterns": [
+        { "name": "keyword.other.let.recovery", "match": "\\blet\\b" },
+        { "name": "keyword.other.sig.recovery", "match": "\\bsig\\b" },
+        { "name": "keyword.other.end.recovery", "match": "\\bend\\b" },
+        { "name": "keyword.other.in.recovery", "match": "\\bin\\b" },
+        { "name": "punctuation.separator.recovery", "match": "\\(" },
+        { "name": "punctuation.separator.recovery", "match": "\\)" },
+        { "name": "punctuation.separator.recovery", "match": "," },
+        { "name": "punctuation.separator.recovery", "match": ";" },
+        { "name": "punctuation.separator.recovery", "match": ":" }
+      ]
+    }
+  }
+}

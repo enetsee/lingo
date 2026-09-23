@@ -1,0 +1,74 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Json",
+  "scopeName": "source.json",
+  "patterns": [
+    { "include": "#value" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "value": {
+      "patterns": [ { "include": "#object" }, { "include": "#array" } ]
+    },
+    "member": {
+      "patterns": [
+        {
+          "name": "support.type.property-name.json",
+          "match": "\"(?:[^\"\\\\]|\\\\[\\s\\S])*\""
+        },
+        { "include": "#value" }
+      ]
+    },
+    "object": {
+      "name": "meta.object.json",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.json" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.json" }
+      },
+      "patterns": [
+        { "include": "#member" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "array": {
+      "name": "meta.array.json",
+      "begin": "\\[",
+      "end": "\\]",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.brackets.begin.json" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.brackets.end.json" }
+      },
+      "patterns": [
+        { "include": "#value" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },
+    "tokens": {
+      "patterns": [
+        { "name": "constant.language.json", "match": "\\bfalse\\b" },
+        { "name": "constant.language.json", "match": "\\btrue\\b" },
+        { "name": "constant.language.json", "match": "\\bnull\\b" },
+        { "name": "punctuation.separator.json", "match": "," },
+        { "name": "punctuation.separator.json", "match": ":" },
+        {
+          "name": "constant.numeric.json",
+          "match": "-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[Ee][+\\-]?[0-9]+)?"
+        },
+        {
+          "name": "string.quoted.double.json",
+          "match": "\"(?:[^\"\\\\]|\\\\[\\s\\S])*\""
+        }
+      ]
+    }
+  }
+}

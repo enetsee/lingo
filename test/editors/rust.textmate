@@ -1,0 +1,359 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Rust",
+  "scopeName": "source.rust",
+  "patterns": [
+    { "include": "#file" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "file": { "patterns": [ { "include": "#item" } ] },
+    "item": {
+      "patterns": [
+        { "include": "#struct" },
+        { "include": "#enum" },
+        { "include": "#trait" },
+        { "include": "#fn" }
+      ]
+    },
+    "struct": {
+      "name": "meta.struct.rust",
+      "begin": "(\\bstruct\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=\\})",
+      "beginCaptures": {
+        "1": { "name": "storage.type.struct.rust" },
+        "2": { "name": "entity.name.type.struct.rust" }
+      },
+      "patterns": [
+        { "include": "#struct_body" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "struct_body": {
+      "name": "meta.struct.body.rust",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.rust" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.rust" }
+      },
+      "patterns": [
+        { "include": "#field" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "field": {
+      "name": "meta.field.rust",
+      "match": "([A-Z_a-z][0-9A-Z_a-z]*)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*(:)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "captures": {
+        "1": { "name": "variable.other.member.rust" },
+        "2": { "name": "punctuation.separator.rust" },
+        "3": { "name": "entity.name.type.rust" }
+      }
+    },
+    "enum": {
+      "name": "meta.enum.rust",
+      "begin": "(\\benum\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=\\})",
+      "beginCaptures": {
+        "1": { "name": "storage.type.enum.rust" },
+        "2": { "name": "entity.name.type.enum.rust" }
+      },
+      "patterns": [
+        { "include": "#enum_body" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "enum_body": {
+      "name": "meta.enum.body.rust",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.rust" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.rust" }
+      },
+      "patterns": [
+        { "include": "#variant" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "variant": {
+      "patterns": [
+        {
+          "name": "variable.other.enummember.rust",
+          "match": "[A-Z_a-z][0-9A-Z_a-z]*"
+        },
+        { "include": "#variant_payload" }
+      ]
+    },
+    "variant_payload": {
+      "patterns": [
+        { "include": "#tuple_payload" }, { "include": "#struct_payload" }
+      ]
+    },
+    "tuple_payload": {
+      "name": "meta.tuple.payload.rust",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.parens.begin.rust" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.parens.end.rust" }
+      },
+      "patterns": [
+        { "include": "#type" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "struct_payload": {
+      "name": "meta.struct.payload.rust",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.rust" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.rust" }
+      },
+      "patterns": [
+        { "include": "#field" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "trait": {
+      "name": "meta.trait.rust",
+      "begin": "(\\btrait\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=\\})",
+      "beginCaptures": {
+        "1": { "name": "storage.type.trait.rust" },
+        "2": { "name": "entity.name.type.trait.rust" }
+      },
+      "patterns": [
+        { "include": "#trait_body" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "trait_body": {
+      "name": "meta.trait.body.rust",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.rust" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.rust" }
+      },
+      "patterns": [
+        { "include": "#method_sig" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "method_sig": {
+      "name": "meta.method.sig.rust",
+      "begin": "(\\bfn\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=;)",
+      "beginCaptures": {
+        "1": { "name": "storage.type.fn.rust" },
+        "2": { "name": "entity.name.function.rust" }
+      },
+      "patterns": [
+        { "include": "#param_list" },
+        { "include": "#type" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "fn": {
+      "name": "meta.fn.rust",
+      "begin": "(\\bfn\\b)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=\\})",
+      "beginCaptures": {
+        "1": { "name": "storage.type.fn.rust" },
+        "2": { "name": "entity.name.function.rust" }
+      },
+      "patterns": [
+        { "include": "#param_list" },
+        { "include": "#block" },
+        { "include": "#type" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "param_list": {
+      "name": "meta.param.list.rust",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.parens.begin.rust" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.parens.end.rust" }
+      },
+      "patterns": [
+        { "include": "#param" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "param": {
+      "name": "meta.param.rust",
+      "match": "([A-Z_a-z][0-9A-Z_a-z]*)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*(:)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "captures": {
+        "1": { "name": "variable.parameter.rust" },
+        "2": { "name": "punctuation.separator.rust" },
+        "3": { "name": "entity.name.type.rust" }
+      }
+    },
+    "type": {
+      "patterns": [
+        {
+          "name": "entity.name.type.rust",
+          "match": "[A-Z_a-z][0-9A-Z_a-z]*"
+        }
+      ]
+    },
+    "block": {
+      "name": "meta.block.rust",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.rust" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.rust" }
+      },
+      "patterns": [
+        { "include": "#stmt" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "stmt": { "patterns": [ { "include": "#let" }, { "include": "#expr" } ] },
+    "let": {
+      "name": "meta.let.rust",
+      "begin": "\\blet\\b",
+      "end": "(?<=;)",
+      "beginCaptures": { "0": { "name": "keyword.control.let.rust" } },
+      "patterns": [
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "match": {
+      "name": "meta.match.rust",
+      "begin": "\\bmatch\\b",
+      "end": "(?<=\\})",
+      "beginCaptures": { "0": { "name": "keyword.control.match.rust" } },
+      "patterns": [
+        { "include": "#match_body" },
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "match_body": {
+      "name": "meta.match.body.rust",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.rust" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.braces.end.rust" }
+      },
+      "patterns": [
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "expr": {
+      "patterns": [
+        { "include": "#block" },
+        { "include": "#match" },
+        {
+          "name": "meta.member-access.rust",
+          "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+          "captures": {
+            "1": { "name": "punctuation.accessor.rust" },
+            "2": { "name": "variable.other.rust" }
+          }
+        },
+        {
+          "name": "meta.subscript.rust",
+          "begin": "\\[",
+          "end": "\\]",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.brackets.begin.rust" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.brackets.end.rust" }
+          },
+          "patterns": [ { "include": "#expr" } ]
+        },
+        {
+          "name": "meta.function-call.rust",
+          "begin": "\\(",
+          "end": "\\)",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.parens.begin.rust" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.parens.end.rust" }
+          },
+          "patterns": [ { "include": "#expr" } ]
+        },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "trivia": {
+      "patterns": [
+        { "match": "[\\t\\n\\r ]+" },
+        { "name": "comment.line.double-slash.rust", "match": "//[^\\n]*" }
+      ]
+    },
+    "tokens": {
+      "patterns": [
+        { "name": "storage.type.struct.rust", "match": "\\bstruct\\b" },
+        { "name": "storage.type.trait.rust", "match": "\\btrait\\b" },
+        { "name": "keyword.control.match.rust", "match": "\\bmatch\\b" },
+        { "name": "storage.type.enum.rust", "match": "\\benum\\b" },
+        { "name": "keyword.control.let.rust", "match": "\\blet\\b" },
+        { "name": "storage.type.fn.rust", "match": "\\bfn\\b" },
+        { "name": "punctuation.separator.rust", "match": "->" },
+        { "name": "punctuation.separator.rust", "match": "=>" },
+        { "name": "keyword.operator.eqeq.rust", "match": "==" },
+        { "name": "keyword.operator.bangeq.rust", "match": "!=" },
+        { "name": "punctuation.separator.rust", "match": "," },
+        { "name": "punctuation.separator.rust", "match": ";" },
+        { "name": "punctuation.separator.rust", "match": ":" },
+        { "name": "punctuation.accessor.rust", "match": "\\." },
+        { "name": "keyword.operator.question.rust", "match": "\\?" },
+        { "name": "keyword.operator.eq.rust", "match": "=" },
+        { "name": "keyword.operator.plus.rust", "match": "\\+" },
+        { "name": "keyword.operator.minus.rust", "match": "-" },
+        { "name": "keyword.operator.star.rust", "match": "\\*" },
+        { "name": "keyword.operator.slash.rust", "match": "/" },
+        { "name": "keyword.operator.bang.rust", "match": "!" },
+        { "name": "variable.other.rust", "match": "[A-Z_a-z][0-9A-Z_a-z]*" },
+        { "name": "constant.numeric.integer.rust", "match": "[0-9]+" }
+      ]
+    }
+  }
+}

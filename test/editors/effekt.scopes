@@ -1,0 +1,126 @@
+tokens
+  module               keyword.other.module
+  import               keyword.other.import
+  def                  storage.type.def
+  val                  keyword.control.val
+  var                  keyword.control.var
+  type                 storage.type.type
+  record               keyword.other.record
+  interface            storage.type.interface
+  effect               storage.type.effect
+  namespace            keyword.other.namespace
+  if                   keyword.control.if
+  else                 keyword.control.else
+  while                keyword.control.while
+  try                  keyword.control.try
+  with                 keyword.control.with
+  case                 keyword.other.case
+  match                keyword.other.match
+  do                   keyword.control.do
+  return               keyword.control.return
+  box                  keyword.other.box
+  unbox                keyword.other.unbox
+  fn                   keyword.other.fn
+  at                   keyword.other.at
+  and                  keyword.operator.and
+  resume               keyword.other.resume
+  true                 keyword.other.true
+  false                keyword.other.false
+  lbrace               punctuation.section.braces.begin
+  rbrace               punctuation.section.braces.end
+  lparen               punctuation.section.parens.begin
+  rparen               punctuation.section.parens.end
+  lbracket             punctuation.section.brackets.begin
+  rbracket             punctuation.section.brackets.end
+  lhole                punctuation.section.lhole.begin
+  rhole                punctuation.section.rhole.end
+  comma                punctuation.separator
+  semi                 punctuation.separator
+  colon                punctuation.separator
+  dot                  punctuation.accessor
+  coloncolon           punctuation.separator
+  arrow                punctuation.separator
+  fat_arrow            punctuation.separator
+  eq                   punctuation.separator
+  eqeq                 keyword.operator.eqeq
+  bangeq               keyword.operator.bangeq
+  lt                   keyword.operator.lt
+  gt                   keyword.operator.gt
+  le                   keyword.operator.le
+  ge                   keyword.operator.ge
+  plus                 keyword.operator.plus
+  minus                keyword.operator.minus
+  star                 keyword.operator.star
+  slash                keyword.operator.slash
+  pipe                 punctuation.separator
+  bang                 keyword.operator.bang
+  ident                variable.other
+  int                  constant.numeric.integer
+  string               string.quoted.double
+  doc_comment          comment.line.documentation
+  ws                   -
+  line_comment         comment.line.double-slash
+  block_comment        comment.block
+rules
+  File                 -
+  Module               - identity=-
+  DocBlock             -
+  Item                 -
+  Definition           -
+  Path                 -
+  PathSegment          -
+  Import               - identity=-
+  Param                -
+  TypeAnn              -
+  Params               -
+  Def                  - identity=-
+  ValDef               - identity=-
+  VarDef               - identity=-
+  TypeDef              - identity=-
+  Record               - identity=-
+  Operation            - identity=-
+  InterfaceBody        -
+  Interface            - identity=-
+  Effect               - identity=-
+  NamespaceBody        -
+  Namespace            - identity=-
+  Type                 -
+  TypeArrow            -
+  BoxedType            -
+  CaptureSet           -
+  CaptureList          -
+  AtomicType           -
+  TypeArgs             -
+  Block                -
+  Stmt                 -
+  ExprStmt             -
+  If                   -
+  Else                 -
+  While                -
+  Paren                -
+  Do                   - identity=-
+  Args                 -
+  Return               -
+  Resume               -
+  Box                  -
+  Unbox                -
+  Fn                   -
+  Try                  -
+  Handler              - identity=-
+  HandlerBody          -
+  Clause               - identity=-
+  Match                -
+  MatchBody            -
+  MatchArm             -
+  AltPattern           -
+  Guard                -
+  Pattern              -
+  PatternArgs          -
+  Hole                 -
+  Expr                 -
+  ExprBin              -
+  ExprPrefix           -
+  ExprPostfixSelect    -
+  ExprPostfixTyped     -
+  ExprPostfixCall      -
+  ExprPostfixBlock     -

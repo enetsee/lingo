@@ -1,0 +1,70 @@
+tokens
+  struct               storage.type.struct
+  enum                 storage.type.enum
+  trait                storage.type.trait
+  fn                   storage.type.fn
+  let                  keyword.control.let
+  match                keyword.control.match
+  lbrace               punctuation.section.braces.begin
+  rbrace               punctuation.section.braces.end
+  lparen               punctuation.section.parens.begin
+  rparen               punctuation.section.parens.end
+  lbracket             punctuation.section.brackets.begin
+  rbracket             punctuation.section.brackets.end
+  comma                punctuation.separator
+  semi                 punctuation.separator
+  colon                punctuation.separator
+  dot                  punctuation.accessor
+  question             keyword.operator.question
+  arrow                punctuation.separator
+  fat_arrow            punctuation.separator
+  eq                   keyword.operator.eq
+  plus                 keyword.operator.plus
+  minus                keyword.operator.minus
+  star                 keyword.operator.star
+  slash                keyword.operator.slash
+  eqeq                 keyword.operator.eqeq
+  bangeq               keyword.operator.bangeq
+  bang                 keyword.operator.bang
+  ident                variable.other
+  int                  constant.numeric.integer
+  ws                   -
+  line                 comment.line.double-slash
+rules
+  File                 -
+  Item                 -
+  Struct               - identity=entity.name.type.struct
+  StructBody           -
+  Field                -
+    name               variable.other.member
+  Enum                 - identity=entity.name.type.enum
+  EnumBody             -
+  Variant              -
+    name               variable.other.enummember
+  VariantPayload       -
+  TuplePayload         -
+  StructPayload        -
+  Trait                - identity=entity.name.type.trait
+  TraitBody            -
+  MethodSig            - identity=entity.name.function
+  Fn                   - identity=entity.name.function
+  ParamList            -
+  Param                -
+    name               variable.parameter
+  Type                 -
+    name               entity.name.type
+  Block                -
+  Stmt                 -
+  Let                  -
+    name               variable.other
+  ExprStmt             -
+  Match                -
+  MatchBody            -
+  MatchArm             -
+  Expr                 -
+  ExprBin              -
+  ExprPrefix           -
+  ExprPostfixTry       -
+  ExprPostfixField     meta.member-access
+  ExprPostfixIndex     meta.subscript
+  ExprPostfixCall      meta.function-call

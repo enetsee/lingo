@@ -1,0 +1,187 @@
+<article class="lingo-reference">
+  <h1>comments</h1>
+  <h2 id="productions">Productions</h2>
+  <ul class="lg-contents">
+    <li><a href="#rule-File"><code>File</code></a></li>
+    <li><a href="#rule-List"><code>List</code></a></li>
+    <li><a href="#rule-Item"><code>Item</code></a></li>
+    <li><a href="#rule-Field"><code>Field</code></a></li>
+  </ul>
+  <section id="rule-File">
+  <h3>File</h3>
+  <pre class="lg-listing"><span class="lg-rule">File</span> <span class="lg-notation">=</span> <span class="lg-child">body</span><span class="lg-notation">:</span><a href="#rule-List"><span class="lg-ref">List</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 84 56" width="84" height="56" xmlns="http://www.w3.org/2000/svg">
+    <title>File</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">body</text>
+    <a href="#rule-List">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="42" y="39">List</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="68,35 82,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="82,28 82,42" />
+  </svg>
+  </section>
+  <section id="rule-List">
+  <h3>List</h3>
+  <pre class="lg-listing"><span class="lg-rule">List</span> <span class="lg-notation">=</span> <a href="#token-lbrack"><span class="lg-literal">&#39;[&#39;</span></a> <span class="lg-child">elt</span><span class="lg-notation">:</span><a href="#rule-Item"><span class="lg-ref">Item</span></a><span class="lg-notation">*</span> <a href="#token-rbrack"><span class="lg-literal">&#39;]&#39;</span></a> <span class="lg-notation">sep</span> <a href="#token-comma"><span class="lg-literal">&#39;,&#39;</span></a> <span class="lg-notation">trailing-on-break</span></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 260 132" width="260" height="132" xmlns="http://www.w3.org/2000/svg">
+    <title>List</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <a href="#token-lbrack">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="30" y="39">[</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="44,35 56,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="56" y="18">elt</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 130,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 98 35 L 88 31 L 88 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="130,35 130,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="130,35 204,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 172 35 L 162 31 L 162 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 68,35 68,73 80,73" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="80,73 104,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 97 73 L 87 69 L 87 77 Z" />
+    <a href="#rule-Item">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="104" y="60" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="130" y="77">Item</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="156,73 180,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 173 73 L 163 69 L 163 77 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="80,73 92,73 92,111 116,111" />
+    <path class="lg-arrow" fill="currentColor" d="M 99 111 L 109 107 L 109 115 Z" />
+    <a href="#token-comma">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="116" y="98" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="130" y="115">,</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="144,111 168,111 168,73 180,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 151 111 L 161 107 L 161 115 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="180,73 192,73 192,35 204,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="204,35 216,35" />
+    <a href="#token-rbrack">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="216" y="22" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="230" y="39">]</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="244,35 258,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="258,28 258,42" />
+  </svg>
+  </section>
+  <section id="rule-Item">
+  <h3>Item</h3>
+  <pre class="lg-listing"><span class="lg-rule">Item</span> <span class="lg-notation">=</span> <span class="lg-child">head</span><span class="lg-notation">:</span><span class="lg-notation">(</span><a href="#token-name"><span class="lg-token">name</span></a> <span class="lg-notation">|</span> <a href="#token-number"><span class="lg-token">number</span></a> <span class="lg-notation">|</span> <a href="#rule-List"><span class="lg-ref">List</span></a><span class="lg-notation">)</span> <span class="lg-child">field</span><span class="lg-notation">:</span><a href="#rule-Field"><span class="lg-ref">Field</span></a><span class="lg-notation">*</span></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 268 132" width="268" height="132" xmlns="http://www.w3.org/2000/svg">
+    <title>Item</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">head</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 48,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 37 35 L 27 31 L 27 39 Z" />
+    <a href="#token-name">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="48" y="22" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="74" y="39">name</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="100,35 132,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 121 35 L 111 31 L 111 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 28,35 28,73 40,73" />
+    <a href="#token-number">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="40" y="60" width="68" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="74" y="77">number</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="108,73 120,73 120,35 132,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 28,35 28,111 48,111" />
+    <path class="lg-arrow" fill="currentColor" d="M 43 111 L 33 107 L 33 115 Z" />
+    <a href="#rule-List">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="48" y="98" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="74" y="115">List</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="100,111 120,111 120,35 132,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 115 111 L 105 107 L 105 115 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="132,35 144,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="144" y="18">field</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="144,35 198,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 176 35 L 166 31 L 166 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="198,35 198,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="198,35 252,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 230 35 L 220 31 L 220 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="144,35 156,35 156,73 168,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 146 35 L 154 31 L 154 39 Z" />
+    <a href="#rule-Field">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="168" y="60" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="198" y="77">Field</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="228,73 240,73 240,35 252,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 230 73 L 238 69 L 238 77 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="252,35 266,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="266,28 266,42" />
+  </svg>
+  </section>
+  <section id="rule-Field">
+  <h3>Field</h3>
+  <pre class="lg-listing"><span class="lg-rule">Field</span> <span class="lg-notation">=</span> <span class="lg-child">dot</span><span class="lg-notation">:</span><a href="#token-dot"><span class="lg-literal">&#39;.&#39;</span></a> <span class="lg-child">tail</span><span class="lg-notation">:</span><span class="lg-notation">(</span><a href="#token-name"><span class="lg-token">name</span></a> <span class="lg-notation">|</span> <a href="#token-number"><span class="lg-token">number</span></a><span class="lg-notation">)</span></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 188 94" width="188" height="94" xmlns="http://www.w3.org/2000/svg">
+    <title>Field</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">dot</text>
+    <a href="#token-dot">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="30" y="39">.</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="44,35 56,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="56" y="18">tail</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 88,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 77 35 L 67 31 L 67 39 Z" />
+    <a href="#token-name">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="88" y="22" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="114" y="39">name</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="140,35 172,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 161 35 L 151 31 L 151 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 68,35 68,73 80,73" />
+    <a href="#token-number">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="80" y="60" width="68" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="114" y="77">number</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="148,73 160,73 160,35 172,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="172,35 186,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="186,28 186,42" />
+  </svg>
+  </section>
+  <h2 id="tokens">Tokens</h2>
+  <table id="tokens">
+    <tr><th>token</th><th>kind</th><th>matches</th></tr>
+    <tr id="token-lbrack"><td><code>lbrack</code></td><td>punctuation</td><td><code>[</code></td></tr>
+    <tr id="token-rbrack"><td><code>rbrack</code></td><td>punctuation</td><td><code>]</code></td></tr>
+    <tr id="token-comma"><td><code>comma</code></td><td>punctuation</td><td><code>,</code></td></tr>
+    <tr id="token-dot"><td><code>dot</code></td><td>punctuation</td><td><code>.</code></td></tr>
+    <tr id="token-name"><td><code>name</code></td><td>pattern</td><td><code>[a-z]+</code></td></tr>
+    <tr id="token-number"><td><code>number</code></td><td>pattern</td><td><code>[0-9]+(\.[0-9]+)?</code></td></tr>
+    <tr id="token-ws"><td><code>ws</code></td><td>pattern, skipped</td><td><code>[\t\n\r ]+</code></td></tr>
+    <tr id="token-line"><td><code>line</code></td><td>pattern, kept as written</td><td><code>//[^\n]*</code></td></tr>
+    <tr id="token-block"><td><code>block</code></td><td>pattern, kept as written</td><td><code>/\*([^*]|\*+[^*/])*\*+/</code></td></tr>
+  </table>
+  <h2 id="sets">What starts and follows a production</h2>
+  <table id="first-follow">
+    <tr><th>production</th><th>starts with</th><th>followed by</th><th>may be empty</th></tr>
+    <tr><td><a href="#rule-File"><code>File</code></a></td><td><code>[</code></td><td><em>nothing</em></td><td></td></tr>
+    <tr><td><a href="#rule-List"><code>List</code></a></td><td><code>[</code></td><td><code>]</code> <code>,</code> <code>.</code></td><td></td></tr>
+    <tr><td><a href="#rule-Item"><code>Item</code></a></td><td><code>[</code> <code>name</code> <code>number</code></td><td><code>]</code> <code>,</code></td><td></td></tr>
+    <tr><td><a href="#rule-Field"><code>Field</code></a></td><td><code>.</code></td><td><code>]</code> <code>,</code> <code>.</code></td><td></td></tr>
+  </table>
+  <h2 id="examples">Examples</h2>
+  <section>
+  <h3>Example 1</h3>
+  <pre class="lg-example"><span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-brackets lg-s-punctuation-section-brackets-begin">[</span>a<span class="lg-s-punctuation lg-s-punctuation-separator">,</span> b<span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-brackets lg-s-punctuation-section-brackets-end">]</span></pre>
+  </section>
+  <section>
+  <h3>Example 2</h3>
+  <pre class="lg-example"><span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-brackets lg-s-punctuation-section-brackets-begin">[</span>a<span class="lg-s-punctuation lg-s-punctuation-separator">.</span>b<span class="lg-s-punctuation lg-s-punctuation-separator">,</span> 1<span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-brackets lg-s-punctuation-section-brackets-end">]</span></pre>
+  </section>
+  <section>
+  <h3>Example 3</h3>
+  <pre class="lg-example"><span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-brackets lg-s-punctuation-section-brackets-begin">[</span> <span class="lg-s-comment lg-s-comment-line lg-s-comment-line-double-slash">// first</span>
+  a<span class="lg-s-punctuation lg-s-punctuation-separator">,</span> b <span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-brackets lg-s-punctuation-section-brackets-end">]</span></pre>
+  </section>
+</article>

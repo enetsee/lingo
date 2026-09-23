@@ -1,0 +1,21 @@
+tokens
+  let                  keyword.other.let
+  sig                  keyword.other.sig
+  in                   keyword.other.in
+  end                  keyword.other.end
+  lparen               punctuation.separator
+  rparen               punctuation.separator
+  comma                punctuation.separator
+  semi                 punctuation.separator
+  colon                punctuation.separator
+  name                 -
+  ws                   -
+rules
+  File                 -
+  Item                 -
+  Triple               -
+  Group                -
+  Sig                  -
+  Fields               -
+  Field                -
+  Leaf                 -

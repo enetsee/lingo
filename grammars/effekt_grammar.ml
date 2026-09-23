@@ -1,27 +1,26 @@
 (* -- Effekt -------------------------------------------------------------------
 
-   Every other grammar here answers "is this token trivia" and "does this token
-   run to the end of a line" with the same bit. [doc_comment] is where they
-   come apart: it runs to the end of its line and it is meaningful, so a
-   production names it, the parse keeps it, and the formatter may not touch its
-   bytes. A predicate that read either question off the other one is wrong here
-   and nowhere else.
+   Trivia and running to the end of a line usually coincide. In every other
+   grammar here one bit covers both. [doc_comment] splits them: it runs to the
+   end of its line and it is meaningful. A production names it, the parse
+   keeps it, and the formatter may not touch its bytes. A predicate that read
+   one of those properties off the other would break on this grammar alone.
 
    The [///] against [//] split falls out of longest match. [line] is [//]
-   followed by a character that is not a slash, or [//] alone, so [///x] is one
-   doc comment rather than a line comment a slash short.
+   followed by a character other than a slash, or [//] alone, so [///x] lexes
+   as one doc comment.
 
    What else it carries:
 
    - nine definition forms under one dispatch, each committed on its own
      keyword;
-   - types stratified by hand -- [Type] over [BoxedType] over [AtomicType] --
-     so a precedence climb exists that the Pratt desugaring did not build;
+   - types stratified by hand, [Type] over [BoxedType] over [AtomicType], so
+     the corpus covers a precedence climb the Pratt desugaring never built;
    - [postfix_brace], the trailing-block form, which nothing else here
      declares;
-   - [<{] and [}>] as a matched pair that is not a bracket. [}>] is also a [}]
-     beside a [>], so there is a boundary where the only glue that reads back
-     is a space, decided by the lexer and by no character class;
+   - [<{] and [}>] as a matched pair of two-character delimiters. [}>] is also
+     a [}] beside a [>], so a space has to sit between them for the output to
+     read back, and the lexer settles that boundary;
    - [and] as an infix operator and as the keyword joining guards, so one token
      is read two ways in two places.
 
@@ -59,17 +58,17 @@ let grammar : t =
         [ singleton_char '"'
         ; star
             (alt
-               (inter any (complement (chars_of_char_list [ '"'; '\\' ])))
+               (not_chars (Ucharset.of_char_list [ '"'; '\\' ]))
                (seq (singleton_char '\\') any))
         ; singleton_char '"'
         ])
   in
-  (* Three slashes and then the rest of the line. A meaningful token, so its
-     bytes are the one thing the formatter may not reshape, and the line break
-     after it belongs to the document. *)
+  (* Three slashes and then the rest of the line. A meaningful token, so the
+     formatter may not reshape its bytes. The line break after it belongs to
+     the document. *)
   let doc = Redfa.Regex.(seq (str "///") (star (not_singleton_char '\n'))) in
-  (* [//] and then a character that is not a slash, or [//] on its own. The
-     first alternative is what keeps [///] out of this token's language. *)
+  (* [//] and then a character other than a slash, or [//] on its own. The
+     first alternative keeps [///] out of this token's language. *)
   let line =
     Redfa.Regex.(
       alt
@@ -89,7 +88,7 @@ let grammar : t =
                (not_singleton_char '*')
                (seq
                   (plus (singleton_char '*'))
-                  (inter any (complement (chars_of_char_list [ '*'; '/' ])))))
+                  (not_chars (Ucharset.of_char_list [ '*'; '/' ]))))
         ; plus (singleton_char '*')
         ; singleton_char '/'
         ])
@@ -128,9 +127,9 @@ let grammar : t =
     ; punct_tight ~name:"rparen" ")"
     ; punct_tight ~name:"lbracket" "["
     ; punct_tight ~name:"rbracket" "]"
-      (* The pair that is not a bracket. [<{] is also a [<] beside a [{] and
-         [}>] a [}] beside a [>], so both edges of it are a max-munch hazard
-         the grammar's own lexer decides. *)
+      (* A matched pair of two-character delimiters. [<{] is also a [<] beside
+         a [{], and [}>] a [}] beside a [>], so longest match in the lexer
+         settles both edges. *)
     ; punct_tight ~name:"lhole" "<{"
     ; punct_tight ~name:"rhole" "}>"
     ; punct ~space_before:false ~name:"comma" ","
@@ -161,8 +160,12 @@ let grammar : t =
         ~trivia:Reformat
         "ws"
         Redfa.Regex.(plus (chars_of_char_list [ ' '; '\t'; '\n'; '\r' ]))
-    ; pat ~trivia:Preserve "line" line
-    ; pat ~trivia:Preserve "block" block
+      (* The [_comment] suffix keeps these clear of the production called
+         [Block]. A tree-sitter query matches on node names, and a rule and a
+         token share one namespace. *)
+    ; pat ~trivia:Preserve "line_comment" line
+      (* [/*], then everything up to the first [*/]. *)
+    ; pat ~trivia:Preserve "block_comment" block
     ]
   in
   (* -- the file and its items -- *)
@@ -184,9 +187,9 @@ let grammar : t =
     |> with_committed
     |> with_identity "path"
   in
-  (* A doc comment is zero or more meaningful tokens in front of a definition.
-     Held in its own production so the definition's first child is the block
-     rather than a repeated token the parse would have to re-attach. *)
+  (* A definition may carry doc comment lines in front of it. They sit in
+     their own production, so the definition's first child is that whole
+     block. *)
   let doc_block = prod "DocBlock" [ child_rep1 "line" (Token "doc_comment") ] in
   let item =
     prod "Item" [ child_opt "doc" (Rule "DocBlock"); child_req "def" (Rule "Definition") ]
@@ -308,8 +311,8 @@ let grammar : t =
     |> with_identity "name"
   in
   (* An interface body repeats an operation, and an operation carries its own
-     doc comment. That is the second place a meaningful comment sits, and it is
-     inside a delimited body rather than at the top level. *)
+     doc comment. A meaningful comment sits here as well as at the top level,
+     and here it sits inside a delimited body. *)
   let operation =
     prod
       "Operation"
@@ -365,9 +368,8 @@ let grammar : t =
   (* -- types, stratified by hand --
 
      [Type] is a boxed type, or a function arrow over one. [BoxedType] is an
-     atomic type with an optional capture set after it. Three rules for what
-     one expression block would have desugared into, so a grammar in the corpus
-     holds a precedence climb the Pratt path never touched. *)
+     atomic type with an optional capture set after it. Three rules do the
+     work one expression block would have desugared into. *)
   let type_rule =
     prod
       "Type"
@@ -419,7 +421,7 @@ let grammar : t =
   let expr_stmt =
     prod "ExprStmt" [ child_req "expr" (Rule "Expr"); child_req "semi" (Token "semi") ]
   in
-  (* -- the expression forms a keyword leads -- *)
+  (* -- expression forms led by a keyword -- *)
   let if_ =
     prod
       "If"
@@ -580,8 +582,8 @@ let grammar : t =
          ~sep:"comma"
          ~trailing_sep:Never
   in
-  (* The hole. [<{] and [}>] around statements, which is the pair a formatter
-     has to glue without a bracket's spacing rules. *)
+  (* The hole. [<{] and [}>] around statements. A formatter glues that pair
+     without a bracket's spacing rules. *)
   let hole =
     prod "Hole" [ child_rep "stmt" (Rule "Stmt") ]
     |> with_delimited ~open_tok:"lhole" ~close_tok:"rhole"

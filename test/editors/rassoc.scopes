@@ -1,0 +1,11 @@
+tokens
+  plus                 keyword.operator.plus
+  caret                keyword.operator.caret
+  minus                keyword.operator.minus
+  int                  -
+  ws                   -
+rules
+  File                 -
+  Expr                 -
+  ExprBin              -
+  ExprPrefix           -

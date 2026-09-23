@@ -1,0 +1,759 @@
+; The grammars the editor backends are recorded against, with the scopes an
+; author would set on each. Shared by the dumps below and by
+; test/laws/law_textmate.ml.
+
+(library
+ (name editor_corpus)
+ (modules editor_corpus)
+ (libraries lingo.core lingo.scopes lingo_grammars inputs))
+
+; What each token and each child position is called. All three backends share
+; this derivation, so a diff here moves all three.
+
+(executable
+ (name dump_scopes)
+ (modules dump_scopes)
+ (libraries lingo.core lingo.scopes editor_corpus))
+
+; The TextMate grammar itself. One file per grammar, so a change to one does
+; not move the bytes of the others.
+
+(executable
+ (name dump_textmate)
+ (modules dump_textmate)
+ (libraries lingo.core lingo.scopes lingo_editors.textmate editor_corpus))
+
+; The tree-sitter grammar and its two query files.
+
+(executable
+ (name dump_treesitter)
+ (modules dump_treesitter)
+ (libraries lingo.core lingo.scopes lingo_editors.treesitter editor_corpus))
+
+; The reference page. It reads the same corpus, because it reads the same
+; scopes: a manual and an editor call a keyword the same thing.
+
+(executable
+ (name dump_docs)
+ (modules dump_docs)
+ (libraries lingo.core lingo.scopes lingo.docs editor_corpus))
+
+(rule
+ (with-stdout-to
+  sexp.scopes.actual
+  (run ./dump_scopes.exe sexp)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.scopes sexp.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  json.scopes.actual
+  (run ./dump_scopes.exe json)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.scopes json.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  calc.scopes.actual
+  (run ./dump_scopes.exe calc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.scopes calc.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.scopes.actual
+  (run ./dump_scopes.exe rassoc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.scopes rassoc.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.scopes.actual
+  (run ./dump_scopes.exe postfix)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.scopes postfix.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.scopes.actual
+  (run ./dump_scopes.exe shapes)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.scopes shapes.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.scopes.actual
+  (run ./dump_scopes.exe unicode)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.scopes unicode.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.scopes.actual
+  (run ./dump_scopes.exe recovery)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.scopes recovery.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  comments.scopes.actual
+  (run ./dump_scopes.exe comments)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff comments.scopes comments.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  rust.scopes.actual
+  (run ./dump_scopes.exe rust)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rust.scopes rust.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  effekt.scopes.actual
+  (run ./dump_scopes.exe effekt)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff effekt.scopes effekt.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  sexp.textmate.actual
+  (run ./dump_textmate.exe sexp)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.textmate sexp.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  json.textmate.actual
+  (run ./dump_textmate.exe json)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.textmate json.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  calc.textmate.actual
+  (run ./dump_textmate.exe calc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.textmate calc.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.textmate.actual
+  (run ./dump_textmate.exe rassoc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.textmate rassoc.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.textmate.actual
+  (run ./dump_textmate.exe postfix)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.textmate postfix.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.textmate.actual
+  (run ./dump_textmate.exe shapes)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.textmate shapes.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.textmate.actual
+  (run ./dump_textmate.exe unicode)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.textmate unicode.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.textmate.actual
+  (run ./dump_textmate.exe recovery)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.textmate recovery.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  comments.textmate.actual
+  (run ./dump_textmate.exe comments)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff comments.textmate comments.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  rust.textmate.actual
+  (run ./dump_textmate.exe rust)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rust.textmate rust.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  effekt.textmate.actual
+  (run ./dump_textmate.exe effekt)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff effekt.textmate effekt.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  sexp.grammar.js.actual
+  (run ./dump_treesitter.exe sexp grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.grammar.js sexp.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  json.grammar.js.actual
+  (run ./dump_treesitter.exe json grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.grammar.js json.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  calc.grammar.js.actual
+  (run ./dump_treesitter.exe calc grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.grammar.js calc.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.grammar.js.actual
+  (run ./dump_treesitter.exe rassoc grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.grammar.js rassoc.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.grammar.js.actual
+  (run ./dump_treesitter.exe postfix grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.grammar.js postfix.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.grammar.js.actual
+  (run ./dump_treesitter.exe shapes grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.grammar.js shapes.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.grammar.js.actual
+  (run ./dump_treesitter.exe unicode grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.grammar.js unicode.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.grammar.js.actual
+  (run ./dump_treesitter.exe recovery grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.grammar.js recovery.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  comments.grammar.js.actual
+  (run ./dump_treesitter.exe comments grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff comments.grammar.js comments.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  rust.grammar.js.actual
+  (run ./dump_treesitter.exe rust grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rust.grammar.js rust.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  effekt.grammar.js.actual
+  (run ./dump_treesitter.exe effekt grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff effekt.grammar.js effekt.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  sexp.highlights.scm.actual
+  (run ./dump_treesitter.exe sexp highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.highlights.scm sexp.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  json.highlights.scm.actual
+  (run ./dump_treesitter.exe json highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.highlights.scm json.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  calc.highlights.scm.actual
+  (run ./dump_treesitter.exe calc highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.highlights.scm calc.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.highlights.scm.actual
+  (run ./dump_treesitter.exe rassoc highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.highlights.scm rassoc.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.highlights.scm.actual
+  (run ./dump_treesitter.exe postfix highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.highlights.scm postfix.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.highlights.scm.actual
+  (run ./dump_treesitter.exe shapes highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.highlights.scm shapes.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.highlights.scm.actual
+  (run ./dump_treesitter.exe unicode highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.highlights.scm unicode.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.highlights.scm.actual
+  (run ./dump_treesitter.exe recovery highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.highlights.scm recovery.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  comments.highlights.scm.actual
+  (run ./dump_treesitter.exe comments highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff comments.highlights.scm comments.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  rust.highlights.scm.actual
+  (run ./dump_treesitter.exe rust highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rust.highlights.scm rust.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  effekt.highlights.scm.actual
+  (run ./dump_treesitter.exe effekt highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff effekt.highlights.scm effekt.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  sexp.folds.scm.actual
+  (run ./dump_treesitter.exe sexp folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.folds.scm sexp.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  json.folds.scm.actual
+  (run ./dump_treesitter.exe json folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.folds.scm json.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  calc.folds.scm.actual
+  (run ./dump_treesitter.exe calc folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.folds.scm calc.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.folds.scm.actual
+  (run ./dump_treesitter.exe rassoc folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.folds.scm rassoc.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.folds.scm.actual
+  (run ./dump_treesitter.exe postfix folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.folds.scm postfix.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.folds.scm.actual
+  (run ./dump_treesitter.exe shapes folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.folds.scm shapes.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.folds.scm.actual
+  (run ./dump_treesitter.exe unicode folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.folds.scm unicode.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.folds.scm.actual
+  (run ./dump_treesitter.exe recovery folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.folds.scm recovery.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  comments.folds.scm.actual
+  (run ./dump_treesitter.exe comments folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff comments.folds.scm comments.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  rust.folds.scm.actual
+  (run ./dump_treesitter.exe rust folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rust.folds.scm rust.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  effekt.folds.scm.actual
+  (run ./dump_treesitter.exe effekt folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff effekt.folds.scm effekt.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  sexp.docs.html.actual
+  (run ./dump_docs.exe sexp)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.docs.html sexp.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  json.docs.html.actual
+  (run ./dump_docs.exe json)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.docs.html json.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  calc.docs.html.actual
+  (run ./dump_docs.exe calc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.docs.html calc.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.docs.html.actual
+  (run ./dump_docs.exe rassoc)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.docs.html rassoc.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.docs.html.actual
+  (run ./dump_docs.exe postfix)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.docs.html postfix.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.docs.html.actual
+  (run ./dump_docs.exe shapes)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.docs.html shapes.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.docs.html.actual
+  (run ./dump_docs.exe unicode)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.docs.html unicode.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.docs.html.actual
+  (run ./dump_docs.exe recovery)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.docs.html recovery.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  comments.docs.html.actual
+  (run ./dump_docs.exe comments)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff comments.docs.html comments.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  rust.docs.html.actual
+  (run ./dump_docs.exe rust)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rust.docs.html rust.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  effekt.docs.html.actual
+  (run ./dump_docs.exe effekt)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff effekt.docs.html effekt.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  wide.scopes.actual
+  (run ./dump_scopes.exe wide)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff wide.scopes wide.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  wide.textmate.actual
+  (run ./dump_textmate.exe wide)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff wide.textmate wide.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  wide.docs.html.actual
+  (run ./dump_docs.exe wide)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff wide.docs.html wide.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  wide.grammar.js.actual
+  (run ./dump_treesitter.exe wide grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff wide.grammar.js wide.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  wide.highlights.scm.actual
+  (run ./dump_treesitter.exe wide highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff wide.highlights.scm wide.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  wide.folds.scm.actual
+  (run ./dump_treesitter.exe wide folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff wide.folds.scm wide.folds.scm.actual)))

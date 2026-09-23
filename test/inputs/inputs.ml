@@ -323,3 +323,23 @@ let effekt : t =
       ]
   }
 ;;
+
+let wide : t =
+  { good =
+      [ "select a from t;"
+      ; "select distinct a, b as x from t;"
+      ; "select a from t join s on s.id = t.id where a > 10 and b = \"x\";"
+      ; "select price as p from items\n\
+        \  join stock on stock.id = items.id\n\
+        \  where price > 10\n\
+        \  group by name having price > 1\n\
+        \  order by price desc limit 10 offset 5;"
+      ]
+  ; broken =
+      [ "select from t;"
+      ; "select a t;"
+      ; "select a from t where;"
+      ; "select a from t limit;"
+      ]
+  }
+;;

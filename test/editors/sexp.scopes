@@ -1,0 +1,10 @@
+tokens
+  lparen               punctuation.section.parens.begin
+  rparen               punctuation.section.parens.end
+  ident                -
+  number               -
+  ws                   -
+rules
+  File                 -
+  Sexp                 -
+  Group                -

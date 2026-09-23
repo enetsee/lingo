@@ -2,7 +2,7 @@
 opam-version: "2.0"
 synopsis: "Runtime linked by lingo-generated parsers and formatters"
 description:
-  "The cursor, builder, diagnostics, recovery, and the table-driven plan and layout engines that generated code calls into. Depends on siesta and handsome and nothing else of ours, so linking a generated parser does not pull a code generator into the build graph."
+  "The cursor, builder, diagnostics, recovery, and the table-driven plan and layout engines that generated code calls into. Depends on siesta and handsome and nothing else of ours. A generated parser can link it and leave the code generator out of the build graph."
 maintainer: ["Michael Thomas <mthomas180@gmail.com>"]
 authors: ["Michael Thomas <mthomas180@gmail.com>"]
 license: "MIT"

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Postfix",
+  "scopeName": "source.postfix",
+  "patterns": [
+    { "include": "#expr" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "expr": {
+      "patterns": [
+        {
+          "name": "meta.expr.postfix.field.postfix",
+          "match": "(\\.)(?>(?:[\\t\\n\\r ]+))*([a-z]+)",
+          "captures": { "1": { "name": "punctuation.accessor.postfix" } }
+        },
+        {
+          "name": "meta.expr.postfix.index.postfix",
+          "begin": "\\[",
+          "end": "\\]",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.brackets.begin.postfix" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.brackets.end.postfix" }
+          },
+          "patterns": [ { "include": "#expr" } ]
+        },
+        {
+          "name": "meta.expr.postfix.block.postfix",
+          "begin": "\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.braces.begin.postfix" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.braces.end.postfix" }
+          },
+          "patterns": [ { "include": "#expr" } ]
+        },
+        {
+          "name": "meta.expr.postfix.call.postfix",
+          "begin": "\\(",
+          "end": "\\)",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.parens.begin.postfix" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.parens.end.postfix" }
+          },
+          "patterns": [ { "include": "#expr" } ]
+        },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },
+    "tokens": {
+      "patterns": [
+        { "name": "punctuation.accessor.postfix", "match": "\\." },
+        { "name": "punctuation.separator.postfix", "match": "," },
+        { "name": "keyword.operator.question.postfix", "match": "\\?" },
+        { "name": "keyword.operator.plus.postfix", "match": "\\+" }
+      ]
+    }
+  }
+}

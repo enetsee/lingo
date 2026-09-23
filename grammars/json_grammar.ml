@@ -1,6 +1,6 @@
 (* -- JSON ---------------------------------------------------------------------
 
-   JSON carries four shapes the others here do not:
+   JSON carries four shapes of its own:
 
    - [Value] is an alternative over five tokens and two rules, so dispatch
      is a cascade over mixed kinds;
@@ -12,11 +12,11 @@
      and the parser reports one where the source has it.
 
    [Value] holds [Object], [Object] holds [Member], and [Member] holds
-   [Value], so the rule graph recurses through three rules rather than one.
+   [Value], so the rule graph recurses through three rules.
 
-   The string regex takes a backslash followed by any codepoint, where JSON
-   names the escapes it allows. The extra strings it accepts are a lexing
-   question rather than a parsing one, and nothing here decodes an escape.
+   The string regex takes a backslash followed by any codepoint. JSON allows
+   a named list of escapes, so this accepts strings JSON rejects. Those extra
+   strings belong to lexing, and nothing here decodes an escape.
    -------------------------------------------------------------------------- *)
 
 open Grammar
@@ -36,11 +36,9 @@ let grammar : t =
   let number =
     Redfa.Regex.(seq (opt (singleton_char '-')) (seqs [ int_part; frac; exp_part ]))
   in
-  (* One codepoint of a string body. [complement] is the complement of the
-     language, so it takes in the empty string and strings of any length.
-     Meeting it with [any] leaves the single codepoints, which is the
-     character class this takes. *)
-  let plain = Redfa.Regex.(inter any (complement (chars_of_char_list [ '"'; '\\' ]))) in
+  (* One codepoint of a string body. A quote ends the string and a backslash
+     opens an escape, so the terms below take those two. *)
+  let plain = Redfa.Regex.not_chars (Ucharset.of_char_list [ '"'; '\\' ]) in
   let escape = Redfa.Regex.(seq (singleton_char '\\') any) in
   let string_ =
     Redfa.Regex.(seqs [ singleton_char '"'; star (alt plain escape); singleton_char '"' ])

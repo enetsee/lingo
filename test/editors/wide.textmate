@@ -1,0 +1,132 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Wide",
+  "scopeName": "source.wide",
+  "patterns": [
+    { "include": "#file" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "file": { "patterns": [ { "include": "#select" } ] },
+    "select": {
+      "name": "meta.select.wide",
+      "begin": "\\bselect\\b",
+      "end": "(?<=;)",
+      "beginCaptures": { "0": { "name": "keyword.control.select.wide" } },
+      "patterns": [
+        { "include": "#column_list" },
+        { "include": "#table" },
+        { "include": "#join" },
+        { "include": "#expr" },
+        { "include": "#key_list" },
+        { "include": "#expr" },
+        { "include": "#order_list" },
+        { "include": "#limit" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "column_list": { "patterns": [ { "include": "#column" } ] },
+    "column": {
+      "patterns": [ { "include": "#expr" }, { "include": "#alias" } ]
+    },
+    "alias": {
+      "name": "meta.alias.wide",
+      "match": "(\\bas\\b)(?>(?:[\\t\\n\\r ]+))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "captures": {
+        "1": { "name": "keyword.other.as.wide" },
+        "2": { "name": "variable.other.member.wide" }
+      }
+    },
+    "table": {
+      "patterns": [
+        {
+          "name": "entity.name.type.wide",
+          "match": "[A-Z_a-z][0-9A-Z_a-z]*"
+        },
+        { "include": "#alias" }
+      ]
+    },
+    "join": {
+      "patterns": [ { "include": "#table" }, { "include": "#expr" } ]
+    },
+    "key_list": { "patterns": [ { "include": "#expr" } ] },
+    "order_list": { "patterns": [ { "include": "#order_key" } ] },
+    "order_key": {
+      "patterns": [ { "include": "#expr" }, { "include": "#direction" } ]
+    },
+    "direction": { "patterns": [] },
+    "limit": { "patterns": [ { "include": "#offset" } ] },
+    "offset": {
+      "name": "meta.offset.wide",
+      "match": "(\\boffset\\b)(?>(?:[\\t\\n\\r ]+))*([0-9]+)",
+      "captures": {
+        "1": { "name": "keyword.other.offset.wide" },
+        "2": { "name": "constant.numeric.integer.wide" }
+      }
+    },
+    "paren": {
+      "name": "meta.paren.wide",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.parens.begin.wide" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.parens.end.wide" }
+      },
+      "patterns": [
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "expr": {
+      "patterns": [
+        { "include": "#paren" },
+        {
+          "name": "meta.expr.postfix.field.wide",
+          "match": "(\\.)(?>(?:[\\t\\n\\r ]+))*([A-Z_a-z][0-9A-Z_a-z]*)",
+          "captures": {
+            "1": { "name": "punctuation.accessor.wide" },
+            "2": { "name": "variable.other.wide" }
+          }
+        },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },
+    "tokens": {
+      "patterns": [
+        { "name": "keyword.other.distinct.wide", "match": "\\bdistinct\\b" },
+        { "name": "keyword.control.select.wide", "match": "\\bselect\\b" },
+        { "name": "keyword.other.having.wide", "match": "\\bhaving\\b" },
+        { "name": "keyword.other.offset.wide", "match": "\\boffset\\b" },
+        { "name": "keyword.control.where.wide", "match": "\\bwhere\\b" },
+        { "name": "keyword.other.group.wide", "match": "\\bgroup\\b" },
+        { "name": "keyword.other.order.wide", "match": "\\border\\b" },
+        { "name": "keyword.other.limit.wide", "match": "\\blimit\\b" },
+        { "name": "keyword.control.from.wide", "match": "\\bfrom\\b" },
+        { "name": "keyword.control.join.wide", "match": "\\bjoin\\b" },
+        { "name": "keyword.other.desc.wide", "match": "\\bdesc\\b" },
+        { "name": "keyword.other.asc.wide", "match": "\\basc\\b" },
+        { "name": "keyword.operator.logical.wide", "match": "\\band\\b" },
+        { "name": "keyword.other.as.wide", "match": "\\bas\\b" },
+        { "name": "keyword.other.on.wide", "match": "\\bon\\b" },
+        { "name": "keyword.other.by.wide", "match": "\\bby\\b" },
+        { "name": "keyword.operator.logical.wide", "match": "\\bor\\b" },
+        { "name": "punctuation.separator.wide", "match": "," },
+        { "name": "punctuation.separator.wide", "match": ";" },
+        { "name": "punctuation.accessor.wide", "match": "\\." },
+        { "name": "keyword.operator.eq.wide", "match": "=" },
+        { "name": "keyword.operator.lt.wide", "match": "<" },
+        { "name": "keyword.operator.gt.wide", "match": ">" },
+        { "name": "variable.other.wide", "match": "[A-Z_a-z][0-9A-Z_a-z]*" },
+        { "name": "constant.numeric.integer.wide", "match": "[0-9]+" },
+        { "name": "string.quoted.double.wide", "match": "\"[^\"\\\\]*\"" }
+      ]
+    }
+  }
+}

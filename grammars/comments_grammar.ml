@@ -1,26 +1,25 @@
 (* -- comments, and the boundaries they make -----------------------------------
 
-   The grammar the formatter needs and the parser does not. Every grammar
-   before it is whitespace-only, so three of the layout's steps had no input
-   that reached them.
+   The grammar the formatter needs. Every other grammar in the corpus has
+   whitespace-only trivia, so three steps of the layout had no input to run
+   on.
 
    - [line] runs to the end of its line. Anything written after one on that
-     line is inside it when the output is read back, so the only glue that
-     works at that boundary is a line break. That comes from the lexer, and
-     this is the grammar that lets a law reach it.
+     line is inside it when the output is read back, so only a line break
+     glues that boundary. The rule comes from the lexer, and a law reaches it
+     through this grammar.
    - [line] and [block] are [Preserve] trivia. A comment keeps the line the
-     source put it on rather than taking one from the production, because the
-     production's flat or broken state moves between passes and the comment
-     would move with it.
+     source put it on. A production's flat or broken state moves between
+     passes, and a comment placed by the production would move with it.
    - [List] takes [trailing_sep:On_break], so the separator after the last
-     element appears only when the body breaks. That is one [flat_alt] in the
-     document rather than something read back off the renderer afterwards.
+     element appears only when the body breaks. One [flat_alt] in the document
+     carries that.
 
-   [Field] is here for the max-munch floor rather than for the syntax. [number]
-   takes a decimal point, so on ["\[1 .5\]" ] recovery leaves ["1"], ["."] and
-   ["5"] as three tokens the source had apart. No pair of them joins; the three
-   of them are one number. The floor reads the run back to the last blank for
-   that reason.
+   [Field] is here for the max-munch floor. [number] takes a decimal point, so
+   on ["\[1 .5\]" ] recovery leaves ["1"], ["."] and ["5"] as three tokens the
+   source had apart. Joining any two of them is safe. Joining all three makes
+   one number, and the floor reads the run back to the last blank for that
+   reason.
    -------------------------------------------------------------------------- *)
 
 open Grammar
@@ -32,8 +31,8 @@ let grammar : t =
   in
   let name = Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z')) in
   let line = Redfa.Regex.(seq (str "//") (star (not_singleton_char '\n'))) in
-  (* [/*], then anything that is not a [*/], then [*/]. The middle takes a run
-     of stars only where a slash does not follow it. *)
+  (* [/*], then everything up to the first [*/]. A run of stars stays in the
+     body while the character after it is not a slash. *)
   let block =
     Redfa.Regex.(
       seqs
@@ -43,7 +42,7 @@ let grammar : t =
                (not_singleton_char '*')
                (seq
                   (plus (singleton_char '*'))
-                  (inter any (complement (chars_of_char_list [ '*'; '/' ])))))
+                  (not_chars (Ucharset.of_char_list [ '*'; '/' ]))))
         ; plus (singleton_char '*')
         ; singleton_char '/'
         ])

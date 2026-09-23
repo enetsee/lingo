@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Rassoc",
+  "scopeName": "source.rassoc",
+  "patterns": [
+    { "include": "#expr" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "expr": {
+      "patterns": [ { "include": "#trivia" }, { "include": "#tokens" } ]
+    },
+    "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },
+    "tokens": {
+      "patterns": [
+        { "name": "keyword.operator.plus.rassoc", "match": "\\+" },
+        { "name": "keyword.operator.caret.rassoc", "match": "\\^" },
+        { "name": "keyword.operator.minus.rassoc", "match": "-" }
+      ]
+    }
+  }
+}

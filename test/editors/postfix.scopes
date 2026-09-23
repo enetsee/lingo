@@ -1,0 +1,24 @@
+tokens
+  lparen               punctuation.section.parens.begin
+  rparen               punctuation.section.parens.end
+  lbracket             punctuation.section.brackets.begin
+  rbracket             punctuation.section.brackets.end
+  lbrace               punctuation.section.braces.begin
+  rbrace               punctuation.section.braces.end
+  dot                  punctuation.accessor
+  comma                punctuation.separator
+  question             keyword.operator.question
+  plus                 keyword.operator.plus
+  int                  -
+  name                 -
+  ws                   -
+rules
+  File                 -
+  Field                -
+  Expr                 -
+  ExprBin              -
+  ExprPostfixTry       -
+  ExprPostfixField     -
+  ExprPostfixIndex     -
+  ExprPostfixBlock     -
+  ExprPostfixCall      -

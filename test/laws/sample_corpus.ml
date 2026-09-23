@@ -1,6 +1,6 @@
 (* -- the grammars the sampler's law reads -------------------------------------
 
-      Nine of the eleven grammars in grammars/, and the witness grammars
+      Nine of the twelve grammars in grammars/, and the witness grammars
       beside them. A witness takes the shape nearest to one rejection and stops
       short of it, so between them they reach framings and operator tables the
       nine do not: a delimited body with a separator, a separated body, two

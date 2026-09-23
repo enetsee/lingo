@@ -1,0 +1,18 @@
+tokens
+  let                  keyword.other.let
+  lbrace               punctuation.section.braces.begin
+  rbrace               punctuation.section.braces.end
+  semi                 punctuation.separator
+  comma                punctuation.separator
+  equals               punctuation.separator
+  at                   punctuation.separator
+  end                  keyword.other.end
+  name                 -
+  ws                   -
+rules
+  Program              -
+  Decl                 -
+  Let                  -
+  Init                 -
+  Names                -
+  Block                -

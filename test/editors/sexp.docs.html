@@ -1,0 +1,122 @@
+<article class="lingo-reference">
+  <h1>sexp</h1>
+  <h2 id="productions">Productions</h2>
+  <ul class="lg-contents">
+    <li><a href="#rule-File"><code>File</code></a></li>
+    <li><a href="#rule-Sexp"><code>Sexp</code></a></li>
+    <li><a href="#rule-Group"><code>Group</code></a></li>
+  </ul>
+  <section id="rule-File">
+  <h3>File</h3>
+  <pre class="lg-listing"><span class="lg-rule">File</span> <span class="lg-notation">=</span> <span class="lg-child">root</span><span class="lg-notation">:</span><a href="#rule-Sexp"><span class="lg-ref">Sexp</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 84 56" width="84" height="56" xmlns="http://www.w3.org/2000/svg">
+    <title>File</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">root</text>
+    <a href="#rule-Sexp">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="42" y="39">Sexp</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="68,35 82,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="82,28 82,42" />
+  </svg>
+  </section>
+  <section id="rule-Sexp">
+  <h3>Sexp</h3>
+  <pre class="lg-listing"><span class="lg-rule">Sexp</span> <span class="lg-notation">=</span> <span class="lg-child">kind</span><span class="lg-notation">:</span><span class="lg-notation">(</span><a href="#token-ident"><span class="lg-token">ident</span></a> <span class="lg-notation">|</span> <a href="#token-number"><span class="lg-token">number</span></a> <span class="lg-notation">|</span> <a href="#rule-Group"><span class="lg-ref">Group</span></a><span class="lg-notation">)</span></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 148 132" width="148" height="132" xmlns="http://www.w3.org/2000/svg">
+    <title>Sexp</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">kind</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 44,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 35 35 L 25 31 L 25 39 Z" />
+    <a href="#token-ident">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="44" y="22" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="74" y="39">ident</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="104,35 132,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 123 35 L 113 31 L 113 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 28,35 28,73 40,73" />
+    <a href="#token-number">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="40" y="60" width="68" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="74" y="77">number</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="108,73 120,73 120,35 132,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 28,35 28,111 44,111" />
+    <a href="#rule-Group">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="44" y="98" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="74" y="115">Group</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="104,111 120,111 120,35 132,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="132,35 146,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="146,28 146,42" />
+  </svg>
+  </section>
+  <section id="rule-Group">
+  <h3>Group</h3>
+  <pre class="lg-listing"><span class="lg-rule">Group</span> <span class="lg-notation">=</span> <a href="#token-lparen"><span class="lg-literal">&#39;(&#39;</span></a> <span class="lg-child">elt</span><span class="lg-notation">:</span><a href="#rule-Sexp"><span class="lg-ref">Sexp</span></a><span class="lg-notation">*</span> <a href="#token-rparen"><span class="lg-literal">&#39;)&#39;</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 212 94" width="212" height="94" xmlns="http://www.w3.org/2000/svg">
+    <title>Group</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <a href="#token-lparen">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="30" y="39">(</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="44,35 56,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="56" y="18">elt</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 106,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 86 35 L 76 31 L 76 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="106,35 106,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="106,35 156,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 136 35 L 126 31 L 126 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 68,35 68,73 80,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 58 35 L 66 31 L 66 39 Z" />
+    <a href="#rule-Sexp">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="80" y="60" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="106" y="77">Sexp</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="132,73 144,73 144,35 156,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 134 73 L 142 69 L 142 77 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="156,35 168,35" />
+    <a href="#token-rparen">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="168" y="22" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="182" y="39">)</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="196,35 210,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="210,28 210,42" />
+  </svg>
+  </section>
+  <h2 id="tokens">Tokens</h2>
+  <table id="tokens">
+    <tr><th>token</th><th>kind</th><th>matches</th></tr>
+    <tr id="token-lparen"><td><code>lparen</code></td><td>punctuation</td><td><code>(</code></td></tr>
+    <tr id="token-rparen"><td><code>rparen</code></td><td>punctuation</td><td><code>)</code></td></tr>
+    <tr id="token-ident"><td><code>ident</code></td><td>pattern</td><td><code>[!*+\-/&lt;-?A-Z_a-z][!*+\-/-9&lt;-?A-Z_a-z]*</code></td></tr>
+    <tr id="token-number"><td><code>number</code></td><td>pattern</td><td><code>-?[0-9]+(\.[0-9]+)?</code></td></tr>
+    <tr id="token-ws"><td><code>ws</code></td><td>pattern, skipped</td><td><code>[\t\n\r ]+</code></td></tr>
+  </table>
+  <h2 id="sets">What starts and follows a production</h2>
+  <table id="first-follow">
+    <tr><th>production</th><th>starts with</th><th>followed by</th><th>may be empty</th></tr>
+    <tr><td><a href="#rule-File"><code>File</code></a></td><td><code>(</code> <code>ident</code> <code>number</code></td><td><em>nothing</em></td><td></td></tr>
+    <tr><td><a href="#rule-Sexp"><code>Sexp</code></a></td><td><code>(</code> <code>ident</code> <code>number</code></td><td><code>(</code> <code>)</code> <code>ident</code> <code>number</code></td><td></td></tr>
+    <tr><td><a href="#rule-Group"><code>Group</code></a></td><td><code>(</code></td><td><code>(</code> <code>)</code> <code>ident</code> <code>number</code></td><td></td></tr>
+  </table>
+  <h2 id="examples">Examples</h2>
+  <section>
+  <h3>Example 1</h3>
+  <pre class="lg-example"><span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-parens lg-s-punctuation-section-parens-begin">(</span>a b<span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-parens lg-s-punctuation-section-parens-end">)</span></pre>
+  </section>
+  <section>
+  <h3>Example 2</h3>
+  <pre class="lg-example"><span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-parens lg-s-punctuation-section-parens-begin">(</span>a <span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-parens lg-s-punctuation-section-parens-begin">(</span>b 12<span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-parens lg-s-punctuation-section-parens-end">)</span> c<span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-parens lg-s-punctuation-section-parens-end">)</span></pre>
+  </section>
+  <section>
+  <h3>Example 3</h3>
+  <pre class="lg-example"><span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-parens lg-s-punctuation-section-parens-begin">(</span>a
+ b<span class="lg-s-punctuation lg-s-punctuation-section lg-s-punctuation-section-parens lg-s-punctuation-section-parens-end">)</span></pre>
+  </section>
+</article>

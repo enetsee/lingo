@@ -1,0 +1,7 @@
+; The scope names, derived once and shared by all three backends. A scope is
+; a name, so deriving one takes only the grammar's facts and the token terms.
+
+(library
+ (name scopes)
+ (public_name lingo.scopes)
+ (libraries core redfa ucharset))

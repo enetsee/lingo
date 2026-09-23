@@ -2,7 +2,7 @@
 opam-version: "2.0"
 synopsis: "TextMate and tree-sitter backends for lingo"
 description:
-  "Renders a lingo grammar to a .tmLanguage.json TextMate grammar and to a tree-sitter grammar.js. Separate from the lingo package because yojson is its dependency and nothing else needs it."
+  "Renders a lingo grammar to a .tmLanguage.json TextMate grammar and to a tree-sitter grammar.js. Separate from the lingo package because only these backends need yojson."
 maintainer: ["Michael Thomas <mthomas180@gmail.com>"]
 authors: ["Michael Thomas <mthomas180@gmail.com>"]
 license: "MIT"

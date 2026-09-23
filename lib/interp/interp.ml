@@ -462,8 +462,8 @@ and drain (cursor : Cursor.t) (message_id : Ir.Message.id) : unit =
    already holds.
 
    [Plan.Lower] builds every rule's body as a [Seq], so the rest of these are
-   the forms its first instruction takes. Over the eleven grammars and the
-   witnesses there are three: [Open] for a production, [Pratt] for a block, and
+   the forms its first instruction takes. Over the grammars in the corpus and
+   the witnesses there are three: [Open] for a production, [Pratt] for a block, and
    nothing at all for a role. The others answer [false], which refuses the
    entry rather than guessing at a shape no parse has built. *)
 let rec opens (i : Ir.Plan.instr) : bool =

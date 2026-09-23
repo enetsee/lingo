@@ -147,3 +147,52 @@
   lex
   sample_corpus
   siesta))
+
+; law_textmate reads the emitted JSON back and walks it. The walk is its own:
+; the reference resolution, the capture counter and the scope-path check are
+; written a second time there, because a law that calls the function it checks
+; proves that the function agrees with itself.
+
+(tests
+ (names law_textmate)
+ (modules law_textmate)
+ (libraries
+  lingo.core
+  lingo.scopes
+  lingo_editors.textmate
+  lingo_grammars
+  editor_corpus
+  redfa
+  yojson))
+
+; law_treesitter reads the emitted JavaScript and queries back as text and
+; walks them. Reading the text is the point: what tree-sitter is handed is a
+; file, and a law that walked the emitter's own values would not see a rule
+; that never reached the page.
+
+(tests
+ (names law_treesitter)
+ (modules law_treesitter)
+ (libraries
+  lingo.core
+  lingo.scopes
+  lingo_editors.treesitter
+  lingo_grammars
+  editor_corpus
+  redfa))
+
+; law_docs reads the emitted page back. Part (f) is the one to keep: colouring
+; a code example must not change it, and the only way to say so is to take the
+; markup off again and compare the bytes.
+
+(tests
+ (names law_docs)
+ (modules law_docs)
+ (libraries
+  lingo.core
+  lingo.scopes
+  lingo.docs
+  lingo_grammars
+  editor_corpus
+  handsome
+  redfa))

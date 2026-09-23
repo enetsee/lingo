@@ -1,0 +1,60 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Comments",
+  "scopeName": "source.comments",
+  "patterns": [
+    { "include": "#list" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "list": {
+      "name": "meta.list.comments",
+      "begin": "\\[",
+      "end": "\\]",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.brackets.begin.comments" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.brackets.end.comments" }
+      },
+      "patterns": [
+        { "include": "#item" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "item": {
+      "patterns": [
+        { "match": "[a-z]+" },
+        { "match": "[0-9]+(?:\\.[0-9]+)?" },
+        { "include": "#list" },
+        { "include": "#field" }
+      ]
+    },
+    "field": {
+      "patterns": [
+        { "match": "[a-z]+" }, { "match": "[0-9]+(?:\\.[0-9]+)?" }
+      ]
+    },
+    "trivia": {
+      "patterns": [
+        { "match": "[\\t\\n\\r ]+" },
+        {
+          "name": "comment.line.double-slash.comments",
+          "match": "//[^\\n]*"
+        },
+        {
+          "name": "comment.block.comments",
+          "match": "/\\*(?:[^*]|\\*+[^*/])*\\*+/"
+        }
+      ]
+    },
+    "tokens": {
+      "patterns": [
+        { "name": "punctuation.separator.comments", "match": "," },
+        { "name": "punctuation.separator.comments", "match": "\\." }
+      ]
+    }
+  }
+}

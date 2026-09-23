@@ -1,0 +1,11 @@
+; The TextMate backend. It reads a [Facts.t] and a [Scopes.t] and writes
+; JSON, so it is a peer of the OCaml emitter.
+;
+; yojson is here and nowhere else, so lingo_editors is a package of its own.
+; A consumer who links a generated parser keeps yojson out of the build
+; graph.
+
+(library
+ (name textmate)
+ (public_name lingo_editors.textmate)
+ (libraries lingo.core lingo.scopes redfa yojson))

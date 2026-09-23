@@ -1,0 +1,44 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Calc",
+  "scopeName": "source.calc",
+  "patterns": [
+    { "include": "#expr" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "parens": {
+      "name": "meta.parens.calc",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.parens.begin.calc" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.parens.end.calc" }
+      },
+      "patterns": [
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "expr": {
+      "patterns": [
+        { "include": "#parens" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },
+    "tokens": {
+      "patterns": [
+        { "name": "keyword.operator.plus.calc", "match": "\\+" },
+        { "name": "keyword.operator.minus.calc", "match": "-" },
+        { "name": "keyword.operator.star.calc", "match": "\\*" },
+        { "name": "keyword.operator.slash.calc", "match": "/" }
+      ]
+    }
+  }
+}

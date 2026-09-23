@@ -1,0 +1,9 @@
+tokens
+  laquo                punctuation.section.laquo.begin
+  raquo                punctuation.section.raquo.end
+  arrow                punctuation.separator
+  word                 -
+  ws                   -
+rules
+  File                 -
+  Doc                  -
