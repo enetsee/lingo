@@ -18,7 +18,7 @@
     the anchor regexes written out. It had no choice. Its grammar type said
     nothing about which productions contain their own errors.
 
-    lingo's grammar type does. {!Core.Rule.frame} is [Delimited] where a
+    lingo's grammar type does. {!Core.Rule.type-frame} is [Delimited] where a
     matched pair surrounds the body, and [Committed] where the production
     contains its own errors, which is the same claim a [begin]/[end] pair
     makes about highlighting. So the region falls out of the framing, and

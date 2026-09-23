@@ -373,12 +373,12 @@ let ran ~(step : string) ~kind:(_ : Ir.Kind.t) : unit =
 
 (* Whether the generated corpus is explored or only resampled.
 
-   M1 in 02-LAWS.md puts it as an edge being a transition rather than a single
-   step. The number of steps the fold has is a property of the layout, so
-   counting those saturates at once and shows nothing about depth.
+   An edge is a transition rather than a single step. The number of steps the
+   fold has is a property of the layout, so counting those saturates at once
+   and shows nothing about depth.
 
    Counting pairs of them is not enough either, and that was this law's own
-   reading of M1 until 2026-09-19: 97 pairs at depth 1, 99 at 4 and 100 at 16,
+   reading until 2026-09-19: 97 pairs at depth 1, 99 at 4 and 100 at 16,
    with the ceiling at fifteen steps squared. Depth 8 found M10 and M18 and
    depth 64 found M17 while the count stood still. So the step is paired with
    the rule it was taken in, which is where the grammar enters. A point is a

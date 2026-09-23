@@ -7,11 +7,11 @@
     stops moving and a run that explores nothing reads the same as a run that
     explores everything.
 
-    That is M1 in [02-LAWS.md], ported. The predecessor counted single
-    decisions, saturated at about a thousand iterations, and every sweep for
-    ten issues after that was a million random samples with a flat number
-    beside them. Pairing consecutive decisions took one grammar from 29 edges
-    to 691 and one production's trailing separator from zero to 130.
+    The predecessor counted single decisions. That saturated at about a
+    thousand iterations, and every sweep for ten issues after it was a million
+    random samples with a flat number beside them. Pairing consecutive
+    decisions took one grammar from 29 edges to 691 and one production's
+    trailing separator from zero to 130.
 
     A point is {!Ir.Residual.State.site} rather than the whole parse stack. The
     stack grows with the input's nesting, so distinct stacks climb with depth

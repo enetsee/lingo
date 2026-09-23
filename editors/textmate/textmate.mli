@@ -13,7 +13,7 @@
 
     The predecessor needed a call per production to say which ones were
     regions, and what their begin and end regexes were. lingo's
-    {!Core.Rule.frame} already says it: [Delimited] is a matched pair, and
+    {!Core.Rule.type-frame} already says it: [Delimited] is a matched pair, and
     [Committed] is a production that contains its own errors, which is the
     same claim. {!Shape} derives the region and its anchors from that.
 

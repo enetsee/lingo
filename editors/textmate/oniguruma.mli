@@ -1,8 +1,8 @@
 (** Token regexes, in the dialect a TextMate engine reads.
 
     TextMate matches with Oniguruma, and a token's own regex is a
-    {!Redfa.Regex.t}. Most of them cross over unchanged, and
-    {!Redfa.Regex.to_oniguruma} is the crossing. A term with no Oniguruma
+    [Redfa.Regex.t]. Most of them cross over unchanged, and
+    [Redfa.Regex.to_oniguruma] is the crossing. A term with no Oniguruma
     form, such as a complement, has to be written out by hand.
     {!Core.Grammar.pattern_spec.textmate} carries that spelling, and
     {!of_token} takes it where it is set.

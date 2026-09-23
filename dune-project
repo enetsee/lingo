@@ -15,8 +15,8 @@
 
 ; ---------------------------------------------------------------------------
 ; The three packages are split because their dependency sets are disjoint. A
-; dune sub-library gets no opam dependencies of its own (01-ARCHITECTURE.md
-; §2).
+; dune sub-library gets no opam dependencies of its own, so a dependency only
+; one part of the tree needs still reaches every consumer of the package.
 ;
 ; lingo_runtime must never depend on lingo. Generated code links the runtime,
 ; so ppxlib and yojson stay out of a consumer's build graph.

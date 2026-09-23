@@ -16,11 +16,11 @@
       less than that has not moved. Take the row-wise minimum of three runs on
       each side to resolve anything smaller.
 
-      The gap between the two columns settles something else, once:
-      04-DECISIONS.md §4.D D3 recommended keeping both an interpreter and an
-      emitter, priced the interpreter at "one indirect dispatch per
-      instruction", and recorded that as unmeasured. It is measured now, and
-      it is not the reason this file exists.
+      The gap between the two columns settles something else, once. Keeping
+      both an interpreter and an emitter was decided before either existed,
+      and the interpreter was priced at "one indirect dispatch per
+      instruction" with that figure recorded as unmeasured. It is measured
+      now, and it is not the reason this file exists.
 
       The rows, and what each one is for:
 
