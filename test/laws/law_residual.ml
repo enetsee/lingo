@@ -53,17 +53,37 @@
       two, a fault in the emitter shows as a wrong set here and as a wrong
       literal there.
 
+      It found one, on the day rust and effekt joined this corpus. An operand
+      that is a token gets a base role wrapped round it, and that role's last
+      point carries the operators that may extend it. An operand that is a rule
+      -- rust's [{}] and [match x {}], effekt's [do], [try] and [{}] -- builds
+      its own node and no role wraps it, so the tree held the atom where every
+      other operand shape holds a role, and the walk popped straight out to the
+      parent. After [{}] the tables offered [;] alone where the grammar takes
+      any of twelve operators. 13 bytes read it.
+
+      The fix is [Table.rule_atoms]: the edge that takes a rule atom carries
+      the climb. The edge rather than the point, because a hole reaches the
+      same point and nothing may follow one; and gated on the edge leaving an
+      expression behind, because the same [Block] is a function's body
+      elsewhere and nothing may follow it there. M17 is each half of that.
+
+      calc had the same shape and never reached it: [(1)] alone is not among
+      its inputs, and every other use of [Parens] there sits under a prefix or
+      an infix. The walk over the tree is the only reader of this, so the
+      defect was invisible to every part but (h).
+
       A byte is the meaningful token rather than the raw index. The cursor looks past
       trivia, so the two positions either side of a space are looking at the
       same token and settling the same thing. Keying on the raw index instead
       read 73 failures in sexp, json, postfix, recovery and shapes, all of
       them the trivia between a body's elements.
 
-      Coverage. The 121 inputs in test/inputs, over eight grammars: 1,328
-      positions, 6,973 pairs of a kind and a position settled and 4,300 the
-      parse cannot be put at. 68 of the positions are holes, where the kind
+      Coverage. The 221 inputs in test/inputs, over ten grammars: 3,823
+      positions, 74,394 pairs of a kind and a position settled and 55,734 the
+      parse cannot be put at. 111 of the positions are holes, where the kind
       really under the cursor is one the residual leaves out. Part (g) covers
-      552 bytes and 4,668 pairs of a kind and a byte, with none left
+      1,574 bytes and 52,010 pairs of a kind and a byte, with none left
       undecided.
 
       Part (e) is what keeps the rest honest. It counts positions per grammar
@@ -73,8 +93,8 @@
       Which instruction forms these same parses run is law_interp part (d)'s
       count, over the same inputs.
 
-      Falsification. Re-run on 2026-09-19, after the body loop's progress guard
-      changed. Every mutation was applied, built, run and reverted, and the
+      Falsification. Re-run on 2026-09-22, after rust and effekt joined the
+      corpus. Every mutation was applied, built, run and reverted, and the
       result recorded is the one observed. A count counts pairs of a kind and a
       position, and the grammars beside it are where they came from. Each edit is
       named exactly, because a mutation nobody can re-create is a mutation
@@ -82,8 +102,9 @@
 
         M1  In [Residual.entered], give [whole plan null body] where the steps
             run out and the position is inclusive, rather than the gate.
-            -> part (b), 64 pairs: sexp 18, json 26, postfix 2, unicode 10,
-               recovery 3, shapes 5. A commit's body is often a bare [Bump],
+            -> part (b), 85 pairs: sexp 18, json 26, postfix 2, unicode 10,
+               recovery 3, shapes 6, rust 10, effekt 10. A commit's body is
+               often a bare [Bump],
                which names no kind of its own, so the position loses the set that
                admitted it.
 
@@ -92,8 +113,9 @@
                that cannot be under the cursor at a body a dispatch chose, so no
                input puts the parse there to disagree.
         M2  In [Residual.ends], give [true] for [May_exit_reporting] as well.
-            -> part (a), 14: json 5, postfix 2, unicode 2, recovery 3, shapes 2.
-               Part (g), the same 14. A body that forbids a trailing separator
+            -> part (a), 15: json 5, postfix 2, unicode 2, recovery 3,
+               shapes 2, rust 1. Part (g), the same 15. A body that forbids a
+               trailing separator
                can still be ended at one, by taking the separator and reporting
                it, and the residual then offers the closer straight after a
                separator. This is the mutation that found the rule.
@@ -101,18 +123,21 @@
                It moves five of the eight *.residual dumps: json, postfix,
                recovery, shapes and unicode.
         M3  In [Residual.at]'s [walk], drop the recursion into the frame above.
-            -> part (b), 123: calc 8, postfix 20, recovery 5, shapes 90.
-               Part (g), 75. Part (h), 45. What follows a rule goes missing at
-               every position the rule's own body can complete from.
+            -> part (b), 532: calc 8, postfix 20, recovery 5, shapes 94,
+               rust 66, effekt 339. Part (g), 374. Part (h), 207. What follows a
+               rule goes missing at every position the rule's own body can
+               complete from.
         M4  In [Residual.whole], give [false] for an [Alt]'s nullability.
-            -> part (b), 105, shapes alone. Part (g), 57. It is the grammar with
-               optional children, and what follows one is what goes missing.
-               shapes.residual moves.
+            -> part (b), 1,503: shapes 110, rust 10, effekt 1,383. Part (g),
+               882. effekt is the grammar of optional children -- a parameter's
+               annotation, a definition's return type, a match arm's guard --
+               and what follows one is what goes missing. shapes.residual moves.
         M5  In [Residual.remains], resume a loop at [e.state] rather than at
             [goto].
-            -> part (a), 52: postfix 16, shapes 36. Part (b), 28. Part (g), 32
-               and 18. Part (h), 16. After an element a separator or the closer
-               comes next, and the mutation offers another element.
+            -> part (a), 185: postfix 16, shapes 40, rust 28, effekt 101.
+               Part (b), 75. Part (g), 149 and 51. Part (h), 49. After an
+               element a separator or the closer comes next, and the mutation
+               offers another element.
         M6  In [Residual.climb_set], take every operator whatever its binding
             power.
             -> nothing. Every climb sits under a chain of climbs reaching the
@@ -123,38 +148,46 @@
                that.
         M7  In [Residual.at], call [walk] on the innermost frame with
             [~inclusive:false].
-            -> part (a), 363: json 58, calc 52, rassoc 24, postfix 41,
-               recovery 98, shapes 90. Part (b), 1,525: sexp 136, json 806,
-               calc 121, rassoc 54, postfix 120, unicode 38, recovery 108,
-               shapes 142. Part (g), 323 and 485. Part (h), 225. M12 is the same
-               claim at the other end of the stack.
+            -> part (a), 3,680: json 58, calc 52, rassoc 24, postfix 41,
+               recovery 98, shapes 94, rust 742, effekt 2,571. Part (b), 5,917:
+               sexp 136, json 806, calc 121, rassoc 54, postfix 120, unicode 38,
+               recovery 108, shapes 152, rust 720, effekt 3,662. Part (g), 1,720
+               and 2,549. Part (h), 820. M12 is the same claim at the other end
+               of the stack.
         M8  In [Residual.expression], give [first, false] at an [Operand]
             rather than letting a nullable operand's climb through.
-            -> part (b), 10: calc 8, rassoc 2. Part (g), 10. Part (h), 3.
+            -> part (b), 66: calc 8, rassoc 2, rust 8, effekt 48. Part (g),
+               45. Part (h), 15.
 
-               This read nothing before. The record said no atom rule in the
-               corpus had a position it could complete from, and that is no
-               longer true. The claim was about the corpus rather than the code,
-               and the corpus moved.
+               This read nothing at all until the corpus reached an atom rule
+               with a position it could complete from. The claim was about the
+               corpus rather than the code, and the corpus has moved twice
+               since.
         M9  In [Residual.head_set], leave out the prefix operators.
-            -> part (b), 50: calc 31, rassoc 19. Part (g), 26. calc.residual and
-               rassoc.residual move.
+            -> part (b), 239: calc 31, rassoc 19, rust 33, effekt 156.
+               Part (g), 44. calc.residual and rassoc.residual move.
        M10  In [Interp.loop], record [!state] as the state to resume at rather
             than [dest].
-            -> part (a), 52: postfix 16, shapes 36. Part (b), 53: json 5,
-               postfix 12, unicode 10, recovery 3, shapes 23. Part (g), 32 and
-               18. Part (h), 16. The interpreter's half of M5. The claim fails
-               whether the plan walk or the parse has the state wrong, which is
-               what makes the threading worth testing rather than trusting.
+            -> part (a), 60: postfix 7, shapes 18, rust 6, effekt 29.
+               Part (b), 162. Part (g), 40 and 132. Part (h), 39. The
+               interpreter's half of M5. The claim fails whether the plan walk
+               or the parse has the state wrong, which is what makes the
+               threading worth testing rather than trusting.
+
+               It also reddens law_interp part (c) on four inputs rust and
+               effekt accept, which it did not on the eight small grammars: a
+               body that resumes in the wrong state reports on a clean parse
+               once the body has enough elements.
        M11  In [Residual.whole], give [true] for a [Commit]'s nullability.
-            -> part (a), 79: json 12, calc 5, postfix 29, recovery 27, shapes 6.
-               Part (g), 77. All eight *.residual dumps move.
+            -> part (a), 1,219: json 12, calc 5, postfix 29, recovery 27,
+               shapes 6, rust 346, effekt 794. Part (g), 1,194. All eight
+               *.residual dumps move; rust and effekt have none.
        M12  In [Residual.at]'s [walk], call the frame above with
             [~inclusive:true].
-            -> part (a), 242: calc 78, rassoc 48, postfix 90, recovery 5,
-               shapes 21. Part (b), 99. Part (g), 180 and 64. Part (h), 109. The
-               call is counted twice: as the frame above's pending instruction
-               and as the frame below.
+            -> part (a), 2,072: calc 78, rassoc 48, postfix 90, recovery 5,
+               shapes 23, rust 232, effekt 1,596. Part (b), 494. Part (g), 1,627
+               and 354. Part (h), 271. The call is counted twice: as the frame
+               above's pending instruction and as the frame below.
        M13  In [Residual.taken], ignore [goto] and give an element every kind its
             state takes.
             -> nothing. The lowering writes one transition per loop state, so the
@@ -163,9 +196,9 @@
                separate them, and no lowering writes one.
        M14  In [Residual.nullable_rules], start [settled] at [true] so the
             fixpoint never runs.
-            -> nothing. No rule in the nine grammars is nullable, so the table
+            -> nothing. No rule in the ten grammars is nullable, so the table
                reads false either way. A rule whose every child is optional would
-               read it, and the ladder has none.
+               read it, and none of the ten has one.
        M15  Empty calc's input list in test/inputs.
             -> part (e), twice: "no position came from these grammars: calc" and
                "no input lexes these token kinds: calc T_INT". Parts (a) to (d)
@@ -176,11 +209,20 @@
                dotted forms are the only ones that reach a [Postfix] step with a
                body, so the coverage claim rests on four inputs.
 
-            Part (h) reads nothing for the mutations the *.residual dumps move,
-            because the tables are built out of the same walk those mutations
-            changed, so the two sides move together. So (h) checks that the
-            emitted path and the plan path agree, and parts (a), (b) and (g) are
-            what check the walk itself.
+       M17  In [Residual.Table.of_body], drop the [base_kind] gate on the
+            rule-atom edge, so every rule atom carries a climb wherever it is a
+            child.
+            -> part (h), 14, and calc.residual moves. rust's [Block] is an
+               expression and it is also a function's body, and the mutation
+               offers the operators after the second. Turning the split off
+               altogether reads the same 14 the other way round, which is the
+               defect this closed: see the note under part (h).
+
+            Part (h) reads nothing for a mutation of the walk the *.residual
+            dumps come from, because both sides move together. It reads
+            something for a mutation of the tables alone, which M17 is, and
+            that is the half of (h) that found the defect below. Parts (a), (b)
+            and (g) are what check the walk itself.
    -------------------------------------------------------------------------- *)
 
 open StdLabels
@@ -254,6 +296,16 @@ let corpus =
     ; grammar = Lingo_grammars.Shapes_grammar.grammar
     ; tables = Emitted_parsers.Shapes_residual.tables
     ; inputs = Inputs.all Inputs.shapes
+    }
+  ; { name = "rust"
+    ; grammar = Lingo_grammars.Rust_grammar.grammar
+    ; tables = Emitted_parsers.Rust_residual.tables
+    ; inputs = Inputs.all Inputs.rust
+    }
+  ; { name = "effekt"
+    ; grammar = Lingo_grammars.Effekt_grammar.grammar
+    ; tables = Emitted_parsers.Effekt_residual.tables
+    ; inputs = Inputs.all Inputs.effekt
     }
   ]
 ;;

@@ -1,7 +1,7 @@
 (* -- comments, and the boundaries they make -----------------------------------
 
-   The grammar the formatter needs and the parser does not. Everything else in
-   the ladder is whitespace-only, so three of the layout's steps had no input
+   The grammar the formatter needs and the parser does not. Every grammar
+   before it is whitespace-only, so three of the layout's steps had no input
    that reached them.
 
    - [line] runs to the end of its line. Anything written after one on that

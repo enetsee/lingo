@@ -7,33 +7,39 @@
       (d) Every mutator is reached, and every shape at an alternation is
           swapped out.
       (e) Every skip class is inside its ceiling.
+      (f) Every rule the grammar can reach is one the corpus built, and every
+          oracle reads zero over the fragments drawn to reach the rest.
 
       Mechanism. Eleven grammars from grammars/ and the witness grammars
       beside them, less the five that declare no whitespace. For each one a
       harness: the plan, the layout, the species a rule became, and an engine
       over them. A draw is a token list, [Sample.decode] writes the bytes, and
       the oracles run on those bytes at three widths, two fixed and one drawn.
-      Then a mutator edits the
-      token list and the same oracles run again.
+      Then a mutator edits the token list and the same oracles run again.
+
+      There are two corpora here and they are drawn differently. One is a draw
+      from a root, which is a whole program. The other is a draw at a rule,
+      which is a fragment, and part (f) is where it is built and what it is
+      for. Every law runs over both.
 
       Part (a) is the phase's first claim and the oldest hole in the project.
       Every oracle here is a forbidding law, so the way one fails badly is by
       firing on an input that is fine, and nothing inside an oracle can see
       that. What sees it is a corpus that is known good. Its first half is what
       makes it known: every input lexes back to the tokens drawn and parses
-      with no diagnostics. test/laws/law_sample.ml says the same of the nine
-      grammars it draws; rust and effekt are not among them, and for those this
-      is the only place it is said.
+      with no diagnostics. test/laws/law_sample.ml says the same of the
+      fourteen grammars it draws; rust and effekt are not among them, and for
+      those this is the only place it is said.
 
-      Part (b) is the same oracles over inputs no sampler would draw. 1,903 of
+      Part (b) is the same oracles over inputs no sampler would draw. 2,583 of
       7,000 reach recovery, against 46% for the corpus test/sweep generates:
       a mutated draw is near the language and a swept input is a mangled one,
       so the two corpora are complements and the sweep does not go away.
 
       Part (c) is M1, ported. A point is a place in the plan where a parse read
       the cursor, and an edge is a pair of consecutive points. The claim is
-      what separates the two counts: doubling the corpus adds 440 points to
-      1,696 and 998 edges to 3,298, so the points are a property of the plan
+      what separates the two counts: doubling the corpus adds 464 points to
+      1,663 and 1,058 edges to 3,287, so the points are a property of the plan
       and the edges are still finding things. The predecessor counted points,
       saturated at about a thousand iterations, and ran a million-sample sweep
       for ten issues with a flat number beside it.
@@ -41,8 +47,8 @@
       The threshold in (c) is half the points the first half found. It is a
       threshold and it is worth saying where it sits: the point count here adds
       a quarter of itself, and keying on the whole parse stack rather than on
-      {!Ir.Residual.State.site} adds 1.7 times itself. M2 is that mutation, and
-      an order of magnitude sits either side of the line.
+      {!Ir.Residual.State.site} adds twenty times itself. M2 is that mutation,
+      and an order of magnitude sits either side of the line.
 
       Part (d) has two halves and the second is the one with something to hide.
       A mutator that declines every call is invisible in every other number:
@@ -54,11 +60,95 @@
       token is one no node can stand in, and a walk that saw only nodes would
       build the same arms and decline nothing extra. M4 is that walk.
 
-      The corpus. 3,500 clean inputs and 7,000 mutated, over 14 corpora
-      holding 4,385 comments, in 8.6 s of processor time on the machine this
-      record was written on. Every grammar with [Preserve] trivia is drawn
-      twice, once from a system that draws comments and once from one that does
-      not, so Law B is asked of comment placement as well as of spacing.
+      Part (f) is the one thing a corpus can be silently short of. Every law
+      above it is a forbidding one, so a construct the corpus never builds
+      leaves every count reading zero: the input that would have failed is not
+      there. {!Fuzz.Harness.reachable} walks the grammar and
+      {!Fuzz.Harness.built} walks a tree, and the two never consult each other.
+      They are compared both ways. A rule the walk reaches and no tree holds is
+      what the part is named for; a rule a tree holds and the walk never
+      reaches would mean the walk is simply short, and M23 is that mutation.
+
+      It read red, and what it read is worth keeping. Twelve of 238 rules at
+      depth 8, and the same twelve at depth 32 -- 224,000 mutated inputs reach
+      what 56,000 reach, to the rule. Depth took it from 27 at depth 1 to 12
+      and then stopped dead, and a count that stops is the mark of something
+      the generator cannot produce rather than something it produces rarely.
+
+      The twelve named themselves. effekt's [MatchArm] and everything inside it
+      -- [Pattern], [PatternArgs], [AltPattern], [Guard] -- and [Clause] inside
+      a handler's body. [Match] and [Try] are built, so what the sampler drew
+      was [match (x) {}] and [try {} with H {}] with empty bodies, every time.
+      Both bodies are zero-or-more. An empty repetition costs no tokens and a
+      [case p => e] arm costs five, so at any size the weight goes where the
+      tokens are cheapest.
+
+      Asking for a bigger input made it worse rather than better, which is the
+      same fact from the other side: at a mean of 40 the corpus builds 130 of
+      140 rules, at 120 it builds 128, and at 300 it builds 119 and rust starts
+      losing rules it had. More tokens buy more of the shapes that were already
+      cheap. [Bolts.Sampler.Profile] is the other lever and it does not reach
+      these either: a single-target profile compiles and reads an expected
+      occurrence of exactly 1.0, and the size distribution goes bimodal under
+      it, so the median draw is three tokens and no usable draw holds the
+      construct.
+
+      What reaches them is to stop asking for a program that happens to hold
+      one. A rule has a species of its own -- it is the species a mutator
+      splices from -- so the fragment is drawn at the rule and
+      {!Fuzz.Harness.parse} reads it back at the same rule. 7,050 fragments
+      over 197 of the 238 rules. The 41 left out are all expression rules: 34
+      are an expression block's roles, which have no species because nothing
+      references them, and 7 are the block rules themselves, which open no node
+      of their own and so cannot be entered ({!Fuzz.Harness.enterable}). So no
+      fragment here is an expression on its own, and expressions are covered by
+      the draws from a root, where every one of them appears.
+
+      Every rule, rather than only the ones the draws from a root missed.
+      Keying on the gap was tried and it is backwards: a deeper run's draws
+      miss fewer rules, so the fragment corpus shrinks as the work grows and
+      the law gets weaker. It cost M18 and M19 their falsification at depth 8
+      while depth 1 still caught both.
+
+      Each fragment is then mutated, and two mutants are dropped rather than
+      run. Both are about what a parse entering at a rule does differently from
+      one entering at a root, and each was found by a Law B finding that was
+      the harness rather than the fold.
+
+      The first is dispatch. A fragment parse forces its entry rule; every rule
+      below it is still dispatched on what is under the cursor. So a mutant
+      that deletes a nested opener builds no node there, which is ordinary, and
+      one that deletes the entry rule's own opener builds a delimited node with
+      nothing where its opener goes -- which no parse from a root can build,
+      because a root only enters the rule when its opener is under the cursor.
+      Nine Law B findings came from that shape and M22 is the mutation.
+
+      That shape was counted rather than argued. Over 16,610 trees from the
+      draws at a root, clean and mutated, no delimited node is missing its
+      opener; 61 of the 338 mutants this drops hold one. The test is broader
+      than the shape, though: the other 277 are mutants of a rule with no
+      delimiters at all, refused because the first token is not one the rule
+      starts with. That is 5% of the fragment mutants, and no rule loses all of
+      its.
+
+      The second is the end of the input. A parse entering at a rule ends where
+      the rule does, so a mutant the rule cannot take in full leaves a tail
+      outside the tree. That is two inputs rather than one, and every law here
+      is about one tree and the bytes it holds. 6,001 of 6,694 mutants are
+      taken in full and 1,449 of those recover.
+
+      The fragments are worth what they cost. M18 and M19 read zero over the
+      mutated corpus at every depth now, and 27 and 14 over the fragments at
+      depth 1 and 195 and 147 at depth 8, so for those two the fragments are
+      the whole of the falsification. The witnesses are shorter by an order of magnitude as
+      well: [{//\nnh(h,chi}] against a 180-byte rust program.
+
+      The corpus. 3,500 clean inputs, 7,000 mutated and 7,050 fragments with
+      6,694 mutants of their own, over 14 corpora holding 4,422 comments, in
+      12.4 s of processor time on the machine this record was written on. Every
+      grammar with [Preserve] trivia is drawn twice, once from a system that
+      draws comments and once from one that does not, so Law B is asked of
+      comment placement as well as of spacing.
 
       Five witness grammars are left out and the run names them. They declare
       no whitespace token, so the lexer has nothing to read a joiner as: every
@@ -78,14 +168,15 @@
       is test/parse_emit and test/format_emit over the corpus test/sweep
       generates. Nor whether the system is the grammar for rust and effekt: the
       structure count, the nullability and the minimum size are law_sample's
-      cross-checks and they are asked of the nine grammars it draws.
+      cross-checks and they are asked of the fourteen grammars it draws.
 
       No defect is open. Three were, all in the separator a body's policy adds,
       and the foot of this record says what they were.
 
       Falsification. Every mutation was applied, built, run and reverted, and
       the result recorded is the one observed. A count is the findings that
-      law reads, and where law_layout moves as well it is named beside.
+      law reads, at depth 1 unless a depth is named, and where law_layout moves
+      as well it is named beside.
 
         M1  In [Fuzz.Coverage.at], pair nothing: read the previous point as
             [None] always, so an edge is a point.
@@ -94,12 +185,12 @@
                and there are none.
         M2  In [Fuzz.Coverage.at], key on the whole parse stack rather than on
             [State.site].
-            -> (c). The points read 37,494 and 70,107 where the site reads
-               1,696 and 2,136. A stack grows with the input's nesting, so
+            -> (c). The points read 32,900 and 67,592 where the site reads
+               1,663 and 2,127. A stack grows with the input's nesting, so
                distinct stacks track the corpus however little of the plan a
                parse reached.
         M3  In [Fuzz.Mutate.regenerate], decline every call.
-            -> (d), naming it. Nothing else moves: the other four absorb the
+            -> (d), naming it. Nothing else moves: the other five absorb the
                iterations.
         M4  In [Fuzz.Mutate.swap_arm], walk only the node children at an
             alternation.
@@ -107,54 +198,61 @@
                as before. (c) moves too, because the corpus after it is a
                different corpus.
         M5  In [Sample.decode], write no joiner at all.
-            -> (a) first half, 3,953 inputs; (b) first half, 7,714 draws the
+            -> (a) first half, 3,956 inputs; (b) first half, 7,747 draws the
                sweep took are not clean. (d), the token arm at an atom is then
                never reached, because the corpus holds far fewer expressions to
-               swap one into.
+               swap one into. (f), 678 Law A findings: a fragment whose tokens
+               fused is one the rule stops partway through.
         M6  In [Lingo_runtime.Layout.flat_end], let a child that writes nothing
             end the run.
-            -> (b), 8 findings, all Law F. law_layout does not move.
+            -> (b), 5 findings, and (f), 2. All Law F, and (a) reads zero.
+               law_layout does not move.
         M7  In [Lingo_runtime.Layout.node], start the body segment at the
             opener rather than after its leading run.
-            -> (a), 270 findings; (b), 476. All Law F. law_layout does not
-               move.
+            -> (a), 330 findings; (b), 807; (f), 59. All Law F. law_layout does
+               not move.
         M8  In [Lingo_runtime.Layout.node], read [flat_through] as [false].
-            -> (a), 14 findings; (b), 45. All Law F. law_layout (e) reads 70
-               lines past the ruler, which it did not before the separator was
-               folded once: this is the one of the three its own corpus
-               reaches.
+            -> (a), 22 findings; (b), 119; (f), 2. All Law F. law_layout (e)
+               reads lines past the ruler, which it did not before the
+               separator was folded once: this is the one of the three its own
+               corpus reaches.
         M9  In [Lingo_runtime.Layout.walk], hand every child an empty tail.
-            -> (a), 23,787 findings -- B 4,573, C and D 6,780 each, E 5,654;
-               (b), 48,201. law_layout as well, and its (g) then reads five
-               steps the fold never takes. This is D8 with nothing left of it.
+            -> (a), 35,935 findings; (b), 72,115 -- B 13,819, C and D 20,241
+               each, E 17,814; (f), 116,110. law_layout as well, and its (g)
+               then reads five steps the fold never takes. This is D8 with
+               nothing left of it.
        M10  In [Lingo_runtime.Layout.join], answer [Touching] at every
             boundary.
-            -> (a), 1,438 findings -- B 231, C and D 479 each, E 184, W 65;
-               (b), 2,970. comments' ["//"] comes back ["//,"], which is Law C
-               and Law D reading one fusion from the two ends.
+            -> (a), 2,130 findings; (b), 4,209 -- B 657, C and D 1,314 each,
+               E 578, W 346; (f), 3,261. comments' ["//"] comes back ["//,"],
+               which is Law C and Law D reading one fusion from the two ends.
        M11  In [Lingo_runtime.Layout.node], write a byte for a childless node.
-            -> (b), 6,999 findings -- B 1,928, C and D 1,932 each, E 1,204, F
-               3 -- and (a) reads zero. A childless node is what the parse
-               leaves where it wanted a token and found none, so only a
-               recovered tree holds one and only the mutated corpus reaches it.
+            -> (b), 14,143 findings -- B 3,840, C and D 3,840 each, E 2,622,
+               F 1; (f), 8,833 -- and (a) reads zero. A childless node is what
+               the parse leaves where it wanted a token and found none, so only
+               a recovered tree holds one and only a mutated input reaches it.
        M12  In [Fuzz.Mutate.apply], decline every iteration.
-            -> (c), (d) six times, and (e): the skip class reads 1,000,000 per
-               million against a ceiling of 20,000.
+            -> (c), (d) six times and its arm half, and (e): the skip class
+               reads 1,000,000 per million against a ceiling of 20,000. The
+               fragments still draw, because a draw at a rule does not go
+               through a mutator, and they still read zero.
        M13  In [Fuzz.Oracles.keeps], refuse the separator a body's policy adds,
             so the comparison is an equality rather than a subsequence.
-            -> (a), 3,144 findings over Laws C and D on a corpus that is good.
-               This is the mutation part (a) exists for: the oracle is wrong
-               and every other part reads exactly what it read before.
+            -> (a), 4,754 findings over Laws C and D on a corpus that is good;
+               (b), 9,592; (f), 9,790. This is the mutation part (a) exists
+               for: the oracle is wrong and every other part reads exactly what
+               it read before.
        M14  In [Lingo_runtime.Layout.body], split the walk at the last element
             under [`Plain] as well.
-            -> (b), 21 findings, all Law B; law_layout (c), 13 formats. A
+            -> (b), 60 findings, all Law B; law_layout (c), 11 formats. A
                policy that adds nothing has nothing to insert there, and
                cutting the walk truncates every run that crosses the cut.
        M15  In [Lingo_runtime.Layout.body], carry the state the folding *with*
             the separator left rather than the one without.
-            -> (a), 160 findings -- B 36, C and D 37 each, E 37, W 13; (b),
-               421; law_layout loses a token. The flat branch writes no
-               separator, so its state is the one the closer glues against.
+            -> (a), 231 findings; (b), 543 -- B 104, C and D 110 each, E 110,
+               W 109; (f), 185; law_layout loses a token. The flat branch
+               writes no separator, so its state is the one the closer glues
+               against.
        M16  In [Lingo_runtime.Layout.node], take a plain group and a
             conditional that always answers flat, so an [On_break] separator is
             never written.
@@ -167,13 +265,17 @@
 
        M17  In [Layout.Lower.expansion], leave a block's rule atoms out of the
             kinds a slot admits.
+            -> (b), 4 findings at depth 1 and 10 at depth 8; (f), 1 and 11.
+               All Law B, and law_layout does not move.
        M18  In [Lingo_runtime.Layout.node], write the policy separator after
             bytes an error node swept up.
+            -> (f), 27 findings at depth 1 and 195 at depth 8. (b) reads zero
+               at both.
        M19  In [Lingo_runtime.Layout.node], read an inner frame the parse never
             closed as closed.
-            -> (b) at depth 8, 4 findings each, all Law B, and law_layout does
-               not move under any of them. M17 has its own witness and M18 and
-               M19 share one.
+            -> (f), 14 findings at depth 1 and 147 at depth 8. (b) reads zero
+               at both. The two share their witnesses, and the shortest at
+               depth 8 is [enum r{Ge(l}].
 
                Three ways for the separator a body's policy adds to come back
                somewhere the fold cannot see it: in front of the last element,
@@ -181,26 +283,47 @@
                end. Each leaves the fold writing another on the next pass, and
                M18's grows without bound.
 
-               All three read zero at depth 1. This is what a depth is for, and
-               the only entry here that needs one.
+               Only M17 is reachable from a root at all, and only through the
+               mutated corpus. M18 and M19 need a fragment, which is the whole
+               argument for part (f): both were open defects that the corpus
+               before it reached at depth 8 and stopped reaching when the
+               corpus moved.
 
-      Depth. 1 is what the suite runs. [LINGO_SWEEP=8] is 28,000 clean inputs
-      and 56,000 mutated in 29 s, 16 is 112,000 mutated and 32 is 224,000.
-      Every law reads zero at every one of them, on both corpora.
+       M20  In [Fuzz.Harness.parse], ignore [at] and enter at the root always.
+            -> (f) first half, 13 of 238 rules. A fragment read from the root
+               is a program that starts with a construct rather than the
+               construct, and the parse recovers rather than builds.
+       M21  In [Fuzz.Oracles.run], read the reparse at the root rather than at
+            [at].
+            -> (f) second half, 54,673 findings -- B 18,583, E 36,090. Both
+               parses have to enter at the same rule or the comparison is
+               between two different readings of the bytes.
+       M22  In [Fuzz.Harness.dispatches], answer [true] always.
+            -> (f) second half, 9 findings, all Law B, and the shortest is 15
+               bytes. Every one is a delimited node whose opener a mutant
+               deleted, formatting its closer one way and the reparse of that
+               the other. The tree is not one a parser can build.
+       M23  In [Fuzz.Harness.reachable], drop the first rule it found.
+            -> (f), naming [File] on every corpus that builds one. The walk
+               over the grammar is checked against the walk over a tree in both
+               directions, and this is the direction that says the first walk
+               is not short.
 
-      Depth is what found M17 to M19. All three read zero at depth 1 and four
-      findings at 8, and the shortest witness each time was a rust input of
-      about 180 bytes that no one would have looked at twice. Reducing one took
-      it to 13.
+      Depth. 1 is what the suite runs. [LINGO_SWEEP=8] is 28,000 clean inputs,
+      56,000 mutated and 56,509 fragments in 52 s; 16 is 112,000 mutated and 32
+      is 224,000. Depth multiplies the draws and not the rules: the same 197
+      rules are drawn at whatever the depth, which is what keeps the fragments
+      a property of the grammar. Every law reads zero at every depth, on all
+      three corpora.
+
+      Depth is what found M17. It reads 4 findings at depth 1 and 10 at 8, and
+      the shortest witness each time was a rust input of about 180 bytes that
+      no one would have looked at twice. Reducing one took it to 13.
 
       Nothing is open. The Law B findings this record carried until 2026-09-22
       were three defects in the separator a body's policy adds, and M17 to M19
       are them. Each left the fold writing a separator the next parse put
       somewhere the fold could not see, so the pass after wrote another.
-
-      M1 and M4 each read one Law B finding before those went in. Both move the
-      corpus, and a corpus that moves reached the defect at depth 1 where the
-      corpus this record measures did not. Both read zero now.
 
    -------------------------------------------------------------------------- *)
 
@@ -366,6 +489,42 @@ let show (report : Fuzz.Report.t) : unit =
 
 (* -- (a) the corpus is good, and every oracle reads zero over it ------------ *)
 
+(* Which rules each corpus built, over both halves. Part (f) reads it at the
+   end, so every draw and every mutant counts toward it. *)
+let raised : (string, (Core.Rule.id, unit) Hashtbl.t) Hashtbl.t = Hashtbl.create 32
+
+(* A rule a tree holds that the walk over the grammar never reached. Part (f)
+   compares the two walks one way; this is the other way, and it is what says
+   the walk is not simply short. *)
+let unreached : (string, (Core.Rule.id, unit) Hashtbl.t) Hashtbl.t = Hashtbl.create 8
+
+let note_built (c : corpus) (tree : Siesta.Green.node) : unit =
+  let seen =
+    match Hashtbl.find_opt raised c.label with
+    | Some t -> t
+    | None ->
+      let t = Hashtbl.create 64 in
+      Hashtbl.replace raised c.label t;
+      t
+  in
+  let walked = Fuzz.Harness.reachable c.h in
+  List.iter
+    (fun id ->
+       Hashtbl.replace seen id ();
+       if not (List.mem id walked)
+       then (
+         let missed =
+           match Hashtbl.find_opt unreached c.label with
+           | Some t -> t
+           | None ->
+             let t = Hashtbl.create 4 in
+             Hashtbl.replace unreached c.label t;
+             t
+         in
+         Hashtbl.replace missed id ()))
+    (Fuzz.Harness.built c.h tree)
+;;
+
 let good = Fuzz.Report.create ()
 let sound = Fuzz.Report.create ()
 let sound_counts : (string, int) Hashtbl.t = Hashtbl.create 8
@@ -401,6 +560,7 @@ let draw_one (c : corpus) (rng : Random.State.t) : Fuzz.Mutate.subject * string 
        if Core.Facts.is_trivia_kind c.h.facts tok.kind then incr clean_comments)
     tokens;
   incr clean_inputs;
+  note_built c tree;
   { Fuzz.Mutate.tokens; tree }, src
 ;;
 
@@ -484,6 +644,7 @@ let sweep
       let src = Fuzz.Harness.decode c.h tokens in
       let tree, diags = Fuzz.Harness.parse ~cover:c.cover c.h src in
       incr mutated;
+      note_built c tree;
       if diags <> [] then incr recovered;
       List.iter
         (fun f ->
@@ -697,6 +858,202 @@ let () =
             (fun (k : Fuzz.Report.klass) -> Printf.sprintf "%s %d" k.key k.count)
             (Fuzz.Report.classes skips)))
   | bad -> List.iter (fun m -> fail "(e) %s" m) bad
+;;
+
+(* -- (f) every rule the grammar can reach is one the corpus built ---------- *)
+
+let names_of (c : corpus) (ids : Core.Rule.id list) : string list =
+  List.sort
+    compare
+    (List.map (fun id -> Core.Grammar.Name.Rule.to_string c.h.facts.rules.(id).name) ids)
+;;
+
+(* What the draws so far never built. *)
+let missing_from (c : corpus) : Core.Rule.id list =
+  let seen = Option.value (Hashtbl.find_opt raised c.label) ~default:(Hashtbl.create 1) in
+  List.filter (fun id -> not (Hashtbl.mem seen id)) (Fuzz.Harness.reachable c.h)
+;;
+
+(* How many rules the draws from a root reached on their own, before the
+   fragments below add the rest. *)
+let reached_from_roots =
+  List.fold_left
+    (fun n c ->
+       n + List.length (Fuzz.Harness.reachable c.h) - List.length (missing_from c))
+    0
+    corpora
+;;
+
+(* A draw at the rule itself, for the rules a draw from the root never reaches.
+
+   A root draw spends its size where the tokens are cheapest, so a construct
+   that costs five tokens inside a zero-or-more body does not come up at any
+   size: asking for a bigger input buys more of the shapes that were already
+   cheap. The rule's own species sidesteps that. It is the species a mutator
+   already splices from, and {!Fuzz.Harness.parse} reads the bytes back at the
+   same rule, so the laws are asked of the construct rather than of a program
+   that happens to contain one.
+
+   Every rule, rather than the ones the draws above missed. Keying on the gap
+   was tried and it is backwards: a deeper run's draws miss fewer rules, so the
+   fragment corpus shrinks as the work grows and the law gets weaker. It cost
+   M18 and M19 their falsification at depth 8 while depth 1 still caught both.
+   Drawing at every rule makes this half of the corpus a property of the
+   grammar, so depth only ever adds.
+
+   The species costs tables to build -- 3.1 s for all sixty-two of effekt's --
+   and that is the whole of what this adds to a short run. *)
+let fragment_draws = 40 * depth
+let fragments = Fuzz.Report.create ()
+let fragment_counts : (string, int) Hashtbl.t = Hashtbl.create 8
+let fragment_inputs = ref 0
+let fragment_mutants = ref 0
+let fragment_recovered = ref 0
+let fragment_partial = ref 0
+let fragment_refused = ref 0
+let fragment_rules = ref 0
+
+let check (c : corpus) ~(at : Core.Rule.id) (rng : Random.State.t) (src : string) : unit =
+  List.iter
+    (fun f ->
+       tally fragment_counts f;
+       note fragments c src f)
+    (Fuzz.Oracles.run c.h ~at ~widths:(widths rng) src)
+;;
+
+(* The same construct off the language. A clean fragment reaches what part (a)
+   reaches and nothing more: a defect that needs an error node or a frame the
+   parse never closed is one only a mutant builds, and until this went in no
+   mutant here held the construct at all.
+
+   Two mutants are dropped rather than run, and both are about what a parse
+   entering at a rule does differently from one entering at a root.
+
+   The first is dispatch. A fragment parse forces its entry rule; every rule
+   below it is still dispatched on what is under the cursor. So a mutant that
+   deletes a nested opener builds no node there, which is ordinary, but one
+   that deletes the entry rule's own opener builds a node with nothing where
+   its opener goes, and no parse from a root can build that. It read nine Law B
+   findings before {!Fuzz.Harness.dispatches} went in, all of them the closer
+   of a frame with no opener.
+
+   The second is the end of the input. A parse entering at a rule ends where
+   the rule does, so a mutant the rule cannot take in full leaves a tail
+   outside the tree. That is two inputs rather than one, and every law here is
+   about one tree and the bytes it holds. *)
+let mutate
+      (c : corpus)
+      ~(at : Core.Rule.id)
+      (rng : Random.State.t)
+      (subject : Fuzz.Mutate.subject)
+  : unit
+  =
+  match Fuzz.Mutate.apply c.mut rng subject with
+  | None -> ()
+  | Some (_, edited) ->
+    let src = Fuzz.Harness.decode c.h edited in
+    if not (Fuzz.Harness.dispatches c.h at src)
+    then incr fragment_refused
+    else (
+      let tree, diags = Fuzz.Harness.parse c.h ~at src in
+      incr fragment_mutants;
+      note_built c tree;
+      if not (String.equal (Siesta.Green.to_source tree) src)
+      then incr fragment_partial
+      else (
+        if diags <> [] then incr fragment_recovered;
+        check c ~at rng src))
+;;
+
+let fragment (c : corpus) ~(at : Core.Rule.id) ~(size : int) (rng : Random.State.t) : unit
+  =
+  match Fuzz.Harness.draw_at c.h at ~size rng with
+  | None -> ()
+  | Some tokens ->
+    let src = Fuzz.Harness.decode c.h tokens in
+    let tree, _ = Fuzz.Harness.parse c.h ~at src in
+    incr fragment_inputs;
+    note_built c tree;
+    check c ~at rng src;
+    mutate c ~at rng { Fuzz.Mutate.tokens; tree }
+;;
+
+let () =
+  List.iter
+    (fun c ->
+       let rng = Random.State.make seed in
+       List.iter
+         (fun (at : Core.Rule.id) ->
+            match Fuzz.Harness.sizes_at c.h at with
+            | Some (lo, hi) when Fuzz.Harness.enterable c.h at ->
+              incr fragment_rules;
+              for _ = 1 to fragment_draws do
+                fragment c ~at ~size:(lo + Random.State.int rng (hi - lo + 1)) rng
+              done
+            | Some _ | None -> ())
+         (Fuzz.Harness.reachable c.h))
+    corpora
+;;
+
+let () =
+  let short = ref [] in
+  let total = ref 0 in
+  let reached = ref 0 in
+  List.iter
+    (fun c ->
+       let missing = missing_from c in
+       let all = List.length (Fuzz.Harness.reachable c.h) in
+       total := !total + all;
+       reached := !reached + all - List.length missing;
+       if missing <> [] then short := (c.label, names_of c missing) :: !short)
+    corpora;
+  Printf.printf
+    "FRAGMENTS %d drawn at %d of the %d rules, %d of them beyond what a root reached; %d \
+     mutated, %d of which the rule took in full and %d of those recovered; %d mutants no \
+     dispatch would have entered; findings %s\n"
+    !fragment_inputs
+    !fragment_rules
+    !total
+    (!reached - reached_from_roots)
+    !fragment_mutants
+    (!fragment_mutants - !fragment_partial)
+    !fragment_recovered
+    !fragment_refused
+    (per_law fragment_counts);
+  (match
+     List.sort
+       compare
+       (Hashtbl.fold
+          (fun label t acc -> Hashtbl.fold (fun id () acc -> (label, id) :: acc) t acc)
+          unreached
+          [])
+   with
+   | [] -> ()
+   | bad ->
+     List.iter
+       (fun (label, id) ->
+          let c = List.find (fun c -> String.equal c.label label) corpora in
+          fail
+            "(f) %s builds %s, which the walk over the grammar never reaches"
+            label
+            (Core.Grammar.Name.Rule.to_string c.h.facts.rules.(id).name))
+       (first_ten bad));
+  (match List.rev !short with
+   | [] -> pass "(f) every rule the grammar reaches is built, over %d rules" !total
+   | bad ->
+     List.iter
+       (fun (label, names) ->
+          fail "(f) %s never builds %s" label (String.concat " " names))
+       (first_ten bad);
+     fail
+       "(f) %d of %d rules the grammars reach are in no tree the corpus holds"
+       (!total - !reached)
+       !total);
+  match Fuzz.Report.classes fragments with
+  | [] -> pass "(f) every oracle reads zero over the fragments"
+  | _ ->
+    show fragments;
+    fail "(f) %d findings over the fragments" (Fuzz.Report.total fragments)
 ;;
 
 let () =

@@ -1,8 +1,12 @@
-(** The example inputs the laws over a parse read, one entry per grammar.
+(** The example inputs the laws over a parse and over a format read, one entry
+    per grammar.
 
-    test/laws/law_interp.ml, test/laws/law_residual.ml and
-    test/parse_emit/law_parse.ml all read these, so an input added here is an
-    input all three see. *)
+    Four laws read these: test/laws/law_interp.ml, test/laws/law_residual.ml,
+    test/parse_emit/law_parse.ml and test/format_emit/law_format.ml. Each lists
+    the grammars it covers, so an input added to an entry is an input every law
+    listing that grammar sees.
+
+    Every law lists all ten. *)
 
 type t =
   { good : string list (** Input the grammar accepts. A parse of it reports nothing. *)
@@ -22,3 +26,5 @@ val unicode : t
 val recovery : t
 val shapes : t
 val comments : t
+val rust : t
+val effekt : t

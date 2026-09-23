@@ -1,10 +1,10 @@
 (* -- the grammars the sampler's law reads -------------------------------------
 
-      The example ladder, and the witness grammars beside it. A witness takes
-      the shape nearest to one rejection and stops short of it, so between them
-      they reach framings and operator tables the ladder does not: a delimited
-      body with a separator, a separated body, two operators at one binding
-      power, and a block with three postfix shapes.
+      Nine of the eleven grammars in grammars/, and the witness grammars
+      beside them. A witness takes the shape nearest to one rejection and stops
+      short of it, so between them they reach framings and operator tables the
+      nine do not: a delimited body with a separator, a separated body, two
+      operators at one binding power, and a block with three postfix shapes.
 
       test/laws/corpus.ml holds the witness list alone and law_layout reads it.
       This one is the union, and it is here rather than there because widening
@@ -20,7 +20,7 @@
       pays neither cost.
    -------------------------------------------------------------------------- *)
 
-let ladder : (string * Core.Grammar.t) list =
+let examples : (string * Core.Grammar.t) list =
   [ "sexp", Lingo_grammars.Sexp_grammar.grammar
   ; "json", Lingo_grammars.Json_grammar.grammar
   ; "calc", Lingo_grammars.Calc_grammar.grammar
@@ -33,11 +33,11 @@ let ladder : (string * Core.Grammar.t) list =
   ]
 ;;
 
-(* The four the witnesses share with the ladder are dropped rather than drawn
+(* The four the witnesses share with these are dropped rather than drawn
    twice. *)
 let all : (string * Core.Grammar.t) list =
-  let already = List.map fst ladder in
-  ladder
+  let already = List.map fst examples in
+  examples
   @ List.filter
       (fun (name, _) -> not (List.mem name already))
       Lingo_witness.Witnesses.accepted

@@ -199,3 +199,127 @@ let comments : t =
       ]
   }
 ;;
+
+(* Rust. The items one apiece, then the statement and expression forms inside a
+   function, then the two places a comment sits. The broken half is one per
+   committed production and one per postfix operator, because a commit is what
+   decides whether a failure stays inside the item or unwinds the file. *)
+let rust : t =
+  { good =
+      [ ""
+      ; "struct P { x: int }"
+      ; "struct P { x: int, y: int }"
+      ; "struct P {}"
+      ; "enum C { Red }"
+      ; "enum C { Red, Rgb(int, int), Named { name: int } }"
+      ; "trait D { fn area() -> int; }"
+      ; "trait D {}"
+      ; "fn main() -> int {}"
+      ; "fn f(a: int) -> int { let x = 1; }"
+      ; "fn f() -> int { x = 1 + 2 * 3; }"
+      ; "fn f() -> int { a = b = c; }"
+      ; "fn f() -> int { a == b != c; }"
+      ; "fn f() -> int { let p = g(1).field?; }"
+      ; "fn f() -> int { a[1]; }"
+      ; "fn f() -> int { !a; }"
+      ; "fn f() -> int { g(1, 2); }"
+      ; "fn f() -> int { {}; }"
+      ; "fn f() -> int { match x { 0 => 1, n => n * 2 }; }"
+      ; "struct P { x: int } // after"
+      ; "fn f() -> int { // first\n  let x = 1; }"
+      ; "struct P { x: int }\n\nfn f() -> int {}"
+      ]
+  ; broken =
+      [ "struct"
+      ; "struct P"
+      ; "struct P {"
+      ; "struct P { x: }"
+      ; "enum C { Red,, Blue }"
+      ; "trait D { fn area() -> int }"
+      ; "fn f() -> int"
+      ; "fn () -> int {}"
+      ; "fn f( -> int {}"
+      ; "fn f() -> int { let ; }"
+      ; "fn f() -> int { let x = ; }"
+      ; "fn f() -> int { 1 + ; }"
+      ; "fn f() -> int { a. ; }"
+      ; "fn f() -> int { a[; }"
+      ; "fn f() -> int { match x { 0 => }; }"
+      ; "}"
+      ; "struct P {} junk"
+      ]
+  }
+;;
+
+(* Effekt. The nine definition forms, the type stratification, and the
+   expression forms a keyword leads. [doc_comment] is meaningful and [line] is
+   trivia, so the good half carries one of each in the two places a doc comment
+   is allowed: in front of a definition, and in front of an operation inside an
+   interface body. *)
+let effekt : t =
+  { good =
+      [ ""
+      ; "module m;"
+      ; "module a::b;"
+      ; "import a::b;"
+      ; "val a = 1;"
+      ; "var b: Int = 2;"
+      ; "type T = Int;"
+      ; "def f() = 1;"
+      ; "def f(x: Int): Int = x;"
+      ; "def f(): Int at {a} = 1;"
+      ; "def f(): List[Int] = 1;"
+      ; "def f(): Int -> Int = 1;"
+      ; "record Node(label: Int, kids: List)"
+      ; "interface E { def emit(x: Int) }"
+      ; "effect E(x: Int): Unit;"
+      ; "namespace n { val a = 1; }"
+      ; "def f() = { val n = 1; };"
+      ; "def f() = if (x) 1 else 2;"
+      ; "def f() = if (x) if (y) 1 else 2;"
+      ; "def f() = while (x) 1;"
+      ; "def f() = do emit(1);"
+      ; "def f() = try { do emit(1); } with E { def emit(x) = resume(unit) };"
+      ; "def f() = match (x) { case 1 => 2 };"
+      ; "def f() = match (x) { case C(a) | D(b) and g => 2 };"
+      ; "def f() = box g;"
+      ; "def f() = unbox g;"
+      ; "def f() = fn (x) => x;"
+      ; "def f() = <{ val a = 1; }>;"
+      ; "def f() = g(x) { val a = 1; };"
+      ; "val a = \"hi\";"
+      ; "def f() = match (x) { case \"a\" => 1 };"
+      ; "def f() = a.b;"
+      ; "def f() = a and b == c + d * e;"
+      ; "/// one\nval a = 1;"
+      ; "/// one\n/// two\nval a = 1;"
+      ; "interface E { /// op\n  def emit(x: Int) }"
+      ; "// line\nval a = 1;"
+      ; "module m;\n\nval a = 1;"
+      ]
+  ; broken =
+      [ "module"
+      ; "module m"
+      ; "import ::b;"
+      ; "val = 1;"
+      ; "val a = ;"
+      ; "var b: = 2;"
+      ; "type T = ;"
+      ; "def f( = 1;"
+      ; "def f() = 1"
+      ; "record Node(label: )"
+      ; "interface E {"
+      ; "interface E { def }"
+      ; "namespace n {"
+      ; "def f() = if 1 else 2;"
+      ; "def f() = try { } ;"
+      ; "def f() = match (x) { case => 2 };"
+      ; "def f() = match (x) { case 1 => };"
+      ; "def f() = <{ val a = 1; ;"
+      ; "def f() = a.;"
+      ; "def f(): List[] = 1;"
+      ; "}"
+      ; "/// doc"
+      ]
+  }
+;;

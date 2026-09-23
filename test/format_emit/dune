@@ -97,6 +97,26 @@
   comments_layout.mli
   (run ./gen.exe comments mli)))
 
+(rule
+ (with-stdout-to
+  rust_layout.ml
+  (run ./gen.exe rust layout)))
+
+(rule
+ (with-stdout-to
+  rust_layout.mli
+  (run ./gen.exe rust mli)))
+
+(rule
+ (with-stdout-to
+  effekt_layout.ml
+  (run ./gen.exe effekt layout)))
+
+(rule
+ (with-stdout-to
+  effekt_layout.mli
+  (run ./gen.exe effekt mli)))
+
 ; [emitted_formatters] links lingo_runtime and nothing else of ours, so a
 ; generated formatter that reached for lingo.layout would not build.
 
@@ -111,7 +131,9 @@
   shapes_layout
   unicode_layout
   recovery_layout
-  comments_layout)
+  comments_layout
+  rust_layout
+  effekt_layout)
  (libraries lingo_runtime))
 
 (tests

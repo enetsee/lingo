@@ -137,12 +137,14 @@ let texts (tokens : (int * string) list) : string =
 
 (* -- one input ------------------------------------------------------------- *)
 
-let run (h : Harness.t) ~(widths : int list) (src : string) : finding list =
+let run (h : Harness.t) ?(at : Core.Rule.id option) ~(widths : int list) (src : string)
+  : finding list
+  =
   let found = ref [] in
   let add (f : finding) : unit = found := f :: !found in
   let seps = h.separators in
   (try
-     let tree, _ = Harness.parse h src in
+     let tree, _ = Harness.parse ?at h src in
      let rebuilt = Siesta.Green.to_source tree in
      if not (String.equal rebuilt src) then add (Lossy { rebuilt });
      let before = Harness.written h tree in
@@ -180,7 +182,7 @@ let run (h : Harness.t) ~(widths : int list) (src : string) : finding list =
        let lexed = Harness.relex h once in
        if not (keeps ~seps before lexed)
        then add (Refused { width; once; at = difference ~seps before lexed });
-       let again, _ = Harness.parse h once in
+       let again, _ = Harness.parse ?at h once in
        let after = Harness.written h again in
        if not (keeps ~seps before after)
        then add (Lost { width; once; at = difference ~seps before after });

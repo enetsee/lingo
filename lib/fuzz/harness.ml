@@ -238,19 +238,38 @@ let draw_at (t : t) (rule : Core.Rule.id) ~(size : int) (rng : Random.State.t)
 
 (* -- running one ----------------------------------------------------------- *)
 
-let parse ?(cover : Coverage.t option) (t : t) (src : string)
+(* [Ir.Plan.t.rules] is built one for one from [Core.Facts.t.rules], so a rule's
+   id is the index a parse enters at. *)
+let parse ?(cover : Coverage.t option) ?(at : Core.Rule.id option) (t : t) (src : string)
   : Siesta.Green.node * Lingo_runtime.Diagnostic.t list
   =
   let tokens = t.lex src in
+  let entry = Option.value at ~default:t.entry in
   match cover with
-  | None -> Interp.run t.plan t.entry tokens
+  | None -> Interp.run t.plan entry tokens
   | Some c ->
     Coverage.walk c;
     Interp.run
       ~at:(fun state ~index:_ ~reported:_ -> Coverage.at c state)
       t.plan
-      t.entry
+      entry
       tokens
+;;
+
+let enterable (t : t) (rule : Core.Rule.id) : bool = Interp.may_enter t.plan rule
+
+let dispatches (t : t) (rule : Core.Rule.id) (src : string) : bool =
+  let first =
+    List.map
+      ~f:Core.Kind.to_int
+      (Core.Kind.Set.elements (Core.Facts.first_of t.facts rule))
+  in
+  match
+    Array.find_opt (t.lex src) ~f:(fun (tok : Lingo_runtime.Token.t) ->
+      not (Array.exists t.plan.trivia ~f:(fun k -> k = tok.kind)))
+  with
+  | None -> false
+  | Some tok -> List.mem tok.kind ~set:first
 ;;
 
 let doc (t : t) (tree : Siesta.Green.node) : Ir.Kind.t Handsome.Utf8.t =
@@ -285,6 +304,58 @@ let relex (t : t) (src : string) : (int * string) list =
 
 let of_tokens (tokens : Sample.token list) : (int * string) list =
   List.map tokens ~f:(fun (tok : Sample.token) -> Core.Kind.to_int tok.kind, tok.text)
+;;
+
+(* Every rule a walk from the root can reach: a child slot's symbols, a block's
+   atoms, and the roles a block's parse builds. A walk over the grammar rather
+   than over the corpus, so the two readings are independent: a rule this
+   reaches and no draw ever built is a fact about the draws. *)
+let reachable (t : t) : Core.Rule.id list =
+  let seen = Hashtbl.create 64 in
+  let blocks = Hashtbl.create 8 in
+  Array.iter t.facts.blocks ~f:(fun (b : Core.Block.def) ->
+    Hashtbl.replace blocks b.rule_id b);
+  let rec go (id : Core.Rule.id) : unit =
+    if not (Hashtbl.mem seen id)
+    then (
+      Hashtbl.replace seen id ();
+      let d = t.facts.rules.(id) in
+      Array.iter d.children ~f:(fun (c : Core.Rule.child) ->
+        Array.iter c.alts ~f:(fun k ->
+          Option.iter
+            (fun (r : Core.Rule.def) -> go r.id)
+            (Core.Facts.rule_of_kind t.facts k)));
+      Option.iter
+        (fun (b : Core.Block.def) ->
+           Array.iter b.atoms ~f:(fun a ->
+             Option.iter
+               (fun (r : Core.Rule.def) -> go r.id)
+               (Core.Facts.rule_of_kind t.facts a)))
+        (Hashtbl.find_opt blocks id);
+      Array.iter t.facts.rules ~f:(fun (r : Core.Rule.def) ->
+        match r.origin with
+        | Core.Rule.Pratt_role { block; _ } when block = id -> go r.id
+        | Core.Rule.User | Core.Rule.Pratt_block | Core.Rule.Pratt_role _ -> ()))
+  in
+  go t.root;
+  List.sort ~cmp:compare (Hashtbl.fold (fun id () acc -> id :: acc) seen [])
+;;
+
+(* The rules a tree holds. *)
+let built (t : t) (tree : Siesta.Green.node) : Core.Rule.id list =
+  let seen = Hashtbl.create 32 in
+  let rec go (n : Siesta.Green.node) : unit =
+    let k = Siesta.Green.kind n in
+    if k >= 0 && k < Core.Facts.kind_count t.facts
+    then (
+      let id = t.facts.kind_rule.(k) in
+      if id >= 0 then Hashtbl.replace seen id ());
+    Array.iter (Siesta.Green.children_array n) ~f:(function
+      | Siesta.Green.Node m -> go m
+      | Siesta.Green.Token _ -> ())
+  in
+  go tree;
+  Hashtbl.fold (fun id () acc -> id :: acc) seen []
 ;;
 
 let rule_of (t : t) (kind : Ir.Kind.t) : Core.Rule.id option =

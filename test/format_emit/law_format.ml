@@ -3,7 +3,7 @@
       (a) The table a grammar's module holds is the table its facts lower to.
       (b) Formatting through that module writes the bytes the fold writes.
 
-      Mechanism. Nine grammars. [Layout.Lower.of_facts] is read off the facts
+      Mechanism. Eleven grammars. [Layout.Lower.of_facts] is read off the facts
       here and compared with the literal the emitter wrote, field for field.
       Then both format the same trees and the bytes are compared, over the hand
       corpus at four widths and a generated one at two.
@@ -19,45 +19,46 @@
       not build.
 
       [LINGO_SWEEP] sets the generated corpus's depth, as in law_layout. The
-      suite runs it at 1, and a deep run is green: depth 32 is 8,269,372
-      formats.
+      suite runs it at 1, which is 370,568 formats over 2,804 fields, and a
+      deep run is green: depth 32 is 11,828,168 formats.
 
       Falsification. Every mutation was applied, built, run and reverted, and
       the result recorded is the one observed.
 
         M1  In [Ocaml.Formatter.break], write [Fit] where the layout says
             [Hard].
-            -> (a) 3 fields, (b) 2,087 formats.
+            -> (a) 34 fields, (b) 17,004 formats.
         M2  In [Ocaml.Formatter.generate], write every [of_kind] entry as -1.
-            -> (a) 9 fields, (b) 16,241 formats. Every node is then unruled, and
+            -> (a) 11 fields, (b) 41,836 formats. Every node is then unruled, and
                an unruled node is laid out by the fold's own account of it.
         M3  In [Ocaml.Formatter.trailing], write [On_break] as [Never].
-            -> (a) 1 field, (b) 2,406 formats.
+            -> (a) 10 fields, (b) 3,403 formats.
         M4  In [Ocaml.Formatter.slot], write [repeats] as [false].
-            -> (a) 12 fields, (b) 2,277 formats. A slot that stops after one
+            -> (a) 39 fields, (b) 11,032 formats. A slot that stops after one
                child sends the next one to the slot after it.
         M5  In [Ocaml.Formatter.token], write every [trivia] as [None].
-            -> (a) 11 fields, (b) 191,076 formats. The source's whitespace is
+            -> (a) 16 fields, (b) 286,039 formats. The source's whitespace is
                then written out as it stood and indented again.
         M6  In [Ocaml.Formatter.rule], write [indent] as zero.
-            -> (a) 46 fields, (b) 10,372 formats.
+            -> (a) 138 fields, (b) 26,962 formats.
         M7  In [Ocaml.Formatter.rule], write [edge_before] and [edge_after] as
             [None].
-            -> (a) 2 fields, (b) 1,985 formats. This read nothing at all until
-               2026-09-20, when sexp's [Group] became the first production to
-               set either one. Every grammar had [None] there before that, so
-               the mutation moved no byte of the emitted source and the emitter
-               could have left both fields out.
+            -> (a) 2 fields, (b) 1,985 formats. Unmoved by rust and effekt,
+               which set neither override, so sexp's [Group] is still the only
+               production in the corpus that does. This read nothing at all
+               until 2026-09-20, when that override went in: every grammar had
+               [None] there before, so the mutation moved no byte of the
+               emitted source and the emitter could have left both fields out.
         M8  In [Ocaml.Formatter.rule], write [name] as the empty string.
-            -> (a) 46 fields, and (b) nothing. The name is for a dump and a
+            -> (a) 140 fields, and (b) nothing. The name is for a dump and a
                diagnostic. The fold reads none of it, so (a) is the only part
                the mutation reaches.
         M9  In [Ocaml.Formatter.generate], give [format] a boundary that is
             [true] at every byte, rather than one built from [lex].
-            -> (b) 905 formats, and (a) nothing. This is the wiring, which a
+            -> (b) 2,185 formats, and (a) nothing. This is the wiring, which a
                comparison of tables cannot reach. Part (b) is here for it.
        M10  In [Ocaml.Formatter.sep], write every [sep_kind] as zero.
-            -> (a) 8 fields, (b) 4,413 formats.
+            -> (a) 21 fields, (b) 5,244 formats.
 
       What (b) does not cover. Both sides build their boundary from the same
       helper, so a defect in [Lingo_runtime.Layout.boundary] moves the two
@@ -163,6 +164,20 @@ let corpus =
         (fun ~lex ~width root ->
           Emitted_formatters.Comments_layout.format ~lex ~width root)
     ; inputs = Inputs.comments
+    }
+  ; { name = "rust"
+    ; grammar = Lingo_grammars.Rust_grammar.grammar
+    ; emitted = Emitted_formatters.Rust_layout.layout
+    ; format =
+        (fun ~lex ~width root -> Emitted_formatters.Rust_layout.format ~lex ~width root)
+    ; inputs = Inputs.rust
+    }
+  ; { name = "effekt"
+    ; grammar = Lingo_grammars.Effekt_grammar.grammar
+    ; emitted = Emitted_formatters.Effekt_layout.layout
+    ; format =
+        (fun ~lex ~width root -> Emitted_formatters.Effekt_layout.format ~lex ~width root)
+    ; inputs = Inputs.effekt
     }
   ]
 ;;

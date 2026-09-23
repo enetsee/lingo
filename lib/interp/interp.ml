@@ -450,13 +450,42 @@ and drain (cursor : Cursor.t) (message_id : Ir.Message.id) : unit =
   Cursor.skip_trivia cursor
 ;;
 
-(* A rule with an empty body opens no node, so a parse entered there builds
-   nothing and [Build.finish] raises. Its message is about the builder, and
-   says nothing of the entry a caller passed.
+(* Whether a rule opens a node of its own.
 
-   The rules with empty bodies are an expression block's roles. Nothing calls
-   them. They are in the plan so that a rule's index here matches its index in
-   the facts, which is what lets [Call] carry one unchanged. *)
+   A parse entered at one that does not builds nothing, and [Build.finish]
+   raises about the builder rather than about the entry a caller passed. Two
+   rules are that shape. A rule with an empty body is an expression block's
+   role: nothing calls it, and it is in the plan only so that a rule's index
+   here matches its index in the facts, which is what lets [Call] carry one
+   unchanged. A block's rule has a body and still opens nothing, because its
+   parse takes a checkpoint in the frame above and wraps what that frame
+   already holds.
+
+   [Plan.Lower] builds every rule's body as a [Seq], so the rest of these are
+   the forms its first instruction takes. Over the eleven grammars and the
+   witnesses there are three: [Open] for a production, [Pratt] for a block, and
+   nothing at all for a role. The others answer [false], which refuses the
+   entry rather than guessing at a shape no parse has built. *)
+let rec opens (i : Ir.Plan.instr) : bool =
+  match i with
+  | Ir.Plan.Open _ -> true
+  | Ir.Plan.Seq xs -> Array.length xs > 0 && opens xs.(0)
+  | Ir.Plan.Alt _
+  | Ir.Plan.Close
+  | Ir.Plan.Trivia
+  | Ir.Plan.Bump
+  | Ir.Plan.Expect _
+  | Ir.Plan.Call _
+  | Ir.Plan.Pratt _
+  | Ir.Plan.Commit _
+  | Ir.Plan.Loop _
+  | Ir.Plan.Drain _ -> false
+;;
+
+let may_enter (plan : Ir.Plan.t) (entry : int) : bool =
+  entry >= 0 && entry < Array.length plan.rules && opens plan.rules.(entry).body
+;;
+
 let run
       ?(trace = fun (_ : string) -> ())
       ?(at = fun (_ : Ir.Residual.State.t) ~index:(_ : int) ~reported:(_ : int) -> ())
@@ -471,14 +500,14 @@ let run
          "Interp.run: no rule %d; the plan holds %d"
          entry
          (Array.length plan.rules));
-  (match plan.rules.(entry).body with
-   | Ir.Plan.Seq [||] ->
-     invalid_arg
-       (Printf.sprintf
-          "Interp.run: rule %d (%s) has an empty body, so it builds no tree"
-          entry
-          plan.rules.(entry).name)
-   | _ -> ());
+  if not (opens plan.rules.(entry).body)
+  then
+    invalid_arg
+      (Printf.sprintf
+         "Interp.run: rule %d (%s) opens no node of its own, so a parse entering there \
+          has nothing to build into"
+         entry
+         plan.rules.(entry).name);
   let cursor =
     Cursor.create
       ~cache:(Siesta.Cache.create_plain ())

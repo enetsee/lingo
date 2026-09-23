@@ -6,9 +6,9 @@
       (d) Every instruction the corpus plans hold is one a corpus parse runs.
       (e) No node but the root begins with trivia.
       (f) [run] refuses an entry that names no rule, and one that names a rule
-          with nothing to run.
+          opening no node of its own.
 
-      Mechanism. Eight grammars, and for each of them a list of inputs written
+      Mechanism. Ten grammars, and for each of them a list of inputs written
       here. Every input goes through part (a) and part (b). The ones marked
       good go through part (c) as well, and the ones marked broken are there
       to reach the recovery paths that part (d) counts.
@@ -21,7 +21,7 @@
       Before postfix and shapes were written, seven instruction forms read
       zero and nothing said so.
 
-      Coverage. Eight grammars, 58 inputs the grammar accepts and 63 it does
+      Coverage. Ten grammars, 118 inputs the grammar accepts and 103 it does
       not, from test/inputs. A count per instruction prints beside the result,
       and the law fails where one reads zero.
 
@@ -33,10 +33,12 @@
       open, so leading trivia has nowhere else to go.
 
       Part (f) is about the one index a caller supplies. Every other index in
-      a plan is checked by [Plan.Check] before a parse starts; this one
-      arrives with the call. A rule with an empty body is the awkward case,
-      because it raises on its own and the message then names the builder
-      rather than the entry.
+      a plan is checked by [Plan.Check] before a parse starts; this one arrives
+      with the call. {!Interp.may_enter} is the predicate and two rules fail
+      it. An expression block's role has an empty body. A block's rule has a
+      body and opens no node anyway, because its parse wraps what the frame
+      above holds and an entry has no frame above. Both raise on their own, and
+      the message then names the builder rather than the entry.
 
       What this says nothing about. Whether the rest of the tree is the right
       shape. That
@@ -51,12 +53,13 @@
       that sees it.
 
         M1  In [Interp.drain], drop the trailing [Cursor.skip_trivia].
-            -> part (a), 3 of 121 parses, and test/expect/comments.format moves.
+            -> part (a), 3 of 221 parses, and test/expect/comments.format moves.
                [Cursor.eof] looks past trivia, so the sweep stops with the
                trailing trivia unread and it never reaches the tree.
         M2  In [Interp.exec], let an [Alt] take its first arm whatever the kind
             under the cursor is.
-            -> part (c), 26 inputs: shapes 8, sexp 7, json 7, recovery 4. An alt
+            -> part (c), 79 inputs: effekt 36, rust 17, shapes 8, sexp 7,
+               json 7, recovery 4. An alt
                over rules picks the wrong one, and the parse then reports what
                the arm it took could not find. Nine expect goldens move with it.
         M3  In [Lower.repetition], drop the [Trivia] after the loop.
@@ -66,11 +69,13 @@
                it either way, because taking a token takes the trivia in front of
                it too. So the bytes still reach the tree, in a different frame.
         M4  In [Build.start_node], drop the [Cursor.skip_trivia].
-            -> part (e), 68 nodes: recovery 23, shapes 20, sexp 13, json 12. It
-               is the one change that makes leading trivia land inside the node
-               it precedes, which is what part (e) exists to catch.
+            -> part (e), 253 nodes: rust 106, effekt 78, recovery 23,
+               shapes 21, sexp 13, json 12. It is the one change that makes
+               leading trivia land inside the node it precedes, which is what
+               part (e) exists to catch.
         M5  In [Lex.uchar_at], step one byte at a time rather than one codepoint.
-            -> part (c), all six inputs of the unicode grammar. Every token there
+            -> part (c), all six inputs of the unicode grammar. Every token
+               there
                is more than one byte in UTF-8, so a byte-stepping scan matches
                none of them and the parse reports on input the grammar accepts.
                No other grammar moves: they are all ASCII, where a byte and a
@@ -78,14 +83,15 @@
         M6  In [Interp.run], drop the range test on the entry.
             -> part (f), both out-of-range entries: "index out of bounds", which
                does not say what was wrong with it.
-        M7  In [Interp.run], drop the test for a rule with an empty body.
-            -> part (f), one case: [Failure "Builder.finish: nothing built"]. The
-               parse raises either way; what the check buys is a message about
-               the entry rather than about the builder.
+        M7  In [Interp.run], drop the [may_enter] test.
+            -> part (f), two cases: [Failure "Builder.finish: nothing built"]
+               for the role and [Failure "Builder.checkpoint: no open node"] for
+               the block's rule. The parse raises either way; what the check
+               buys is a message about the entry rather than about the builder.
         M8  In [Interp.loop], end the body where no state accepts, instead of
             recovering.
             -> part (d), ["loop-recover"] reads zero, and json.parse,
-               recovery.parse and shapes.parse move. This is the arm pigeon has
+               recovery.parse, shapes.format and shapes.parse move. This is the arm pigeon has
                and this loop did not: a body that meets a token it cannot use
                sweeps it into an error node and carries on, rather than ending
                and leaving the rest to the caller. On json's ["\[1 : 2\]"] the old
@@ -93,18 +99,23 @@
         M9  In [Interp.loop], sweep where a position is missing something,
             instead of reporting it.
             -> part (d), ["loop-missing"] reads zero, and five goldens move.
-               Recovery still reports there, through the sweep, so no part but
-               the coverage count sees it, which is the part's reason for being.
+               Recovery still reports there, through the sweep, so no part here
+               sees it, which is the coverage count's reason for being.
+               test/laws/law_residual.ml does: its part (b) reads 477 and its
+               part (g) 295, because a sweep and a report leave the parse at
+               different positions. That is new with rust and effekt; on the
+               eight small grammars the coverage count was the whole of it.
        M10  In [Lower.ends_on_of], leave the resync anchors out of what ends a
             body.
-            -> nothing here, and three hunks in test/expect: shapes.format,
-               shapes.parse and shapes.plan. shapes' ["{ let a end }"] sweeps the
+            -> nothing here, and two hunks in test/expect: shapes.parse and
+               shapes.plan. shapes' ["{ let a end }"] sweeps the
                [end] up and carries on to the closer, which is what declaring an
                anchor is meant to stop.
        M11  In [Lower.repeat_ends_on_of], give a root's repeated body [None] so
             it ends where no element can start.
-            -> nothing here, and six hunks in test/expect: recovery.parse,
-               recovery.plan, recovery.residual and the same three for shapes. A
+            -> nothing here, and seven hunks in test/expect: recovery.parse,
+               recovery.plan, recovery.residual, and shapes.format beside the
+               same three for shapes. A
                stray token between two declarations loses every declaration after
                it.
 
@@ -167,6 +178,11 @@ let corpus =
   ; { name = "shapes"
     ; grammar = Lingo_grammars.Shapes_grammar.grammar
     ; inputs = Inputs.shapes
+    }
+  ; { name = "rust"; grammar = Lingo_grammars.Rust_grammar.grammar; inputs = Inputs.rust }
+  ; { name = "effekt"
+    ; grammar = Lingo_grammars.Effekt_grammar.grammar
+    ; inputs = Inputs.effekt
     }
   ]
 ;;
@@ -339,6 +355,20 @@ let () =
      with
      | None -> fail "(f) calc holds no rule with an empty body, so this reads nothing"
      | Some (i, _) -> refuses "an entry naming a rule with nothing to run" i);
+    (* A block's rule is the other shape [Interp.may_enter] turns down. It has
+       a body, and it still opens no node: its parse takes a checkpoint in the
+       frame above and wraps what that frame holds, and at an entry there is no
+       frame. *)
+    (match
+       Array.to_list plan.rules
+       |> List.mapi (fun i (r : Ir.Plan.rule) -> i, r)
+       |> List.find_opt (fun (_, (r : Ir.Plan.rule)) ->
+         match r.body with
+         | Ir.Plan.Seq [| Ir.Plan.Pratt _ |] -> true
+         | _ -> false)
+     with
+     | None -> fail "(f) calc holds no block rule, so this reads nothing"
+     | Some (i, _) -> refuses "an entry naming a rule that opens no node" i);
     if !failures = 0 then pass "run refuses an entry it cannot parse with"
 ;;
 

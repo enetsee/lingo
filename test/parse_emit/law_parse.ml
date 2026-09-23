@@ -8,7 +8,7 @@
       (d) Every instruction form the corpus plans hold is one a compared parse
           runs.
 
-      Mechanism. Eight grammars. For each one a list of seed inputs written
+      Mechanism. Ten grammars. For each one a list of seed inputs written
       here, and a generated corpus built from them: a seed's tokens dropped,
       duplicated, swapped, replaced and truncated, and runs drawn at random
       from the token texts the seeds hold. Both sides parse every input,
@@ -30,7 +30,7 @@
       is the same on every run and a failure names an input that can be
       pasted back.
 
-      Coverage. Eight grammars, 112,521 inputs, and the counts print beside
+      Coverage. Ten grammars, 168,621 inputs, and the counts print beside
       the result. Part (d) is the coverage claim: a form no parse runs is a
       form this law says nothing about. The count of inputs carrying a
       diagnostic is beside it, because a corpus that never recovers says
@@ -38,10 +38,12 @@
       lived.
 
       grammars/recovery_grammar.ml is in the corpus for the recovery set
-      alone. On the other seven, M6 to M8 change what a parse resumes on and
-      nothing moves: a resume set, a boundary and a rule's adds were each
-      covered by a set the position already held. All three redden on that
-      grammar, and on no other.
+      alone, and M7 is what says so: a boundary rule's inbound set reddens on
+      that grammar and on no other. M6 and M8 did too until rust and effekt
+      went in. Both now move on more than recovery, which is the honest
+      reading of what a big grammar buys: a resume set and a rule's adds were
+      covered by a set the position already held on every small grammar, and
+      are not on a grammar with sixty productions.
 
       What this says nothing about. Whether the interpreter is right, which
       test/laws/law_interp.ml reads, and what recovery builds, which
@@ -54,8 +56,8 @@
       the recovery grammar from the corpus here reddens nothing in part (d),
       and M6 to M8 in everything else.
 
-      Falsification. Re-run on 2026-09-19, after the body loop's progress guard
-      changed. Every mutation was applied, built, run and reverted, and the
+      Falsification. Re-run on 2026-09-22, after rust and effekt joined the
+      corpus. Every mutation was applied, built, run and reverted, and the
       result recorded is the one observed. A count of inputs counts distinct
       inputs, and the grammars beside it are where they came from.
 
@@ -65,20 +67,23 @@
 
         M1  In [Ocaml.Parser.loop], build [stops] from the ends-on kinds alone:
             [union [ ends; continues ]] becomes [ends].
-            -> parts (a) and (b), 13,568 inputs: sexp 298, json 1,309,
-               postfix 169, unicode 464, recovery 5,897, shapes 5,431. A body
+            -> parts (a) and (b), 23,933 inputs: sexp 298, json 1,309,
+               postfix 169, unicode 464, recovery 5,897, shapes 5,206,
+               rust 3,301, effekt 7,289. A body
                that meets junk runs to the closer instead of picking up at its
                next element.
         M2  In [Ocaml.Parser.loop], have [stuck] give [swept] whatever
             [when_missing] holds.
-            -> part (a), 1,045 inputs: json 466, postfix 69, unicode 307,
-               recovery 35, shapes 168. Part (b), 1,559: json 774, postfix 147,
-               unicode 417, recovery 35, shapes 186. The separator that is not
+            -> part (a), 1,310 inputs: json 466, postfix 69, unicode 307,
+               recovery 35, shapes 101, rust 243, effekt 89. Part (b), 1,937:
+               json 774, postfix 147, unicode 417, recovery 35, shapes 123,
+               rust 285, effekt 156. The separator that is not
                there goes unreported and the element after it is swept away.
         M3  In [Ocaml.Parser.loop], bind [from] to [Cursor.offset] rather than
             to the first byte of [Cursor.range].
-            -> part (b), 231 inputs: json 10, postfix 10, unicode 89,
-               recovery 112, shapes 10. A trailing separator is then reported
+            -> part (b), 229 inputs: json 10, postfix 10, unicode 89,
+               recovery 112, shapes 8. Neither rust nor effekt moves: no body
+               of theirs reports on exit. A trailing separator is then reported
                over the trivia in front of it as well.
         M4  In [Ocaml.Parser.loop], stop the progress guard ending the body:
             both [assign "going" false] inside it become [Emit.eunit].
@@ -91,12 +96,13 @@
                one and test/laws/law_interp.ml part (b) says a parse stops.
         M5  In [Ocaml.Parser.commit], skip on [recover] alone, leaving out what
             [extend] adds from the position's own [local].
-            -> part (a), 2,965 inputs: calc 565, postfix 785, recovery 1,534,
-               shapes 81. Part (b), 2,897: the same but shapes 13.
+            -> part (a), 5,463 inputs: calc 565, postfix 785, recovery 1,534,
+               shapes 76, rust 755, effekt 1,748. Part (b), 5,322: the same but
+               shapes 9 and effekt 1,674.
         M6  In [Ocaml.Parser.commit], build the skip's set from the resume set
             rather than from [local].
-            -> parts (a) and (b), 1,873 inputs: calc 565, postfix 468,
-               recovery 840.
+            -> parts (a) and (b), 2,738 inputs: calc 565, postfix 468,
+               recovery 840, rust 548, effekt 317.
 
                The record used to read 579, recovery alone, from an edit its own
                prose never named exactly. This one is named above and measured. A
@@ -106,62 +112,71 @@
                commit.
         M7  In [Ocaml.Parser.rule_binding], bind [inbound] to the caller's set
             whether or not the rule is a boundary.
-            -> parts (a) and (b), 1,612 inputs, recovery alone. [Group] is
-               committed and a boundary, and its body names [rparen] and nothing
-               else, so dropping the inbound set is the difference between
-               stopping at the close and stopping at the caller's next item.
+            -> parts (a) and (b), 1,612 inputs, recovery alone, rust and
+               effekt included. [Group] is committed and a boundary, and its
+               body names [rparen] and nothing else, so dropping the inbound set
+               is the difference between stopping at the close and stopping at
+               the caller's next item.
 
                shapes holds the other boundary rule and does not move: its
                body's stopping set already holds the [let] and [{] a caller
                contributes.
         M8  In [Ocaml.Parser.rule_binding], extend [passed_down] with the empty
             list rather than with [rule.adds].
-            -> parts (a) and (b), 231 inputs, recovery alone. [Fields] is a
-               separated list of a rule. A separated body has no closer, so its
-               loop adds nothing to what it passes its elements, and the
-               separator reaches them through the adds alone.
+            -> parts (a) and (b), 236 inputs: recovery 231, effekt 5.
+               [Fields] is a separated list of a rule. A separated body has no
+               closer, so its loop adds nothing to what it passes its elements,
+               and the separator reaches them through the adds alone. effekt's
+               five are the same shape and the only ones outside recovery in
+               168,621 inputs, which is how narrow this position is.
         M9  In [Ocaml.Parser.rule_binding], bind [inbound] to the empty set for
             every rule.
-            -> parts (a) and (b), 2,580 inputs: json 377, postfix 5,
-               recovery 2,195, shapes 3.
+            -> parts (a) and (b), 5,322 inputs: json 377, postfix 5,
+               recovery 2,195, shapes 9, rust 667, effekt 2,069.
        M10  In [Ocaml.Parser.skip_item], make [unmatched_closer] bump
             unconditionally before halting.
-            -> parts (a) and (b), 1,027 inputs: sexp 56, json 389, postfix 68,
-               unicode 88, shapes 426. The skip still halts, so the frame above
-               is handed a closer that is already eaten.
+            -> parts (a) and (b), 2,469 inputs: sexp 56, json 389, postfix 68,
+               unicode 88, shapes 461, rust 669, effekt 738. The skip still
+               halts, so the frame above is handed a closer that is already
+               eaten.
        M11  In [Ocaml.Parser.skip_item], make [unmatched_closer] just [bump], so
             the skip runs on.
-            -> parts (a) and (b), 16,975 inputs: sexp 2,454, json 2,997,
-               calc 1,786, postfix 4,315, unicode 2,854, shapes 2,569. The skip
+            -> parts (a) and (b), 24,419 inputs: sexp 2,454, json 2,997,
+               calc 1,786, postfix 4,315, unicode 2,854, shapes 2,009,
+               rust 4,278, effekt 3,726. The skip
                swallows the rest of the production it was recovering inside.
        M12  In [Ocaml.Parser.infix_body], guard an infix arm with
             [Emit.egreater] rather than [Emit.egreater_equal].
-            -> part (a), 586 inputs, rassoc alone. Right associativity is the
-               [>=] and nothing else, so [1^2^3] groups the other way. calc does
-               not move: its operators are all left-associative, and
-               [(bp, bp + 1)] groups the same under either test. rassoc exists
-               for this.
+            -> part (a), 714 inputs: rassoc 586, rust 128. Right associativity
+               is the [>=] and nothing else, so [1^2^3] groups the other way.
+               rust's [=] is the second right-associative operator in the
+               corpus. calc and effekt do not move: their operators are all
+               left-associative, and [(bp, bp + 1)] groups the same under
+               either test. rassoc exists for this.
        M13  In [Ocaml.Parser.wrap], call [Build.start_node] rather than
             [Build.start_node_at].
-            -> part (a), 22,069 inputs: calc 8,320, rassoc 7,866,
-               postfix 5,883. An operator that has already read its left side
-               stops wrapping it, and the tree flattens.
+            -> part (a), 29,451 inputs: calc 8,320, rassoc 7,866,
+               postfix 5,883, rust 2,470, effekt 4,912. An operator that has
+               already read its left side stops wrapping it, and the tree
+               flattens.
 
                Part (b) read 113 on postfix before the guard changed and reads
                zero now. The trees still differ; the diagnostics no longer do.
        M14  In [Ocaml.Parser.drain], drop the trailing [Cursor.skip_trivia].
             -> parts (a) and (c), 4,636 inputs: sexp 1,934, json 341,
-               calc 1,034, postfix 549, unicode 778. shapes and recovery do not
-               move: both roots end their body with a [Trivia], which has taken
-               the trailing trivia before the drain runs.
+               calc 1,034, postfix 549, unicode 778. shapes, recovery, rust and
+               effekt do not move: every one of those roots ends its body with a
+               [Trivia], which has taken the trailing trivia before the drain
+               runs.
        M15  In [Ocaml.Parser.hole_node], add one to the id [Cursor.report_id]
             gives.
-            -> part (a), 54,307 inputs, every grammar. Nothing but the payload
+            -> part (a), 79,573 inputs, every grammar. Nothing but the payload
                in the dump reads this, which is why the dump carries it.
        M16  In [Ocaml.Parser.instr], pass [None] for an [Expect]'s placeholder.
-            -> part (a), 15,720 inputs: sexp 2,119, json 3,666, calc 2,009,
-               postfix 1,647, unicode 1,646, shapes 4,633. Part (b), 4,250:
-               sexp 704, json 512, calc 1,305, postfix 759, shapes 970.
+            -> part (a), 21,503 inputs: sexp 2,119, json 3,666, calc 2,009,
+               postfix 1,647, unicode 1,646, shapes 4,664, rust 3,004,
+               effekt 2,748. Part (b), 5,732: sexp 704, json 512, calc 1,305,
+               postfix 759, shapes 665, rust 1,058, effekt 729.
        M17  Drop the postfix case from [corpus] here.
             -> part (d): ["postfix"] reads zero. Emptying [Inputs.postfix]
                instead does not work. The generator draws from the pool its
@@ -245,6 +260,16 @@ let corpus : case list =
     ; grammar = Lingo_grammars.Shapes_grammar.grammar
     ; parse = emitted Emitted_parsers.Shapes_parser.parse_tokens
     ; seeds = Inputs.all Inputs.shapes
+    }
+  ; { name = "rust"
+    ; grammar = Lingo_grammars.Rust_grammar.grammar
+    ; parse = emitted Emitted_parsers.Rust_parser.parse_tokens
+    ; seeds = Inputs.all Inputs.rust
+    }
+  ; { name = "effekt"
+    ; grammar = Lingo_grammars.Effekt_grammar.grammar
+    ; parse = emitted Emitted_parsers.Effekt_parser.parse_tokens
+    ; seeds = Inputs.all Inputs.effekt
     }
   ]
 ;;

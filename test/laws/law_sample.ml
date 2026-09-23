@@ -10,8 +10,8 @@
       (f) Every active role of every expression block appears in the corpus.
       (g) Size is tokens, and the measured mean tracks the size asked for.
 
-      Mechanism. Fourteen grammars: the example ladder, and the witness
-      grammars beside it for the framings and operator tables the ladder does
+      Mechanism. Fourteen grammars: nine from grammars/, and the witness
+      grammars beside them for the framings and operator tables those nine do
       not carry. For each one the translation builds a system, bolts solves it,
       and the corpus is what the sampler draws. Every input goes through parts
       (a) and (b), and part (f) counts what the trees held.

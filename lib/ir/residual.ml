@@ -493,6 +493,35 @@ module Table = struct
        | kinds -> (kinds, Option.map (settle body) next) :: past)
   ;;
 
+  (* An atom that is a rule, with the operators that may extend it.
+
+     Every other operand shape leaves a role in the tree, and a role's last
+     point carries the climb. A rule atom leaves its own node instead, because
+     the block wraps nothing round it, and that node's automaton cannot carry
+     the climb: the same node is a function's body elsewhere and nothing may
+     follow it there.
+
+     So the edge that takes one carries it. The edge rather than the point,
+     because the other shapes reach the same point -- a hole among them, which
+     is a child the parse never read and which nothing may follow.
+
+     [base_kind] gates it, and has to. The same rule is an atom in one slot and
+     an ordinary child in another: rust's [Block] is an expression and it is
+     also a function's body, and nothing follows it there. An edge that leaves
+     an expression behind lists every operand shape, [base_kind] among them,
+     and an edge that names the rule alone does not. *)
+  let rule_atoms (plan : Plan.t) : (Kind.t * Kind.t list * Kind.t list) list =
+    Array.fold_left plan.blocks ~init:[] ~f:(fun acc (block : Plan.block) ->
+      match
+        Array.fold_left block.atoms ~init:[] ~f:(fun acc (_, atom) ->
+          match atom with
+          | Plan.Atom_rule rule -> plan.rules.(rule).kind :: acc
+          | Plan.Atom_token -> acc)
+      with
+      | [] -> acc
+      | atoms -> (block.base_kind, atoms, climb_set block ~min_bp:0) :: acc)
+  ;;
+
   (* [None] is the point a body finishes at. A rule body ends on its [Close],
      which admits nothing and may end, so it never needs one. A postfix
      operator's body ends on its last child and does. *)
@@ -513,20 +542,56 @@ module Table = struct
         index
     in
     ignore (visit (Some (settle body [])));
+    (* A destination reached by a rule atom, with the climb that atom left
+       behind. Allocated after the points the paths gave, so an index into
+       those still means what it did. *)
+    let variants : (int * Kind.t list, int) Hashtbl.t = Hashtbl.create 8 in
+    let base = Hashtbl.length seen in
+    let variant (at : int) (climb : Kind.t list) : int =
+      match Hashtbl.find_opt variants (at, climb) with
+      | Some index -> index
+      | None ->
+        let index = base + Hashtbl.length variants in
+        Hashtbl.add variants (at, climb) index;
+        index
+    in
+    let atoms = rule_atoms plan in
+    (* The atom edge comes first, because a walk takes the first entry holding
+       the child's kind. *)
+    let edges (path : step list) : (Kind.t array * int) list =
+      List.concat_map (onward plan body path) ~f:(fun (kinds, target) ->
+        let at = Hashtbl.find seen target in
+        let split =
+          List.filter_map atoms ~f:(fun (base_kind, atom_kinds, climb) ->
+            if not (List.mem base_kind ~set:kinds)
+            then None
+            else (
+              match List.filter atom_kinds ~f:(fun k -> List.mem k ~set:kinds) with
+              | [] -> None
+              | here -> Some (canonical here, variant at (Array.to_list (canonical climb)))))
+        in
+        split @ [ canonical kinds, at ])
+    in
     let ordered = List.sort ~cmp:(fun (a, _) (b, _) -> Int.compare a b) !points in
-    Array.of_list
-      (List.map ordered ~f:(fun (_, path) ->
-         match path with
-         | None -> { first = [||]; may_end = true; on = [||] }
-         | Some path ->
-           let first, may_end = remains plan null ~inclusive:true body path in
-           { first = canonical first
-           ; may_end
-           ; on =
-               Array.of_list
-                 (List.map (onward plan body path) ~f:(fun (kinds, target) ->
-                    canonical kinds, Hashtbl.find seen target))
-           }))
+    let settled =
+      List.map ordered ~f:(fun (_, path) ->
+        match path with
+        | None -> { first = [||]; may_end = true; on = [||] }
+        | Some path ->
+          let first, may_end = remains plan null ~inclusive:true body path in
+          { first = canonical first; may_end; on = Array.of_list (edges path) })
+    in
+    let settled = Array.of_list settled in
+    let extra =
+      Array.make (Hashtbl.length variants) { first = [||]; may_end = true; on = [||] }
+    in
+    Hashtbl.iter
+      (fun (at, climb) index ->
+         let p = settled.(at) in
+         extra.(index - base)
+         <- { p with first = canonical (Array.to_list p.first @ climb) })
+      variants;
+    Array.append settled extra
   ;;
 
   (* No instruction describes an expression node, because a block rule builds

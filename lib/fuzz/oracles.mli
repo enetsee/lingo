@@ -98,8 +98,12 @@ val describe : finding -> string
 
     The parse happens once. Each width is laid out, rendered, reparsed and
     reformatted, so the cost is linear in the widths and a caller measuring
-    volume passes one. *)
-val run : Harness.t -> widths:int list -> string -> finding list
+    volume passes one.
+
+    [at] is passed to both parses. It is the rule the input is read at, and it
+    defaults to the root. A fragment drawn at a rule is read back at the same
+    one, so the laws hold over a construct no draw from the root ever builds. *)
+val run : Harness.t -> ?at:Core.Rule.id -> widths:int list -> string -> finding list
 
 (** The tree as its kinds, with every token left out. Two strings holding the
     same meaningful tokens must give the same one, or a formatter cannot

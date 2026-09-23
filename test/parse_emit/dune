@@ -86,6 +86,26 @@
   recovery_parser.mli
   (run ./gen.exe recovery mli)))
 
+(rule
+ (with-stdout-to
+  rust_parser.ml
+  (run ./gen.exe rust parser)))
+
+(rule
+ (with-stdout-to
+  rust_parser.mli
+  (run ./gen.exe rust mli)))
+
+(rule
+ (with-stdout-to
+  effekt_parser.ml
+  (run ./gen.exe effekt parser)))
+
+(rule
+ (with-stdout-to
+  effekt_parser.mli
+  (run ./gen.exe effekt mli)))
+
 ; The residual tables, beside the parser they describe.
 
 (rule
@@ -168,6 +188,26 @@
   recovery_residual.mli
   (run ./gen.exe recovery residual-mli)))
 
+(rule
+ (with-stdout-to
+  rust_residual.ml
+  (run ./gen.exe rust residual)))
+
+(rule
+ (with-stdout-to
+  rust_residual.mli
+  (run ./gen.exe rust residual-mli)))
+
+(rule
+ (with-stdout-to
+  effekt_residual.ml
+  (run ./gen.exe effekt residual)))
+
+(rule
+ (with-stdout-to
+  effekt_residual.mli
+  (run ./gen.exe effekt residual-mli)))
+
 ; [emitted_parsers] links lingo_runtime and nothing else of ours, so a
 ; generated parser that reached for lingo.plan or lingo.core would not build.
 
@@ -189,7 +229,11 @@
   postfix_residual
   shapes_residual
   unicode_residual
-  recovery_residual)
+  recovery_residual
+  rust_parser
+  effekt_parser
+  rust_residual
+  effekt_residual)
  (libraries lingo_runtime))
 
 ; law_ahead reads the emitted tables back and compares them with the plan they

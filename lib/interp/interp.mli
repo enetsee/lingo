@@ -10,13 +10,21 @@
     its own dispatch, its own loops and its own balanced skip. A shared copy
     of any of those would put that code outside the comparison. *)
 
+(** Whether {!run} takes that entry. The index has to be in range and the rule
+    there has to open a node of its own.
+
+    A block's rule does not. Its parse takes a checkpoint in the frame above
+    and wraps what that frame already holds, so a parse entering there has
+    nothing to wrap. Every such rule is reached through the rule that calls
+    it, and a fragment of one is a fragment of that rule. *)
+val may_enter : Ir.Plan.t -> int -> bool
+
 (** [run plan entry tokens] parses [tokens] with the rule at index [entry],
     and gives the tree and the diagnostics in the order they were reported.
 
-    [entry] is an index into [plan.rules], and any rule will do: a fuzz
-    harness enters at one that is not a root to read a fragment. Raises
-    [Invalid_argument] where no rule sits at that index, and where the rule
-    there has an empty body, since a rule that opens no node builds no tree.
+    [entry] is an index into [plan.rules], and any rule {!may_enter} admits
+    will do: a fuzz harness enters at one that is not a root to read a
+    fragment. Raises [Invalid_argument] for the rest.
 
     Every byte of [tokens] reaches the tree, trivia included, so
     [Siesta.Green.to_source] gives the input back.

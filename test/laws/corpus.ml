@@ -5,10 +5,10 @@
 
     Five are built in {!Lingo_witness.Witnesses}, each taking the shape
     nearest to one rejection and stopping short of it. The other four come
-    from grammars/ and are the first four rungs of the example ladder: sexp,
-    calc, rassoc and json. Those four carry a right-associative operator
-    table, a committed production, and two delimited-with-separator bodies
-    side by side, which the built ones do not.
+    from grammars/: sexp, calc, rassoc and json. They carry a
+    right-associative operator table, a committed production, and two
+    delimited-with-separator bodies side by side, which the built ones do
+    not.
 
     What would widen it further is a generator that samples grammars, or
     inputs to them, and so reaches cases nobody thought of. Until that lands,

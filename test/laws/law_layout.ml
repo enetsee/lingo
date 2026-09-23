@@ -172,7 +172,8 @@
                goldens carry it.
        M14  In [Layout.body], carry the state the folding *with* the separator
             left, rather than the one without it.
-            -> (b) 7 formats, (d) 1 input, and law_fuzz by 581 over five laws.
+            -> (b) 7 formats, (d) 1 input, and law_fuzz by 231 over its good
+               corpus, 543 over its mutated one and 185 over its fragments.
                The flat branch writes no separator, so its state is the one the
                closer glues against. Carrying the other one puts the
                separator's bytes in the run twice over.
@@ -200,7 +201,9 @@
                the same, and this is the entry that would notice if the
                construction stopped holding.
        M16  In [Layout.body], put the [On_break] separator in the flat branch.
-            -> (c), and law_fuzz by 2,388, every one of them Law B. A flat body
+            -> (c) 2,576 formats, and law_fuzz by 970, 1,875 and 2,338 over
+               its three corpora, every one of them Law B. comments.format
+               moves by 43 lines as well. A flat body
                then carries a trailing separator, the next parse reads that as
                a request to break, and the pass after that takes it out of the
                flat branch again.
@@ -247,8 +250,8 @@
        M23  In [Layout.node], start the body segment at the opener rather than
             after its leading run.
             -> nothing here, and no golden moves. Both redden
-               test/laws/law_fuzz.ml, which reads zero, by 8 and by 746, every
-               one of them Law F. They are two halves of one defect: a run
+               test/laws/law_fuzz.ml, which reads zero, by 7 and by 1,196,
+               every one of them Law F. They are two halves of one defect: a run
                that lands on a group's line and sits outside it. This corpus
                cannot reach it. The head of a frame is empty unless something
                sits before the opener, and the only production shape that has
@@ -257,14 +260,14 @@
                postfix chain at a narrow enough width, and a swept input
                mangles the chain before it gets there.
        M24  In [Layout.node], read [flat_through] as [false].
-            -> (e), 70 lines past the ruler, and law_fuzz by 59. The third
+            -> (e), 70 lines past the ruler, and law_fuzz by 143. The third
                half of the same defect, and the one this corpus does reach:
                it did not before the separator was folded once, and what
                changed is that the body's document no longer splits around the
                last run.
        M25  In [Layout.body], split the walk at the last element under
             [`Plain] as well.
-            -> (c), 13 formats, and law_fuzz by 21. A policy that adds nothing
+            -> (c), 11 formats, and law_fuzz by 60. A policy that adds nothing
                has nothing to insert there, and cutting the walk truncates
                every run that crosses the cut.
        M26  In [Layout.node], take a plain group and a conditional that always
@@ -277,8 +280,8 @@
 
        M27  In [Lower.expansion], leave a block's rule atoms out of the kinds a
             slot admits.
-            -> nothing here, and law_fuzz by 4 at depth 8 on
-               [fn a()->l{utlc/rnuL//\n(aeum//\n=r[//\n1630==3?]???*00,43=riLi.{})??;}].
+            -> nothing here. law_fuzz reads 4 over its mutated corpus at depth
+               1 and 10 at depth 8, and 1 over its fragments and 11.
                calc.layout loses kind 1 from four slots, which is [Parens], its
                only rule atom.
 
@@ -292,8 +295,10 @@
             node swept up.
        M29  In [Layout.node], read an inner frame the parse never closed as
             closed, so the policy separator is written after it.
-            -> nothing here, and law_fuzz by 4 at depth 8 each, on one witness
-               between them.
+            -> nothing here, and nothing over law_fuzz's mutated corpus
+               either, at any depth. Its fragments read 27 and 14 at depth 1
+               and 195 and 147 at depth 8, on one witness between them, and
+               they are the whole of what falsifies these two.
 
                Two ways for a separator to come back somewhere this fold cannot
                see it. Under M28 recovery sweeps it into the error node at the

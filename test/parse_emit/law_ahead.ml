@@ -3,7 +3,7 @@
       (a) The tables a grammar's module holds are the tables its plan gives.
       (b) The entry point over them gives the kinds a root starts with.
 
-      Mechanism. Eight grammars. For each, [Ir.Residual.Table.of_plan] is read
+      Mechanism. Ten grammars. For each, [Ir.Residual.Table.of_plan] is read
       off the plan here and compared with the literal the emitter wrote into
       the generated module, point for point.
 
@@ -21,18 +21,18 @@
       result recorded is the one observed.
 
         M1  In [Ocaml.Residual.point], write [may_end] as [true] always.
-            -> part (a), all eight grammars.
+            -> part (a), all ten grammars.
         M2  In [Ocaml.Residual.generate], leave the last table out of
             [of_kind].
-            -> part (a), all eight grammars, and part (b) on one of them. The
+            -> part (a), all ten grammars, and part (b) on one of them. The
                record read part (a) alone before the guard changed: the kind
                whose table goes missing is now reached by a walk from a root as
                well as by the comparison.
         M3  In [Ocaml.Residual.generate], write the trivia kinds as empty.
-            -> part (a), all eight grammars.
+            -> part (a), all ten grammars.
         M4  In [Ocaml.Residual.point], write the transition targets one too
             high.
-            -> part (a), all eight grammars, and part (b) on none of them: the
+            -> part (a), all ten grammars, and part (b) on none of them: the
                root's own first point is reached before any transition runs.
    -------------------------------------------------------------------------- *)
 
@@ -101,6 +101,16 @@ let corpus =
     ; tables = Emitted_parsers.Recovery_residual.tables
     ; source = "let a in end"
     }
+  ; { name = "rust"
+    ; grammar = Lingo_grammars.Rust_grammar.grammar
+    ; tables = Emitted_parsers.Rust_residual.tables
+    ; source = "fn f(a: int) -> int { let x = 1; }"
+    }
+  ; { name = "effekt"
+    ; grammar = Lingo_grammars.Effekt_grammar.grammar
+    ; tables = Emitted_parsers.Effekt_residual.tables
+    ; source = "def f(x: Int): Int = x;"
+    }
   ]
 ;;
 
@@ -159,7 +169,10 @@ let () =
           (String.concat ~sep:" " (List.map (Array.to_list given) ~f:string_of_int))
           (String.concat ~sep:" " (List.map (Array.to_list first) ~f:string_of_int)));
   if !failures = before
-  then pass "the entry point gives what the root starts with, over 8 grammars"
+  then
+    pass
+      "the entry point gives what the root starts with, over %d grammars"
+      (List.length corpus)
 ;;
 
 let () =

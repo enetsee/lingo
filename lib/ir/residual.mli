@@ -96,7 +96,14 @@ module Table : sig
 
   (** Every node kind a tree can hold, with the points of a parse inside a
       node of that kind. An expression node comes from its block rather than
-      from a rule, because a block rule builds no node of its own. *)
+      from a rule, because a block rule builds no node of its own.
+
+      More points than a body has positions, where a child slot takes an
+      expression. An operand that is a rule leaves that rule's own node behind
+      and no role wraps it, so the operators that may extend it have nowhere
+      else to live: the edge that takes one leads to a point of its own,
+      carrying them beside what follows the child. Every other operand shape
+      leads to the point the position alone gives. *)
   val of_plan : Plan.t -> (Kind.t * point array) list
 end
 

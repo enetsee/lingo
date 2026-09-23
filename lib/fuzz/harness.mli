@@ -102,12 +102,40 @@ val decode : t -> Sample.token list -> string
 
 (** [cover] is given one point per cursor read. It costs a hashtable write per
     read, so a sweep measuring volume leaves it out and a run measuring reach
-    passes it. *)
+    passes it.
+
+    [at] is the rule the parse enters, and it defaults to the root. Any rule
+    {!enterable} admits will do: a fragment drawn at one is read back at the
+    same one, which is the only way to reach a construct the root's own draws
+    never build. Raises [Invalid_argument] for the rest.
+
+    A parse that enters below a root ends where its rule does, so the tree
+    covers a prefix of the input rather than all of it. Consuming to the end of
+    the input is a root's job. *)
 val parse
   :  ?cover:Coverage.t
+  -> ?at:Core.Rule.id
   -> t
   -> string
   -> Siesta.Green.node * Lingo_runtime.Diagnostic.t list
+
+(** Whether {!parse} may enter at that rule. See {!Interp.may_enter}: the rule
+    has to open a node of its own, which a block's rule does not. *)
+val enterable : t -> Core.Rule.id -> bool
+
+(** Whether the first meaningful token of that source is one the rule can
+    start with.
+
+    This is the test a parse from a root makes before it enters a rule, and a
+    parse that enters at one makes no such test: it opens the node and reads
+    from there. So an input failing this builds a tree no root parse can build
+    -- a delimited node with nothing where its opener goes -- and a law over
+    that tree reports on a shape the parser has no way to produce.
+
+    The lexer, rather than the tokens drawn, because a mutation that respells
+    a token leaves the kind it was drawn as and the kind it reads back as two
+    different things, and it is the second one a parse dispatches on. *)
+val dispatches : t -> Core.Rule.id -> string -> bool
 
 val doc : t -> Siesta.Green.node -> Ir.Kind.t Handsome.Utf8.t
 val format : t -> width:int -> Siesta.Green.node -> string
@@ -129,6 +157,19 @@ val relex : t -> string -> (int * string) list
 
 (** A draw read the way {!written} and {!relex} read a tree and a string. *)
 val of_tokens : Sample.token list -> (int * string) list
+
+(** Every rule a walk from the root reaches: a child slot's symbols, a block's
+    atoms, and the roles a block's parse builds.
+
+    A walk over the grammar, where {!built} is a walk over a tree, so the two
+    readings are independent. A rule this reaches and no draw ever built is a
+    fact about the draws rather than about the grammar, and it is the one thing
+    a corpus can be silently short of: every law over it still reads zero,
+    because the construct it would have failed on is not there. *)
+val reachable : t -> Core.Rule.id list
+
+(** The rules a tree holds, in no order. *)
+val built : t -> Siesta.Green.node -> Core.Rule.id list
 
 (** The rule whose species a node of this kind is drawn from. An expression
     block's role gives the block: a role describes the shape of a node the
