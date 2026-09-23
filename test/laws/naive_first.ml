@@ -17,10 +17,7 @@ type tables =
   ; follow : (string, String_set.t) Hashtbl.t
   }
 
-let syms_of = function
-  | Core.Grammar.Single s -> [ s ]
-  | Alternatives ss -> ss
-;;
+let syms_of (c : Core.Grammar.child) = c.head :: c.rest
 
 let compute (g : Core.Grammar.t) : tables =
   let null = Hashtbl.create 16 in
@@ -41,7 +38,7 @@ let compute (g : Core.Grammar.t) : tables =
   let child_nullable (c : Core.Grammar.child) =
     match c.modifier with
     | Zero_or_one | Zero_or_more -> true
-    | Exactly_one | One_or_more -> csym_nullable c.sym
+    | Exactly_one | One_or_more -> csym_nullable c
   in
   let prod_nullable (p : Core.Grammar.production) =
     match p.framing with
@@ -93,7 +90,7 @@ let compute (g : Core.Grammar.t) : tables =
   let rec children_first = function
     | [] -> String_set.empty
     | (c : Core.Grammar.child) :: rest ->
-      let mine = csym_first c.sym in
+      let mine = csym_first c in
       if child_nullable c then String_set.union mine (children_first rest) else mine
   in
   let prod_first (p : Core.Grammar.production) =
@@ -102,7 +99,7 @@ let compute (g : Core.Grammar.t) : tables =
       String_set.singleton (Core.Grammar.Name.Token.to_string open_tok)
     | Separated _ ->
       (match p.children with
-       | c :: _ -> csym_first c.sym
+       | c :: _ -> csym_first c
        | [] -> String_set.empty)
     | Plain | Committed _ -> children_first p.children
   in
@@ -176,7 +173,7 @@ let compute (g : Core.Grammar.t) : tables =
   let rec remaining_first = function
     | [] -> String_set.empty, true
     | (c : Core.Grammar.child) :: rest ->
-      let mine = csym_first c.sym in
+      let mine = csym_first c in
       if child_nullable c
       then (
         let rf, re = remaining_first rest in
@@ -214,13 +211,13 @@ let compute (g : Core.Grammar.t) : tables =
                     String_set.add (Core.Grammar.Name.Token.to_string sep) rf
                   | Separated { sep; _ } ->
                     String_set.add (Core.Grammar.Name.Token.to_string sep) rf
-                  | _ -> String_set.union rf (csym_first c.sym))
+                  | _ -> String_set.union rf (csym_first c))
              in
              List.iter
                (fun r ->
                   propagate r rf;
                   if re then propagate r trailing)
-               (targets c.sym);
+               (targets c);
              walk rest
          in
          walk p.children)

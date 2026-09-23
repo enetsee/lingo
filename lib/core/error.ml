@@ -83,7 +83,6 @@ type detail =
   | Unknown_message_child of { name : Grammar.Name.Child.t }
   | Unused_message_child of { name : Grammar.Name.Child.t }
   | Unused_recover_to of { name : Grammar.Name.Child.t }
-  | Empty_alternatives
   | No_roots
   | Root_is_block of { name : Grammar.Name.Rule.t }
   | Unknown_root of { name : Grammar.Name.Rule.t }
@@ -164,7 +163,6 @@ let code (e : t) : string =
   | Unknown_message_child _ -> "unknown-message-child"
   | Unused_message_child _ -> "unused-message-child"
   | Unused_recover_to _ -> "unused-recover-to"
-  | Empty_alternatives -> "empty-alternatives"
   | No_roots -> "no-roots"
   | Root_is_block _ -> "root-is-block"
   | Unknown_root _ -> "unknown-root"
@@ -216,7 +214,6 @@ let names_stage_codes =
   ; "unknown-message-child"
   ; "unused-message-child"
   ; "unused-recover-to"
-  ; "empty-alternatives"
   ; "no-roots"
   ; "root-is-block"
   ; "unknown-root"
@@ -386,7 +383,6 @@ let message (e : t) : string =
       "%S is optional or repeated, so nothing recovers at it and this set would never be \
        read"
       (Grammar.Name.Child.to_string name)
-  | Empty_alternatives -> "the alternative list is empty, so nothing can fill this child"
   | No_roots -> "a grammar needs at least one root production"
   | Root_is_block { name } ->
     Printf.sprintf

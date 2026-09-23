@@ -216,10 +216,9 @@ let holds_a_name (names : Stage.names) (c : Grammar.child) : bool =
           | Grammar.Pattern _ -> true
           | Grammar.Keyword _ | Grammar.Punctuation _ -> false))
   in
-  match c.sym with
-  | Grammar.Single sym -> is_pattern sym
-  | Grammar.Alternatives [ sym ] -> is_pattern sym
-  | Grammar.Alternatives _ -> false
+  match c.rest with
+  | [] -> is_pattern c.head
+  | _ :: _ -> false
 ;;
 
 let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
@@ -246,11 +245,10 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
                 | Grammar.One_or_more )
               , _ ) -> acc
           in
-          match c.sym with
-          | Single s -> sym_error names where s acc
-          | Alternatives [] -> Error.make ~detail:Error.Empty_alternatives where :: acc
-          | Alternatives syms ->
-            List.fold_left ~f:(fun acc s -> sym_error names where s acc) ~init:acc syms)
+          List.fold_left
+            ~f:(fun acc s -> sym_error names where s acc)
+            ~init:acc
+            (c.head :: c.rest))
       in
       let acc =
         match prod.identity_child with
@@ -262,42 +260,48 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
         | _ -> acc
       in
       let acc =
-        List.fold_left prod.binders ~init:acc ~f:(fun acc nm ->
-          match
-            List.find_opt prod.children ~f:(fun (c : Grammar.child) ->
-              Grammar.Name.Child.equal c.name nm)
-          with
-          | None ->
-            Error.make
-              ~detail:(Error.Unknown_binder_child { name = nm })
-              (Error.At_production pn)
-            :: acc
-          | Some c when not (holds_a_name names c) ->
-            Error.make
-              ~detail:(Error.Binder_not_pattern_token { name = nm })
-              (Error.At_child { production = pn; child = nm })
-            :: acc
-          | Some _ -> acc)
+        Grammar.Name.Child.Set.fold
+          (fun nm acc ->
+             match
+               List.find_opt prod.children ~f:(fun (c : Grammar.child) ->
+                 Grammar.Name.Child.equal c.name nm)
+             with
+             | None ->
+               Error.make
+                 ~detail:(Error.Unknown_binder_child { name = nm })
+                 (Error.At_production pn)
+               :: acc
+             | Some c when not (holds_a_name names c) ->
+               Error.make
+                 ~detail:(Error.Binder_not_pattern_token { name = nm })
+                 (Error.At_child { production = pn; child = nm })
+               :: acc
+             | Some _ -> acc)
+          prod.binders
+          acc
       in
       let acc =
-        List.fold_left prod.error_messages ~init:acc ~f:(fun acc (nm, _msg) ->
-          match
-            List.find_opt prod.children ~f:(fun (c : Grammar.child) ->
-              Grammar.Name.Child.equal c.name nm)
-          with
-          | None ->
-            Error.make
-              ~detail:(Error.Unknown_message_child { name = nm })
-              (Error.At_production pn)
-            :: acc
-          (* Only a required child reports, so only a required child has
-             wording to replace. *)
-          | Some { modifier = Grammar.Zero_or_one | Grammar.Zero_or_more; _ } ->
-            Error.make
-              ~detail:(Error.Unused_message_child { name = nm })
-              (Error.At_child { production = pn; child = nm })
-            :: acc
-          | Some { modifier = Grammar.Exactly_one | Grammar.One_or_more; _ } -> acc)
+        Grammar.Name.Child.Map.fold
+          (fun nm _msg acc ->
+             match
+               List.find_opt prod.children ~f:(fun (c : Grammar.child) ->
+                 Grammar.Name.Child.equal c.name nm)
+             with
+             | None ->
+               Error.make
+                 ~detail:(Error.Unknown_message_child { name = nm })
+                 (Error.At_production pn)
+               :: acc
+             (* Only a required child reports, so only a required child has
+                wording to replace. *)
+             | Some { modifier = Grammar.Zero_or_one | Grammar.Zero_or_more; _ } ->
+               Error.make
+                 ~detail:(Error.Unused_message_child { name = nm })
+                 (Error.At_child { production = pn; child = nm })
+               :: acc
+             | Some { modifier = Grammar.Exactly_one | Grammar.One_or_more; _ } -> acc)
+          prod.error_messages
+          acc
       in
       let acc =
         match prod.framing with
@@ -350,13 +354,16 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
                 t
                 acc))
       in
-      List.fold_left prod.resync_anchors ~init:acc ~f:(fun acc t ->
-        token_ref
-          names
-          (fun name -> Error.Unknown_resync_anchor { name })
-          (Error.At_production pn)
-          t
-          acc))
+      Grammar.Name.Token.Set.fold
+        (fun t acc ->
+           token_ref
+             names
+             (fun name -> Error.Unknown_resync_anchor { name })
+             (Error.At_production pn)
+             t
+             acc)
+        prod.resync_anchors
+        acc)
 ;;
 
 let block_refs (names : Stage.names) (acc : Error.t list) : Error.t list =

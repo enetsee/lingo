@@ -103,7 +103,6 @@ type detail =
   | Unknown_message_child of { name : Grammar.Name.Child.t }
   | Unused_message_child of { name : Grammar.Name.Child.t }
   | Unused_recover_to of { name : Grammar.Name.Child.t }
-  | Empty_alternatives
   | No_roots
   | Root_is_block of { name : Grammar.Name.Rule.t }
   | Unknown_root of { name : Grammar.Name.Rule.t }

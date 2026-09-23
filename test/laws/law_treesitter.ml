@@ -1096,10 +1096,9 @@ let () =
     with
     | None -> None
     | Some child ->
-      (match child.sym with
-       | Core.Grammar.Single (Core.Grammar.Token token)
-       | Core.Grammar.Alternatives [ Core.Grammar.Token token ] -> Some token
-       | Core.Grammar.Single (Core.Grammar.Rule _) | Core.Grammar.Alternatives _ -> None)
+      (match child.head, child.rest with
+       | Core.Grammar.Token token, [] -> Some token
+       | Core.Grammar.Rule _, _ | _, _ :: _ -> None)
   in
   List.iter
     (fun (e : emitted) ->
@@ -1132,7 +1131,7 @@ let () =
                            (Treesitter.Node.of_token
                               (Core.Grammar.Name.Token.of_string token))
                        ])
-                  prod.binders
+                  (Core.Grammar.Name.Child.Set.elements prod.binders)
               in
               scope @ definitions)
            Core.Grammar.(e.grammar.productions)

@@ -21,6 +21,15 @@ module type S = sig
   val equal : t -> t -> bool
   val compare : t -> t -> int
   val pp : Format.formatter -> t -> unit
+
+  (** A field holding several of these names holds a set where the order the
+      author wrote them in carries nothing. Two grammars that differ only in
+      that order are the same grammar, and a set is how that stops being
+      writable. *)
+  module Set : Set.S with type elt = t
+
+  (** The same for a field keyed by a name. *)
+  module Map : Map.S with type key = t
 end
 
 (** A production or an expression block. *)

@@ -11,9 +11,9 @@
 
       A golden would be the natural home, and test/expect/unicode.format is
       where one would go. Every input it holds is short enough to fit under
-      either measure, so it pins nothing, and widening test/inputs to fix that
-      moves every count in test/laws/law_layout.ml's record. This is the same
-      claim for the cost of one file.
+      either measure, so it separates neither, and widening test/inputs to fix
+      that moves every count in test/laws/law_layout.ml's record. This is the
+      same claim for the cost of one file.
    -------------------------------------------------------------------------- *)
 
 let check (what : string) (expected : string) (got : string) : unit =

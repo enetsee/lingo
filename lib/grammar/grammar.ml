@@ -10,10 +10,6 @@ type symbol =
   | Token of string
   | Rule of string
 
-type child_sym =
-  | Single of symbol
-  | Alternatives of symbol list
-
 type child_parse =
   { recover_to : Name.Token.t list option
   ; greedy : bool
@@ -21,7 +17,8 @@ type child_parse =
 
 type child =
   { name : Name.Child.t
-  ; sym : child_sym
+  ; head : symbol
+  ; rest : symbol list
   ; modifier : modifier
   ; c_parse : child_parse
   }
@@ -76,16 +73,16 @@ type production =
   { kind_name : Name.Rule.t
   ; children : child list
   ; identity_child : Name.Child.t option
-  ; binders : Name.Child.t list
+  ; binders : Name.Child.Set.t
   ; opens_scope : bool
   ; framing : framing
   ; recovery : recovery_spec
-  ; error_messages : (Name.Child.t * string) list
+  ; error_messages : string Name.Child.Map.t
   ; format : production_format
   ; has_hole : bool
   ; edge_space_before : bool option
   ; edge_space_after : bool option
-  ; resync_anchors : Name.Token.t list
+  ; resync_anchors : Name.Token.Set.t
   }
 
 type assoc =
@@ -309,7 +306,8 @@ let child
   : child
   =
   { name = Name.Child.of_string name
-  ; sym = Single sym
+  ; head = sym
+  ; rest = []
   ; modifier
   ; c_parse = { recover_to = recover_to_names recover_to; greedy }
   }
@@ -332,11 +330,15 @@ let child_rep1 ?recover_to ?greedy (name : string) (sym : symbol) : child =
 let child_alt ?recover_to ~(modifier : modifier) (name : string) (syms : symbol list)
   : child
   =
-  { name = Name.Child.of_string name
-  ; sym = Alternatives syms
-  ; modifier
-  ; c_parse = { recover_to = recover_to_names recover_to; greedy = false }
-  }
+  match syms with
+  | [] -> invalid_arg "Grammar.child_alt: a child needs at least one symbol"
+  | head :: rest ->
+    { name = Name.Child.of_string name
+    ; head
+    ; rest
+    ; modifier
+    ; c_parse = { recover_to = recover_to_names recover_to; greedy = false }
+    }
 ;;
 
 let child_alt_rules
@@ -404,22 +406,26 @@ let prod
   { kind_name = Name.Rule.of_string name
   ; children
   ; identity_child = None
-  ; binders = []
+  ; binders = Name.Child.Set.empty
   ; opens_scope = false
   ; framing = Plain
   ; recovery = { strategy = Insert_only }
-  ; error_messages = []
+  ; error_messages = Name.Child.Map.empty
   ; format = { break_style; indent_width; separator_lines }
   ; has_hole = true
   ; edge_space_before = None
   ; edge_space_after = None
-  ; resync_anchors = []
+  ; resync_anchors = Name.Token.Set.empty
   }
 ;;
 
 let with_messages (msgs : (string * string) list) (p : production) : production =
   { p with
-    error_messages = List.map (fun (c, entry) -> Name.Child.of_string c, entry) msgs
+    error_messages =
+      List.fold_left
+        (fun acc (c, entry) -> Name.Child.Map.add (Name.Child.of_string c) entry acc)
+        Name.Child.Map.empty
+        msgs
   }
 ;;
 
@@ -512,13 +518,17 @@ let with_identity (child_name : string) (p : production) : production =
 ;;
 
 let with_binder (child_name : string) (p : production) : production =
-  { p with binders = p.binders @ [ Name.Child.of_string child_name ] }
+  { p with binders = Name.Child.Set.add (Name.Child.of_string child_name) p.binders }
 ;;
 
 let with_no_hole p = { p with has_hole = false }
 let with_leading_space b p = { p with edge_space_before = Some b }
 let with_trailing_space b p = { p with edge_space_after = Some b }
-let with_resync_to toks p = { p with resync_anchors = List.map Name.Token.of_string toks }
+
+let with_resync_to toks p =
+  { p with resync_anchors = Name.Token.Set.of_list (List.map Name.Token.of_string toks) }
+;;
+
 let with_recovery_strategy s p = { p with recovery = { strategy = s } }
 
 (* The emitter unrolls the peek-ahead loop to this bound. [lookahead_n]

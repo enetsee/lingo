@@ -23,14 +23,6 @@ type symbol =
 val is_token : symbol -> bool
 val is_rule : symbol -> bool
 
-(** A child's right-hand side. [Alternatives] lets one parent kind hold any of
-    several shapes and keep a single accessor. The alternative is a production 
-    per shape, which is more kinds to match on. The parser dispatches on FIRST 
-    sets. *)
-type child_sym =
-  | Single of symbol
-  | Alternatives of symbol list
-
 (** Parser overrides for one child.
 
     {2 [recover_to]}
@@ -70,10 +62,18 @@ type child_parse =
   }
 
 (** A named slot in a production. [name] becomes the accessor in the typed
-    view. *)
+    view, [modifier] says how many nodes the slot holds, and [head] with
+    [rest] are the symbols it admits.
+
+    The symbols are a head and the rest rather than a list, so a child that
+    admits nothing cannot be written. Several of them let one parent kind hold
+    any of a few shapes and keep a single accessor. The alternative is a
+    production per shape, which is more kinds to match on. The parser
+    dispatches on FIRST sets, taking the first whose set admits the cursor. *)
 type child =
   { name : Name.Child.t
-  ; sym : child_sym
+  ; head : symbol
+  ; rest : symbol list
   ; modifier : modifier
   ; c_parse : child_parse
   }
@@ -170,21 +170,21 @@ type production =
   ; children : child list
   ; identity_child : Name.Child.t option
     (** The child whose text names the production in a diagnostic. *)
-  ; binders : Name.Child.t list
+  ; binders : Name.Child.Set.t
     (** The children whose text introduces a name. See {!with_binder}. *)
   ; opens_scope : bool
     (** Whether a name introduced inside this production belongs to it. See
           {!with_scope}. *)
   ; framing : framing
   ; recovery : recovery_spec
-  ; error_messages : (Name.Child.t * string) list
+  ; error_messages : string Name.Child.Map.t
   ; format : production_format
   ; has_hole : bool (** Whether a paired [<KIND>_HOLE] kind is emitted. *)
   ; edge_space_before : bool option
     (** Overrides the leading spacing flag. Left alone, that flag comes from
           the production's first token. *)
   ; edge_space_after : bool option (** The same on the trailing edge. *)
-  ; resync_anchors : Name.Token.t list
+  ; resync_anchors : Name.Token.Set.t
   }
 
 type assoc =
@@ -432,6 +432,8 @@ val child_rep : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> c
     around it usually takes this: an empty one is not syntax anybody wrote. *)
 val child_rep1 : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> child
 
+(** Raises [Invalid_argument] on an empty list. A child admitting no symbol
+    is not a shape a grammar can mean. *)
 val child_alt
   :  ?recover_to:string list
   -> modifier:modifier

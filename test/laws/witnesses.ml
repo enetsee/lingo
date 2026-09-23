@@ -212,7 +212,6 @@ let unused_resync_anchors_separated =
     ]
 ;;
 
-let empty_alternatives = only [ prod "Root" [ child_alt ~modifier:Exactly_one "x" [] ] ]
 let unknown_root = only ~roots:[ "Nope" ] [ clean_root ]
 let dup_root = only ~roots:[ "Root"; "Root" ] [ clean_root ]
 
@@ -526,7 +525,6 @@ let all : (string * Grammar.t) list =
   ; "unused-recover-to", unused_recover_to
   ; "unused-resync-anchors", unused_resync_anchors
   ; "unused-resync-anchors", unused_resync_anchors_separated
-  ; "empty-alternatives", empty_alternatives
   ; "no-roots", no_roots
   ; "root-is-block", root_is_block
   ; "unknown-root", unknown_root

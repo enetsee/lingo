@@ -73,10 +73,8 @@ let of_token (grammar : Core.Grammar.t) (name : Core.Grammar.Name.Token.t) : t =
   of_symbol grammar (Core.Grammar.Token (Core.Grammar.Name.Token.to_string name))
 ;;
 
-let of_child_symbol (grammar : Core.Grammar.t) (sym : Core.Grammar.child_sym) : t =
-  match sym with
-  | Core.Grammar.Single one -> of_symbol grammar one
-  | Core.Grammar.Alternatives many -> choice (List.map many ~f:(of_symbol grammar))
+let of_child_symbols (grammar : Core.Grammar.t) (syms : Core.Grammar.symbol list) : t =
+  choice (List.map syms ~f:(of_symbol grammar))
 ;;
 
 (* Zero or more with no separator collapses into one stack: an empty row on
@@ -98,7 +96,8 @@ let of_child (grammar : Core.Grammar.t) ?(sep : t option) (child : Core.Grammar.
   =
   Labelled
     { name = Core.Grammar.Name.Child.to_string child.name
-    ; body = repeated (of_child_symbol grammar child.sym) ~sep child.modifier
+    ; body =
+        repeated (of_child_symbols grammar (child.head :: child.rest)) ~sep child.modifier
     }
 ;;
 

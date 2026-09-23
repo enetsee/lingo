@@ -1,4 +1,4 @@
-; The structure law_emit round-trips and test/expect/emit.expected pins. One
+; The structure law_emit round-trips and test/expect/emit.expected records. One
 ; copy, because the two claims have to be about the same source.
 
 (library

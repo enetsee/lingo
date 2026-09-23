@@ -191,14 +191,14 @@ let child_index (children : Grammar.child list) (nm : Grammar.Name.Child.t) : in
   idx 0 children
 ;;
 
-(* Ascending and deduplicated, so the same binder written twice reaches a
-   backend once, and the order follows the children rather than the order the
-   builders ran in. *)
-let binder_indices (children : Grammar.child list) (binders : Grammar.Name.Child.t list)
+(* Ascending, so a backend reads the binders in the order the children are
+   written rather than the order the names sort in. *)
+let binder_indices (children : Grammar.child list) (binders : Grammar.Name.Child.Set.t)
   : int array
   =
-  List.filter_map ~f:(child_index children) binders
-  |> List.sort_uniq ~cmp:Int.compare
+  Grammar.Name.Child.Set.elements binders
+  |> List.filter_map ~f:(child_index children)
+  |> List.sort ~cmp:Int.compare
   |> Array.of_list
 ;;
 
@@ -231,11 +231,7 @@ let shape (names : names) : shape =
     }
   in
   let of_grammar_child (c : Grammar.child) : Rule.child =
-    let alts =
-      match c.sym with
-      | Single s -> [| res s |]
-      | Alternatives ss -> Array.of_list (List.map ~f:res ss)
-    in
+    let alts = Array.of_list (List.map ~f:res (c.head :: c.rest)) in
     mk_child
       ~modifier:c.modifier
       ~greedy:c.c_parse.greedy
@@ -283,8 +279,10 @@ let shape (names : names) : shape =
       ; hole
       ; origin = Rule.User
       ; recovery = p.recovery
-      ; messages = Array.of_list p.error_messages
-      ; resync = Kind.Set.of_list (List.map ~f:res_tok p.resync_anchors)
+      ; messages = Array.of_list (Grammar.Name.Child.Map.bindings p.error_messages)
+      ; resync =
+          Kind.Set.of_list
+            (List.map ~f:res_tok (Grammar.Name.Token.Set.elements p.resync_anchors))
       ; format = p.format
       ; edge_space_before = p.edge_space_before
       ; edge_space_after = p.edge_space_after

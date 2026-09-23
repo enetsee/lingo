@@ -69,7 +69,7 @@
                accepted, and (c) reads the same fact from the other side: a
                code filed under "names" whose grammar reaches "accepted".
 
-      Coverage. The 55 witness grammars and the 9 accepted ones: at least one
+      Coverage. The 54 witness grammars and the 9 accepted ones: at least one
       grammar per rejection and a handful of near misses, together with the
       six cycles part (f) builds for itself. It says nothing about whether a
       check's reason is right, only that it fires on one shape and stays

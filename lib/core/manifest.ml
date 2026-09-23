@@ -192,16 +192,15 @@ let e ~(scope : Scope.t) ~(base : string) ~(derivation : string) (emitted : name
 
    The condition here matches the one the view layer uses, so every name
    listed is a name that gets emitted. *)
-let child_mints_sum (c : Grammar.child) =
-  match c.sym with
-  | Single _ -> false
-  | Alternatives syms ->
-    List.length syms >= 2
-    && List.exists
-         (function
-           | Grammar.Rule _ -> true
-           | Token _ -> false)
-         syms
+let child_emits_sum (c : Grammar.child) =
+  match c.rest with
+  | [] -> false
+  | _ :: _ ->
+    List.exists
+      (function
+        | Grammar.Rule _ -> true
+        | Token _ -> false)
+      (c.head :: c.rest)
 ;;
 
 let production_entries (p : Grammar.production) : entry list =
@@ -225,7 +224,7 @@ let production_entries (p : Grammar.production) : entry list =
            ~derivation:"view_accessor"
            (view_accessor (Grammar.Name.Child.to_string c.name))
          ::
-         (if child_mints_sum c
+         (if child_emits_sum c
           then
             [ e
                 ~scope:Scope.View_type

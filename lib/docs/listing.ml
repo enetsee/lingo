@@ -62,11 +62,7 @@ let modifier (modifier : Core.Grammar.modifier) : Render.document =
 ;;
 
 let child (grammar : Core.Grammar.t) (child : Core.Grammar.child) : Render.document =
-  let body =
-    match child.sym with
-    | Core.Grammar.Single one -> symbol grammar one
-    | Core.Grammar.Alternatives many -> alternatives grammar many
-  in
+  let body = alternatives grammar (child.head :: child.rest) in
   mark Mark.Child (doc (Core.Grammar.Name.Child.to_string child.name))
   ^^ notation ":"
   ^^ body

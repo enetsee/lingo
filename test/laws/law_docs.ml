@@ -341,9 +341,7 @@ let () =
                    | Core.Grammar.Rule name -> holds name
                    | Core.Grammar.Token name -> holds (literal name)
                  in
-                 match child.sym with
-                 | Core.Grammar.Single one -> symbol one
-                 | Core.Grammar.Alternatives many -> List.iter symbol many)
+                 List.iter symbol (child.head :: child.rest))
               production.children;
             match production.framing with
             | Core.Grammar.Delimited { open_tok; close_tok; _ } ->
