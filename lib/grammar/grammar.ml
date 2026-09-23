@@ -76,6 +76,8 @@ type production =
   { kind_name : Name.Rule.t
   ; children : child list
   ; identity_child : Name.Child.t option
+  ; binders : Name.Child.t list
+  ; opens_scope : bool
   ; framing : framing
   ; recovery : recovery_spec
   ; error_messages : (Name.Child.t * string) list
@@ -402,6 +404,8 @@ let prod
   { kind_name = Name.Rule.of_string name
   ; children
   ; identity_child = None
+  ; binders = []
+  ; opens_scope = false
   ; framing = Plain
   ; recovery = { strategy = Insert_only }
   ; error_messages = []
@@ -501,8 +505,14 @@ let with_committed ?boundary (p : production) : production =
   { p with framing }
 ;;
 
+let with_scope (p : production) : production = { p with opens_scope = true }
+
 let with_identity (child_name : string) (p : production) : production =
   { p with identity_child = Some (Name.Child.of_string child_name) }
+;;
+
+let with_binder (child_name : string) (p : production) : production =
+  { p with binders = p.binders @ [ Name.Child.of_string child_name ] }
 ;;
 
 let with_no_hole p = { p with has_hole = false }

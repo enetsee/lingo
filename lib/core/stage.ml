@@ -179,6 +179,29 @@ let resolve (n : names) (symbol : Grammar.symbol) : Kind.t option =
 
 (* -- resolved rules -------------------------------------------------------- *)
 
+(* [identity] and [binders] both name a child, and a [Rule.def] holds a
+   position instead. *)
+let child_index (children : Grammar.child list) (nm : Grammar.Name.Child.t) : int option =
+  let rec idx (i : int) (rest : Grammar.child list) : int option =
+    match rest with
+    | [] -> None
+    | (c : Grammar.child) :: _ when Grammar.Name.Child.equal c.name nm -> Some i
+    | _ :: tl -> idx (i + 1) tl
+  in
+  idx 0 children
+;;
+
+(* Ascending and deduplicated, so the same binder written twice reaches a
+   backend once, and the order follows the children rather than the order the
+   builders ran in. *)
+let binder_indices (children : Grammar.child list) (binders : Grammar.Name.Child.t list)
+  : int array
+  =
+  List.filter_map ~f:(child_index children) binders
+  |> List.sort_uniq ~cmp:Int.compare
+  |> Array.of_list
+;;
+
 type shape =
   { names : names
   ; rules : Rule.def array
@@ -265,14 +288,9 @@ let shape (names : names) : shape =
       ; format = p.format
       ; edge_space_before = p.edge_space_before
       ; edge_space_after = p.edge_space_after
-      ; identity =
-          Option.bind p.identity_child (fun nm ->
-            let rec idx i = function
-              | [] -> None
-              | (c : Grammar.child) :: _ when Grammar.Name.Child.equal c.name nm -> Some i
-              | _ :: tl -> idx (i + 1) tl
-            in
-            idx 0 p.children)
+      ; identity = Option.bind p.identity_child (child_index p.children)
+      ; binders = binder_indices p.children p.binders
+      ; opens_scope = p.opens_scope
       }
     | Block b ->
       (* The base role is the node a token atom produces. A rule atom produces
@@ -303,6 +321,8 @@ let shape (names : names) : shape =
       ; edge_space_before = None
       ; edge_space_after = None
       ; identity = None
+      ; binders = [||]
+      ; opens_scope = false
       }
     | Role { block_rule; block; role } ->
       let bk = names.rule_kind.(block_rule) in
@@ -401,6 +421,8 @@ let shape (names : names) : shape =
       ; edge_space_before = None
       ; edge_space_after = None
       ; identity = None
+      ; binders = [||]
+      ; opens_scope = false
       }
   in
   let rules = Array.mapi ~f:build names.slots in

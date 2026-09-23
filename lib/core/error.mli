@@ -98,6 +98,8 @@ type detail =
   | Unknown_recover_to_token of { name : Grammar.Name.Token.t }
   | Unknown_resync_anchor of { name : Grammar.Name.Token.t }
   | Unknown_identity_child of { name : Grammar.Name.Child.t }
+  | Unknown_binder_child of { name : Grammar.Name.Child.t }
+  | Binder_not_pattern_token of { name : Grammar.Name.Child.t }
   | Unknown_message_child of { name : Grammar.Name.Child.t }
   | Unused_message_child of { name : Grammar.Name.Child.t }
   | Unused_recover_to of { name : Grammar.Name.Child.t }

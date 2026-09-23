@@ -201,6 +201,27 @@ let token_ref
   else acc
 ;;
 
+(* A binder's own text is the name it introduces, so the child has to hold one
+   pattern token and nothing else. A token that does not resolve is already
+   reported by [sym_error], and nothing more is said about it here. *)
+let holds_a_name (names : Stage.names) (c : Grammar.child) : bool =
+  let is_pattern (sym : Grammar.symbol) : bool =
+    match sym with
+    | Grammar.Rule _ -> false
+    | Grammar.Token t ->
+      (match Stage.find_token names (Grammar.Name.Token.of_string t) with
+       | None -> true
+       | Some id ->
+         (match names.tokens.(id).klass with
+          | Grammar.Pattern _ -> true
+          | Grammar.Keyword _ | Grammar.Punctuation _ -> false))
+  in
+  match c.sym with
+  | Grammar.Single sym -> is_pattern sym
+  | Grammar.Alternatives [ sym ] -> is_pattern sym
+  | Grammar.Alternatives _ -> false
+;;
+
 let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
   List.fold_left
     names.grammar.productions
@@ -239,6 +260,24 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
             (Error.At_production pn)
           :: acc
         | _ -> acc
+      in
+      let acc =
+        List.fold_left prod.binders ~init:acc ~f:(fun acc nm ->
+          match
+            List.find_opt prod.children ~f:(fun (c : Grammar.child) ->
+              Grammar.Name.Child.equal c.name nm)
+          with
+          | None ->
+            Error.make
+              ~detail:(Error.Unknown_binder_child { name = nm })
+              (Error.At_production pn)
+            :: acc
+          | Some c when not (holds_a_name names c) ->
+            Error.make
+              ~detail:(Error.Binder_not_pattern_token { name = nm })
+              (Error.At_child { production = pn; child = nm })
+            :: acc
+          | Some _ -> acc)
       in
       let acc =
         List.fold_left prod.error_messages ~init:acc ~f:(fun acc (nm, _msg) ->

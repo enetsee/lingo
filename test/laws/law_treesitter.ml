@@ -15,9 +15,13 @@
           holds them all.
       (j) Every {!Treesitter.Check.problem} has a witness.
       (k) An intersection that denotes a character class comes out as one.
+      (l) Every binder and every scope the grammar declares reaches
+          [locals.scm], and nothing else in that file claims to be one.
+      (m) In [highlights.scm], a capture on one child position comes after
+          the capture on the token itself.
 
       Mechanism. The law reads the emitted text back and walks it. tree-sitter
-      is handed three files, and a walk over the emitter's own values would
+      is handed four files, and a walk over the emitter's own values would
       miss a rule that never reached the page. So the JavaScript is scanned
       for its rule headings, its [$.] references, its [field] names and its
       regex literals. The queries are parsed back into the four shapes they
@@ -33,10 +37,18 @@
       exactly by meeting the two languages. The law settles it a second time,
       with no help from the emitter.
 
+      Part (l) reads the corpus grammar rather than the facts derived from it.
+      A binder is declared on a production, carried into [Rule.def], and
+      printed. Reading the middle of that chain would compare the emitter
+      against the value it was handed.
+
       Coverage. The twelve grammars in test/editors/editor_corpus.ml. Parts
       (c), (j) and (k) build their own witnesses. The corpus declares every
       root first, holds no grammar this backend rejects, and no longer holds a
-      term that needs the reduction (k) is about.
+      term that needs the reduction (k) is about. rust and effekt are the two
+      that declare binders and scopes, so every count in part (l) comes from
+      them. rust and wide are the two that scope a child position, so every
+      count in part (m) comes from those.
 
       What this says nothing about. Whether tree-sitter's generator finds a
       conflict. lingo checks LL(1) and tree-sitter builds an LR automaton, and
@@ -101,6 +113,45 @@
                used to write [inter any (complement …)] were changed to write
                [not_chars]. Only this part's witness exercises the reduction
                now. The witness exists for that.
+        M10 In [Queries.definition_patterns], write a definition for every
+            child rather than for the binders.
+            -> part (l), 312 findings: effekt 137, rust 57, wide 50, postfix
+               16, recovery 16, shapes 9, calc 7, json 6, rassoc 6, comments
+               4, sexp 2, unicode 2. Every child position with one symbol
+               behind it becomes a binding site, in every grammar, whether or
+               not the author declared one.
+        M11 In [Queries.scope_patterns], write no scope.
+            -> part (l), 13 findings: effekt 9, rust 4. An editor would put
+               every name in one flat scope, so a local would shadow
+               everything of its name in the file.
+        M12 In [Stage.shape], build a user production's [binders] empty.
+            -> part (l), 17 findings: effekt 10, rust 7.
+
+               This read zero while part (l) built what it expected from
+               [Rule.def.binders]. The emitter agreed with the field it was
+               handed, and the field was the mutated one. Part (l) reads the
+               grammar instead, so a binder dropped anywhere along the way
+               reddens it.
+        M13 In [Queries.definition_patterns], name the inner node by the
+            child rather than by the token it holds.
+            -> part (d), 17 findings, and part (l), 34. A field name is not a
+               node name, so the pattern matches nothing and both directions
+               of (l) fire on every binder.
+        M14 In [Queries.locals], write no reference pattern.
+            -> part (l), 5 findings: shapes, recovery, rust, effekt and wide,
+               the grammars with a token that holds every keyword. A
+               definition with nothing to resolve against resolves nothing.
+        M15 In [Queries.highlights], write the sections in the order they
+            were written in before part (m) existed: the positions first and
+            the catch-alls last.
+            -> part (m), 11 findings: rust 9, wide 2.
+
+               That order was what the emitter wrote, and part (m) is the
+               law that found it. tree-sitter takes the last pattern that
+               matches a node, so [(ident) @variable] beat every per-position
+               capture and rust's type and function names rendered as
+               variables. Checked against tree-sitter 0.26.9 both ways round
+               before the order was reversed.
    -------------------------------------------------------------------------- *)
 
 let failures = ref 0
@@ -122,6 +173,7 @@ let pass : type a. (a, Format.formatter, unit, unit) format4 -> a =
 
 type emitted =
   { name : string
+  ; grammar : Core.Grammar.t
   ; facts : Core.Facts.t
   ; scopes : Scopes.t
   ; out : Treesitter.output
@@ -131,17 +183,21 @@ let emitted : emitted list =
   List.map
     (fun (entry : Editor_corpus.entry) ->
        let scopes = Editor_corpus.scopes entry in
+       let common =
+         { name = entry.name
+         ; grammar = entry.grammar
+         ; facts = Scopes.facts scopes
+         ; scopes
+         ; out = { grammar_js = ""; highlights = ""; folds = ""; locals = "" }
+         }
+       in
        match Treesitter.generate scopes ~language:entry.name () with
        | Error problems ->
          List.iter
            (fun p -> fail "%s: %a" entry.name Treesitter.Check.pp_problem p)
            problems;
-         { name = entry.name
-         ; facts = Scopes.facts scopes
-         ; scopes
-         ; out = { grammar_js = ""; highlights = ""; folds = "" }
-         }
-       | Ok out -> { name = entry.name; facts = Scopes.facts scopes; scopes; out })
+         common
+       | Ok out -> { common with out })
     Editor_corpus.all
 ;;
 
@@ -493,7 +549,8 @@ let () =
          | _ -> ()
        in
        List.iter (check "highlights.scm") (queries e.out.highlights);
-       List.iter (check "folds.scm") (queries e.out.folds))
+       List.iter (check "folds.scm") (queries e.out.folds);
+       List.iter (check "locals.scm") (queries e.out.locals))
     emitted;
   if !failures = before
   then pass "(d) every query names something that exists, over %d patterns" !checked
@@ -956,6 +1013,179 @@ let () =
              (List.length found))));
   if !failures = before
   then pass "(k) an intersection that denotes a class comes out as one"
+;;
+
+(* -- (m) the specific pattern comes after the catch-all it has to beat --- *)
+
+(* tree-sitter takes the last pattern in the file that matches a node. So a
+   capture on one child position has to sit after the capture on the token
+   itself, or the token's own colour wins at every position and the specific
+   pattern is dead text.
+
+   Measured against tree-sitter 0.26.9 on rust. With [(ident) @variable] last
+   in the file, every identifier renders as a variable. Move it to the front
+   and [Point] renders as a type, [main] as a function.
+
+   The node a pattern hangs its capture on is the inner one where it names a
+   position, and the pattern's own node otherwise. Two patterns compete only
+   where those are the same node. *)
+let capture_target (q : query) : string option =
+  match q.field, q.inner, q.literal with
+  | Some _, Some inner, _ -> Some inner
+  | Some _, None, Some literal -> Some literal
+  | Some _, None, None -> None
+  | None, _, Some literal -> Some literal
+  | None, _, None -> q.node
+;;
+
+let () =
+  let before = !failures in
+  let checked = ref 0 in
+  List.iter
+    (fun (e : emitted) ->
+       let numbered = List.mapi (fun index q -> index, q) (queries e.out.highlights) in
+       let at_a_position = List.filter (fun (_, q) -> q.field <> None) numbered in
+       let catch_alls = List.filter (fun (_, q) -> q.field = None) numbered in
+       List.iter
+         (fun (specific, q) ->
+            match capture_target q with
+            | None -> ()
+            | Some target ->
+              incr checked;
+              List.iter
+                (fun (general, other) ->
+                   if general > specific && capture_target other = Some target
+                   then
+                     fail
+                       "(m) %s: highlights.scm captures %S at one position and then \
+                        again for the node itself, so the second one wins everywhere"
+                       e.name
+                       target)
+                catch_alls)
+         at_a_position)
+    emitted;
+  if !failures = before
+  then
+    pass
+      "(m) a specific pattern comes after the catch-all it has to beat, over %d of them"
+      !checked
+;;
+
+(* -- (l) the binders and the scopes reach locals.scm ---------------------- *)
+
+(* Read from the grammar the corpus declares, so the whole path is covered:
+   the author's declaration, the field [Facts] carries it in, and the page.
+   Reading [Rule.def.binders] here instead would compare the emitter against
+   the value it was handed, and a binder dropped on the way would leave no
+   trace.
+
+   Both directions. A binder or a scope that never reaches the page leaves an
+   editor with no way to follow a name. A pattern no declaration stands
+   behind tags a position the author never called a binding site.
+
+   A binder's node is its own token's, because [Check_names] rejects a binder
+   on anything but a single pattern token. The [fail] below is what ties the
+   two together. *)
+let () =
+  let before = !failures in
+  let total = ref 0 in
+  let binder_token (prod : Core.Grammar.production) (name : Core.Grammar.Name.Child.t)
+    : string option
+    =
+    match
+      List.find_opt
+        (fun (child : Core.Grammar.child) ->
+           Core.Grammar.Name.Child.equal child.name name)
+        prod.children
+    with
+    | None -> None
+    | Some child ->
+      (match child.sym with
+       | Core.Grammar.Single (Core.Grammar.Token token)
+       | Core.Grammar.Alternatives [ Core.Grammar.Token token ] -> Some token
+       | Core.Grammar.Single (Core.Grammar.Rule _) | Core.Grammar.Alternatives _ -> None)
+  in
+  List.iter
+    (fun (e : emitted) ->
+       let declared =
+         List.concat_map
+           (fun (prod : Core.Grammar.production) ->
+              let node = Treesitter.Node.of_rule prod.kind_name in
+              let scope =
+                if prod.opens_scope
+                then [ Printf.sprintf "(%s) @local.scope" node ]
+                else []
+              in
+              let definitions =
+                List.concat_map
+                  (fun (name : Core.Grammar.Name.Child.t) ->
+                     let named = Core.Grammar.Name.Child.to_string name in
+                     match binder_token prod name with
+                     | None ->
+                       fail
+                         "(l) %s: the binder %s.%s does not hold a single token"
+                         e.name
+                         node
+                         named;
+                       []
+                     | Some token ->
+                       [ Printf.sprintf
+                           "(%s %s: (%s) @local.definition)"
+                           node
+                           named
+                           (Treesitter.Node.of_token
+                              (Core.Grammar.Name.Token.of_string token))
+                       ])
+                  prod.binders
+              in
+              scope @ definitions)
+           Core.Grammar.(e.grammar.productions)
+       in
+       let written =
+         List.filter
+           (fun line ->
+              occurrences ~needle:"@local.scope" line <> []
+              || occurrences ~needle:"@local.definition" line <> [])
+           (lines e.out.locals)
+       in
+       List.iter
+         (fun pattern ->
+            incr total;
+            if not (List.mem pattern written)
+            then
+              fail
+                "(l) %s: the grammar declares %s and locals.scm does not carry it"
+                e.name
+                pattern)
+         declared;
+       List.iter
+         (fun pattern ->
+            if not (List.mem pattern declared)
+            then
+              fail
+                "(l) %s: locals.scm carries %s and the grammar declares no such binder \
+                 or scope"
+                e.name
+                pattern)
+         written;
+       (* A definition with no reference beside it resolves nothing. *)
+       match Treesitter.word_token e.facts with
+       | None -> ()
+       | Some token ->
+         incr total;
+         let pattern =
+           Printf.sprintf "(%s) @local.reference" (Treesitter.Node.of_token token.name)
+         in
+         if not (List.mem pattern (lines e.out.locals))
+         then
+           fail
+             "(l) %s: the language's identifier is %S and locals.scm carries no \
+              reference to it"
+             e.name
+             (Core.Grammar.Name.Token.to_string token.name))
+    emitted;
+  if !failures = before
+  then pass "(l) every binder and every scope reaches locals.scm, over %d of them" !total
 ;;
 
 let () =

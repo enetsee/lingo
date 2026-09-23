@@ -4,6 +4,7 @@
       Grammar.t --> Facts.t --> Scopes.t --> generate --> grammar.js
                                                           highlights.scm
                                                           folds.scm
+                                                          locals.scm
     v}
 
     This is a backend in the same sense the TextMate one is, and it reads the
@@ -21,14 +22,13 @@
     tree-sitter extracts keywords against is worked out too: it is the
     pattern token whose language holds every keyword the grammar declares.
 
-    {2 What is left out}
+    [locals.scm] is the one output with a declaration on the grammar behind it.
+    {!Core.Grammar.with_scope} and {!Core.Grammar.with_binder} say where a
+    scope opens and which child positions introduce a name. Neither can be
+    derived, and both are claims about the language rather than a colour a
+    theme picks.
 
-    [locals.scm], which tags binding sites so an editor can follow a name to
-    where it was introduced. It needs three things a grammar does not say:
-    which productions open a scope, which child positions bind, and which
-    token is the language's identifier. The third is derived here already,
-    for keyword extraction. The first two are claims about the language, and
-    they would have to be written down.
+    {2 What is left out}
 
     [injections.scm], which needs a region tagged with the language written
     inside it. Nothing derives that. *)
@@ -43,6 +43,7 @@ type output =
   { grammar_js : string
   ; highlights : string
   ; folds : string
+  ; locals : string
   }
 
 (** The token tree-sitter should do keyword extraction against: the pattern

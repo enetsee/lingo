@@ -138,6 +138,38 @@ let unknown_identity_child =
   only [ prod "Root" [ child_req "x" (Token "ta") ] |> with_identity "nope" ]
 ;;
 
+let unknown_binder_child =
+  only [ prod "Root" [ child_req "x" (Token "ta") ] |> with_binder "nope" ]
+;;
+
+(* A binder on a child holding a punctuation token. Its text is the same
+   wherever it appears, so it introduces one name over and over. *)
+let binder_not_pattern_token =
+  only [ prod "Root" [ child_req "x" (Token "ta") ] |> with_binder "x" ]
+;;
+
+(* A binder on a child holding a rule. Its text is the whole subtree. *)
+let binder_holds_a_rule =
+  only
+    [ prod "Root" [ child_req "x" (Rule "Inner") ] |> with_binder "x"
+    ; prod "Inner" [ child_req "y" (Token "ta") ]
+    ]
+;;
+
+(* A binder on a child that takes either of two pattern tokens. Only one of
+   them is a name, and nothing here says which. The two patterns are disjoint
+   from each other and from the punctuation, so the lexer is clean. *)
+let binder_holds_alternatives =
+  only
+    ~tokens:
+      [ pat "word" Redfa.Regex.(plus (range_char ~lo:'c' ~hi:'z'))
+      ; pat "num" Redfa.Regex.(plus (range_char ~lo:'0' ~hi:'9'))
+      ]
+    [ prod "Root" [ child_alt ~modifier:Exactly_one "x" [ Token "word"; Token "num" ] ]
+      |> with_binder "x"
+    ]
+;;
+
 let unknown_message_child =
   only
     [ prod "Root" [ child_req "x" (Token "ta") ]
@@ -485,6 +517,10 @@ let all : (string * Grammar.t) list =
   ; "unknown-recover-to-token", unknown_recover_to_token
   ; "unknown-resync-anchor", unknown_resync_anchor
   ; "unknown-identity-child", unknown_identity_child
+  ; "unknown-binder-child", unknown_binder_child
+  ; "binder-not-pattern-token", binder_not_pattern_token
+  ; "binder-not-pattern-token", binder_holds_a_rule
+  ; "binder-not-pattern-token", binder_holds_alternatives
   ; "unknown-message-child", unknown_message_child
   ; "unused-message-child", unused_message_child
   ; "unused-recover-to", unused_recover_to

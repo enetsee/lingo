@@ -23,7 +23,7 @@
  (modules dump_textmate)
  (libraries lingo.core lingo.scopes lingo_editors.textmate editor_corpus))
 
-; The tree-sitter grammar and its two query files.
+; The tree-sitter grammar and its three query files.
 
 (executable
  (name dump_treesitter)
@@ -757,3 +757,123 @@
  (alias runtest)
  (action
   (diff wide.folds.scm wide.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
+  sexp.locals.scm.actual
+  (run ./dump_treesitter.exe sexp locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff sexp.locals.scm sexp.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  json.locals.scm.actual
+  (run ./dump_treesitter.exe json locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff json.locals.scm json.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  calc.locals.scm.actual
+  (run ./dump_treesitter.exe calc locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff calc.locals.scm calc.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  rassoc.locals.scm.actual
+  (run ./dump_treesitter.exe rassoc locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rassoc.locals.scm rassoc.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  postfix.locals.scm.actual
+  (run ./dump_treesitter.exe postfix locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff postfix.locals.scm postfix.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  shapes.locals.scm.actual
+  (run ./dump_treesitter.exe shapes locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff shapes.locals.scm shapes.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  unicode.locals.scm.actual
+  (run ./dump_treesitter.exe unicode locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff unicode.locals.scm unicode.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  recovery.locals.scm.actual
+  (run ./dump_treesitter.exe recovery locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff recovery.locals.scm recovery.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  comments.locals.scm.actual
+  (run ./dump_treesitter.exe comments locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff comments.locals.scm comments.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  rust.locals.scm.actual
+  (run ./dump_treesitter.exe rust locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rust.locals.scm rust.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  effekt.locals.scm.actual
+  (run ./dump_treesitter.exe effekt locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff effekt.locals.scm effekt.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  wide.locals.scm.actual
+  (run ./dump_treesitter.exe wide locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff wide.locals.scm wide.locals.scm.actual)))

@@ -55,6 +55,8 @@ type def =
   ; edge_space_before : bool option
   ; edge_space_after : bool option
   ; identity : int option
+  ; binders : int array
+  ; opens_scope : bool
   }
 
 let body_children (d : def) =

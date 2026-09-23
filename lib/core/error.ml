@@ -78,6 +78,8 @@ type detail =
   | Unknown_recover_to_token of { name : Grammar.Name.Token.t }
   | Unknown_resync_anchor of { name : Grammar.Name.Token.t }
   | Unknown_identity_child of { name : Grammar.Name.Child.t }
+  | Unknown_binder_child of { name : Grammar.Name.Child.t }
+  | Binder_not_pattern_token of { name : Grammar.Name.Child.t }
   | Unknown_message_child of { name : Grammar.Name.Child.t }
   | Unused_message_child of { name : Grammar.Name.Child.t }
   | Unused_recover_to of { name : Grammar.Name.Child.t }
@@ -157,6 +159,8 @@ let code (e : t) : string =
   | Unknown_recover_to_token _ -> "unknown-recover-to-token"
   | Unknown_resync_anchor _ -> "unknown-resync-anchor"
   | Unknown_identity_child _ -> "unknown-identity-child"
+  | Unknown_binder_child _ -> "unknown-binder-child"
+  | Binder_not_pattern_token _ -> "binder-not-pattern-token"
   | Unknown_message_child _ -> "unknown-message-child"
   | Unused_message_child _ -> "unused-message-child"
   | Unused_recover_to _ -> "unused-recover-to"
@@ -207,6 +211,8 @@ let names_stage_codes =
   ; "unknown-recover-to-token"
   ; "unknown-resync-anchor"
   ; "unknown-identity-child"
+  ; "unknown-binder-child"
+  ; "binder-not-pattern-token"
   ; "unknown-message-child"
   ; "unused-message-child"
   ; "unused-recover-to"
@@ -304,6 +310,10 @@ let hint (e : t) : string option =
     Some "drop the anchors; only a delimited production has a body they can end"
   | Unused_resync_anchors { body = Ends_at_its_separator } ->
     Some "drop the anchors, or wrap the list in an opener and a closer"
+  | Binder_not_pattern_token _ ->
+    Some
+      "a binder's own text is the name; a rule spans a whole subtree and a literal reads \
+       the same everywhere"
   | Repeated_vs_single _ -> Some "give one of them a kind of its own"
   | Overlapping_single_kinds _ -> Some "wrap one side in a rule of its own"
   | First_follow_conflict _ ->
@@ -353,6 +363,14 @@ let message (e : t) : string =
   | Unknown_identity_child { name } ->
     Printf.sprintf
       "the identity child %S is not a child of this production"
+      (Grammar.Name.Child.to_string name)
+  | Unknown_binder_child { name } ->
+    Printf.sprintf
+      "the binder %S is not a child of this production"
+      (Grammar.Name.Child.to_string name)
+  | Binder_not_pattern_token { name } ->
+    Printf.sprintf
+      "the binder %S does not hold a single pattern token"
       (Grammar.Name.Child.to_string name)
   | Unknown_message_child { name } ->
     Printf.sprintf

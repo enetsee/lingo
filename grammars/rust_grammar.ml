@@ -127,6 +127,7 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
     |> with_messages [ "name", "expected a struct name" ]
   in
   (* -- enum --
@@ -174,6 +175,7 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
   in
   (* -- trait -- *)
   let param =
@@ -183,6 +185,7 @@ let grammar : t =
       ; child_req "colon" (Token "colon")
       ; child_req "ty" (Rule "Type")
       ]
+    |> with_binder "name"
   in
   let param_list =
     prod "ParamList" [ child_rep "param" (Rule "Param") ]
@@ -204,6 +207,8 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
+    |> with_scope
   in
   let trait_body =
     prod ~break_style:Always "TraitBody" [ child_rep "method_" (Rule "MethodSig") ]
@@ -218,6 +223,8 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
+    |> with_scope
   in
   (* -- fn --
 
@@ -236,6 +243,8 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
+    |> with_scope
     |> with_recovery_strategy (Lookahead (lookahead_n 3))
     |> with_messages
          [ "name", "expected a function name after `fn`"
@@ -255,6 +264,7 @@ let grammar : t =
       ; child_req "semi" (Token "semi")
       ]
     |> with_committed
+    |> with_binder "name"
     |> with_messages [ "value", "expected an expression after `=`" ]
   in
   let expr_stmt =
@@ -266,6 +276,7 @@ let grammar : t =
   let block =
     prod ~break_style:Always ~indent_width:2 "Block" [ child_rep "stmt" (Rule "Stmt") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_scope
     |> with_recovery_strategy (Lookahead (lookahead_n 3))
   in
   (* -- match --

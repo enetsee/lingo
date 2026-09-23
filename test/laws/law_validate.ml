@@ -33,10 +33,10 @@
             -> this law. delimited-arity's witness is accepted.
         M5  Add an entry to [Error.full_stage_codes] that nothing emits.
             -> this law, part (a). The code has no witness.
-        M6  In [Check_full.first_follow], drop the [ch.c_greedy] guard.
-            -> this law. Four witnesses that use the flag to isolate their
-               code report two codes each, and two accepted grammars are
-               rejected.
+        M6  In [Check_full.first_follow], drop the [ch.greedy] guard.
+            -> this law, 9 findings. Three witnesses use the flag to isolate
+               their code and now report two codes each, and each of part
+               (f)'s six cycles reports a conflict beside the recursion.
         M7  In [Facts.of_grammar], replace [sorted] with the identity.
             -> this law, part (e). Findings come back in fold order.
         M8  In [Check_names.collisions], skip the [View_accessor] scope.
@@ -53,24 +53,27 @@
                the count.
         M10 In [Check_full.left_recursion], drop the self-edge test on a
             one-rule component, so every component reports.
-            -> this law and four others. Every rule is a component of its
-               own, so every grammar is rejected: parts (a), (d) and (f) here
-               (15 failures), and law_facts, law_first_follow, law_manifest,
-               sexp_facts and pratt_desugar with it, since each needs a
-               [Facts.t] the checker now refuses to build. The blast radius
-               is the observation. That one test is what separates a rule
-               from a rule that reaches itself.
+            -> this law and five others. Every rule is a component of its
+               own, so every grammar is rejected. 20 findings here: 11 under
+               part (a), where a witness now reports left-recursion beside
+               its own code, and 9 under part (d), where every accepted
+               grammar is refused. Beside it, law_facts 14,
+               law_first_follow 9, law_manifest 9, and one each from
+               sexp_facts and pratt_desugar, since each needs a [Facts.t] the
+               checker now refuses to build. The blast radius is the
+               observation. That one test is what separates a rule from a
+               rule that reaches itself.
         M11 In [Check_names.invalid_names], drop the postfix [kind_suffix]
             entries from the list of names checked.
             -> this law, parts (a) and (c). invalid-name's second witness is
                accepted, and (c) reads the same fact from the other side: a
                code filed under "names" whose grammar reaches "accepted".
 
-      Coverage. The 44 witness grammars and the 6 accepted ones: at least one
+      Coverage. The 55 witness grammars and the 9 accepted ones: at least one
       grammar per rejection and a handful of near misses, together with the
       six cycles part (f) builds for itself. It says nothing about whether a
       check's reason is right, only that it fires on one shape and stays
-      quiet on six others. Six accepted grammars is a statement about six
+      quiet on nine others. Nine accepted grammars is a statement about nine
       grammars; a generated corpus is what would make it a statement about
       the checker.
    -------------------------------------------------------------------------- *)

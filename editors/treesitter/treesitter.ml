@@ -9,6 +9,7 @@ type output =
   { grammar_js : string
   ; highlights : string
   ; folds : string
+  ; locals : string
   }
 
 (* Whether the token's language holds exactly this text.
@@ -60,7 +61,8 @@ let generate (scopes : Scopes.t) ~(language : string) ()
   | Error problems -> Error problems
   | Ok () ->
     let facts = Scopes.facts scopes in
-    (match Grammar_js.emit facts ~language ~word:(word_token facts) with
+    let word = word_token facts in
+    (match Grammar_js.emit facts ~language ~word with
      | Error reason ->
        (* [Check] has already walked every token's regex, so the only way
           here is a shape the emitter declines for a reason of its own. *)
@@ -76,5 +78,6 @@ let generate (scopes : Scopes.t) ~(language : string) ()
          { grammar_js
          ; highlights = Queries.highlights scopes
          ; folds = Queries.folds scopes
+         ; locals = Queries.locals scopes ~word
          })
 ;;

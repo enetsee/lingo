@@ -235,6 +235,7 @@ let grammar : t =
   (* -- definitions -- *)
   let param =
     prod "Param" [ child_req "name" (Token "ident"); child_opt "ann" (Rule "TypeAnn") ]
+    |> with_binder "name"
   in
   let type_ann =
     prod "TypeAnn" [ child_req "colon" (Token "colon"); child_req "ty" (Rule "Type") ]
@@ -260,6 +261,8 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
+    |> with_scope
     |> with_messages [ "body", "expected a definition body after `=`" ]
   in
   let val_def =
@@ -274,6 +277,7 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
   in
   let var_def =
     prod
@@ -287,6 +291,7 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
   in
   let type_def =
     prod
@@ -299,6 +304,7 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
   in
   let record =
     prod
@@ -309,6 +315,8 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
+    |> with_scope
   in
   (* An interface body repeats an operation, and an operation carries its own
      doc comment. A meaningful comment sits here as well as at the top level,
@@ -324,6 +332,8 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
+    |> with_scope
   in
   let interface_body =
     prod ~break_style:Always "InterfaceBody" [ child_rep "op" (Rule "Operation") ]
@@ -338,6 +348,8 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
+    |> with_scope
   in
   let effect_ =
     prod
@@ -350,6 +362,8 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
+    |> with_scope
   in
   let namespace_body =
     prod ~break_style:Always "NamespaceBody" [ child_rep "item" (Rule "Item") ]
@@ -364,6 +378,8 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_binder "name"
+    |> with_scope
   in
   (* -- types, stratified by hand --
 
@@ -407,6 +423,7 @@ let grammar : t =
   let block_body =
     prod ~break_style:Always ~indent_width:2 "Block" [ child_rep "stmt" (Rule "Stmt") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_scope
     |> with_recovery_strategy (Lookahead (lookahead_n 3))
   in
   let stmt =
@@ -494,6 +511,7 @@ let grammar : t =
       ; child_req "body" (Rule "Expr")
       ]
     |> with_committed
+    |> with_scope
   in
   (* [try] takes a block and then one or more handlers, each naming an
      interface and holding operation definitions. *)
@@ -530,6 +548,7 @@ let grammar : t =
       ]
     |> with_committed
     |> with_identity "name"
+    |> with_scope
   in
   (* A match arm takes one or more patterns and an optional guard, so [and] is
      read here as well as in the operator table. *)

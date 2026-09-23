@@ -24,6 +24,7 @@ let () =
           | "grammar" -> out.grammar_js
           | "highlights" -> out.highlights
           | "folds" -> out.folds
+          | "locals" -> out.locals
           | other ->
             Printf.eprintf "no output named %s\n" other;
             exit 1))

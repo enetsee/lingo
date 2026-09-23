@@ -170,6 +170,11 @@ type production =
   ; children : child list
   ; identity_child : Name.Child.t option
     (** The child whose text names the production in a diagnostic. *)
+  ; binders : Name.Child.t list
+    (** The children whose text introduces a name. See {!with_binder}. *)
+  ; opens_scope : bool
+    (** Whether a name introduced inside this production belongs to it. See
+          {!with_scope}. *)
   ; framing : framing
   ; recovery : recovery_spec
   ; error_messages : (Name.Child.t * string) list
@@ -517,7 +522,34 @@ val with_separator
   -> production
 
 val with_committed : ?boundary:bool -> production -> production
+
+(** A name introduced inside this production belongs to it, and is out of use
+    after it ends. A block is one of these. So is a function whose parameters
+    are its own.
+
+    Nothing derives this. The grammar accepts the same language either way,
+    and only an editor reads it. *)
+val with_scope : production -> production
+
 val with_identity : string -> production -> production
+
+(** Names a child whose text introduces a name. The [x] in [let x = 1] is one.
+
+    An editor reads binders to take a reader from a use of a name to where it
+    was introduced, to rename one, and to grey out one that is shadowed. A
+    production may name more than one child, and each call adds one.
+
+    The child has to hold a single pattern token, because the child's own text
+    is the name. A child holding a rule spans a whole subtree, and a child
+    holding a keyword or a punctuation literal has the same text wherever it
+    appears. Both are rejected as [binder-not-pattern-token].
+
+    {!with_identity} is close to this and says something else. It names the
+    child a diagnostic calls the production by. In [grammars/rust_grammar.ml]
+    every identity child is also a binder, and [Let.name] is a binder that is
+    not the identity. *)
+val with_binder : string -> production -> production
+
 val with_no_hole : production -> production
 
 (** Replaces the leading spacing flag of this production, which otherwise comes

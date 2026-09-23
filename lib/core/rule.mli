@@ -97,6 +97,15 @@ type def =
   ; identity : int option
     (** An index into {!children}, naming the child whose text names the
           rule in a diagnostic. *)
+  ; binders : int array
+    (** Indices into {!children}, naming the children whose text introduces
+          a name. Ascending, and each index appears once.
+
+          {!Grammar.with_binder} sets it, and says what it is for. An editor
+          backend reads it, and nothing in this library does. *)
+  ; opens_scope : bool
+    (** Whether a name introduced inside this rule belongs to it. See
+          {!Grammar.with_scope}. *)
   }
 
 (** The children the frame applies to. That is everything from
