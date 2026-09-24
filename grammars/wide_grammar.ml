@@ -86,7 +86,11 @@ let grammar : t =
         Redfa.Regex.(plus (chars_of_char_list [ ' '; '\t'; '\n'; '\r' ]))
     ]
   in
-  let file = prod ~break_style:Always "File" [ child_rep1 "stmt" (Rule "Select") ] in
+  let file =
+    prod
+      "File"
+      [ child_rep1 ~break:(always 1) ~between:(always 1) "stmt" (Rule "Select") ]
+  in
   (* The grammar exists for this production. Seven of its eleven children may
      be absent, and each of those seven opens on a keyword of its own. *)
   let select =

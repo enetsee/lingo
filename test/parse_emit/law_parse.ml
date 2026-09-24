@@ -296,6 +296,11 @@ let corpus : case list =
     ; parse = emitted Emitted_parsers.Wide_parser.parse_tokens
     ; seeds = Inputs.all Inputs.wide
     }
+  ; { name = "ml"
+    ; grammar = Lingo_grammars.Ml_grammar.grammar
+    ; parse = emitted Emitted_parsers.Ml_parser.parse_tokens
+    ; seeds = Inputs.all Inputs.ml
+    }
   ]
 ;;
 

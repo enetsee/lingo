@@ -248,6 +248,26 @@
   wide_residual.mli
   (run ./gen.exe wide residual-mli)))
 
+(rule
+ (with-stdout-to
+  ml_parser.ml
+  (run ./gen.exe ml parser)))
+
+(rule
+ (with-stdout-to
+  ml_parser.mli
+  (run ./gen.exe ml mli)))
+
+(rule
+ (with-stdout-to
+  ml_residual.ml
+  (run ./gen.exe ml residual)))
+
+(rule
+ (with-stdout-to
+  ml_residual.mli
+  (run ./gen.exe ml residual-mli)))
+
 ; [emitted_parsers] links lingo_runtime and nothing else of ours, so a
 ; generated parser that reached for lingo.plan or lingo.core would not build.
 
@@ -277,7 +297,9 @@
   rust_residual
   effekt_residual
   wide_parser
-  wide_residual)
+  wide_residual
+  ml_parser
+  ml_residual)
  (libraries lingo_runtime))
 
 ; law_ahead reads the emitted tables back and compares them with the plan they

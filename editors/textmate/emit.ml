@@ -343,6 +343,33 @@ let access_pattern (ctx : ctx) (postfix : Core.Block.postfix) (kinds : Core.Kind
   | _ -> None
 ;;
 
+(* What sits inside an [Enclosed] postfix.
+
+   Usually the block itself, as in [x(a, b)] where an argument is an
+   expression. Where the author put a production there instead, a labelled
+   argument or a statement in a trailing block, it is that production, and
+   including the block would lose every scope the production carries. A
+   content of tokens alone falls back to the block, whose tails colour
+   them. *)
+let content_includes (ctx : ctx) (block_key : string) (content : Core.Block.content)
+  : Yojson.Basic.t list
+  =
+  let kinds =
+    match content with
+    | Core.Block.One kinds -> kinds
+    | Core.Block.Many { elem; _ } -> elem
+  in
+  match
+    Array.to_list kinds
+    |> List.filter_map ~f:(fun (kind : Core.Kind.t) ->
+      match Core.Facts.rule_of_kind ctx.facts kind with
+      | Some target -> Some (rule_include ctx target.id)
+      | None -> None)
+  with
+  | [] -> [ include_key block_key ]
+  | includes -> includes
+;;
+
 (* [x(a, b)] and [x[i]]: a matched pair that recurses into the block. *)
 let enclosed_pattern
       (ctx : ctx)
@@ -366,7 +393,7 @@ let enclosed_pattern
          | Core.Block.Many { sep = Some { sep_tok; _ }; _ } ->
            Core.Facts.token_of_kind ctx.facts sep_tok
        in
-       let inner = [ include_key block_key ] @ separator_pattern ctx sep in
+       let inner = content_includes ctx block_key content @ separator_pattern ctx sep in
        Some
          (`Assoc
              (named ctx (Some (postfix_wrap ctx postfix.p_rule))

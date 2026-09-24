@@ -118,9 +118,9 @@ let kind_nullable (ctx : ctx) ~(nullable : bool array) (k : Kind.t) : bool =
 
 let child_nullable (ctx : ctx) ~(nullable : bool array) (c : Rule.child) : bool =
   match c.modifier with
-  | Grammar.Zero_or_one | Grammar.Zero_or_more -> true
+  | Grammar.Zero_or_one | Grammar.Zero_or_more _ -> true
   (* One or more takes its first, so it is nullable only where that one is. *)
-  | Grammar.Exactly_one | Grammar.One_or_more ->
+  | Grammar.Exactly_one | Grammar.One_or_more _ ->
     Array.exists ~f:(kind_nullable ctx ~nullable) c.alts
 ;;
 
@@ -209,8 +209,8 @@ let min_size (ctx : ctx) : int array =
     match c.modifier with
     (* A child that may be absent adds no tokens, and one that must appear
        adds its smallest symbol. *)
-    | Grammar.Zero_or_one | Grammar.Zero_or_more -> 0
-    | Grammar.Exactly_one | Grammar.One_or_more -> smallest c.alts
+    | Grammar.Zero_or_one | Grammar.Zero_or_more _ -> 0
+    | Grammar.Exactly_one | Grammar.One_or_more _ -> smallest c.alts
   in
   (* A delimited frame adds its two delimiters whatever its body holds. A
      separator sits between elements, and the smallest body is one element,
@@ -392,7 +392,7 @@ let follow (ctx : ctx) ~(nullable : bool array) ~(first : Kind.Set.t array)
           let rest_first =
             match c.modifier with
             | Grammar.Exactly_one | Grammar.Zero_or_one -> rest_first
-            | Grammar.Zero_or_more | Grammar.One_or_more ->
+            | Grammar.Zero_or_more _ | Grammar.One_or_more _ ->
               (match d.frame with
                | Rule.Delimited { sep = Some { sep_tok; _ }; _ }
                | Rule.Separated { sep_tok; _ } -> Kind.Set.add sep_tok rest_first

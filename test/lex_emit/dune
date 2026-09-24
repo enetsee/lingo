@@ -146,6 +146,126 @@
   unicode_match.mli
   (run ./gen.exe unicode mli)))
 
+(rule
+ (with-stdout-to
+  recovery_lexer.ml
+  (run ./gen.exe recovery table)))
+
+(rule
+ (with-stdout-to
+  recovery_lexer.mli
+  (run ./gen.exe recovery mli)))
+
+(rule
+ (with-stdout-to
+  recovery_match.ml
+  (run ./gen.exe recovery match)))
+
+(rule
+ (with-stdout-to
+  recovery_match.mli
+  (run ./gen.exe recovery mli)))
+
+(rule
+ (with-stdout-to
+  comments_lexer.ml
+  (run ./gen.exe comments table)))
+
+(rule
+ (with-stdout-to
+  comments_lexer.mli
+  (run ./gen.exe comments mli)))
+
+(rule
+ (with-stdout-to
+  comments_match.ml
+  (run ./gen.exe comments match)))
+
+(rule
+ (with-stdout-to
+  comments_match.mli
+  (run ./gen.exe comments mli)))
+
+(rule
+ (with-stdout-to
+  rust_lexer.ml
+  (run ./gen.exe rust table)))
+
+(rule
+ (with-stdout-to
+  rust_lexer.mli
+  (run ./gen.exe rust mli)))
+
+(rule
+ (with-stdout-to
+  rust_match.ml
+  (run ./gen.exe rust match)))
+
+(rule
+ (with-stdout-to
+  rust_match.mli
+  (run ./gen.exe rust mli)))
+
+(rule
+ (with-stdout-to
+  effekt_lexer.ml
+  (run ./gen.exe effekt table)))
+
+(rule
+ (with-stdout-to
+  effekt_lexer.mli
+  (run ./gen.exe effekt mli)))
+
+(rule
+ (with-stdout-to
+  effekt_match.ml
+  (run ./gen.exe effekt match)))
+
+(rule
+ (with-stdout-to
+  effekt_match.mli
+  (run ./gen.exe effekt mli)))
+
+(rule
+ (with-stdout-to
+  wide_lexer.ml
+  (run ./gen.exe wide table)))
+
+(rule
+ (with-stdout-to
+  wide_lexer.mli
+  (run ./gen.exe wide mli)))
+
+(rule
+ (with-stdout-to
+  wide_match.ml
+  (run ./gen.exe wide match)))
+
+(rule
+ (with-stdout-to
+  wide_match.mli
+  (run ./gen.exe wide mli)))
+
+(rule
+ (with-stdout-to
+  ml_lexer.ml
+  (run ./gen.exe ml table)))
+
+(rule
+ (with-stdout-to
+  ml_lexer.mli
+  (run ./gen.exe ml mli)))
+
+(rule
+ (with-stdout-to
+  ml_match.ml
+  (run ./gen.exe ml match)))
+
+(rule
+ (with-stdout-to
+  ml_match.mli
+  (run ./gen.exe ml mli)))
+
 ; [emitted] links lingo_runtime and nothing else of ours, so a generated
 ; lexer that reached for redfa or ucharset would not build.
 
@@ -165,10 +285,22 @@
   rassoc_match
   postfix_match
   shapes_match
-  unicode_match)
+  unicode_match
+  recovery_lexer
+  comments_lexer
+  rust_lexer
+  effekt_lexer
+  wide_lexer
+  ml_lexer
+  recovery_match
+  comments_match
+  rust_match
+  effekt_match
+  wide_match
+  ml_match)
  (libraries lingo_runtime))
 
 (tests
  (names law_lex)
  (modules law_lex)
- (libraries law emitted lex lingo.core lingo_grammars lingo_runtime))
+ (libraries law emitted lex lingo.core lingo_grammars lingo_runtime inputs))

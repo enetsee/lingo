@@ -1,0 +1,72 @@
+tokens
+  import               keyword.control.import
+  type                 storage.type.type
+  data                 storage.type.data
+  let                  storage.type.let
+  val                  storage.type.val
+  if                   keyword.control.if
+  then                 keyword.control.then
+  else                 keyword.control.else
+  lbrace               punctuation.section.braces.begin
+  rbrace               punctuation.section.braces.end
+  lparen               punctuation.separator
+  rparen               punctuation.separator
+  lbracket             punctuation.section.brackets.begin
+  rbracket             punctuation.section.brackets.end
+  dot                  punctuation.accessor
+  tilde                punctuation.separator
+  bang                 keyword.operator.bang
+  comma                punctuation.separator
+  semi                 punctuation.separator
+  colon                punctuation.separator
+  arrow                keyword.operator.arrow
+  eq                   punctuation.separator
+  bar                  punctuation.separator
+  plus                 keyword.operator.plus
+  minus                keyword.operator.minus
+  star                 keyword.operator.star
+  slash                keyword.operator.slash
+  eqeq                 keyword.operator.eqeq
+  lt                   keyword.operator.lt
+  ident                variable.other
+  int                  constant.numeric.integer
+  ws                   -
+  comment              comment.line.comment
+rules
+  File                 -
+  Decl                 -
+  Sig                  -
+  SigItem              -
+  ValDecl              - identity=entity.name.function
+  Import               -
+  Path                 -
+  PathSeg              -
+    name               variable.other.member
+  TypeDecl             - identity=entity.name.type
+  TypeGroup            -
+  DataDecl             - identity=entity.name.type
+  DataBody             -
+  Ctor                 -
+    name               entity.name.type.constructor
+  CtorPayload          -
+  LetDecl              - identity=entity.name.function
+  Param                -
+  PlainParam           -
+    name               variable.parameter
+  LabelledParam        -
+    name               variable.parameter
+  List                 -
+  If                   -
+  Else                 -
+  Stmt                 -
+  Label                -
+    name               entity.name.label
+  Arg                  -
+  Type                 -
+  Expr                 -
+  TypeBin              -
+  ExprBin              -
+  ExprPrefix           -
+  ExprPostfixField     -
+  ExprPostfixCall      meta.function-call
+  ExprPostfixBlock     -

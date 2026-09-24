@@ -52,7 +52,7 @@ let of_token (token : Core.Token.def) : (string, string) result =
   | Core.Grammar.Keyword text -> Ok (literal text)
   | Core.Grammar.Punctuation text -> Ok (escape text)
   | Core.Grammar.Pattern { textmate = Some source; _ } -> Ok source
-  | Core.Grammar.Pattern { textmate = None; lexer } -> Redfa.Regex.to_oniguruma lexer
+  | Core.Grammar.Pattern { textmate = None; lexer; _ } -> Redfa.Regex.to_oniguruma lexer
 ;;
 
 (* The bytes that would carry a literal on into a longer one.

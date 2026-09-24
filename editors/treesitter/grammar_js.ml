@@ -51,8 +51,8 @@ let repeated (child : Core.Rule.child) (element : Js.t) : Js.t =
   match child.modifier with
   | Core.Grammar.Exactly_one -> element
   | Core.Grammar.Zero_or_one -> Js.call "optional" [ element ]
-  | Core.Grammar.Zero_or_more -> Js.call "repeat" [ element ]
-  | Core.Grammar.One_or_more -> Js.call "repeat1" [ element ]
+  | Core.Grammar.Zero_or_more _ -> Js.call "repeat" [ element ]
+  | Core.Grammar.One_or_more _ -> Js.call "repeat1" [ element ]
 ;;
 
 let child (facts : Core.Facts.t) (child : Core.Rule.child) : Js.t =
@@ -86,8 +86,8 @@ let separated
       Js.call "seq" [ one_or_more; Js.call "optional" [ sep ] ]
   in
   match element_child.modifier with
-  | Core.Grammar.One_or_more -> with_trailing
-  | Core.Grammar.Zero_or_more -> Js.call "optional" [ with_trailing ]
+  | Core.Grammar.One_or_more _ -> with_trailing
+  | Core.Grammar.Zero_or_more _ -> Js.call "optional" [ with_trailing ]
   | Core.Grammar.Exactly_one -> element
   | Core.Grammar.Zero_or_one -> Js.call "optional" [ element ]
 ;;
@@ -279,7 +279,8 @@ let role_body
 
 let regex_of (token : Core.Token.def) : Js.t =
   match token.klass with
-  | Core.Grammar.Pattern { lexer; _ } ->
+  | Core.Grammar.Pattern { treesitter = Some source; _ } -> Js.raw_regex source
+  | Core.Grammar.Pattern { lexer; treesitter = None; _ } ->
     (match Js.regex lexer with
      | Ok js -> js
      | Error reason ->

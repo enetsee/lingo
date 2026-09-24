@@ -937,7 +937,16 @@ and node
                    then
                      fun st ->
                        let close_lead, rest, st = tail_of st in
-                       close_lead ^^ rest, st
+                       (* The closer and this node's tail have to stay where
+                          they are, inside the group that settles their line.
+                          They must not take this rule's indent: a line they
+                          break is not one this rule's boundary opened, and
+                          carried down it reaches every sibling after this
+                          node. [fn main() -> int] is where it shows, where
+                          the empty parameter list indented the whole function
+                          body. Nesting back by the same amount leaves the
+                          group alone and cancels the one below. *)
+                       Handsome.Utf8.nest (-r.indent) (close_lead ^^ rest), st
                    else nothing)
                 st
             in

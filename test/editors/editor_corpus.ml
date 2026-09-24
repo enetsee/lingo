@@ -113,6 +113,36 @@ let effekt : Scopes.override list =
   ]
 ;;
 
+(* The small ML. Both roots are scoped from one list, because [TypeDecl] is an
+   item of each and the chain resolves it once.
+
+   [Label] is the one child here a theme has no shape for, so it takes a
+   [Custom] path. The rest come off the list. *)
+let ml : Scopes.override list =
+  [ token "ident" Scopes.Scope.Variable_other
+  ; token "int" Scopes.Scope.Constant_numeric_integer
+  ; token "import" (Scopes.Scope.Keyword_control (Some "import"))
+  ; token "if" (Scopes.Scope.Keyword_control (Some "if"))
+  ; token "then" (Scopes.Scope.Keyword_control (Some "then"))
+  ; token "else" (Scopes.Scope.Keyword_control (Some "else"))
+  ; token "type" (Scopes.Scope.Storage_type (Some "type"))
+  ; token "data" (Scopes.Scope.Storage_type (Some "data"))
+  ; token "let" (Scopes.Scope.Storage_type (Some "let"))
+  ; token "val" (Scopes.Scope.Storage_type (Some "val"))
+  ; token "arrow" (Scopes.Scope.Keyword_operator_other "arrow")
+  ; identity "TypeDecl" (Scopes.Scope.Entity_name_type None)
+  ; identity "DataDecl" (Scopes.Scope.Entity_name_type None)
+  ; identity "LetDecl" Scopes.Scope.Entity_name_function
+  ; identity "ValDecl" Scopes.Scope.Entity_name_function
+  ; child "Ctor" "name" (Scopes.Scope.Entity_name_type (Some "constructor"))
+  ; child "PlainParam" "name" Scopes.Scope.Variable_parameter
+  ; child "LabelledParam" "name" Scopes.Scope.Variable_parameter
+  ; child "Label" "name" (Scopes.Scope.Custom "entity.name.label")
+  ; child "PathSeg" "name" Scopes.Scope.Variable_other_member
+  ; rule "ExprPostfixCall" (Scopes.Scope.Meta "function-call")
+  ]
+;;
+
 let all : entry list =
   [ { name = "sexp"; grammar = Lingo_grammars.Sexp_grammar.grammar; overrides = [] }
   ; { name = "json"; grammar = Lingo_grammars.Json_grammar.grammar; overrides = json }
@@ -135,6 +165,7 @@ let all : entry list =
     ; overrides = effekt
     }
   ; { name = "wide"; grammar = Lingo_grammars.Wide_grammar.grammar; overrides = wide }
+  ; { name = "ml"; grammar = Lingo_grammars.Ml_grammar.grammar; overrides = ml }
   ]
 ;;
 

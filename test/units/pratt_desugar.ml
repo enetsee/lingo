@@ -187,8 +187,8 @@ let describe (c : Core.Rule.child) =
     (match c.modifier with
      | Exactly_one -> "1"
      | Zero_or_one -> "?"
-     | Zero_or_more -> "*"
-     | One_or_more -> "+")
+     | Zero_or_more _ -> "*"
+     | One_or_more _ -> "+")
     (String.concat
        "|"
        (List.map

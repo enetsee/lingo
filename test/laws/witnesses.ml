@@ -344,7 +344,7 @@ let repeated_vs_single_kinds =
   only
     [ prod
         "Root"
-        [ child_alt ~modifier:Zero_or_more "xs" [ Token "ta"; Token "tb" ]
+        [ child_alt ~modifier:(Zero_or_more Fit) "xs" [ Token "ta"; Token "tb" ]
         ; child_req "x" (Token "ta")
         ]
     ]
@@ -566,6 +566,7 @@ let accepted : (string * Grammar.t) list =
   ; "calc", Lingo_grammars.Calc_grammar.grammar
   ; "rassoc", Lingo_grammars.Rassoc_grammar.grammar
   ; "json", Lingo_grammars.Json_grammar.grammar
+  ; "ml", Lingo_grammars.Ml_grammar.grammar
   ; ( "delimited-with-sep"
     , only
         [ prod "Root" [ child_rep "e" (Rule "Item") ]

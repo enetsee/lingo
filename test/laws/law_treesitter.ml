@@ -446,18 +446,48 @@ let () =
   List.iter
     (fun (e : emitted) ->
        let bodies = rule_bodies e.out.grammar_js in
+       let node_of (root : Core.Rule.id) : string =
+         Treesitter.Node.of_rule (Core.Facts.rule e.facts root).name
+       in
        (match bodies, Core.Facts.(e.facts.roots) with
         | [], _ -> Law.fail "(c) %s: the grammar has no rules" e.name
-        | (first, _) :: _, root :: _ ->
-          let expected = Treesitter.Node.of_rule (Core.Facts.rule e.facts root).name in
+        | _ :: _, [] -> ()
+        | (first, _) :: _, roots ->
+          (* One root is the rule tree-sitter starts at. Several need one made
+             up to choose between them, which is what the emitter names
+             {!Treesitter.Node.start}. *)
+          let expected =
+            match roots with
+            | [ root ] -> node_of root
+            | [] | _ :: _ :: _ -> Treesitter.Node.start
+          in
           if first <> expected
           then
             Law.fail
               "(c) %s: tree-sitter would start at %S, and the grammar's root is %S"
               e.name
               first
-              expected
-        | _ :: _, [] -> ());
+              expected;
+          (* The made-up rule is the only thing that names the roots, so a root
+             it leaves out is one no parse can start at. *)
+          (match roots with
+           | [] | [ _ ] -> ()
+           | _ :: _ :: _ ->
+             let named =
+               match List.assoc_opt first bodies with
+               | Some body -> references body
+               | None -> []
+             in
+             List.iter
+               (fun root ->
+                  let name = node_of root in
+                  if not (List.mem name named)
+                  then
+                    Law.fail
+                      "(c) %s: the start rule does not reach the root %S"
+                      e.name
+                      name)
+               roots));
        let seen = Hashtbl.create 64 in
        let rec walk (name : string) : unit =
          if not (Hashtbl.mem seen name)

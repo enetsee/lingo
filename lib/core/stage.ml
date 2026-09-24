@@ -219,13 +219,20 @@ let shape (names : names) : shape =
     | Some i -> names.tokens.(i).Token.kind
     | None -> names.error_kind
   in
-  let mk_child ?(modifier = Grammar.Exactly_one) ?(greedy = false) ?recover_to name alts
+  let mk_child
+        ?(modifier = Grammar.Exactly_one)
+        ?(greedy = false)
+        ?(break = Grammar.Fit)
+        ?recover_to
+        name
+        alts
     : Rule.child
     =
     { child_name = name
     ; alts
     ; kinds = Kind.Set.of_list (Array.to_list alts)
     ; modifier
+    ; c_break = break
     ; greedy
     ; recover_to
     }
@@ -234,6 +241,7 @@ let shape (names : names) : shape =
     let alts = Array.of_list (List.map ~f:res (c.head :: c.rest)) in
     mk_child
       ~modifier:c.modifier
+      ~break:c.c_break
       ~greedy:c.c_parse.greedy
       ?recover_to:
         (Option.map
@@ -259,9 +267,7 @@ let shape (names : names) : shape =
     | Grammar.Separated { sep; trailing; boundary } ->
       Rule.Separated { sep_tok = res_tok sep; trailing; boundary }
   in
-  let default_format =
-    Grammar.{ break_style = Fit; indent_width = 2; separator_lines = 1 }
-  in
+  let default_format = Grammar.{ indent_width = 2 } in
   let synthetic_recovery = Grammar.{ strategy = Insert_only } in
   let token_alts syms = Array.of_list (List.map ~f:res syms) in
   let build id slot : Rule.def =
@@ -395,7 +401,7 @@ let shape (names : names) : shape =
                | Many { elem; sep } ->
                  ( of_sep sep
                  , mk_child
-                     ~modifier:Zero_or_more
+                     ~modifier:(Zero_or_more Grammar.Fit)
                      (Grammar.Name.Child.of_string "args")
                      [| res elem |] )
              in

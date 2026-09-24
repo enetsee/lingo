@@ -19,6 +19,7 @@ let grammars : (string * Core.Grammar.t) list =
   ; "rust", Lingo_grammars.Rust_grammar.grammar
   ; "effekt", Lingo_grammars.Effekt_grammar.grammar
   ; "wide", Lingo_grammars.Wide_grammar.grammar
+  ; "ml", Lingo_grammars.Ml_grammar.grammar
   ]
 ;;
 

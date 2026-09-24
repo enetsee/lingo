@@ -37,8 +37,8 @@ let compute (g : Core.Grammar.t) : tables =
   let csym_nullable cs = List.exists sym_nullable (syms_of cs) in
   let child_nullable (c : Core.Grammar.child) =
     match c.modifier with
-    | Zero_or_one | Zero_or_more -> true
-    | Exactly_one | One_or_more -> csym_nullable c
+    | Zero_or_one | Zero_or_more _ -> true
+    | Exactly_one | One_or_more _ -> csym_nullable c
   in
   let prod_nullable (p : Core.Grammar.production) =
     match p.framing with
@@ -205,7 +205,7 @@ let compute (g : Core.Grammar.t) : tables =
              let rf =
                match c.modifier with
                | Exactly_one | Zero_or_one -> rf
-               | Zero_or_more | One_or_more ->
+               | Zero_or_more _ | One_or_more _ ->
                  (match p.framing with
                   | Delimited { sep_policy = With_sep { sep; _ }; _ } ->
                     String_set.add (Core.Grammar.Name.Token.to_string sep) rf

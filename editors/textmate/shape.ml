@@ -46,7 +46,7 @@ let rule_of_child (facts : Core.Facts.t) (child : Core.Rule.child) : Core.Rule.d
 let is_required (child : Core.Rule.child) : bool =
   match child.modifier with
   | Core.Grammar.Exactly_one -> true
-  | Core.Grammar.Zero_or_one | Core.Grammar.Zero_or_more | Core.Grammar.One_or_more ->
+  | Core.Grammar.Zero_or_one | Core.Grammar.Zero_or_more _ | Core.Grammar.One_or_more _ ->
     false
 ;;
 

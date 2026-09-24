@@ -248,6 +248,46 @@ let corpus : case list =
         ; "\xc2\xab\xc2\xa9\xc2\xbb"
         ]
     }
+    (* The six below take the shared list in test/inputs rather than a list
+       here. The seven above predate it and hold bytes the shared list has no
+       reason to carry: a truncated codepoint, a keyword prefix, a token that
+       does not lex at all. *)
+  ; { name = "recovery"
+    ; grammar = Lingo_grammars.Recovery_grammar.grammar
+    ; lex = Emitted.Recovery_lexer.lex
+    ; matched = Emitted.Recovery_match.lex
+    ; inputs = Inputs.all Inputs.recovery
+    }
+  ; { name = "comments"
+    ; grammar = Lingo_grammars.Comments_grammar.grammar
+    ; lex = Emitted.Comments_lexer.lex
+    ; matched = Emitted.Comments_match.lex
+    ; inputs = Inputs.all Inputs.comments
+    }
+  ; { name = "rust"
+    ; grammar = Lingo_grammars.Rust_grammar.grammar
+    ; lex = Emitted.Rust_lexer.lex
+    ; matched = Emitted.Rust_match.lex
+    ; inputs = Inputs.all Inputs.rust
+    }
+  ; { name = "effekt"
+    ; grammar = Lingo_grammars.Effekt_grammar.grammar
+    ; lex = Emitted.Effekt_lexer.lex
+    ; matched = Emitted.Effekt_match.lex
+    ; inputs = Inputs.all Inputs.effekt
+    }
+  ; { name = "wide"
+    ; grammar = Lingo_grammars.Wide_grammar.grammar
+    ; lex = Emitted.Wide_lexer.lex
+    ; matched = Emitted.Wide_match.lex
+    ; inputs = Inputs.all Inputs.wide
+    }
+  ; { name = "ml"
+    ; grammar = Lingo_grammars.Ml_grammar.grammar
+    ; lex = Emitted.Ml_lexer.lex
+    ; matched = Emitted.Ml_match.lex
+    ; inputs = Inputs.all Inputs.ml
+    }
   ]
 ;;
 

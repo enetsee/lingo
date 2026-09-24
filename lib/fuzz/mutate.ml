@@ -275,7 +275,7 @@ let repeat (t : t) (rng : Random.State.t) (subject : subject) : outcome =
           let repeats (kind : int) =
             Array.exists d.children ~f:(fun (c : Core.Rule.child) ->
               (match c.modifier with
-               | Core.Grammar.Zero_or_more | Core.Grammar.One_or_more -> true
+               | Core.Grammar.Zero_or_more _ | Core.Grammar.One_or_more _ -> true
                | Core.Grammar.Exactly_one | Core.Grammar.Zero_or_one -> false)
               && Array.exists c.alts ~f:(fun alt -> Core.Kind.to_int alt = kind))
           in

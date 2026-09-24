@@ -133,8 +133,8 @@ let local_recovery_set (t : t) (i : Rule.id) ~(child : int) : Kind.Set.t =
       in
       let child_nullable (c : Rule.child) =
         match c.modifier with
-        | Grammar.Zero_or_one | Grammar.Zero_or_more -> true
-        | Grammar.Exactly_one | Grammar.One_or_more ->
+        | Grammar.Zero_or_one | Grammar.Zero_or_more _ -> true
+        | Grammar.Exactly_one | Grammar.One_or_more _ ->
           Array.exists ~f:kind_nullable c.alts
       in
       let alts_first (c : Rule.child) =
@@ -206,8 +206,8 @@ let delimiter_pairs (t : t) : (Kind.t * Kind.t) list =
 let pp_modifier (fmt : Format.formatter) : Grammar.modifier -> unit = function
   | Grammar.Exactly_one -> Format.pp_print_string fmt "1"
   | Grammar.Zero_or_one -> Format.pp_print_string fmt "?"
-  | Grammar.Zero_or_more -> Format.pp_print_string fmt "*"
-  | Grammar.One_or_more -> Format.pp_print_string fmt "+"
+  | Grammar.Zero_or_more _ -> Format.pp_print_string fmt "*"
+  | Grammar.One_or_more _ -> Format.pp_print_string fmt "+"
 ;;
 
 let pp_frame (t : t) (fmt : Format.formatter) (f : Rule.frame) : unit =

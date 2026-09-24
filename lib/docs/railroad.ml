@@ -87,9 +87,9 @@ let repeated (body : t) ~(sep : t option) (modifier : Core.Grammar.modifier) : t
   match modifier, sep with
   | Core.Grammar.Exactly_one, _ -> body
   | Core.Grammar.Zero_or_one, _ -> optional body
-  | Core.Grammar.One_or_more, sep -> repeat ?sep body
-  | Core.Grammar.Zero_or_more, None -> any body
-  | Core.Grammar.Zero_or_more, Some sep -> optional (repeat ~sep body)
+  | Core.Grammar.One_or_more _, sep -> repeat ?sep body
+  | Core.Grammar.Zero_or_more _, None -> any body
+  | Core.Grammar.Zero_or_more _, Some sep -> optional (repeat ~sep body)
 ;;
 
 let of_child (grammar : Core.Grammar.t) ?(sep : t option) (child : Core.Grammar.child) : t

@@ -106,6 +106,11 @@ let corpus =
     ; tables = Emitted_parsers.Wide_residual.tables
     ; source = "select a from t where a > 10;"
     }
+  ; { name = "ml"
+    ; grammar = Lingo_grammars.Ml_grammar.grammar
+    ; tables = Emitted_parsers.Ml_residual.tables
+    ; source = "let f (a : int) : int = a + 1;"
+    }
   ]
 ;;
 

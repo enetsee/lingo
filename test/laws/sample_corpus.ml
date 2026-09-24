@@ -30,6 +30,7 @@ let examples : (string * Core.Grammar.t) list =
   ; "recovery", Lingo_grammars.Recovery_grammar.grammar
   ; "shapes", Lingo_grammars.Shapes_grammar.grammar
   ; "comments", Lingo_grammars.Comments_grammar.grammar
+  ; "wide", Lingo_grammars.Wide_grammar.grammar
   ]
 ;;
 

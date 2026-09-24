@@ -35,6 +35,7 @@ type child =
   ; alts : Kind.t array
   ; kinds : Kind.Set.t
   ; modifier : Grammar.modifier
+  ; c_break : Grammar.break_style
   ; greedy : bool
   ; recover_to : Kind.Set.t option
   }

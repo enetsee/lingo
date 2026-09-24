@@ -173,6 +173,13 @@ let corpus =
         (fun ~lex ~width root -> Emitted_formatters.Wide_layout.format ~lex ~width root)
     ; inputs = Inputs.wide
     }
+  ; { name = "ml"
+    ; grammar = Lingo_grammars.Ml_grammar.grammar
+    ; emitted = Emitted_formatters.Ml_layout.layout
+    ; format =
+        (fun ~lex ~width root -> Emitted_formatters.Ml_layout.format ~lex ~width root)
+    ; inputs = Inputs.ml
+    }
   ]
 ;;
 

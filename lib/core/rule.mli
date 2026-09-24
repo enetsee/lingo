@@ -61,6 +61,9 @@ type child =
           settles which one takes it. *)
   ; kinds : Kind.Set.t (** {!child.alts} as a set. *)
   ; modifier : Grammar.modifier
+  ; c_break : Grammar.break_style
+    (** The boundary in front of this child. On the first child it is the
+          boundary against whatever encloses the children. *)
   ; greedy : bool
   ; recover_to : Kind.Set.t option
     (** Replaces the recovery set computed at this position. [None] leaves

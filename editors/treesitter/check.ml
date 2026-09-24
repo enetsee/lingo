@@ -43,7 +43,8 @@ let check_regexes (facts : Core.Facts.t) : problem list =
   |> List.filter_map ~f:(fun (token : Core.Token.def) ->
     match token.klass with
     | Core.Grammar.Keyword _ | Core.Grammar.Punctuation _ -> None
-    | Core.Grammar.Pattern { lexer; _ } ->
+    | Core.Grammar.Pattern { treesitter = Some _; _ } -> None
+    | Core.Grammar.Pattern { lexer; treesitter = None; _ } ->
       (match Js.regex lexer with
        | Ok _ -> None
        | Error reason -> Some (No_js_regex { token = token.name; reason })))

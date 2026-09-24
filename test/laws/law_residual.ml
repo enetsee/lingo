@@ -311,6 +311,11 @@ let corpus =
     ; tables = Emitted_parsers.Wide_residual.tables
     ; inputs = Inputs.all Inputs.wide
     }
+  ; { name = "ml"
+    ; grammar = Lingo_grammars.Ml_grammar.grammar
+    ; tables = Emitted_parsers.Ml_residual.tables
+    ; inputs = Inputs.all Inputs.ml
+    }
   ]
 ;;
 
@@ -426,22 +431,32 @@ let outcome
 ;;
 
 (* Whether the probe parse read past the spliced token without reporting on
-   the way, wherever it managed it.
+   the way, wherever it managed it. The step the parse was at when it arrived
+   is the one the residual is taken from, because nothing has branched on the
+   new token yet.
 
-   Put at a byte rather than at a step, this always settles: the parse either
-   got past the token or it did not. The step
-   the parse was at when it arrived is the one the residual is taken from,
-   because nothing has branched on the new token yet. *)
-let took_here (steps : (Ir.Residual.State.t * int * int) list) ~(at_index : int) : bool =
-  let rec arrive (steps : (Ir.Residual.State.t * int * int) list) : bool =
+   [Unknown] is what it is above: the probe parse reached no step at this
+   index, so there is nothing to read. A byte past the last token is where it
+   shows. The garbage in front of the splice is drained, the root closes
+   behind it, and the position the residual came from is one the probe never
+   stands on.
+
+   This returned a bare [bool] until 2026-09-24, with "never arrived" and
+   "arrived and did not get past" both reading false. Nothing separated them
+   until ml joined the corpus with a bare top-level loop and an input whose
+   first token starts no declaration. *)
+let verdict_here (steps : (Ir.Residual.State.t * int * int) list) ~(at_index : int)
+  : verdict
+  =
+  let rec arrive (steps : (Ir.Residual.State.t * int * int) list) : verdict =
     match steps with
-    | [] -> false
+    | [] -> Unknown
     | (_, index, reported) :: rest ->
       if Int.equal index at_index
       then (
         match List.find_opt rest ~f:(fun (_, index, _) -> index > at_index) with
-        | Some (_, _, beyond) -> Int.equal beyond reported
-        | None -> false)
+        | Some (_, _, beyond) -> if Int.equal beyond reported then Took else Refused
+        | None -> Refused)
       else arrive rest
   in
   arrive steps
@@ -456,6 +471,7 @@ let holes = ref 0
 let no_example = ref []
 let bytes = ref 0
 let byte_pairs = ref 0
+let byte_unknown = ref 0
 let from_tree = ref 0
 let tree_apart = ref []
 let over_byte = ref []
@@ -612,10 +628,11 @@ let () =
             let steps = probe_at index kind text in
             let named = Array.exists residual ~f:(Int.equal kind) in
             let name = name_of kind in
-            match took_here steps ~at_index:index, named with
-            | false, true -> over_byte := (c.name, src, state, name) :: !over_byte
-            | true, false -> under_byte := (c.name, src, state, name) :: !under_byte
-            | true, true | false, false -> ()));
+            match verdict_here steps ~at_index:index, named with
+            | Refused, true -> over_byte := (c.name, src, state, name) :: !over_byte
+            | Took, false -> under_byte := (c.name, src, state, name) :: !under_byte
+            | Unknown, _ -> incr byte_unknown
+            | Took, true | Refused, false -> ()));
         List.iter (List.rev !seen) ~f:(fun (state, index) ->
           incr positions;
           count by_grammar c.name;
@@ -678,10 +695,11 @@ let () =
   if !over_byte = [] && !under_byte = []
   then
     Law.pass
-      "at a byte the residual is exactly what the parse takes: %d bytes, %d kinds, none \
-       left undecided"
+      "at a byte the residual is exactly what the parse takes: %d bytes, %d kinds \
+       settled and %d the parse cannot be put there to try"
       !bytes
-      !byte_pairs;
+      (!byte_pairs - !byte_unknown)
+      !byte_unknown;
   if !over = [] && !under = []
   then
     Law.pass

@@ -760,6 +760,66 @@
 
 (rule
  (with-stdout-to
+  ml.scopes.actual
+  (run ./dump_scopes.exe ml)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff ml.scopes ml.scopes.actual)))
+
+(rule
+ (with-stdout-to
+  ml.textmate.actual
+  (run ./dump_textmate.exe ml)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff ml.textmate ml.textmate.actual)))
+
+(rule
+ (with-stdout-to
+  ml.docs.html.actual
+  (run ./dump_docs.exe ml)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff ml.docs.html ml.docs.html.actual)))
+
+(rule
+ (with-stdout-to
+  ml.grammar.js.actual
+  (run ./dump_treesitter.exe ml grammar)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff ml.grammar.js ml.grammar.js.actual)))
+
+(rule
+ (with-stdout-to
+  ml.highlights.scm.actual
+  (run ./dump_treesitter.exe ml highlights)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff ml.highlights.scm ml.highlights.scm.actual)))
+
+(rule
+ (with-stdout-to
+  ml.folds.scm.actual
+  (run ./dump_treesitter.exe ml folds)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff ml.folds.scm ml.folds.scm.actual)))
+
+(rule
+ (with-stdout-to
   sexp.locals.scm.actual
   (run ./dump_treesitter.exe sexp locals)))
 
@@ -877,3 +937,13 @@
  (alias runtest)
  (action
   (diff wide.locals.scm wide.locals.scm.actual)))
+
+(rule
+ (with-stdout-to
+  ml.locals.scm.actual
+  (run ./dump_treesitter.exe ml locals)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff ml.locals.scm ml.locals.scm.actual)))

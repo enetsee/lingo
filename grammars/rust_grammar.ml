@@ -89,11 +89,9 @@ let grammar : t =
   in
   let file =
     prod
-      ~break_style:Always
-      ~separator_lines:2
       ~indent_width:0
       "File"
-      [ child_rep "item" (Rule "Item") ]
+      [ child_rep ~break:(always 1) ~between:(always 2) "item" (Rule "Item") ]
   in
   let item =
     prod
@@ -112,6 +110,7 @@ let grammar : t =
   in
   let struct_body =
     prod "StructBody" [ child_rep "field" (Rule "Field") ]
+    |> with_leading_space true
     |> with_delimited_sep
          ~open_tok:"lbrace"
          ~close_tok:"rbrace"
@@ -120,10 +119,11 @@ let grammar : t =
   in
   let struct_ =
     prod
+      ~indent_width:0
       "Struct"
       [ child_req "kw" (Token "struct")
-      ; child_req "name" (Token "ident")
-      ; child_req "body" (Rule "StructBody")
+      ; child_req ~break:Never "name" (Token "ident")
+      ; child_req ~break:Never "body" (Rule "StructBody")
       ]
     |> with_committed
     |> with_identity "name"
@@ -160,6 +160,7 @@ let grammar : t =
   in
   let enum_body =
     prod "EnumBody" [ child_rep "variant" (Rule "Variant") ]
+    |> with_leading_space true
     |> with_delimited_sep
          ~open_tok:"lbrace"
          ~close_tok:"rbrace"
@@ -168,10 +169,11 @@ let grammar : t =
   in
   let enum_ =
     prod
+      ~indent_width:0
       "Enum"
       [ child_req "kw" (Token "enum")
-      ; child_req "name" (Token "ident")
-      ; child_req "body" (Rule "EnumBody")
+      ; child_req ~break:Never "name" (Token "ident")
+      ; child_req ~break:Never "body" (Rule "EnumBody")
       ]
     |> with_committed
     |> with_identity "name"
@@ -189,6 +191,7 @@ let grammar : t =
   in
   let param_list =
     prod "ParamList" [ child_rep "param" (Rule "Param") ]
+    |> with_trailing_space true
     |> with_delimited_sep
          ~open_tok:"lparen"
          ~close_tok:"rparen"
@@ -197,13 +200,14 @@ let grammar : t =
   in
   let method_sig =
     prod
+      ~indent_width:0
       "MethodSig"
       [ child_req "kw" (Token "fn")
-      ; child_req "name" (Token "ident")
-      ; child_req "params" (Rule "ParamList")
-      ; child_req "arrow" (Token "arrow")
-      ; child_req "ret_ty" (Rule "Type")
-      ; child_req "semi" (Token "semi")
+      ; child_req ~break:Never "name" (Token "ident")
+      ; child_req ~break:Never "params" (Rule "ParamList")
+      ; child_req ~break:Never "arrow" (Token "arrow")
+      ; child_req ~break:Never "ret_ty" (Rule "Type")
+      ; child_req ~break:Never "semi" (Token "semi")
       ]
     |> with_committed
     |> with_identity "name"
@@ -211,15 +215,19 @@ let grammar : t =
     |> with_scope
   in
   let trait_body =
-    prod ~break_style:Always "TraitBody" [ child_rep "method_" (Rule "MethodSig") ]
+    prod
+      "TraitBody"
+      [ child_rep ~break:(always 1) ~between:(always 1) "method_" (Rule "MethodSig") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_leading_space true
   in
   let trait =
     prod
+      ~indent_width:0
       "Trait"
       [ child_req "kw" (Token "trait")
-      ; child_req "name" (Token "ident")
-      ; child_req "body" (Rule "TraitBody")
+      ; child_req ~break:Never "name" (Token "ident")
+      ; child_req ~break:Never "body" (Rule "TraitBody")
       ]
     |> with_committed
     |> with_identity "name"
@@ -233,13 +241,18 @@ let grammar : t =
      node rather than unwinding the whole item. *)
   let fn_ =
     prod
+      ~indent_width:0
       "Fn"
+      (* The signature is a space throughout and the body opens on the same
+         line. Without this the [Block] inside, which always breaks, leaves
+         the group around the header broken too, and every boundary in it
+         opens: [fn], the name and the parameter list each take a line. *)
       [ child_req "kw" (Token "fn")
-      ; child_req "name" (Token "ident")
-      ; child_req "params" (Rule "ParamList")
-      ; child_req "arrow" (Token "arrow")
-      ; child_req "ret_ty" (Rule "Type")
-      ; child_req "body" (Rule "Block")
+      ; child_req ~break:Never "name" (Token "ident")
+      ; child_req ~break:Never "params" (Rule "ParamList")
+      ; child_req ~break:Never "arrow" (Token "arrow")
+      ; child_req ~break:Never "ret_ty" (Rule "Type")
+      ; child_req ~break:Never "body" (Rule "Block")
       ]
     |> with_committed
     |> with_identity "name"
@@ -258,24 +271,30 @@ let grammar : t =
     prod
       "Let"
       [ child_req "kw" (Token "let")
-      ; child_req "name" (Token "ident")
-      ; child_req "eq" (Token "eq")
+      ; child_req ~break:Never "name" (Token "ident")
+      ; child_req ~break:Never "eq" (Token "eq")
       ; child_req "value" (Rule "Expr")
-      ; child_req "semi" (Token "semi")
+      ; child_req ~break:Never "semi" (Token "semi")
       ]
     |> with_committed
     |> with_binder "name"
     |> with_messages [ "value", "expected an expression after `=`" ]
   in
   let expr_stmt =
-    prod "ExprStmt" [ child_req "expr" (Rule "Expr"); child_req "semi" (Token "semi") ]
+    prod
+      "ExprStmt"
+      [ child_req "expr" (Rule "Expr"); child_req ~break:Never "semi" (Token "semi") ]
   in
   let stmt =
     prod "Stmt" [ child_alt_rules ~modifier:Exactly_one "kind" [ "Let"; "ExprStmt" ] ]
   in
   let block =
-    prod ~break_style:Always ~indent_width:2 "Block" [ child_rep "stmt" (Rule "Stmt") ]
+    prod
+      ~indent_width:2
+      "Block"
+      [ child_rep ~break:(always 1) ~between:(always 1) "stmt" (Rule "Stmt") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_leading_space true
     |> with_scope
     |> with_recovery_strategy (Lookahead (lookahead_n 3))
   in
@@ -293,7 +312,9 @@ let grammar : t =
       ]
   in
   let match_body =
-    prod ~break_style:Always "MatchBody" [ child_rep "arm" (Rule "MatchArm") ]
+    prod
+      "MatchBody"
+      [ child_rep ~break:(always 1) ~between:(always 1) "arm" (Rule "MatchArm") ]
     |> with_delimited_sep
          ~open_tok:"lbrace"
          ~close_tok:"rbrace"
@@ -302,10 +323,11 @@ let grammar : t =
   in
   let match_ =
     prod
+      ~indent_width:0
       "Match"
       [ child_req "kw" (Token "match")
-      ; child_req "scrutinee" (Rule "Expr")
-      ; child_req "body" (Rule "MatchBody")
+      ; child_req ~break:Never "scrutinee" (Rule "Expr")
+      ; child_req ~break:Never "body" (Rule "MatchBody")
       ]
     |> with_committed
   in

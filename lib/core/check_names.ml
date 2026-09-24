@@ -237,12 +237,12 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
              or more does: its first is required. *)
           let acc =
             match c.modifier, c.c_parse.recover_to with
-            | (Grammar.Zero_or_one | Grammar.Zero_or_more), Some _ ->
+            | (Grammar.Zero_or_one | Grammar.Zero_or_more _), Some _ ->
               Error.make ~detail:(Error.Unused_recover_to { name = c.name }) where :: acc
             | ( ( Grammar.Zero_or_one
-                | Grammar.Zero_or_more
+                | Grammar.Zero_or_more _
                 | Grammar.Exactly_one
-                | Grammar.One_or_more )
+                | Grammar.One_or_more _ )
               , _ ) -> acc
           in
           List.fold_left
@@ -294,12 +294,12 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
                :: acc
              (* Only a required child reports, so only a required child has
                 wording to replace. *)
-             | Some { modifier = Grammar.Zero_or_one | Grammar.Zero_or_more; _ } ->
+             | Some { modifier = Grammar.Zero_or_one | Grammar.Zero_or_more _; _ } ->
                Error.make
                  ~detail:(Error.Unused_message_child { name = nm })
                  (Error.At_child { production = pn; child = nm })
                :: acc
-             | Some { modifier = Grammar.Exactly_one | Grammar.One_or_more; _ } -> acc)
+             | Some { modifier = Grammar.Exactly_one | Grammar.One_or_more _; _ } -> acc)
           prod.error_messages
           acc
       in

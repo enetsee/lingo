@@ -1,0 +1,268 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Ml",
+  "scopeName": "source.ml",
+  "patterns": [
+    { "include": "#file" },
+    { "include": "#trivia" },
+    { "include": "#tokens" }
+  ],
+  "repository": {
+    "file": { "patterns": [ { "include": "#decl" } ] },
+    "decl": {
+      "patterns": [
+        { "include": "#import" },
+        { "include": "#type_decl" },
+        { "include": "#data_decl" },
+        { "include": "#let_decl" }
+      ]
+    },
+    "import": {
+      "name": "meta.import.ml",
+      "begin": "\\bimport\\b",
+      "end": "(?<=;)",
+      "beginCaptures": { "0": { "name": "keyword.control.import.ml" } },
+      "patterns": [
+        { "include": "#path" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "path": { "patterns": [ { "include": "#path_seg" } ] },
+    "path_seg": {
+      "name": "meta.path.seg.ml",
+      "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "captures": {
+        "1": { "name": "punctuation.accessor.ml" },
+        "2": { "name": "variable.other.member.ml" }
+      }
+    },
+    "type_decl": {
+      "name": "meta.type.decl.ml",
+      "begin": "(\\btype\\b)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=;)",
+      "beginCaptures": {
+        "1": { "name": "storage.type.type.ml" },
+        "2": { "name": "entity.name.type.ml" }
+      },
+      "patterns": [
+        { "include": "#type" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "type_group": {
+      "name": "meta.type.group.ml",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": { "0": { "name": "punctuation.separator.ml" } },
+      "endCaptures": { "0": { "name": "punctuation.separator.ml" } },
+      "patterns": [
+        { "include": "#type" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "data_decl": {
+      "name": "meta.data.decl.ml",
+      "begin": "(\\bdata\\b)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=\\})",
+      "beginCaptures": {
+        "1": { "name": "storage.type.data.ml" },
+        "2": { "name": "entity.name.type.ml" }
+      },
+      "patterns": [
+        { "include": "#data_body" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "data_body": {
+      "name": "meta.data.body.ml",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.braces.begin.ml" }
+      },
+      "endCaptures": { "0": { "name": "punctuation.section.braces.end.ml" } },
+      "patterns": [
+        { "include": "#ctor" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "ctor": {
+      "patterns": [
+        { "include": "#ctor_payload" },
+        {
+          "name": "entity.name.type.constructor.ml",
+          "match": "[A-Z_a-z][0-9A-Z_a-z]*"
+        }
+      ]
+    },
+    "ctor_payload": {
+      "name": "meta.ctor.payload.ml",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": { "0": { "name": "punctuation.separator.ml" } },
+      "endCaptures": { "0": { "name": "punctuation.separator.ml" } },
+      "patterns": [
+        { "include": "#type" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "let_decl": {
+      "name": "meta.let.decl.ml",
+      "begin": "(\\blet\\b)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "end": "(?<=;)",
+      "beginCaptures": {
+        "1": { "name": "storage.type.let.ml" },
+        "2": { "name": "entity.name.function.ml" }
+      },
+      "patterns": [
+        { "include": "#param" },
+        { "include": "#type" },
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "param": {
+      "patterns": [
+        { "include": "#plain_param" }, { "include": "#labelled_param" }
+      ]
+    },
+    "plain_param": {
+      "name": "meta.plain.param.ml",
+      "match": "(\\()(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*(:)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*(\\))",
+      "captures": {
+        "1": { "name": "punctuation.separator.ml" },
+        "2": { "name": "variable.parameter.ml" },
+        "3": { "name": "punctuation.separator.ml" },
+        "4": { "name": "variable.other.ml" },
+        "5": { "name": "punctuation.separator.ml" }
+      }
+    },
+    "labelled_param": {
+      "name": "meta.labelled.param.ml",
+      "match": "(~)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
+      "captures": {
+        "1": { "name": "punctuation.separator.ml" },
+        "2": { "name": "variable.parameter.ml" }
+      }
+    },
+    "list": {
+      "name": "meta.list.ml",
+      "begin": "\\[",
+      "end": "\\]",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.brackets.begin.ml" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.brackets.end.ml" }
+      },
+      "patterns": [
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "if": { "patterns": [] },
+    "label": {
+      "name": "meta.label.ml",
+      "match": "(~)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*(:)",
+      "captures": {
+        "1": { "name": "punctuation.separator.ml" },
+        "2": { "name": "entity.name.label.ml" },
+        "3": { "name": "punctuation.separator.ml" }
+      }
+    },
+    "arg": {
+      "patterns": [ { "include": "#label" }, { "include": "#expr" } ]
+    },
+    "type": {
+      "patterns": [
+        { "include": "#type_group" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "expr": {
+      "patterns": [
+        { "include": "#list" },
+        { "include": "#if" },
+        {
+          "name": "meta.expr.postfix.field.ml",
+          "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
+          "captures": {
+            "1": { "name": "punctuation.accessor.ml" },
+            "2": { "name": "variable.other.ml" }
+          }
+        },
+        {
+          "name": "meta.function-call.ml",
+          "begin": "\\(",
+          "end": "\\)",
+          "beginCaptures": { "0": { "name": "punctuation.separator.ml" } },
+          "endCaptures": { "0": { "name": "punctuation.separator.ml" } },
+          "patterns": [ { "include": "#arg" } ]
+        },
+        {
+          "name": "meta.expr.postfix.block.ml",
+          "begin": "\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "0": { "name": "punctuation.section.braces.begin.ml" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.braces.end.ml" }
+          },
+          "patterns": [ { "include": "#expr" } ]
+        },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "trivia": {
+      "patterns": [
+        { "match": "[\\t\\n\\r ]+" },
+        {
+          "name": "comment.line.comment.ml",
+          "match": "\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)"
+        }
+      ]
+    },
+    "tokens": {
+      "patterns": [
+        { "name": "keyword.control.import.ml", "match": "\\bimport\\b" },
+        { "name": "storage.type.type.ml", "match": "\\btype\\b" },
+        { "name": "storage.type.data.ml", "match": "\\bdata\\b" },
+        { "name": "keyword.control.then.ml", "match": "\\bthen\\b" },
+        { "name": "keyword.control.else.ml", "match": "\\belse\\b" },
+        { "name": "storage.type.let.ml", "match": "\\blet\\b" },
+        { "name": "storage.type.val.ml", "match": "\\bval\\b" },
+        { "name": "keyword.control.if.ml", "match": "\\bif\\b" },
+        { "name": "keyword.operator.arrow.ml", "match": "->" },
+        { "name": "keyword.operator.eqeq.ml", "match": "==" },
+        { "name": "punctuation.separator.ml", "match": "\\(" },
+        { "name": "punctuation.separator.ml", "match": "\\)" },
+        { "name": "punctuation.accessor.ml", "match": "\\." },
+        { "name": "punctuation.separator.ml", "match": "~" },
+        { "name": "keyword.operator.bang.ml", "match": "!" },
+        { "name": "punctuation.separator.ml", "match": "," },
+        { "name": "punctuation.separator.ml", "match": ";" },
+        { "name": "punctuation.separator.ml", "match": ":" },
+        { "name": "punctuation.separator.ml", "match": "=" },
+        { "name": "punctuation.separator.ml", "match": "\\|" },
+        { "name": "keyword.operator.plus.ml", "match": "\\+" },
+        { "name": "keyword.operator.minus.ml", "match": "-" },
+        { "name": "keyword.operator.star.ml", "match": "\\*" },
+        { "name": "keyword.operator.slash.ml", "match": "/" },
+        { "name": "keyword.operator.lt.ml", "match": "<" },
+        { "name": "variable.other.ml", "match": "[A-Z_a-z][0-9A-Z_a-z]*" },
+        { "name": "constant.numeric.integer.ml", "match": "[0-9]+" }
+      ]
+    }
+  }
+}

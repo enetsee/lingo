@@ -6,12 +6,41 @@ module Name = Name
 
 (** {1 Types} *)
 
-(** How many times a child occurs. *)
+(** A count of line breaks, one or more. Build one with {!always}, which
+    raises outside that range. Zero breaks is [Never]. *)
+type lines = private int
+
+(** What the formatter does at one boundary.
+
+    A boundary is the join between two things the formatter writes, and a
+    production with [n] children has [n - 1] of them. Each takes its own
+    break, so a declaration can hold its header on one line and break before
+    its body.
+
+    A single setting for a whole production is what [Fn]'s header used to
+    have, and it is why [fn main() -> int \{] came out over six lines: a body
+    that always breaks leaves the group around it broken, and every boundary
+    in that group then opens together. Say [Never] at the boundaries that are
+    a space and the rest is free to break. *)
+type break_style =
+  | Never (** A space. The boundary never becomes a line break. *)
+  | Fit (** A line break where the line does not fit, and a space where it does. *)
+  | Always of lines (** That many line breaks, whatever fits. *)
+
+(** How many times a child occurs.
+
+    The two repeating forms carry the break between two elements, because
+    that boundary exists only where a child repeats. It is separate from the
+    break in front of the child itself: a file whose items are one to a line
+    with a blank between them takes [Always (lines 1)] in front of the list
+    and [Always (lines 2)] between its elements. *)
 type modifier =
   | Exactly_one (** Absence emits a diagnostic and a hole. *)
   | Zero_or_one (** Absence is silent. *)
-  | Zero_or_more (** Absence is silent, and the loop ends where no element starts. *)
-  | One_or_more (** The first reports the way {!Exactly_one} does, and the rest repeat. *)
+  | Zero_or_more of break_style
+  (** Absence is silent, and the loop ends where no element starts. *)
+  | One_or_more of break_style
+  (** The first reports the way {!Exactly_one} does, and the rest repeat. *)
 
 (** What a child binds to. The payloads are strings since the data constructor 
     already says which namespace it is in. The checker lifts to either  
@@ -22,6 +51,10 @@ type symbol =
 
 val is_token : symbol -> bool
 val is_rule : symbol -> bool
+
+(** [always n] is [n] line breaks at a boundary. Raises [Invalid_argument]
+    below one, where {!Never} is what is meant. *)
+val always : int -> break_style
 
 (** Parser overrides for one child.
 
@@ -72,17 +105,16 @@ type child_parse =
     dispatches on FIRST sets, taking the first whose set admits the cursor. *)
 type child =
   { name : Name.Child.t
+  ; c_break : break_style
+    (** The boundary in front of this child. On the first child that is the
+          boundary against whatever encloses the children: the opener of a
+          frame, and the one a child recovery put where no slot admits it
+          takes. *)
   ; head : symbol
   ; rest : symbol list
   ; modifier : modifier
   ; c_parse : child_parse
   }
-
-(** How the formatter lays out a production's children. *)
-type break_style =
-  | Fit (** One line where it fits, broken where it doesn't. *)
-  | Always (** Broken, with a hard line between children. *)
-  | Never (** One line even where it doesn't fit. *)
 
 (** What happens to a separator after the last element.
 
@@ -151,12 +183,9 @@ type framing =
     without every production literal having to change. *)
 type recovery_spec = { strategy : recovery_strategy }
 
-(** Layout hints for a production. Set through {!prod}. *)
-type production_format =
-  { break_style : break_style
-  ; indent_width : int
-  ; separator_lines : int
-  }
+(** Layout hints for a production. Set through {!prod}. The breaks are on
+    the children, because a break is a property of one boundary. *)
+type production_format = { indent_width : int }
 
 (** A production.
 
@@ -276,11 +305,19 @@ type trivia_class =
   | Reformat (** Drop it and re-emit the spacing. *)
   | Preserve (** Keep the matched text as it stands, for a comment. *)
 
-(** [lexer] drives the lexer automaton and, by default, TextMate emission.
-    [textmate] supplies Oniguruma source for the features that need it. *)
+(** [lexer] drives the lexer automaton and, by default, both backends'
+    emission.
+
+    A term neither backend's dialect has, such as a complement or an
+    intersection over anything but character classes, is written out by hand:
+    [textmate] carries the Oniguruma spelling and [treesitter] the JavaScript
+    one. The two dialects fail on the same terms, so a token that needs one
+    needs the other, and a token that sets only [textmate] is one the
+    tree-sitter backend rejects. *)
 type pattern_spec =
   { lexer : Redfa.Regex.t
   ; textmate : string option
+  ; treesitter : string option
   }
 
 (** How a token's bytes are matched. *)
@@ -416,26 +453,53 @@ val postfix_call
 
 (** {1 Children} *)
 
+(** [break] is the boundary in front of the child and defaults to {!Fit}.
+    [between], on the repeating builders, is the boundary between two of its
+    elements and defaults to the same. *)
 val child
   :  ?recover_to:string list
   -> ?greedy:bool
+  -> ?break:break_style
   -> modifier:modifier
   -> string
   -> symbol
   -> child
 
-val child_req : ?recover_to:string list -> string -> symbol -> child
-val child_opt : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> child
-val child_rep : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> child
+val child_req : ?recover_to:string list -> ?break:break_style -> string -> symbol -> child
+
+val child_opt
+  :  ?recover_to:string list
+  -> ?greedy:bool
+  -> ?break:break_style
+  -> string
+  -> symbol
+  -> child
+
+val child_rep
+  :  ?recover_to:string list
+  -> ?greedy:bool
+  -> ?break:break_style
+  -> ?between:break_style
+  -> string
+  -> symbol
+  -> child
 
 (** One or more, where [child_rep] is zero or more. A list with nothing
     around it usually takes this: an empty one is not syntax anybody wrote. *)
-val child_rep1 : ?recover_to:string list -> ?greedy:bool -> string -> symbol -> child
+val child_rep1
+  :  ?recover_to:string list
+  -> ?greedy:bool
+  -> ?break:break_style
+  -> ?between:break_style
+  -> string
+  -> symbol
+  -> child
 
 (** Raises [Invalid_argument] on an empty list. A child admitting no symbol
     is not a shape a grammar can mean. *)
 val child_alt
   :  ?recover_to:string list
+  -> ?break:break_style
   -> modifier:modifier
   -> string
   -> symbol list
@@ -444,6 +508,7 @@ val child_alt
 (** {!child_alt} where every alternative is a rule. *)
 val child_alt_rules
   :  ?recover_to:string list
+  -> ?break:break_style
   -> modifier:modifier
   -> string
   -> string list
@@ -474,17 +539,17 @@ val punct
 val punct_tight : ?trivia:trivia_class -> name:string -> string -> token_def
 
 (** A token matched by a regex. *)
-val pat : ?textmate:string -> ?trivia:trivia_class -> string -> Redfa.Regex.t -> token_def
+val pat
+  :  ?textmate:string
+  -> ?treesitter:string
+  -> ?trivia:trivia_class
+  -> string
+  -> Redfa.Regex.t
+  -> token_def
 
 (** {1 Productions} *)
 
-val prod
-  :  ?break_style:break_style
-  -> ?indent_width:int
-  -> ?separator_lines:int
-  -> string
-  -> child list
-  -> production
+val prod : ?indent_width:int -> string -> child list -> production
 
 (** Gives named children their own catalogue entries. Without one, a child
     gets the default "expected X". *)

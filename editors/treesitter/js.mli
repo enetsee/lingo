@@ -30,6 +30,11 @@ val string : string -> t
     itself, in UTF-8. *)
 val regex : Redfa.Regex.t -> (t, string) result
 
+(** A regex literal written out by hand, for a term {!regex} has no form for.
+    The source goes between the slashes as it stands, so it is on the author
+    to write what both of tree-sitter's engines read. *)
+val raw_regex : string -> t
+
 (** Lays the tree out to fit [width], breaking a call that does not.
 
     [column] is where the text starts on its line, and it settles whether

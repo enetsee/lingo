@@ -127,6 +127,16 @@
   wide_layout.mli
   (run ./gen.exe wide mli)))
 
+(rule
+ (with-stdout-to
+  ml_layout.ml
+  (run ./gen.exe ml layout)))
+
+(rule
+ (with-stdout-to
+  ml_layout.mli
+  (run ./gen.exe ml mli)))
+
 ; [emitted_formatters] links lingo_runtime and nothing else of ours, so a
 ; generated formatter that reached for lingo.layout would not build.
 
@@ -144,7 +154,8 @@
   comments_layout
   rust_layout
   effekt_layout
-  wide_layout)
+  wide_layout
+  ml_layout)
  (libraries lingo_runtime))
 
 (tests

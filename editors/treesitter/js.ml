@@ -217,6 +217,8 @@ let regex (source : Redfa.Regex.t) : (t, string) result =
   | exception Cannot reason -> Error reason
 ;;
 
+let raw_regex (source : string) : t = Atom ("/" ^ source ^ "/")
+
 (* -- layout ---------------------------------------------------------------- *)
 
 let rec flat (t : t) : string =

@@ -175,6 +175,7 @@ let corpus =
     ; inputs = Inputs.effekt
     }
   ; { name = "wide"; grammar = Lingo_grammars.Wide_grammar.grammar; inputs = Inputs.wide }
+  ; { name = "ml"; grammar = Lingo_grammars.Ml_grammar.grammar; inputs = Inputs.ml }
   ]
 ;;
 

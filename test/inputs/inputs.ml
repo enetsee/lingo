@@ -324,6 +324,54 @@ let effekt : t =
   }
 ;;
 
+let ml : t =
+  { good =
+      [ "import a.b;"
+      ; "import std.list.core;"
+      ; "type T = int;"
+      ; "type F = int -> int -> int;"
+      ; "type P = int * string -> int;"
+      ; "type G = (int -> int) * int;"
+      ; "data C { | Red | Rgb(int, int, int) }"
+      ; "let x : int = 1;"
+      ; "let f (a : int) (b : int) : int = a + b;"
+      ; "let f ~a : int = a;"
+      ; "let x : int = [1, 2, 3];"
+      ; "let x : int = f(~by: 1, 2);"
+      ; "let x : int = f { a; b; };"
+      ; "let x : int = if a then b else c;"
+        (* The dangling [else]. [greedy] on the child attaches it to the
+           nearer [if], and nothing else in test/inputs reaches that flag. *)
+      ; "let x : int = if a then if b then c else d;"
+      ; "let x : int = a.b.c;"
+      ; "let x : int = !a == b < c + d * e / f;"
+      ; "(* a note *) let x : int = 1;"
+      ; "import a.b.c;\n\ntype T = int;\n\nlet y : T = 2;"
+      ; "let map (f : int -> int) (xs : int) : int =\n\
+        \  f(~by: 1, xs) {\n\
+        \    xs.head;\n\
+        \    !xs;\n\
+        \  };"
+      ]
+  ; broken =
+      [ "let"
+      ; "let x : = 1;"
+      ; "let x : int = ;"
+      ; "type = int;"
+      ; "data C { | }"
+        (* The list's resync anchors. Without them the element loop carries
+           past the [;] and takes the rest of the declaration with it. *)
+      ; "let x : int = [1, 2;"
+      ; "let x : int = f(;"
+      ; "import ;"
+      ; "let x : int = 1"
+      ; "data C {"
+      ; "let x : int = a +;"
+      ; "(* unterminated"
+      ]
+  }
+;;
+
 let wide : t =
   { good =
       [ "select a from t;"

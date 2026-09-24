@@ -90,7 +90,9 @@ let grammar : t =
          [ "colon", "expected ':' after object key"; "value", "expected a JSON value" ]
   in
   let object_ =
-    prod ~break_style:Always "Object" [ child_rep "member" (Rule "Member") ]
+    prod
+      "Object"
+      [ child_rep ~break:(always 1) ~between:(always 1) "member" (Rule "Member") ]
     |> with_delimited_sep
          ~open_tok:"lbrace"
          ~close_tok:"rbrace"

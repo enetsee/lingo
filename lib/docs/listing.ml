@@ -57,8 +57,8 @@ let modifier (modifier : Core.Grammar.modifier) : Render.document =
   match modifier with
   | Core.Grammar.Exactly_one -> Handsome.Utf8.empty
   | Core.Grammar.Zero_or_one -> notation "?"
-  | Core.Grammar.Zero_or_more -> notation "*"
-  | Core.Grammar.One_or_more -> notation "+"
+  | Core.Grammar.Zero_or_more _ -> notation "*"
+  | Core.Grammar.One_or_more _ -> notation "+"
 ;;
 
 let child (grammar : Core.Grammar.t) (child : Core.Grammar.child) : Render.document =

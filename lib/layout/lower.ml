@@ -2,11 +2,11 @@ open StdLabels
 
 let kind (k : Core.Kind.t) : Ir.Kind.t = Core.Kind.to_int k
 
-let break (style : Grammar.break_style) ~(lines : int) : Ir.Layout.break =
+let break (style : Grammar.break_style) : Ir.Layout.break =
   match style with
   | Never -> Flat
   | Fit -> Fit
-  | Always -> Hard (if lines < 1 then 1 else lines)
+  | Always n -> Hard (n :> int)
 ;;
 
 let trailing (t : Grammar.trailing_sep) : Ir.Layout.trailing =
@@ -88,7 +88,7 @@ let kinds_of (expand : (Ir.Kind.t, Ir.Kind.t list) Hashtbl.t) (c : Core.Rule.chi
 
 let repeats (m : Grammar.modifier) =
   match m with
-  | Zero_or_more | One_or_more -> true
+  | Zero_or_more _ | One_or_more _ -> true
   | Exactly_one | Zero_or_one -> false
 ;;
 
@@ -108,24 +108,26 @@ let block_of (f : Core.Facts.t) (r : Core.Rule.def) =
 ;;
 
 (* The boundary in front of each slot, and the one between two children of a
-   slot that takes more than one.
+   slot that takes more than one. Each comes off the child that declares it.
 
    Slot zero describes a boundary that is not there: nothing of this rule
-   precedes its first child. It reads [Flat] so the caller's boundary stands. *)
-let slots
-      (expand : (Ir.Kind.t, Ir.Kind.t list) Hashtbl.t)
-      (r : Core.Rule.def)
-      ~(style : Grammar.break_style)
-      ~(lines : int)
+   precedes its first child. It reads [Flat] so the caller's boundary stands,
+   and the break the first child declares is read as the rule's [body] and
+   [inner] instead. *)
+let slots (expand : (Ir.Kind.t, Ir.Kind.t list) Hashtbl.t) (r : Core.Rule.def)
   : Ir.Layout.slot array
   =
   Array.mapi r.children ~f:(fun i (c : Core.Rule.child) ->
-    let before = if i = 0 then Ir.Layout.Flat else break style ~lines:1 in
-    let rep = repeats c.modifier in
+    let before = if i = 0 then Ir.Layout.Flat else break c.c_break in
     { Ir.Layout.kinds = kinds_of expand c
-    ; repeats = rep
+    ; repeats = repeats c.modifier
     ; before
-    ; between = (if rep then break style ~lines else before)
+      (* A slot that holds one child has one boundary, so both its breaks
+         name it. {!Layout.Check.Single_slot_between} is that invariant. *)
+    ; between =
+        (match c.modifier with
+         | Grammar.Zero_or_more b | Grammar.One_or_more b -> break b
+         | Grammar.Exactly_one | Grammar.Zero_or_one -> before)
     })
 ;;
 
@@ -155,12 +157,21 @@ let rule
       (r : Core.Rule.def)
   : Ir.Layout.rule
   =
-  let style, indent, lines =
+  let indent =
     match block_of f r with
-    | Some (b, _) -> Grammar.Fit, b.format.continuation_indent, 1
-    | None -> r.format.break_style, r.format.indent_width, r.format.separator_lines
+    | Some (b, _) -> b.format.continuation_indent
+    | None -> r.format.indent_width
   in
-  let ss = slots expand r ~style ~lines in
+  (* The boundary against the frame, and the one a stray child takes. Both sit
+     in front of the body, which is the first child, so both come off it. A
+     rule with no children has neither and the value is unread. *)
+  let edge =
+    match block_of f r with
+    | Some _ -> Ir.Layout.Fit
+    | None ->
+      if Array.length r.children = 0 then Ir.Layout.Fit else break r.children.(0).c_break
+  in
+  let ss = slots expand r in
   let ss =
     match block_of f r with
     | Some (b, Core.Role.Bin) -> operator_slots b.format ss
@@ -172,8 +183,8 @@ let rule
   ; kind = kind r.kind
   ; frame = frame f r.frame
   ; slots = ss
-  ; body = break style ~lines:1
-  ; inner = break style ~lines:1
+  ; body = edge
+  ; inner = edge
   ; indent
   ; edge_before = r.edge_space_before
   ; edge_after = r.edge_space_after

@@ -360,6 +360,13 @@ let corpus =
     ; grammar = Lingo_grammars.Comments_grammar.grammar
     ; inputs = Inputs.comments
     }
+  ; { name = "rust"; grammar = Lingo_grammars.Rust_grammar.grammar; inputs = Inputs.rust }
+  ; { name = "effekt"
+    ; grammar = Lingo_grammars.Effekt_grammar.grammar
+    ; inputs = Inputs.effekt
+    }
+  ; { name = "wide"; grammar = Lingo_grammars.Wide_grammar.grammar; inputs = Inputs.wide }
+  ; { name = "ml"; grammar = Lingo_grammars.Ml_grammar.grammar; inputs = Inputs.ml }
   ]
 ;;
 

@@ -291,20 +291,20 @@ let system_of ?(comments = 0.) (f : Core.Facts.t) : Bolts.system * map =
   in
   let repeated (child : Core.Rule.child) : bool =
     match child.modifier with
-    | Core.Grammar.Zero_or_more | Core.Grammar.One_or_more -> true
+    | Core.Grammar.Zero_or_more _ | Core.Grammar.One_or_more _ -> true
     | Core.Grammar.Exactly_one | Core.Grammar.Zero_or_one -> false
   in
   let nonempty (child : Core.Rule.child) : bool =
     match child.modifier with
-    | Core.Grammar.Exactly_one | Core.Grammar.One_or_more -> true
-    | Core.Grammar.Zero_or_one | Core.Grammar.Zero_or_more -> false
+    | Core.Grammar.Exactly_one | Core.Grammar.One_or_more _ -> true
+    | Core.Grammar.Zero_or_one | Core.Grammar.Zero_or_more _ -> false
   in
   let child (child : Core.Rule.child) : token list Bolts.t =
     let element = alts child.alts in
     match child.modifier with
     | Core.Grammar.Exactly_one -> element
     | Core.Grammar.Zero_or_one -> maybe element
-    | Core.Grammar.Zero_or_more | Core.Grammar.One_or_more ->
+    | Core.Grammar.Zero_or_more _ | Core.Grammar.One_or_more _ ->
       repeat element None ~nonempty:(nonempty child)
   in
   (* A separator reaches a repeated child and nothing else, which is where the

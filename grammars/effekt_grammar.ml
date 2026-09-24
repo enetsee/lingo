@@ -171,11 +171,13 @@ let grammar : t =
   (* -- the file and its items -- *)
   let file =
     prod
-      ~break_style:Always
-      ~separator_lines:2
       ~indent_width:0
       "File"
-      [ child_opt "header" (Rule "Module"); child_rep "item" (Rule "Item") ]
+      [ child_opt "header" (Rule "Module")
+        (* One line between the header and the first item, and a blank line
+           between two items. *)
+      ; child_rep ~break:(always 1) ~between:(always 2) "item" (Rule "Item")
+      ]
   in
   let module_ =
     prod
@@ -336,7 +338,9 @@ let grammar : t =
     |> with_scope
   in
   let interface_body =
-    prod ~break_style:Always "InterfaceBody" [ child_rep "op" (Rule "Operation") ]
+    prod
+      "InterfaceBody"
+      [ child_rep ~break:(always 1) ~between:(always 1) "op" (Rule "Operation") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
   in
   let interface =
@@ -366,7 +370,9 @@ let grammar : t =
     |> with_scope
   in
   let namespace_body =
-    prod ~break_style:Always "NamespaceBody" [ child_rep "item" (Rule "Item") ]
+    prod
+      "NamespaceBody"
+      [ child_rep ~break:(always 1) ~between:(always 1) "item" (Rule "Item") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
   in
   let namespace =
@@ -421,7 +427,10 @@ let grammar : t =
   in
   (* -- statements -- *)
   let block_body =
-    prod ~break_style:Always ~indent_width:2 "Block" [ child_rep "stmt" (Rule "Stmt") ]
+    prod
+      ~indent_width:2
+      "Block"
+      [ child_rep ~break:(always 1) ~between:(always 1) "stmt" (Rule "Stmt") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
     |> with_scope
     |> with_recovery_strategy (Lookahead (lookahead_n 3))
@@ -534,7 +543,9 @@ let grammar : t =
     |> with_identity "name"
   in
   let handler_body =
-    prod ~break_style:Always "HandlerBody" [ child_rep "clause" (Rule "Clause") ]
+    prod
+      "HandlerBody"
+      [ child_rep ~break:(always 1) ~between:(always 1) "clause" (Rule "Clause") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
   in
   let clause =
@@ -562,7 +573,9 @@ let grammar : t =
     |> with_committed
   in
   let match_body =
-    prod ~break_style:Always "MatchBody" [ child_rep "arm" (Rule "MatchArm") ]
+    prod
+      "MatchBody"
+      [ child_rep ~break:(always 1) ~between:(always 1) "arm" (Rule "MatchArm") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
   in
   let match_arm =

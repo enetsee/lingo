@@ -1,10 +1,22 @@
 module Name = Name
 
+type lines = int
+
+type break_style =
+  | Never
+  | Fit
+  | Always of lines
+
+let always (n : int) : break_style =
+  if n < 1 then invalid_arg "Grammar.always: a break is one line or more";
+  Always n
+;;
+
 type modifier =
   | Exactly_one
   | Zero_or_one
-  | Zero_or_more
-  | One_or_more
+  | Zero_or_more of break_style
+  | One_or_more of break_style
 
 type symbol =
   | Token of string
@@ -17,16 +29,12 @@ type child_parse =
 
 type child =
   { name : Name.Child.t
+  ; c_break : break_style
   ; head : symbol
   ; rest : symbol list
   ; modifier : modifier
   ; c_parse : child_parse
   }
-
-type break_style =
-  | Fit
-  | Always
-  | Never
 
 type trailing_sep =
   | Never
@@ -62,12 +70,7 @@ type framing =
       }
 
 type recovery_spec = { strategy : recovery_strategy }
-
-type production_format =
-  { break_style : break_style
-  ; indent_width : int
-  ; separator_lines : int
-  }
+type production_format = { indent_width : int }
 
 type production =
   { kind_name : Name.Rule.t
@@ -143,6 +146,7 @@ type trivia_class =
 type pattern_spec =
   { lexer : Redfa.Regex.t
   ; textmate : string option
+  ; treesitter : string option
   }
 
 type token_class =
@@ -300,12 +304,14 @@ let recover_to_names = Option.map (List.map Name.Token.of_string)
 let child
       ?recover_to
       ?(greedy = false)
+      ?(break = Fit)
       ~(modifier : modifier)
       (name : string)
       (sym : symbol)
   : child
   =
   { name = Name.Child.of_string name
+  ; c_break = break
   ; head = sym
   ; rest = []
   ; modifier
@@ -313,27 +319,39 @@ let child
   }
 ;;
 
-let child_req ?recover_to name sym = child ?recover_to ~modifier:Exactly_one name sym
-
-let child_opt ?recover_to ?greedy (name : string) (sym : symbol) : child =
-  child ?recover_to ?greedy ~modifier:Zero_or_one name sym
+let child_req ?recover_to ?break name sym =
+  child ?recover_to ?break ~modifier:Exactly_one name sym
 ;;
 
-let child_rep ?recover_to ?greedy (name : string) (sym : symbol) : child =
-  child ?recover_to ?greedy ~modifier:Zero_or_more name sym
+let child_opt ?recover_to ?greedy ?break (name : string) (sym : symbol) : child =
+  child ?recover_to ?greedy ?break ~modifier:Zero_or_one name sym
 ;;
 
-let child_rep1 ?recover_to ?greedy (name : string) (sym : symbol) : child =
-  child ?recover_to ?greedy ~modifier:One_or_more name sym
+let child_rep ?recover_to ?greedy ?break ?(between = Fit) (name : string) (sym : symbol)
+  : child
+  =
+  child ?recover_to ?greedy ?break ~modifier:(Zero_or_more between) name sym
 ;;
 
-let child_alt ?recover_to ~(modifier : modifier) (name : string) (syms : symbol list)
+let child_rep1 ?recover_to ?greedy ?break ?(between = Fit) (name : string) (sym : symbol)
+  : child
+  =
+  child ?recover_to ?greedy ?break ~modifier:(One_or_more between) name sym
+;;
+
+let child_alt
+      ?recover_to
+      ?(break = Fit)
+      ~(modifier : modifier)
+      (name : string)
+      (syms : symbol list)
   : child
   =
   match syms with
   | [] -> invalid_arg "Grammar.child_alt: a child needs at least one symbol"
   | head :: rest ->
     { name = Name.Child.of_string name
+    ; c_break = break
     ; head
     ; rest
     ; modifier
@@ -343,12 +361,13 @@ let child_alt ?recover_to ~(modifier : modifier) (name : string) (syms : symbol 
 
 let child_alt_rules
       ?recover_to
+      ?break
       ~(modifier : modifier)
       (name : string)
       (rule_names : string list)
   : child
   =
-  child_alt ?recover_to ~modifier name (List.map (fun r -> Rule r) rule_names)
+  child_alt ?recover_to ?break ~modifier name (List.map (fun r -> Rule r) rule_names)
 ;;
 
 (* -- tokens ---------------------------------------------------------------- *)
@@ -385,9 +404,9 @@ let punct_tight ?trivia ~(name : string) (literal : string) : token_def =
   punct ~space_before:false ~space_after:false ?trivia ~name literal
 ;;
 
-let pat ?textmate ?trivia (n : string) (lexer : Redfa.Regex.t) : token_def =
+let pat ?textmate ?treesitter ?trivia (n : string) (lexer : Redfa.Regex.t) : token_def =
   { token_name = Name.Token.of_string n
-  ; token_class = Pattern { lexer; textmate }
+  ; token_class = Pattern { lexer; textmate; treesitter }
   ; t_format = { space_before = true; space_after = true }
   ; trivia
   }
@@ -395,14 +414,7 @@ let pat ?textmate ?trivia (n : string) (lexer : Redfa.Regex.t) : token_def =
 
 (* -- productions ----------------------------------------------------------- *)
 
-let prod
-      ?(break_style = Fit)
-      ?(indent_width = 2)
-      ?(separator_lines = 1)
-      (name : string)
-      (children : child list)
-  : production
-  =
+let prod ?(indent_width = 2) (name : string) (children : child list) : production =
   { kind_name = Name.Rule.of_string name
   ; children
   ; identity_child = None
@@ -411,7 +423,7 @@ let prod
   ; framing = Plain
   ; recovery = { strategy = Insert_only }
   ; error_messages = Name.Child.Map.empty
-  ; format = { break_style; indent_width; separator_lines }
+  ; format = { indent_width }
   ; has_hole = true
   ; edge_space_before = None
   ; edge_space_after = None

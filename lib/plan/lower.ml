@@ -128,9 +128,9 @@ let rec instr_of_child
   (* A repeated child outside a frame ends where no element can start. Only a
      frame's own body recovers, because only a frame has a closer to stop at.
      See [body_instrs]. *)
-  | Core.Grammar.Zero_or_more ->
+  | Core.Grammar.Zero_or_more _ ->
     repetition (kset first) (body_of_alts facts child.alts) repeat_ends_on
-  | Core.Grammar.One_or_more ->
+  | Core.Grammar.One_or_more _ ->
     (* The first is required and the rest repeat. A failed first resumes on
        another element as well as on a later child, because the loop behind it
        can still take one. *)
@@ -274,7 +274,7 @@ let repeat_ends_on_of (rule_def : Core.Rule.def) ~(is_root : bool) (index : int)
   match is_root && index = last && index >= 0 with
   | true ->
     (match rule_def.children.(index).modifier with
-     | Core.Grammar.Zero_or_more | Core.Grammar.One_or_more -> Some [||]
+     | Core.Grammar.Zero_or_more _ | Core.Grammar.One_or_more _ -> Some [||]
      | Core.Grammar.Exactly_one | Core.Grammar.Zero_or_one -> None)
   | false -> None
 ;;
@@ -292,7 +292,10 @@ let body_instrs
   (* One or more reads its first before the loop, so the loop carries on from
      just past an element rather than from the start of the body. *)
   let one_or_more (child : Core.Rule.child) : bool =
-    child.modifier = Core.Grammar.One_or_more
+    match child.modifier with
+    | Core.Grammar.One_or_more _ -> true
+    | Core.Grammar.Exactly_one | Core.Grammar.Zero_or_one | Core.Grammar.Zero_or_more _ ->
+      false
   in
   let first_element (child : Core.Rule.child) : Ir.Plan.instr list =
     if one_or_more child
@@ -311,7 +314,8 @@ let body_instrs
   in
   match sep_opt, body with
   | ( Some sep
-    , [ ({ modifier = Core.Grammar.Zero_or_more | Core.Grammar.One_or_more; _ } as child)
+    , [ ({ modifier = Core.Grammar.Zero_or_more _ | Core.Grammar.One_or_more _; _ } as
+         child)
       ] ) ->
     let elem_first = kset (child_first facts child)
     and sep_kind = Core.Kind.to_int sep.sep_tok
@@ -336,7 +340,8 @@ let body_instrs
   (* A delimited body with no separator. It recovers like the separated one,
      because it has the same closer to stop at. *)
   | ( None
-    , [ ({ modifier = Core.Grammar.Zero_or_more | Core.Grammar.One_or_more; _ } as child)
+    , [ ({ modifier = Core.Grammar.Zero_or_more _ | Core.Grammar.One_or_more _; _ } as
+         child)
       ] )
     when ends_on_of rule_def <> None ->
     first_element child
