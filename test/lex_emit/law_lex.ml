@@ -35,7 +35,8 @@
       automaton, or in writing it out as control flow, shows up as a
       disagreement.
 
-      Coverage. Seven grammars, 74 inputs, 258 tokens, two shapes. The counts
+      Coverage. Thirteen grammars, 255 inputs, 2,674 tokens, two shapes. The
+      counts
       print beside the result. A law with no unterminated token and no error
       token to look at proves nothing about either, so both counts have to
       read above zero.
@@ -47,6 +48,10 @@
       Falsification. Every mutation was applied, run and reverted, and the
       result recorded is the one observed. A count of inputs counts distinct
       inputs: one input failing in both shapes counts once.
+
+      The counts below were measured before ml joined the corpus on 2026-09-24
+      and before the corpus here widened from seven grammars to thirteen. Each
+      is a record of what the mutation did then, and each is due a re-run.
 
         M1  In [Ocaml.Lexer.cells], pack the accept of the cell's own row
             rather than the destination's.

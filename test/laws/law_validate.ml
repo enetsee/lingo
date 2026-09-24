@@ -34,7 +34,7 @@
         M5  Add an entry to [Error.full_stage_codes] that nothing emits.
             -> this law, part (a). The code has no witness.
         M6  In [Check_full.first_follow], drop the [ch.greedy] guard.
-            -> this law, 9 findings. Three witnesses use the flag to isolate
+            -> this law, 10 findings. Three witnesses use the flag to isolate
                their code and now report two codes each, and each of part
                (f)'s six cycles reports a conflict beside the recursion.
         M7  In [Facts.of_grammar], replace [sorted] with the identity.
@@ -54,11 +54,11 @@
         M10 In [Check_full.left_recursion], drop the self-edge test on a
             one-rule component, so every component reports.
             -> this law and five others. Every rule is a component of its
-               own, so every grammar is rejected. 20 findings here: 11 under
+               own, so every grammar is rejected. 21 findings here: 11 under
                part (a), where a witness now reports left-recursion beside
-               its own code, and 9 under part (d), where every accepted
-               grammar is refused. Beside it, law_facts 14,
-               law_first_follow 9, law_manifest 9, and one each from
+               its own code, and 10 under part (d), where every accepted
+               grammar is refused. Beside it, law_facts 15,
+               law_first_follow 10, law_manifest 10, and one each from
                sexp_facts and pratt_desugar, since each needs a [Facts.t] the
                checker now refuses to build. The blast radius is the
                observation. That one test is what separates a rule from a
@@ -69,11 +69,11 @@
                accepted, and (c) reads the same fact from the other side: a
                code filed under "names" whose grammar reaches "accepted".
 
-      Coverage. The 54 witness grammars and the 9 accepted ones: at least one
-      grammar per rejection and a handful of near misses, together with the
-      six cycles part (f) builds for itself. It says nothing about whether a
-      check's reason is right, only that it fires on one shape and stays
-      quiet on nine others. Nine accepted grammars is a statement about nine
+      Coverage. The 54 witness grammars and the 10 accepted ones: at least
+      one grammar per rejection and a handful of near misses, together with
+      the six cycles part (f) builds for itself. It says nothing about whether
+      a check's reason is right, only that it fires on one shape and stays
+      quiet on ten others. Ten accepted grammars is a statement about ten
       grammars; a generated corpus is what would make it a statement about
       the checker.
    -------------------------------------------------------------------------- *)

@@ -38,8 +38,8 @@
       is the same on every run and a failure names an input that can be
       pasted back.
 
-      Coverage. Twelve grammars, 202,250 inputs, 6,000 of them drawn, and the
-      counts print beside the result. Part (d) is the coverage claim: a form no parse runs is a
+      Coverage. Thirteen grammars, 223,582 inputs, 6,500 of them drawn, and
+      the counts print beside the result. Part (d) is the coverage claim: a form no parse runs is a
       form this law says nothing about. The count of inputs carrying a
       diagnostic is beside it, because a corpus that never recovers says
       nothing about recovery, which is where this project's hard bugs have
@@ -64,8 +64,7 @@
       the recovery grammar from the corpus here reddens nothing in part (d),
       and M6 to M8 in everything else.
 
-      Falsification. Re-run on 2026-09-23, after comments and wide joined the
-      corpus. Every mutation was applied, built, run and reverted, and the
+      Falsification. Re-run on 2026-09-24, after ml joined the corpus. Every mutation was applied, built, run and reverted, and the
       result recorded is the one observed. A count of inputs counts distinct
       inputs, and the grammars beside it are where they came from.
 
@@ -75,18 +74,19 @@
 
         M1  In [Ocaml.Parser.loop], build [stops] from the ends-on kinds alone:
             [union [ ends; continues ]] becomes [ends].
-            -> parts (a) and (b), 24,562 inputs, none of them drawn: sexp 298, json 1,309,
-               postfix 169, unicode 464, recovery 5,897, shapes 5,206,
-               comments 784, rust 3,215, effekt 7,213, wide 7. A body that
+            -> parts (a) and (b), 27,535 inputs, none of them drawn: sexp 298,
+               json 1,309, postfix 169, unicode 464, recovery 5,897,
+               shapes 5,206, comments 784, rust 3,215, effekt 7,213, wide 7,
+               ml 2,973. A body that
                meets junk runs to the closer instead of picking up at its next
                element.
         M2  In [Ocaml.Parser.loop], have [stuck] give [swept] whatever
             [when_missing] holds.
-            -> part (a), 2,460 inputs: json 466, postfix 69, unicode 307,
+            -> part (a), 2,502 inputs: json 466, postfix 69, unicode 307,
                recovery 35, shapes 101, comments 668, rust 231, effekt 66,
-               wide 517. Part (b), 3,430: json 774, postfix 147, unicode 417,
-               recovery 35, shapes 123, comments 1,013, rust 277, effekt 127,
-               wide 517. The separator that is not there goes unreported and
+               wide 517, ml 42. Part (b), 3,544: json 774, postfix 147,
+               unicode 417, recovery 35, shapes 123, comments 1,013, rust 277,
+               effekt 127, wide 517, ml 114. The separator that is not there goes unreported and
                the element after it is swept away.
         M3  In [Ocaml.Parser.loop], bind [from] to [Cursor.offset] rather than
             to the first byte of [Cursor.range].
@@ -105,14 +105,15 @@
                one and test/laws/law_interp.ml part (b) says a parse stops.
         M5  In [Ocaml.Parser.commit], skip on [recover] alone, leaving out what
             [extend] adds from the position's own [local].
-            -> part (a), 5,734 inputs: calc 565, postfix 785, recovery 1,534,
-               shapes 76, comments 72, rust 695, effekt 1,712, wide 295.
-               Part (b), 5,603: the same but shapes 9 and effekt 1,648.
+            -> part (a), 6,819 inputs: calc 565, postfix 785, recovery 1,534,
+               shapes 76, comments 72, rust 695, effekt 1,712, wide 295,
+               ml 1,085. Part (b), 6,688: the same but shapes 9 and
+               effekt 1,648.
         M6  In [Ocaml.Parser.commit], build the skip's set from the resume set
             rather than from [local].
-            -> part (a), 3,838 inputs: calc 565, postfix 468, recovery 840,
-               rust 537, effekt 313, wide 1,115. Part (b), 3,837: the same but
-               effekt 312.
+            -> part (a), 4,421 inputs: calc 565, postfix 468, recovery 840,
+               rust 537, effekt 313, wide 1,115, ml 583. Part (b), 4,420: the
+               same but effekt 312.
 
                The record used to read 579, recovery alone, from an edit its own
                prose never named exactly. This one is named above and measured. A
@@ -141,24 +142,25 @@
                202,250 inputs, which is how narrow this position is.
         M9  In [Ocaml.Parser.rule_binding], bind [inbound] to the empty set for
             every rule.
-            -> parts (a) and (b), 5,233 inputs: json 377, postfix 5,
+            -> parts (a) and (b), 5,584 inputs: json 377, postfix 5,
                recovery 2,195, shapes 9, comments 5, rust 628, effekt 2,013,
-               wide 1.
+               wide 1, ml 351.
        M10  In [Ocaml.Parser.skip_item], make [unmatched_closer] bump
             unconditionally before halting.
-            -> parts (a) and (b), 2,447 inputs: sexp 56, json 389, postfix 68,
-               unicode 88, shapes 461, comments 39, rust 658, effekt 688. The
-               skip still halts, so the frame above is handed a closer that is
+            -> parts (a) and (b), 2,595 inputs: sexp 56, json 389, postfix 68,
+               unicode 88, shapes 461, comments 39, rust 658, effekt 688,
+               ml 148. The skip still halts, so the frame above is handed a closer that is
                already eaten.
        M11  In [Ocaml.Parser.skip_item], make [unmatched_closer] just [bump], so
             the skip runs on.
-            -> parts (a) and (b), 25,402 inputs: sexp 2,454, json 2,997,
+            -> parts (a) and (b), 28,398 inputs: sexp 2,454, json 2,997,
                calc 1,786, postfix 4,315, unicode 2,854, shapes 2,009,
-               comments 970, rust 4,338, effekt 3,679. The skip swallows the
+               comments 970, rust 4,338, effekt 3,679, ml 2,996. The skip
+               swallows the
                rest of the production it was recovering inside.
        M12  In [Ocaml.Parser.infix_body], guard an infix arm with
             [Emit.egreater] rather than [Emit.egreater_equal].
-            -> part (a), 1,245 inputs: rassoc 1,040, rust 205. Right
+            -> part (a), 1,353 inputs: rassoc 1,040, rust 205, ml 108. Right
                associativity is the [>=] and nothing else, so [1^2^3] groups
                the other way. rust's [=] is the second right-associative
                operator in the corpus. calc and effekt do not move: their
@@ -170,8 +172,9 @@
                of the two mutations that gained from it.
        M13  In [Ocaml.Parser.wrap], call [Build.start_node] rather than
             [Build.start_node_at].
-            -> part (a), 33,936 inputs: calc 8,820, rassoc 8,366,
-               postfix 6,383, rust 2,924, effekt 5,260, wide 2,183. An operator
+            -> part (a), 39,913 inputs: calc 8,820, rassoc 8,366,
+               postfix 6,383, rust 2,924, effekt 5,260, wide 2,183, ml 5,977.
+               An operator
                that has already read its left side stops wrapping it, and the
                tree flattens.
 
@@ -185,20 +188,20 @@
        M14  In [Ocaml.Parser.drain], drop the trailing [Cursor.skip_trivia].
             -> parts (a) and (c), 8,614 inputs: sexp 1,934, json 341,
                calc 1,034, postfix 549, unicode 778, comments 3,978. shapes,
-               recovery, rust, effekt and wide do not move: every one of those
+               recovery, rust, effekt, wide and ml do not move: every one of those
                roots ends its body with a [Trivia], which has taken the
                trailing trivia before the drain runs.
        M15  In [Ocaml.Parser.hole_node], add one to the id [Cursor.report_id]
             gives.
-            -> part (a), 100,927 inputs, every grammar. Nothing but the
+            -> part (a), 107,995 inputs, every grammar. Nothing but the
                payload in the dump reads this, which is why the dump carries
                it.
        M16  In [Ocaml.Parser.instr], pass [None] for an [Expect]'s placeholder.
-            -> part (a), 25,359 inputs: sexp 2,119, json 3,666, calc 2,009,
+            -> part (a), 26,175 inputs: sexp 2,119, json 3,666, calc 2,009,
                postfix 1,647, unicode 1,646, shapes 4,664, comments 3,909,
-               rust 2,982, effekt 2,717. Part (b), 6,455: sexp 704, json 512,
-               calc 1,305, postfix 759, shapes 665, comments 780, rust 1,043,
-               effekt 687.
+               rust 2,982, effekt 2,717, ml 816. Part (b), 6,594: sexp 704,
+               json 512, calc 1,305, postfix 759, shapes 665, comments 780,
+               rust 1,043, effekt 687, ml 139.
        M17  Drop the postfix case from [corpus] here.
             -> nothing, and it used to redden part (d) with ["postfix"]
                reading zero, before the drawn corpus and before rust and

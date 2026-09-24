@@ -11,7 +11,7 @@
       (d) [accept] gives the token a state accepts, which is the one with
           the lowest case id.
 
-      Mechanism. Seven grammars. Every state of each is probed on every
+      Mechanism. Thirteen grammars. Every state of each is probed on every
       codepoint from 0 to 0x2FF, on both sides of every segment boundary, on
       the least and greatest codepoint of every class, and at the edges of
       the codespace and the surrogate block.
@@ -22,7 +22,8 @@
       two flattened, so anything the flattening lost shows up as a
       disagreement.
 
-      Coverage. 93 states over seven grammars, 72,321 state-codepoint probes.
+      Coverage. 457 states over thirteen grammars, 355,149 state-codepoint
+      probes.
       The codespace is 0x110000 wide. 0x300 of it is read exhaustively and
       the rest at the boundaries the table names, because that is where a
       flattening goes wrong.
@@ -31,11 +32,12 @@
       test/units/sexp_facts.ml checks one grammar's by hand, and
       test/lex_emit/law_lex.ml reads the token regexes directly.
 
-      Falsification. Every mutation was applied, run and reverted, and the
-      result recorded is the one observed.
+      Falsification. Re-run on 2026-09-24, after the corpus here widened from
+      seven grammars to thirteen. Every mutation was applied, run and
+      reverted, and the result recorded is the one observed.
 
         T1  In [Core.Lexer.step], index the row major table column major.
-            -> part (c), 49,481 of 72,321 probes. Both indices stay inside
+            -> part (c), 213,407 of 355,149 probes. Both indices stay inside
                the array, so the table reads as a permutation of the
                automaton.
 
@@ -44,7 +46,7 @@
                covers the emitter's own indexing.
         T2  In [Core.Lexer.flatten], drop the gap before a run that does not
             start where the last one ended.
-            -> part (b), 14 probes, and part (c), 6. Every segment past the
+            -> part (b), 26 probes, and part (c), 38. Every segment past the
                gap shifts down one.
 
                It reads zero in test/lex_emit/law_lex.ml, and can do nothing
@@ -53,17 +55,18 @@
                reaches one.
         T3  In [Core.Lexer.of_facts], take the last accepting case id rather
             than the first.
-            -> part (d), 3 states across sexp, json and shapes. A token's
+            -> part (d), 65 states: effekt 27, wide 17, ml 8, rust 6,
+               recovery 4, shapes 2, sexp 1. A token's
                case id is its position in the grammar, so the head of
                [accepts] is the token declared first.
         T4  In [Core.Lexer.class_of], search with [<] where it searches with
             [<=].
-            -> part (b), 182 probes, and part (c), 356. A codepoint that
+            -> part (b), 472 probes, and part (c), 2,941. A codepoint that
                starts a segment reads as the segment before it. The probes
                on both sides of every boundary are there for this.
         T5  In [Core.Lexer.flatten], leave the runs in the order the classes
             gave them rather than sorting by least codepoint.
-            -> parts (a), (b) and (c): 10, 3,726 and 2,646. Part (a) reads it
+            -> parts (a), (b) and (c): 25, 7,867 and 16,489. Part (a) reads it
                first. The segments stop ascending, and a binary search over
                them then lands arbitrarily.
    -------------------------------------------------------------------------- *)

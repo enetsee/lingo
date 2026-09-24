@@ -46,9 +46,10 @@
       regex has, so it is in range and it is wrong. Part (k) counts the groups
       instead, over a token deliberately written with one inside it.
 
-      Coverage. The twelve grammars in test/editors/editor_corpus.ml, with the
-      overrides an author would write on json, rust and effekt. Counts print
-      beside each result. Parts (i) to (k) build their own witnesses.
+      Coverage. The thirteen grammars in test/editors/editor_corpus.ml, with
+      the overrides an author would write on json, rust, effekt, wide and ml.
+      Counts print beside each result. Parts (i) to (k) build their own
+      witnesses.
 
       What this says nothing about. Whether a regex compiles under Oniguruma,
       and whether an editor colours what a reader expects. The first needs the
@@ -68,41 +69,43 @@
                separator is built non-capturing, so nothing reached the
                function until the witness existed.
         M2  In [Emit.rule_include], leave the alias unresolved.
-            -> part (a), 24 findings: effekt 13, wide 5, recovery 3, rust 2,
-               shapes 1.
+            -> part (a), 26 findings: effekt 13, wide 5, recovery 3, rust 2,
+               ml 2, shapes 1.
                Every reference to a rule that forwards to another names an
                entry no longer emitted. shapes gives the smallest case,
                [let] referencing [#init].
         M3  In [Textmate.prune], keep every entry.
-            -> part (b), 1 finding: postfix's [field]. That is the only entry
+            -> part (b), 4 findings: postfix's [field] and three from ml.
+               Those are the only entries
                in the corpus that nothing reaches, and it has a reason:
                [Field] is the right-hand side of an access operator, and the
                operator folds the token at the end of it into its own regex.
         M4  In [Textmate.break_cycles], drop nothing.
-            -> part (c), 60 findings, all effekt. rust and postfix have flat
+            -> part (c), 63 findings: effekt 60, ml 3. rust and postfix have flat
                entries that reference a block. The way back runs through a
                region's body, and a region compiles when it fires rather than
                when the reference to it is read. Only effekt has blocks and
                statements that reference each other flat all the way round.
         M5  In [Emit.scope_string], leave the language off.
-            -> parts (e) and (h), 532 findings: 339 scopes that no longer end
-               in the language, and 193 scopes the document no longer carries
+            -> parts (e) and (h), 651 findings: 416 scopes that no longer end
+               in the language, and 235 scopes the document no longer carries
                under their rendered name. Every grammar reddens.
         M6  In [Scopes.resolve], read the token before the child override.
-            -> part (h), 7 findings: json's [Member.key], rust's
-               [Field.name], [Variant.name], [Param.name] and [Type.name],
-               and wide's [Alias.name] and [Table.name].
+            -> part (h), 12 findings, and part (k) beside them: json's
+               [Member.key], rust's [Field.name], [Variant.name],
+               [Param.name] and [Type.name], wide's [Alias.name] and
+               [Table.name], and five from ml.
                These are exactly the positions where the same [ident] means
                different things. A per-position scope exists for them.
         M7  In [Shape.of_rule], let a rule framed by a matched pair fall
             through to a flat pattern list.
-            -> parts (g) and (h), 47 findings: 27 rules that are framed and
-               emit no region, and 20 delimiter scopes that then reach
+            -> parts (g) and (h), 53 findings: 31 rules that are framed and
+               emit no region, and 22 delimiter scopes that then reach
                nothing. A delimiter's scope lives in the region's
                [beginCaptures].
         M8  In [Shape.region_begin], never fold the identity child.
-            -> part (h), 5 findings, all rust: the five [entity.name.*] scopes
-               on [Struct], [Enum], [Trait], [Fn] and [MethodSig]. Those
+            -> part (h), 9 findings: rust 5, the [entity.name.*] scopes on
+               [Struct], [Enum], [Trait], [Fn] and [MethodSig], and ml 4. Those
                scopes land only where the identity child is folded. A rule
                that names itself by a child does it once, and a body pattern
                fires everywhere.
@@ -119,17 +122,18 @@
 
         M9  In [Emit.with_tails], put [#tokens] at the head of a body rather
             than at its end.
-            -> part (l), 56 findings: effekt 26, rust 16, wide 3, json 2,
+            -> part (l), 66 findings: effekt 26, rust 16, ml 10, wide 3, json 2,
                calc 2, and one each from the remaining five. Every body
                pattern in the grammar goes dark, because the grammar-wide
                token entry matches first at every position one of them would.
         M10 In [Emit.tokens_entry], sort the literals shortest first.
-            -> part (l), 13 findings: effekt 7, rust 4, wide 2. [=] then
+            -> part (l), 15 findings: effekt 7, rust 4, wide 2, ml 2. [=] then
                takes the first character of [==] and [=>], and the longer
                operator never matches whole.
         M11 In [Emit.tokens_entry], write the pattern tokens ahead of the
             literals.
-            -> part (l), 309 findings: effekt 188, wide 69, rust 42, json 10.
+            -> part (l), 359 findings: effekt 188, wide 69, ml 50, rust 42,
+               json 10.
                An identifier pattern reaches the text of every keyword, so
                each keyword is taken by the pattern instead and loses its own
                scope.
@@ -140,7 +144,7 @@
 
         N1  In [Shape.closing_text], drop the guard that the last child be
             required.
-            -> part (m), 1 finding, on its own witness. No rule in the twelve
+            -> part (m), 1 finding, on its own witness. No rule in the thirteen
                grammars contains its own errors, opens on a literal and ends
                on a child that may be absent. The witness does: a committed
                [Decl] opening on [sig] with an optional [;] after the name.
@@ -148,7 +152,7 @@
                lookbehind past a [;] that need not be there.
         N2  In [Emit.bracket_only], stop subtracting the tokens that also
             appear as an ordinary child.
-            -> part (m), 1 finding, on its own witness. No token in the twelve
+            -> part (m), 1 finding, on its own witness. No token in the thirteen
                grammars is both half of a matched pair and a child somewhere
                else. The witness has one: [\[] frames [File] and is an
                alternative of [Item]. The subtraction keeps it in the

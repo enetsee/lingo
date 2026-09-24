@@ -27,7 +27,7 @@
       tally because someone typed it. This one counts over the grammars, so a
       form reads zero until a grammar exists that needs it.
 
-      Coverage. Every grammar in lingo_grammars. A count prints beside the
+      Coverage. All thirteen grammars in lingo_grammars. A count prints beside the
       result, part (c) fails on the first entry nothing names, and part (d)
       names every form that reads zero.
 
@@ -35,32 +35,32 @@
       That needs something that runs one, and test/laws/law_interp.ml is where
       that starts.
 
-      Falsification. Every mutation was applied, run and reverted, and the
-      result recorded is the one observed.
+      Falsification. Re-run on 2026-09-24, after the corpus here widened from
+      eight grammars to thirteen. Every mutation was applied, run and
+      reverted, and the result recorded is the one observed.
 
         M1  In [Lower.instr_of_child], intern a message for every child rather
             than for the ones that report.
-            -> part (c), shapes: "nothing in the plan names the message 4".
+            -> part (c), 2 findings: shapes' "expected \"@\"" and wide's
+               "expected \"distinct\"".
 
-            The first run of this reddened nothing. [intern] dedupes, and
-            every wording the corpus leaked matched an entry something else
-            named, so the leak disappeared into a live entry. shapes gives its
-            optional child a wording of its own for this reason and for no
-            other, and the mutation reddens now.
+               The first run of this reddened nothing. [intern] dedupes, and
+               every wording the corpus leaked matched an entry something else
+               named, so the leak disappeared into a live entry. shapes gives
+               its optional child a wording of its own for this reason and for
+               no other. wide came with a second by accident.
         M2  In [Lower.kset], give the kinds in descending order.
-            -> part (a), 55 findings across the eight grammars: every set in
-               a plan is read as ascending and distinct.
+            -> part (a), 301 findings across the thirteen grammars: every set
+               in a plan is read as ascending and distinct.
 
-               This read 59 against six grammars once. It does not reproduce:
-               the same mutation reads 49 over the seven this corpus held
-               before [recovery] and 55 over the eight it holds now. A number
-               carried over a corpus that grew, which is what re-running a
-               record is for.
+               This read 59 against six grammars once, 49 over seven, 55 over
+               eight and 301 over thirteen. A number carried over a corpus
+               that grew, which is what re-running a record is for.
         M3  In [Lower.delimited_tail], intern the close's wording as before
             and name [Message.of_int 999] instead of the id that comes back.
-            -> part (b), six grammars, and part (c) on the wording that is no
-               longer named: 6 and 9 findings. rassoc and recovery have no
-               delimited production and are untouched.
+            -> part (b), eleven grammars, and part (c) on the wording that is
+               no longer named: 11 and 20 findings. rassoc and recovery have
+               no delimited production and are untouched.
         M4  Add a form to part (d)'s list that no grammar lowers to.
             -> part (d), naming it. This is the mutation the part exists for:
                [Ir.Plan.Cannot_exit] sat in the plan for a while with no

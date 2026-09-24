@@ -31,6 +31,10 @@
       Falsification. Every mutation below was applied, run and reverted, and
       the result recorded is the one observed.
 
+      The counts below were measured before ml joined the corpus on
+      2026-09-24. Each is a record of what the mutation did then, and each is
+      due a re-run.
+
         M1  In [Facts.recovery_set], drop the [frame] term from the union.
             -> this law, part (d), on the two corpus grammars whose root
                carries a frame: delimited-with-sep and separated. M2 is the

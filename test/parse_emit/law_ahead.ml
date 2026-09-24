@@ -16,23 +16,23 @@
       library stanza beside this enforces: one reaching for a plan would not
       build.
 
-      Falsification. Re-run on 2026-09-23, after comments and wide joined the
-      corpus. Every mutation was applied, built, run and reverted, and the
+      Falsification. Re-run on 2026-09-24, after ml joined the corpus. Every mutation was applied, built, run and reverted, and the
       result recorded is the one observed.
 
         M1  In [Ocaml.Residual.point], write [may_end] as [true] always.
-            -> part (a), all twelve grammars.
+            -> part (a), all thirteen grammars.
         M2  In [Ocaml.Residual.generate], leave the last table out of
             [of_kind].
-            -> part (a), all twelve grammars, and part (b) on one of them. The
+            -> part (a), all thirteen grammars, and part (b) on one of them.
+               The
                record read part (a) alone before the body loop's progress
                guard changed: the kind whose table goes missing is now reached
                by a walk from a root as well as by the comparison.
         M3  In [Ocaml.Residual.generate], write the trivia kinds as empty.
-            -> part (a), all twelve grammars.
+            -> part (a), all thirteen grammars.
         M4  In [Ocaml.Residual.point], write the transition targets one too
             high.
-            -> part (a), all twelve grammars, and part (b) on none of them: the
+            -> part (a), all thirteen grammars, and part (b) on none of them: the
                root's own first point is reached before any transition runs.
    -------------------------------------------------------------------------- *)
 

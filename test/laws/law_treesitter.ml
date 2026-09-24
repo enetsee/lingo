@@ -42,13 +42,18 @@
       printed. Reading the middle of that chain would compare the emitter
       against the value it was handed.
 
-      Coverage. The twelve grammars in test/editors/editor_corpus.ml. Parts
-      (c), (j) and (k) build their own witnesses. The corpus declares every
-      root first, holds no grammar this backend rejects, and no longer holds a
-      term that needs the reduction (k) is about. rust and effekt are the two
-      that declare binders and scopes, so every count in part (l) comes from
-      them. rust and wide are the two that scope a child position, so every
-      count in part (m) comes from those.
+      Coverage. The thirteen grammars in test/editors/editor_corpus.ml. Parts
+      (c), (j) and (k) build their own witnesses. The corpus holds no grammar
+      this backend rejects and no longer holds a term that needs the reduction
+      (k) is about. rust, effekt and ml are the three that declare binders and
+      scopes, so every count in part (l) comes from them. rust, wide and ml
+      are the three that scope a child position, so every count in part (m)
+      comes from those.
+
+      ml is the only one with several roots, so it alone reaches part (c)'s
+      claim about the rule tree-sitter starts at: with one root that is the
+      root's own node, and with several it is the one the emitter makes up to
+      choose between them.
 
       What this says nothing about. Whether tree-sitter's generator finds a
       conflict. lingo checks LL(1) and tree-sitter builds an LR automaton, and
@@ -61,13 +66,13 @@
 
         M1  In [Grammar_js.symbol], send a reference to an expression block to
             the block's own node rather than to the hidden choice.
-            -> part (b), 62 findings across the six grammars with a block:
+            -> part (b), 77 findings across the seven grammars with a block:
                effekt 33, rust 10, postfix 8, wide 4, calc 4, rassoc 3. The
                hidden
                rule becomes unreachable, and so does everything only it
                reached. That is every shape the block's operators build.
         M2  In [Grammar_js.role_body], emit every role as its plain body.
-            -> part (e), 6 findings, one per grammar with a block. The whole
+            -> part (e), 7 findings, one per grammar with a block. The whole
                operator table collapses into one choice with no precedence.
                tree-sitter would report that as a conflict over the entire
                expression grammar.
@@ -92,7 +97,7 @@
                the corpus declares its root first. The corpus cannot reach
                this, so the witness exists for it.
         M7  In [Queries.capture], translate a function name to nothing.
-            -> part (g), 2 findings on rust, for [Fn] and [MethodSig].
+            -> part (g), 4 findings: rust 2, for [Fn] and [MethodSig], and ml 2.
 
                This read zero before part (g) said that every scope outside
                the two escape hatches must translate. A scope that quietly
@@ -115,17 +120,17 @@
                now. The witness exists for that.
         M10 In [Queries.definition_patterns], write a definition for every
             child rather than for the binders.
-            -> part (l), 312 findings: effekt 137, rust 57, wide 50, postfix
+            -> part (l), 377 findings: effekt 137, ml 65, rust 57, wide 50, postfix
                16, recovery 16, shapes 9, calc 7, json 6, rassoc 6, comments
                4, sexp 2, unicode 2. Every child position with one symbol
                behind it becomes a binding site, in every grammar, whether or
                not the author declared one.
         M11 In [Queries.scope_patterns], write no scope.
-            -> part (l), 13 findings: effekt 9, rust 4. An editor would put
+            -> part (l), 15 findings: effekt 9, rust 4, ml 2. An editor would put
                every name in one flat scope, so a local would shadow
                everything of its name in the file.
         M12 In [Stage.shape], build a user production's [binders] empty.
-            -> part (l), 17 findings: effekt 10, rust 7.
+            -> part (l), 24 findings: effekt 10, rust 7, ml 7.
 
                This read zero while part (l) built what it expected from
                [Rule.def.binders]. The emitter agreed with the field it was
@@ -134,17 +139,17 @@
                reddens it.
         M13 In [Queries.definition_patterns], name the inner node by the
             child rather than by the token it holds.
-            -> part (d), 17 findings, and part (l), 34. A field name is not a
+            -> part (d), 24 findings, and part (l), 48. A field name is not a
                node name, so the pattern matches nothing and both directions
                of (l) fire on every binder.
         M14 In [Queries.locals], write no reference pattern.
-            -> part (l), 5 findings: shapes, recovery, rust, effekt and wide,
+            -> part (l), 6 findings: shapes, recovery, rust, effekt, wide and ml,
                the grammars with a token that holds every keyword. A
                definition with nothing to resolve against resolves nothing.
         M15 In [Queries.highlights], write the sections in the order they
             were written in before part (m) existed: the positions first and
             the catch-alls last.
-            -> part (m), 11 findings: rust 9, wide 2.
+            -> part (m), 19 findings: rust 9, ml 8, wide 2.
 
                That order was what the emitter wrote, and part (m) is the
                law that found it. tree-sitter takes the last pattern that

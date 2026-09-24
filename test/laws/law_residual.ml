@@ -79,12 +79,17 @@
       read 73 failures in sexp, json, postfix, recovery and shapes, all of
       them the trivia between a body's elements.
 
-      Coverage. The 250 inputs in test/inputs, over twelve grammars: 4,454
-      positions, 80,763 pairs of a kind and a position settled and 59,487 the
-      parse cannot be put at. 132 of the positions are holes, where the kind
+      Coverage. The 282 inputs in test/inputs, over thirteen grammars: 5,201
+      positions, 95,367 pairs of a kind and a position settled and 68,040 the
+      parse cannot be put at. 143 of the positions are holes, where the kind
       really under the cursor is one the residual leaves out. Part (g) covers
-      1,799 bytes and 55,604 pairs of a kind and a byte, with none left
-      undecided.
+      2,146 bytes, 66,020 pairs of a kind and a byte settled and 341 the parse
+      cannot be put at.
+
+      That last number was zero until 2026-09-24. Part (g) read a verdict of
+      two values, and a byte the probe never stood on came back as a refusal.
+      ml put a token no declaration starts with at the front of a bare
+      top-level loop, which is the shape that separates the two.
 
       Part (e) is what keeps the rest honest. It counts positions per grammar
       and per kind of position, and fails where either reads zero, so a corpus
@@ -93,8 +98,7 @@
       Which instruction forms these same parses run is law_interp part (d)'s
       count, over the same inputs.
 
-      Falsification. Re-run on 2026-09-23, after comments and wide joined the
-      corpus. Every mutation was applied, built, run and reverted, and the
+      Falsification. Re-run on 2026-09-24, after ml joined the corpus. Every mutation was applied, built, run and reverted, and the
       result recorded is the one observed. A count counts pairs of a kind and a
       position, and the grammars beside it are where they came from. Each edit is
       named exactly, because a mutation nobody can re-create is a mutation
@@ -102,8 +106,9 @@
 
         M1  In [Residual.entered], give [whole plan null body] where the steps
             run out and the position is inclusive, rather than the gate.
-            -> part (b), 141 pairs: sexp 18, json 26, postfix 2, unicode 10,
-               recovery 3, shapes 6, comments 53, rust 10, effekt 10, wide 3.
+            -> part (b), 148 pairs: sexp 18, json 26, postfix 2, unicode 10,
+               recovery 3, shapes 6, comments 53, rust 10, effekt 10, wide 3,
+               ml 7.
                A commit's body is often a bare [Bump], which names no kind of
                its own, so the position loses the set that admitted it.
 
@@ -112,8 +117,8 @@
                that cannot be under the cursor at a body a dispatch chose, so no
                input puts the parse there to disagree.
         M2  In [Residual.ends], give [true] for [May_exit_reporting] as well.
-            -> part (a), 16: json 5, postfix 2, unicode 2, recovery 3,
-               shapes 2, rust 1, wide 1. Part (g), the same 16. A body that
+            -> part (a), 18: json 5, postfix 2, unicode 2, recovery 3,
+               shapes 2, rust 1, wide 1, ml 2. Part (g), the same 18. A body that
                forbids a trailing separator can still be ended at one, by
                taking the separator and reporting it, and the residual then
                offers the closer straight after a separator. This is the
@@ -122,21 +127,21 @@
                It moves five of the eight *.residual dumps: json, postfix,
                recovery, shapes and unicode.
         M3  In [Residual.at]'s [walk], drop the recursion into the frame above.
-            -> part (b), 867: calc 8, postfix 20, recovery 5, shapes 94,
-               comments 80, rust 66, effekt 339, wide 255. Part (g), 637.
-               Part (h), 286. What follows a rule goes missing at every
+            -> part (b), 1,008: calc 8, postfix 20, recovery 5, shapes 94,
+               comments 80, rust 66, effekt 339, wide 255, ml 141. Part (g),
+               751. Part (h), 383. What follows a rule goes missing at every
                position the rule's own body can complete from.
         M4  In [Residual.whole], give [false] for an [Alt]'s nullability.
-            -> part (b), 1,903: shapes 110, rust 10, effekt 1,383, wide 400.
-               Part (g), 1,059. effekt is the grammar of optional children: a
+            -> part (b), 1,936: shapes 110, rust 10, effekt 1,383, wide 400,
+               ml 33. Part (g), 1,066. effekt is the grammar of optional children: a
                parameter's annotation, a definition's return type, a match
                arm's guard. What follows one is what goes missing.
                shapes.residual moves.
         M5  In [Residual.remains], resume a loop at [e.state] rather than at
             [goto].
-            -> part (a), 319: postfix 16, shapes 40, comments 118, rust 28,
-               effekt 101, wide 16. Part (b), 123. Part (g), 274 and 94.
-               Part (h), 90. After an element a separator or the closer comes
+            -> part (a), 374: postfix 16, shapes 40, comments 118, rust 28,
+               effekt 101, wide 16, ml 55. Part (b), 137. Part (g), 329 and
+               108. Part (h), 102. After an element a separator or the closer comes
                next, and the mutation offers another element.
         M6  In [Residual.climb_set], take every operator whatever its binding
             power.
@@ -148,30 +153,30 @@
                that.
         M7  In [Residual.at], call [walk] on the innermost frame with
             [~inclusive:false].
-            -> part (a), 4,008: json 58, calc 52, rassoc 24, postfix 41,
+            -> part (a), 4,708: json 58, calc 52, rassoc 24, postfix 41,
                recovery 98, shapes 94, comments 13, rust 742, effekt 2,571,
-               wide 315. Part (b), 6,629: sexp 136, json 806, calc 121,
+               wide 315, ml 700. Part (b), 7,416: sexp 136, json 806, calc 121,
                rassoc 54, postfix 120, unicode 38, recovery 108, shapes 152,
-               comments 328, rust 720, effekt 3,662, wide 384. Part (g), 1,971
-               and 2,681. Part (h), 900. M12 is the same claim at the other end
+               comments 328, rust 720, effekt 3,662, wide 384, ml 787.
+               Part (g), 2,357 and 3,012. Part (h), 1,042. M12 is the same claim at the other end
                of the stack.
         M8  In [Residual.expression], give [first, false] at an [Operand]
             rather than letting a nullable operand's climb through.
-            -> part (b), 66: calc 8, rassoc 2, rust 8, effekt 48. Part (g),
-               45. Part (h), 15. Neither comments nor wide reaches it: neither
-               has an expression block.
+            -> part (b), 89: calc 8, rassoc 2, rust 8, effekt 48, ml 23.
+               Part (g), 64. Part (h), 21. Neither comments nor wide reaches
+               it: neither has an expression block.
 
                This read nothing at all until the corpus reached an atom rule
                with a position it could complete from. The claim was about the
                corpus rather than the code, and the corpus has moved twice
                since.
         M9  In [Residual.head_set], leave out the prefix operators.
-            -> part (b), 239: calc 31, rassoc 19, rust 33, effekt 156.
-               Part (g), 44. calc.residual and rassoc.residual move.
+            -> part (b), 287: calc 31, rassoc 19, rust 33, effekt 156, ml 48.
+               Part (g), 53. calc.residual and rassoc.residual move.
        M10  In [Interp.loop], record [!state] as the state to resume at rather
             than [dest].
-            -> part (a), 94: postfix 7, shapes 18, comments 26, rust 6,
-               effekt 29, wide 8. Part (b), 251. Part (g), 68 and 212.
+            -> part (a), 99: postfix 7, shapes 18, comments 26, rust 6,
+               effekt 29, wide 8, ml 5. Part (b), 275. Part (g), 73 and 236.
                Part (h), 41. The interpreter's half of M5. The claim fails whether the plan walk
                or the parse has the state wrong, which is what makes the
                threading worth testing rather than trusting.
@@ -181,15 +186,15 @@
                body that resumes in the wrong state reports on a clean parse
                once the body has enough elements.
        M11  In [Residual.whole], give [true] for a [Commit]'s nullability.
-            -> part (a), 1,693: json 12, calc 5, postfix 29, recovery 27,
-               shapes 6, comments 12, rust 346, effekt 794, wide 462.
-               Part (g), 1,444. All eight *.residual dumps move; the four
+            -> part (a), 1,821: json 12, calc 5, postfix 29, recovery 27,
+               shapes 6, comments 12, rust 346, effekt 794, wide 462, ml 128.
+               Part (g), 1,570. All eight *.residual dumps move; the five
                grammars added since have none.
        M12  In [Residual.at]'s [walk], call the frame above with
             [~inclusive:true].
-            -> part (a), 2,421: calc 78, rassoc 48, postfix 90, recovery 5,
-               shapes 23, comments 118, rust 232, effekt 1,596, wide 231.
-               Part (b), 829. Part (g), 1,874 and 617. Part (h), 350. The call
+            -> part (a), 2,831: calc 78, rassoc 48, postfix 90, recovery 5,
+               shapes 23, comments 118, rust 232, effekt 1,596, wide 231,
+               ml 410. Part (b), 967. Part (g), 2,200 and 729. Part (h), 447. The call
                is counted twice: as the frame above's pending instruction and
                as the frame below.
        M13  In [Residual.taken], ignore [goto] and give an element every kind its
@@ -200,9 +205,9 @@
                separate them, and no lowering writes one.
        M14  In [Residual.nullable_rules], start [settled] at [true] so the
             fixpoint never runs.
-            -> nothing. No rule in the twelve grammars is nullable, so the table
-               reads false either way. A rule whose every child is optional would
-               read it, and none of the twelve has one.
+            -> nothing. No rule in the thirteen grammars is nullable, so the
+               table reads false either way. A rule whose every child is
+               optional would read it, and none of the thirteen has one.
        M15  Empty calc's input list in test/inputs.
             -> part (e), twice: "no position came from these grammars: calc" and
                "no input lexes these token kinds: calc T_INT". Parts (a) to (d)

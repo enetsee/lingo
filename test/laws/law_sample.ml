@@ -122,6 +122,10 @@
       lengths that disagreed, and the grammars beside it are where they came
       from.
 
+      The counts below were measured before ml and wide joined this corpus on
+      2026-09-24. Each is a record of what the mutation did then, and each is
+      due a re-run.
+
         M1  In [Sample.repeat], treat every separator policy as [Never], so no
             body carries a trailing separator.
             -> part (c), 4 lengths: shapes 5, comments 4, 5 and 6. The parser

@@ -8,7 +8,7 @@
       (f) [run] refuses an entry that names no rule, and one that names a rule
           opening no node of its own.
 
-      Mechanism. Twelve grammars, and for each of them a list of inputs
+      Mechanism. Thirteen grammars, and for each of them a list of inputs
       written here. Every input goes through part (a) and part (b). The ones marked
       good go through part (c) as well, and the ones marked broken are there
       to reach the recovery paths that part (d) counts.
@@ -21,7 +21,7 @@
       Before postfix and shapes were written, seven instruction forms read
       zero and nothing said so.
 
-      Coverage. Twelve grammars, 134 inputs the grammar accepts and 116 it
+      Coverage. Thirteen grammars, 154 inputs the grammar accepts and 128 it
       does not, from test/inputs. A count per instruction prints beside the
       result, and the law fails where one reads zero.
 
@@ -46,22 +46,22 @@
       is it. Part (c) is the nearest thing available: a grammar that accepts
       an input has to parse it without complaint.
 
-      Falsification. Re-run on 2026-09-23, after comments and wide joined the
-      corpus. Every mutation was applied, built, run and reverted, and the
-      result recorded is the one observed. Where a mutation reddens nothing here,
+      Falsification. Re-run on 2026-09-24, after ml joined the corpus. Every
+      mutation was applied, built, run and reverted, and the result recorded is
+      the one observed. Where a mutation reddens nothing here,
       the expect goldens it moves are named, because that is then the only thing
       that sees it.
 
         M1  In [Interp.drain], drop the trailing [Cursor.skip_trivia].
-            -> part (a), 4 of 250 parses, and test/expect/comments.format moves.
+            -> part (a), 4 of 282 parses, and test/expect/comments.format moves.
                [Cursor.eof] looks past trivia, so the sweep stops with the
                trailing trivia unread and it never reaches the tree.
         M2  In [Interp.exec], let an [Alt] take its first arm whatever the kind
             under the cursor is.
-            -> part (c), 85 inputs: effekt 36, rust 17, shapes 8, sexp 7,
-               json 7, wide 6, recovery 4. An alt over rules picks the wrong
-               one, and the parse then reports what the arm it took could not
-               find. Nine expect goldens move with it.
+            -> part (c), 103 inputs: effekt 36, rust 17, ml 18, shapes 8,
+               sexp 7, json 7, recovery 4, wide 4, comments 2. An alt over
+               rules picks the wrong one, and the parse then reports what the
+               arm it took could not find. Nine expect goldens move with it.
         M3  In [Lower.repetition], drop the [Trivia] after the loop.
             -> nothing here, and three hunks in test/expect/*.plan: sexp, shapes
                and recovery. The sweep matters for where trivia lands and not for
@@ -69,8 +69,9 @@
                it either way, because taking a token takes the trivia in front of
                it too. So the bytes still reach the tree, in a different frame.
         M4  In [Build.start_node], drop the [Cursor.skip_trivia].
-            -> part (e), 299 nodes: rust 106, effekt 78, wide 46, recovery 23,
-               shapes 21, sexp 13, json 12. It is the one change that makes
+            -> part (e), 324 nodes: rust 106, effekt 78, wide 28, ml 25,
+               recovery 23, shapes 21, comments 18, sexp 13, json 12. It is
+               the one change that makes
                leading trivia land inside the node it precedes, which is what
                part (e) exists to catch.
         M5  In [Lex.uchar_at], step one byte at a time rather than one codepoint.
@@ -102,9 +103,9 @@
             -> part (d), ["loop-missing"] reads zero, and five goldens move.
                Recovery still reports there, through the sweep, so no part here
                sees it, which is the coverage count's reason for being.
-               test/laws/law_residual.ml does: its part (b) reads 701 and its
-               part (g) 412 and 2, because a sweep and a report leave the parse
-               at different positions. That is new with rust and effekt; on the
+               test/laws/law_residual.ml does: its part (b) reads 811 and its
+               part (g) 467, because a sweep and a report leave the parse at
+               different positions. That is new with rust and effekt; on the
                eight small grammars the coverage count was the whole of it.
        M10  In [Lower.ends_on_of], leave the resync anchors out of what ends a
             body.
