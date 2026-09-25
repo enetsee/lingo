@@ -524,11 +524,7 @@ let silent (it : entry) : bool =
 
    A child that writes nothing does not end the run, whatever its boundary
    says. The boundary goes back where the child writes nothing, so what follows
-   lands on the line before it -- and a run that stopped there leaves the group
-   settling that line unable to see those bytes. [23+19^-925+++] is three holes
-   in a row, each handing its parent's operator to the line the first group
-   settled: that group measures [23 + 19 ^ - 925 +] and the line holds two more
-   [+] than it counted. *)
+   lands on the line before it. *)
 let rec flat_end (es : entry array) (i : int) (stop : int) : int =
   if i >= stop
   then i
@@ -539,74 +535,36 @@ let rec flat_end (es : entry array) (i : int) (stop : int) : int =
   else flat_end es (i + 1) stop
 ;;
 
-let nothing st = empty, st
+(* [walk env es i stop] is the children in [i, stop), one after another.
 
-(* [walk env es i stop ~after] is the children in [i, stop) and then [after].
-
-   Each child is handed the children sharing its last line as its tail, so its
-   group measures them. Without that a group renders flat, a separator lands
-   after it on the same line, and the two together run past the ruler with no
-   break left. *)
-let rec walk
-          (e : env)
-          (es : entry array)
-          (i : int)
-          (stop : int)
-          ~(after : state -> Ir.Kind.t Handsome.Utf8.t * state)
-          (st : state)
-  =
+   Each child hands back the glue in front of it apart from its own document,
+   so the caller can put that glue outside the group it wraps the child in. The
+   first child's goes back to this walk's caller for the same reason; the rest
+   are written where they fall. *)
+let rec walk (e : env) (es : entry array) (i : int) (stop : int) (st : state) =
   if i >= stop
-  then (
-    let d, st = after st in
-    empty, d, st)
+  then empty, empty, st
   else (
     let it = es.(i) in
-    let j = flat_end es (i + 1) stop in
     (* The break this boundary carries, and what stood before it. A child that
        writes nothing had no boundary in front of it, so the request goes back:
        carried on, it would reach a token in some other frame and break a
        boundary outside that frame. *)
     let stood = st.brk in
     let st = { st with brk = stronger st.brk it.before } in
-    (* [after] lands on this child's line, so it goes in the tail rather than
-       beside it. That carries a parent's separator and closer down the rightmost
-       spine, and every group on the way down measures them. *)
-    let ends_here = j >= stop in
-    let tail st =
-      let l, d, st =
-        walk e es (i + 1) j ~after:(if ends_here then after else nothing) st
-      in
-      l ^^ d, st
-    in
-    let lead, d, st = child e it ~tail ~stood st in
-    if ends_here
-    then lead, d, st
-    else (
-      let l2, d2, st = walk e es j stop ~after st in
-      lead, d ^^ l2 ^^ d2, st))
+    let lead, d, st = child e it ~stood st in
+    let l, rest, st = walk e es (i + 1) stop st in
+    lead, d ^^ l ^^ rest, st)
 
-and child
-      (e : env)
-      (it : entry)
-      ~(tail : state -> Ir.Kind.t Handsome.Utf8.t * state)
-      ~(stood : Ir.Layout.break)
-      (st : state)
-  =
+and child (e : env) (it : entry) ~(stood : Ir.Layout.break) (st : state) =
   match it.child with
   | Siesta.Green.Token t ->
     let w = Written.of_token t in
     let lead, st = glue e st w in
-    let d, st = tail { st with held = it.held } in
-    lead, Written.doc w ^^ d, st
-  | Siesta.Green.Node n -> node e n ~tail ~stood st
+    lead, Written.doc w, { st with held = it.held }
+  | Siesta.Green.Node n -> node e n ~stood st
 
-and node
-      (e : env)
-      (n : Siesta.Green.node)
-      ~(tail : state -> Ir.Kind.t Handsome.Utf8.t * state)
-      ~(stood : Ir.Layout.break)
-      (st : state)
-  =
+and node (e : env) (n : Siesta.Green.node) ~(stood : Ir.Layout.break) (st : state) =
   let entry = st.written
   and stood_space = st.space_before in
   (* [undo] belongs to the boundary in front of this node, which is the enclosing
@@ -618,11 +576,7 @@ and node
       { st with brk = stood; space_before = stood_space })
     else st
   in
-  let tail st = tail (undo st) in
   let k = Siesta.Green.kind n in
-  (* A child's [tail] walks the children after it, and is called from inside that
-     child. The kind travels in [env] rather than a mutable cell so that a tail
-     resumes with the kind of the rule whose children it is walking. *)
   let e = { e with kind = k } in
   let cs = Siesta.Green.children_array n in
   (* A node with no children stands in for something the parse never read: a
@@ -636,8 +590,7 @@ and node
   if Array.length cs = 0
   then (
     say e "absent";
-    let d, st = tail st in
-    empty, d, undo st)
+    empty, empty, undo st)
   else (
     let ri = e.lay.of_kind.(k) in
     let ruled = ri >= 0 in
@@ -670,9 +623,20 @@ and node
       in
       go (body_end - 1)
     in
-    let tail_sep =
-      let rec go i = i < body_end && (es.(i).role = Separator || go (i + 1)) in
-      elt >= 0 && go (elt + 1)
+    (* Whether the source already has a separator after the last element, and
+       where a lone one sits. Only a lone one is a byte the policy may take
+       back: a body holding two keeps both, because the fold writes every token
+       the tree holds and one of the two is not a policy's to give. *)
+    let tail_sep, lone_sep =
+      let rec go (i : int) (n : int) (at : int) =
+        if i >= body_end
+        then n, at
+        else if es.(i).role = Separator
+        then go (i + 1) (n + 1) (if n = 0 then i else at)
+        else go (i + 1) n at
+      in
+      let n, at = if elt < 0 then 0, -1 else go (elt + 1) 0 (-1) in
+      n > 0, if n = 1 then at else -1
     in
     (* Whether the last byte the body writes came out of a node the layout does
        not rule. That is an error node, which is where recovery puts the tokens
@@ -694,7 +658,7 @@ and node
        element can end in a token of the separator's own kind -- a [Let] in
        grammars/shapes_grammar.ml ends in the [;] that is also its body's
        separator -- and then there is no telling whose it is. *)
-    let swept_tail =
+    let swept_from =
       let rec last (inside : bool) (c : Siesta.Green.child) : bool option =
         match c with
         | Siesta.Green.Token t ->
@@ -742,28 +706,22 @@ and node
           | Some swept -> swept
           | None -> body_back (i - 1))
       in
-      body_back (body_end - 1)
+      body_back
     in
+    (* Asked of the body as it ends today, which is what an added separator
+       would follow. *)
+    let swept_tail = swept_from (body_end - 1) in
+    (* Asked of the body without its trailing separator, which is what taking
+       one back leaves behind. The two differ, because a separator already
+       there is the last token the first one reaches, so it never sees the
+       element in front of it. [\[\[j,,\]] is the case: the outer body's
+       separator hides an inner frame the parse never closed, and dropping it
+       hands that frame the outer's closer on the next pass. *)
+    let swept_elt = swept_from elt in
     let policy =
       match sep_of r with
       | Some s when s.text <> "" && elt >= 0 -> Some s
       | Some _ | None -> None
-    in
-    let magic =
-      match policy with
-      | Some { trailing = On_break; _ } -> tail_sep
-      | Some _ | None -> false
-    in
-    (* A body the source requested broken, breaks. Its own boundaries read
-       [Fit], and the request outranks that. *)
-    let es =
-      if not magic
-      then es
-      else
-        Array.mapi es ~f:(fun i it ->
-          if i > o && i <= body_end && it.before = Ir.Layout.Fit
-          then { it with before = Ir.Layout.Hard 1 }
-          else it)
     in
     (* What the body's tail does. It has to be one shape whether the separator
        came from the source or from here: splitting the last run only when the
@@ -773,17 +731,20 @@ and node
       match policy with
       | None -> `Plain
       | Some s ->
-        if tail_sep
-        then `Present s
-        else if not closed
-        then `Plain
-        else if swept_tail
-        then `Plain
+        if (not closed) || swept_tail
+        then if tail_sep then `Present s else `Plain
         else (
-          match s.trailing with
-          | Never -> `Plain
-          | Always -> `Add s
-          | On_break -> `Maybe s)
+          match s.trailing, tail_sep with
+          (* The separator the source has is the one this would have written,
+             so it goes under the same conditional rather than being written
+             flat. That is what keeps the two passes building one document:
+             the separator stops saying anything about how the body was laid
+             out, so reading it back cannot move a decision. *)
+          | On_break, true when lone_sep >= 0 && not swept_elt -> `Held lone_sep
+          | (Never | Always | On_break), true -> `Present s
+          | Never, false -> `Plain
+          | Always, false -> `Add s
+          | On_break, false -> `Maybe s)
     in
     let st =
       match r.edge_before with
@@ -792,39 +753,29 @@ and node
         { st with space_before = b }
       | None -> st
     in
-    let close st =
-      let st =
-        match r.edge_after, st.last with
-        | Some b, Some edge ->
-          say e "edge-after";
-          { st with last = Some { edge with space_after = b } }
-        (* Nothing was written before this edge, so there is no flag to
-           replace. *)
-        | (Some _ | None), _ -> st
-      in
-      tail st
+    (* [edge_after] replaces the flag on the last token this rule wrote, so the
+       boundary after the node reads it rather than that token's own. *)
+    let close (st : state) : state =
+      match r.edge_after, st.last with
+      | Some b, Some edge ->
+        say e "edge-after";
+        { st with last = Some { edge with space_after = b } }
+      (* Nothing was written before this edge, so there is no flag to
+         replace. *)
+      | (Some _ | None), _ -> st
     in
     (* Where the body segment ends, which is not always where the body does.
-       The closer normally starts its own line, so it sits outside the nest and
-       outside the last element's group. A recovery node beside it can hold it to
-       the body's last line instead. It then belongs to that line's run, or the
-       group that settles the line will not have measured it. Nesting it changes
-       nothing there, because no break is taken. *)
+       The closer normally starts its own line, so it sits outside the nest. A
+       recovery node beside it can hold it to the body's last line instead, and
+       then it belongs to that line. Nesting it changes nothing there, because
+       no break is taken. *)
     let body_stop =
       if c >= 0 && es.(c).before = Ir.Layout.Flat
       then flat_end es (c + 1) last
       else body_end
     in
     (* Where the body's own segment starts. Slot zero's boundary is always
-       [Flat], so the body's first run lands on the opener's line. It belongs
-       to the run the children before the opener are measured against, or the
-       group that settles that line has not measured it -- which is D8, and Law
-       F is what reads it.
-
-       A production's frame has nothing before its opener, so the run goes into
-       a token's tail and the document does not move. An enclosed postfix has
-       its operand there, and the operand is a group: without this it renders
-       flat against a line the body then lengthens. *)
+       [Flat], so the body's first run lands on the opener's line. *)
     let body_from = flat_end es (o + 1) body_stop in
     (* The separator a policy adds, straight after the last element.
 
@@ -843,8 +794,7 @@ and node
        line glues differently with it and without -- a held comment does, and
        the spacing of one is the difference between a format that settles and
        one that alternates. The element itself is folded once and stays where
-       the head put it, which is what lets the group settling its line measure
-       it.
+       the head put it.
 
        One shape either way. A separator the source already has is the flat
        branch and one this adds is the broken branch, so the document does not
@@ -854,18 +804,39 @@ and node
              Ir.Kind.t Handsome.Utf8.t
              -> Ir.Kind.t Handsome.Utf8.t
              -> Ir.Kind.t Handsome.Utf8.t)
-          first
-          stop
-          ~after
-          st
+          (first : int)
+          (stop : int)
+          (st : state)
       =
       match tail_policy with
       (* No policy, so no split: cutting the walk at the last element would
          truncate every run that crosses it. *)
-      | `Plain -> walk e es first stop ~after st
+      | `Plain -> walk e es first stop st
+      (* The separator is a child here, so the broken branch walks it and the
+         flat branch steps over it. Nothing is written that the tree does not
+         hold, and one token of it goes unwritten. *)
+      | `Held at ->
+        if elt < first || elt >= stop
+        then walk e es first stop st
+        else (
+          let rest ~(sep : bool) (st : state) =
+            if sep
+            then (
+              let l, d, st = walk e es (elt + 1) stop st in
+              l ^^ d, st)
+            else (
+              say e "sep-dropped";
+              let l, d, st = walk e es (elt + 1) at st in
+              let l2, d2, st = walk e es (at + 1) stop st in
+              l ^^ d ^^ l2 ^^ d2, st)
+          in
+          let lead, head, st = walk e es first (elt + 1) st in
+          let without, after_without = rest ~sep:false st in
+          let with_sep, _ = rest ~sep:true st in
+          lead, head ^^ alt without with_sep, after_without)
       | (`Present s | `Add s | `Maybe s) as p ->
         if elt < first || elt >= stop
-        then walk e es first stop ~after st
+        then walk e es first stop st
         else (
           let written = Written.separator s.sep_kind s.text in
           let rest ~(sep : bool) (st : state) =
@@ -882,10 +853,11 @@ and node
                 let lead, st = glue e st written in
                 lead ^^ Written.doc written, st)
             in
-            let l, d, st = walk e es (elt + 1) stop ~after st in
+            let l, d, st = walk e es (elt + 1) stop st in
             d1 ^^ l ^^ d, st
           in
-          walk e es first (elt + 1) st ~after:(fun st ->
+          let lead, head, st = walk e es first (elt + 1) st in
+          let d, st =
             match p with
             | `Present _ -> rest ~sep:false st
             | `Add _ -> rest ~sep:true st
@@ -895,89 +867,44 @@ and node
                  second in the wrong place. *)
               let without, after_without = rest ~sep:false st in
               let with_sep, _ = rest ~sep:true st in
-              alt without with_sep, after_without))
+              alt without with_sep, after_without
+          in
+          lead, head ^^ d, st)
     in
     let build ~alt =
       if o < 0
       then (
-        let lead, d, st = body ~alt 0 last ~after:close st in
+        let lead, d, st = body ~alt 0 last st in
         (* [indent] is what a boundary of this rule does to the lines after it.
            A rule with one child has no boundary, so nesting there would add its
            indent to every rule that wraps a single child on the way down. *)
-        lead, (if last > 1 then Handsome.Utf8.nest r.indent d else d), st)
+        lead, (if last > 1 then Handsome.Utf8.nest r.indent d else d), close st)
       else (
-        let ends_body = body_stop >= last in
-        (* Whether the run reaches the end of the node. Then the closer is on
-           the opener's line too, and so is whatever this node's own tail
-           writes, and all of it belongs to the same group. An empty pair is
-           the case that matters -- [l\[2\]()] followed by three [?] and an
-           index -- and there the run is the whole node. *)
-        let flat_through = body_from >= body_stop && flat_end es body_stop last >= last in
-        let tail_of st =
-          if ends_body
-          then (
-            let d, st = close st in
-            empty, d, st)
-          else walk e es body_stop last ~after:close st
-        in
-        let lead, head, st =
-          walk e es 0 (o + 1) st ~after:(fun st ->
-            (* The run's own last child is handed what follows it, the way
-               [walk] hands every child its tail. Concatenating it after this
-               walk instead would put it outside the group that settles the
-               line it lands on, which is the defect this is here to close. *)
-            let l, d, st =
-              walk
-                e
-                es
-                (o + 1)
-                body_from
-                ~after:
-                  (if flat_through
-                   then
-                     fun st ->
-                       let close_lead, rest, st = tail_of st in
-                       (* The closer and this node's tail have to stay where
-                          they are, inside the group that settles their line.
-                          They must not take this rule's indent: a line they
-                          break is not one this rule's boundary opened, and
-                          carried down it reaches every sibling after this
-                          node. [fn main() -> int] is where it shows, where
-                          the empty parameter list indented the whole function
-                          body. Nesting back by the same amount leaves the
-                          group alone and cancels the one below. *)
-                       Handsome.Utf8.nest (-r.indent) (close_lead ^^ rest), st
-                   else nothing)
-                st
-            in
-            Handsome.Utf8.nest r.indent (l ^^ d), st)
-        in
-        let inner_lead, inner, st =
-          if flat_through
-          then empty, empty, st
-          else
-            body ~alt body_from body_stop ~after:(if ends_body then close else nothing) st
-        in
-        let close_lead, rest, st =
-          if flat_through || ends_body then empty, empty, st else tail_of st
-        in
+        let lead, head, st = walk e es 0 (o + 1) st in
+        let opened_lead, opened, st = walk e es (o + 1) body_from st in
+        let inner_lead, inner, st = body ~alt body_from body_stop st in
+        let close_lead, rest, st = walk e es body_stop last st in
         ( lead
-        , head ^^ Handsome.Utf8.nest r.indent (inner_lead ^^ inner) ^^ close_lead ^^ rest
-        , st ))
+        , head
+          ^^ Handsome.Utf8.nest r.indent (opened_lead ^^ opened ^^ inner_lead ^^ inner)
+          ^^ close_lead
+          ^^ rest
+        , close st ))
     in
     (* [framed] builds its body inside the callback, because the conditional it
        hands out is only in scope there. The fold's state comes back out beside
        the document, which the callback has no room for, so it is put down as
        the body is built. [framed] calls the body once.
 
-       Only [On_break] needs one. The other policies write their separator
-       either way, so there is nothing for a conditional to turn on, and a
-       plain group is what they take. *)
+       Only [On_break] needs one, whether the separator comes from here or
+       from the tree. The other policies write theirs either way, so there is
+       nothing for a conditional to turn on, and a plain group is what they
+       take. *)
     match tail_policy with
     | `Plain | `Present _ | `Add _ ->
       let lead, d, st = build ~alt:(fun flat _ -> flat) in
       lead, Handsome.Utf8.group (Handsome.Utf8.annotate k d), undo st
-    | `Maybe _ ->
+    | `Maybe _ | `Held _ ->
       let out = ref None in
       let d =
         Handsome.Utf8.framed (fun alt ->
@@ -990,6 +917,8 @@ and node
        | None -> invalid_arg "Layout.node: framed did not build its body"))
 ;;
 
+let fit : Handsome.fit = Handsome.Line
+
 let doc
       ?(trace = fun ~step:(_ : string) ~kind:(_ : Ir.Kind.t) -> ())
       (lay : Ir.Layout.t)
@@ -997,9 +926,7 @@ let doc
       n
   =
   let kind = Siesta.Green.kind n in
-  let lead, d, _ =
-    node { lay; boundary; trace; kind } n ~tail:nothing ~stood:Ir.Layout.Flat start
-  in
+  let lead, d, _ = node { lay; boundary; trace; kind } n ~stood:Ir.Layout.Flat start in
   lead ^^ d
 ;;
 
@@ -1011,5 +938,6 @@ let format
       (n : Siesta.Green.node)
   : string
   =
-  Handsome.Utf8.to_string (fst (Handsome.Utf8.render ~width (doc ?trace lay ~boundary n)))
+  Handsome.Utf8.to_string
+    (fst (Handsome.Utf8.render ~fit ~width (doc ?trace lay ~boundary n)))
 ;;

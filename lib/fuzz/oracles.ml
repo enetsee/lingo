@@ -85,10 +85,10 @@ let shape (root : Siesta.Green.node) : string =
 
 (* -- the token comparisons ------------------------------------------------- *)
 
-(* Every token of [before] is in [after], in the same order. [after] may hold
-   one extra where a body's policy added a separator, and nothing else: the
-   fold writes the tree's tokens and, in a frame the parse closed, one
-   separator. It may never lose one. *)
+(* Every token of [before] is in [after], in the same order, but for the
+   separator a body's policy governs. In a frame the parse closed, [after] may
+   hold one the tree does not, and may drop one the tree holds. Nothing else
+   moves. test/laws/law_layout.ml says why the dropping half is here. *)
 let rec keeps
           ~(seps : string list)
           (before : (int * string) list)
@@ -97,11 +97,9 @@ let rec keeps
   =
   match before, after with
   | [], [] -> true
-  | b, (_, y) :: a
-    when match b with
-         | (_, x) :: _ -> not (String.equal x y)
-         | [] -> true -> List.mem y ~set:seps && keeps ~seps b a
   | (_, x) :: b, (_, y) :: a when String.equal x y -> keeps ~seps b a
+  | b, (_, y) :: a when List.mem y ~set:seps -> keeps ~seps b a
+  | (_, x) :: b, a when List.mem x ~set:seps -> keeps ~seps b a
   | _ -> false
 ;;
 
@@ -116,6 +114,7 @@ let difference
     | [], [] -> "?"
     | (_, x) :: b, (_, y) :: a when String.equal x y -> go (i + 1) b a
     | b, (_, y) :: a when List.mem y ~set:seps -> go i b a
+    | (_, x) :: b, a when List.mem x ~set:seps -> go (i + 1) b a
     | (_, x) :: _, (_, y) :: _ -> Printf.sprintf "token %d is %S and came back %S" i x y
     | (_, x) :: _, [] -> Printf.sprintf "token %d is %S and did not come back" i x
     | [], (_, y) :: _ -> Printf.sprintf "%S came back and was never written" y
@@ -169,7 +168,9 @@ let run (h : Harness.t) ?(at : Core.Rule.id option) ~(widths : int list) (src : 
         if newlines <> [] then add (Wrapped { newlines = List.length newlines });
         if strays <> [] then add (Unframed { conditionals = List.length strays }));
      let at_width (width : int) : (int * string) list =
-       let stream, resolved = Handsome.Utf8.render ~width d in
+       let stream, resolved =
+         Handsome.Utf8.render ~fit:Lingo_runtime.Layout.fit ~width d
+       in
        let lines = Handsome.Utf8.lines stream in
        let once = Handsome.Utf8.to_string stream in
        List.iter resolved.declined ~f:(fun (line, _) ->

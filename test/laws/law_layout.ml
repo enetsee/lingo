@@ -19,9 +19,11 @@
       The argument, which the corpus only checks. [format t] is [render (doc t)], and [doc] is a function of [t] alone. So
       idempotence is this: does [parse (format t)] give [t] back?
 
-      The fold writes three things. The tokens of [t], in order, byte for byte;
-      whitespace between them; and, at the end of a body whose frame the parse
-      closed, one separator the layout names.
+      The fold writes three things. The tokens of [t], in order, byte for byte,
+      bar one; whitespace between them; and, at the end of a body whose frame
+      the parse closed, one separator the layout names. The one it may leave
+      out is that same separator, where the tree already holds it and the body
+      lies flat.
 
       The first is not a claim about the code, it is its signature.
       [Layout.Written] is the only way bytes reach the document, and it has two
@@ -31,18 +33,25 @@
       by name. The whitespace is the glue, whose whole alphabet is a space and a
       line break.
 
-      So [format t] holds the tokens of [t] and at most one separator more. Every
-      boundary's glue is checked against the grammar's own lexer, so the lexer
-      takes those tokens back. [parse] then runs on that run and gives [t] back,
-      with the separator where the next parse also puts one.
+      So [format t] holds the tokens of [t], one trailing separator either way.
+      Every boundary's glue is checked against the grammar's own lexer, so the
+      lexer takes those tokens back. [parse] then runs on that run and gives [t]
+      back, with the separator where the next parse also puts one.
 
       Four things can break that, and they are what the parts watch:
 
-      - the fold dropping a token. Part (b), and there is no exception: dropping
-        changes the token run, which changes which frame the next parse gives the
-        closer to, so a body's tail loses one separator per pass and never
-        settles. The fold did that until 2026-09-19, on the grammar's
-        [trailing_sep]. M6.
+      - the fold dropping a token. Part (b). Dropping changes the token run,
+        which changes which frame the next parse gives the closer to, so a
+        body's tail loses one separator per pass and never settles. The fold
+        did that until 2026-09-19, on the grammar's [trailing_sep]. M6.
+
+        The one exception is the trailing separator, and it is guarded by the
+        same question M6 failed to ask. A body may drop it only where the parse
+        closed the frame and the body up to its last element does not end inside
+        a frame the parse left open. Without that second half [\[\[j,,\]]
+        loses a comma a pass: the two commas sit in different frames, the outer
+        closed and the inner not, and dropping the outer's hands its [\]] to
+        the inner frame, which closes it and reveals the next. M31.
       - the fold writing one it may not. The type holds the general case. What
         the type cannot say is *where*: a separator written into a frame the
         parse did not close lets the next parse take a token from outside the
@@ -63,13 +72,24 @@
       The argument is what to reason from. The corpus is what says the code does
       what the argument says it does.
 
-      A separator the source already has. [On_break] writes a separator where the body breaks. So a separator the
-      source has there is a request for a broken body, and the fold breaks it.
-      That is the only way a grammar's user can make one directly, and it is
-      Black's magic trailing comma.
+      A separator the source already has. [On_break] writes one where the body
+      breaks and takes it back where the body lies flat, so the separator the
+      tree holds goes under the same conditional as the one the fold would have
+      written. The source's is the fold's, and neither says anything about how
+      the body was laid out.
 
-      It also has to be the case. The fold cannot drop the separator, so the
-      alternative is a flat body carrying a trailing one, which reads badly.
+      It has to be that way under [Handsome.Line]. Black's magic trailing comma
+      is the other reading: a separator the source has is a request for a broken
+      body. The fold wrote that separator itself the pass before, so under a fit
+      rule that measures a node by a later one on its line, reading it back
+      moves a decision that nothing moved on the pass that wrote it. A body
+      forced broken measures its opener; one that chose to break measures its
+      full width. The formatter then settles on the second pass rather than the
+      first. M30.
+
+      Every other mark the fold makes only adds bytes, so every measurement
+      grows and a group that broke goes on breaking. The request was the one
+      thing that made a measurement shrink.
 
       [Always] is a terminator rather than a separator. It is the [;] after every
       statement in a block, the last one included, so a separator the source has
@@ -130,7 +150,9 @@
         M6  In [Layout.entries], drop the separators at the end of a body.
             -> (b) 23,330 formats, (c) 4,176, (g) both separators read zero.
                Dropping is as much a change to the token run as writing, and each
-               drop reshapes the parse and reveals the next.
+               drop reshapes the parse and reveals the next. The trailing
+               separator is dropped under guards now; M31 is what those guards
+               are worth.
         M7  In [Layout.entries], write whitespace trivia out rather than letting
             the boundaries re-emit it.
             -> (c) 190,949 formats, (e) 2 lines, (g) three read zero. The
@@ -165,11 +187,12 @@
                earns another separator. This is pigeon's [format] exactly.
        M13  In [Layout.node], stop reading a separator the source has as a
             request to break.
-            -> nothing here, and comments.format moves by 53 lines. A body whose
-               user requested broken lays out by width instead, and since the
-               fold cannot drop the separator, a flat body then carries a trailing
-               one. It is legal and idempotent and reads badly, so only the
-               goldens carry it.
+            -> this is the code as of 2026-09-25, so M30 is the mutation and
+               this entry is its history. It read nothing here and moved
+               comments.format by 53 lines, and what made it legible rather
+               than desirable was that the fold could not then drop the
+               separator, so a flat body carried a trailing one. The fold drops
+               it now.
        M14  In [Layout.body], carry the state the folding *with* the separator
             left, rather than the one without it.
             -> (b) 7 formats, (d) 1 input, and law_fuzz by 231 over its good
@@ -201,12 +224,20 @@
                the same, and this is the entry that would notice if the
                construction stopped holding.
        M16  In [Layout.body], put the [On_break] separator in the flat branch.
-            -> (c) 2,576 formats, and law_fuzz by 970, 1,875 and 2,338 over
-               its three corpora, every one of them Law B. comments.format
-               moves by 43 lines as well. A flat body
-               then carries a trailing separator, the next parse reads that as
-               a request to break, and the pass after that takes it out of the
-               flat branch again.
+            -> (c) 3 formats, and law_fuzz by 64, 143 and 35 over its three
+               corpora, every one of them Law B. comments.format moves by 99
+               lines as well. A flat body then carries a trailing separator,
+               and the pass after it lies flat again and takes the separator
+               back out.
+
+               Re-measured on 2026-09-25, after M13 became the code. It read
+               2,576 formats and 970, 1,875 and 2,338 before, on 43 golden
+               lines. The mutation was louder while the separator was also a
+               request to break: a flat body carrying one was read as asking
+               to break, so it broke, so the pass after that took it out of the
+               flat branch. The loop is gone and what is left is the drop and
+               the write disagreeing, which is the same defect one turn
+               quieter.
 
        M17  In [Layout.node], carry a break on out of the child that asked for
             it, rather than putting it back where the child writes nothing.
@@ -245,6 +276,32 @@
                instrument rather than of the layout, and they are here because
                a step the corpus cannot reach makes (g) and the coverage count
                both say less than they read.
+
+       M30  In [Layout.node], read a separator the source has as a request to
+            break: write it in both branches and turn the body's [Fit]
+            boundaries into [Hard 1]. This is Black's magic trailing comma, and
+            it is what the fold did until 2026-09-25.
+            -> (c) 1 format, and law_fuzz by 2, 7 and 1 over its three corpora,
+               every one of them Law B. The fold wrote that separator itself on
+               the pass before, so reading it back is the one mark it makes
+               that shrinks a measurement rather than growing it: a body forced
+               broken measures its opener where one that chose to break
+               measures its full width. Under [Handsome.Content] nothing
+               outside the body ever read that number. Under [Handsome.Line]
+               whatever shares its line does, so the pass that wrote the
+               separator and the pass that reads it place the break in front of
+               it differently. Every witness settles on the second pass.
+       M31  In [Layout.node], let [`Held] ask the swept question from the body's
+            end rather than from its last element.
+            -> (c) 66 formats, and law_fuzz by 5 Law B and 5 Law E over its
+               mutated corpus, nothing over the good one or the fragments. A
+               separator already there is the last token the body-end question
+               reaches, so it never sees the element in front of it.
+               [\[\[j,,\]] is the shortest: the two commas sit in different
+               frames, the outer closed and the inner not, and dropping the
+               outer's hands its [\]] to the inner frame on the next parse,
+               which closes it and reveals the next comma. That is M6's finding
+               reached through the guarded path, and the guard is what stops it.
 
        M22  In [Layout.flat_end], let a child that writes nothing end the run.
        M23  In [Layout.node], start the body segment at the opener rather than
@@ -477,18 +534,23 @@ let separators (l : Ir.Layout.t) =
     l.rules
 ;;
 
-(* Every token of [before] is in [after], in the same order. [after] may hold
-   one extra token where a body's policy added a separator, and nothing else: the
-   fold writes the tree's tokens and, in a frame the parse closed, one separator.
-   It may never lose one. *)
+(* Every token of [before] is in [after], in the same order, but for the
+   separator a body's policy governs. In a frame the parse closed, [after] may
+   hold one the tree does not and may drop one the tree holds. Nothing else
+   moves.
+
+   Dropping is the half that is new, and it is what this law gives up. A
+   trailing separator under [On_break] is written where the body breaks and
+   taken back where it does not, so that the separator says nothing about the
+   layout. A formatter that reads back a mark it wrote itself cannot settle
+   under a fit rule that measures one node by a later one. So the claim weakens
+   from "no token is lost" to "no token but a separator is lost". *)
 let rec keeps ~(seps : string list) (before : string list) (after : string list) : bool =
   match before, after with
   | [], [] -> true
-  | b, y :: a
-    when match b with
-         | x :: _ -> not (String.equal x y)
-         | [] -> true -> List.mem y seps && keeps ~seps b a
   | x :: b, y :: a when String.equal x y -> keeps ~seps b a
+  | b, y :: a when List.mem y seps -> keeps ~seps b a
+  | x :: b, a when List.mem x seps -> keeps ~seps b a
   | _ -> false
 ;;
 
@@ -500,6 +562,7 @@ let first_difference ~(seps : string list) (before : string list) (after : strin
     | [], [] -> "?"
     | x :: b, y :: a when String.equal x y -> go (i + 1) b a
     | b, y :: a when List.mem y seps -> go i b a
+    | x :: b, a when List.mem x seps -> go (i + 1) b a
     | x :: _, y :: _ -> Printf.sprintf "token %d is %S and came back %S" i x y
     | x :: _, [] -> Printf.sprintf "token %d is %S and did not come back" i x
     | [], y :: _ -> Printf.sprintf "%S came back and was never written" y
@@ -606,7 +669,9 @@ let () =
              (match Handsome.Utf8.check d with
               | Ok () -> ()
               | Error es -> newlines := (c.name, src, List.length es) :: !newlines);
-             let stream, res = Handsome.Utf8.render ~width d in
+             let stream, res =
+               Handsome.Utf8.render ~fit:Lingo_runtime.Layout.fit ~width d
+             in
              let lines = Handsome.Utf8.lines stream in
              List.iter
                (fun (ln, _) ->

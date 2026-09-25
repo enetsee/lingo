@@ -129,6 +129,15 @@ type t = Ir.Layout.t =
     about to follow, so the cost is that run rather than the document. *)
 val boundary : lex:(string -> Token.t array) -> string -> int -> bool
 
+(** The rule a group decides by, which is {!Handsome.Line}: a group measures
+    what follows it on its last line as well as its own content.
+
+    It is here rather than inside {!format} because a caller rendering {!doc}
+    itself has to use the same one. The fold writes a break wherever the ruler
+    could need one and nowhere else, so one of its documents rendered under
+    {!Handsome.Content} puts lines past the ruler with no break left to take. *)
+val fit : Handsome.fit
+
 (** The document, with each token's kind on it. A caller folding the rendered
     stream reads those to colour the output or to check it.
 
