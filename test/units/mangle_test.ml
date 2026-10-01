@@ -94,4 +94,84 @@ let () =
     Law.fail "\"Expr_Root\" no longer snakes to %S" (Core.Mangle.snake_case "Expr_Root")
 ;;
 
+(* Every keyword, not a sample of them.
+
+   [ocaml_reserved] is a literal list and the only thing that read it was
+   itself: on 2026-09-26 fifty-three mutations that each dropped one word
+   from it survived the whole suite. A grammar whose rule takes the name of
+   the dropped word then emits a binding the compiler will not take.
+
+   So the list is written a second time here, on purpose. It is the oracle
+   rather than a convenience, and two copies that disagree is the thing
+   this catches. *)
+let keywords =
+  [ "and"
+  ; "as"
+  ; "assert"
+  ; "asr"
+  ; "begin"
+  ; "class"
+  ; "constraint"
+  ; "do"
+  ; "done"
+  ; "downto"
+  ; "else"
+  ; "end"
+  ; "exception"
+  ; "external"
+  ; "false"
+  ; "for"
+  ; "fun"
+  ; "function"
+  ; "functor"
+  ; "if"
+  ; "in"
+  ; "include"
+  ; "inherit"
+  ; "initializer"
+  ; "land"
+  ; "lazy"
+  ; "let"
+  ; "lor"
+  ; "lsl"
+  ; "lsr"
+  ; "lxor"
+  ; "match"
+  ; "method"
+  ; "mod"
+  ; "module"
+  ; "mutable"
+  ; "new"
+  ; "nonrec"
+  ; "object"
+  ; "of"
+  ; "open"
+  ; "or"
+  ; "private"
+  ; "rec"
+  ; "sig"
+  ; "struct"
+  ; "then"
+  ; "to"
+  ; "true"
+  ; "try"
+  ; "type"
+  ; "val"
+  ; "virtual"
+  ; "when"
+  ; "while"
+  ; "with"
+  ]
+;;
+
+let () =
+  let unescaped =
+    List.filter (fun word -> Core.Mangle.escape_reserved word = word) keywords
+  in
+  match unescaped with
+  | [] -> Law.pass "every one of the %d reserved words is escaped" (List.length keywords)
+  | words ->
+    List.iter (fun word -> Law.fail "%S is reserved and came back unescaped" word) words
+;;
+
 let () = Law.summarise "mangle_test"

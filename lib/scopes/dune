@@ -4,4 +4,6 @@
 (library
  (name scopes)
  (public_name lingo.scopes)
- (libraries core redfa ucharset))
+ (libraries core redfa ucharset)
+ (instrumentation
+  (backend assay)))

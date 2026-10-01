@@ -40,19 +40,20 @@
       a mutated draw is near the language and a swept input is a mangled one,
       so the two corpora are complements and the sweep does not go away.
 
-      Part (c) is M1, ported. A point is a place in the plan where a parse read
-      the cursor, and an edge is a pair of consecutive points. The claim is
-      what separates the two counts: doubling the corpus adds 464 points to
-      1,663 and 1,058 edges to 3,287, so the points are a property of the plan
-      and the edges are still finding things. The predecessor counted points,
-      saturated at about a thousand iterations, and ran a million-sample sweep
-      for ten issues with a flat number beside it.
+      Part (c) is the predecessor's own coverage claim, ported. A point is a
+      place in the plan where a parse read the cursor, and an edge is a pair of
+      consecutive points. The claim is what separates the two counts: doubling
+      the corpus adds 464 points to 1,663 and 1,058 edges to 3,287, so the
+      points are a property of the plan and the edges are still finding things.
+      The predecessor counted points, saturated at about a thousand iterations,
+      and ran a million-sample sweep for ten issues with a flat number beside
+      it.
 
       The threshold in (c) is half the points the first half found. It is a
       threshold and it is worth saying where it sits: the point count here adds
       a quarter of itself, and keying on the whole parse stack rather than on
-      {!Ir.Residual.State.site} adds twenty times itself. M2 is that mutation,
-      and an order of magnitude sits either side of the line.
+      {!Ir.Residual.State.site} adds twenty times itself, and an order of
+      magnitude sits either side of the line.
 
       Part (d) has two halves and the second is the one with something to hide.
       A mutator that declines every call is invisible in every other number:
@@ -62,7 +63,7 @@
       reaches one arm of a four-arm slot -- the corpus parses, the oracles read
       zero, and [fired] reads the same either way. A slot whose every arm is a
       token is one no node can stand in, and a walk that saw only nodes would
-      build the same arms and decline nothing extra. M4 is that walk.
+      build the same arms and decline nothing extra.
 
       Part (f) is the one thing a corpus can be silently short of. Every law
       above it is a forbidding one, so a construct the corpus never builds
@@ -71,7 +72,7 @@
       {!Fuzz.Harness.built} walks a tree, and the two never consult each other.
       They are compared both ways. A rule the walk reaches and no tree holds is
       what the part is named for; a rule a tree holds and the walk never
-      reaches would mean the walk is simply short, and M23 is that mutation.
+      reaches would mean the walk is simply short.
 
       It read red, and what it read is worth keeping. Twelve of 238 rules at
       depth 8, and the same twelve at depth 32 -- 224,000 mutated inputs reach
@@ -111,8 +112,8 @@
       Every rule, rather than only the ones the draws from a root missed.
       Keying on the gap was tried and it is backwards: a deeper run's draws
       miss fewer rules, so the fragment corpus shrinks as the work grows and
-      the law gets weaker. It cost M18 and M19 their falsification at depth 8
-      while depth 1 still caught both.
+      the law gets weaker. It cost two of the separator defects their
+      falsification at depth 8 while depth 1 still caught both.
 
       Each fragment is then mutated, and two mutants are dropped rather than
       run. Both are about what a parse entering at a rule does differently from
@@ -125,7 +126,7 @@
       one that deletes the entry rule's own opener builds a delimited node with
       nothing where its opener goes -- which no parse from a root can build,
       because a root only enters the rule when its opener is under the cursor.
-      Nine Law B findings came from that shape and M22 is the mutation.
+      Nine Law B findings came from that shape.
 
       That shape was counted rather than argued. Over 16,610 trees from the
       draws at a root, clean and mutated, no delimited node is missing its
@@ -141,35 +142,36 @@
       is about one tree and the bytes it holds. 6,001 of 6,694 mutants are
       taken in full and 1,449 of those recover.
 
-      The fragments are worth what they cost. M18 and M19 read zero over the
-      mutated corpus at every depth now, and 27 and 14 over the fragments at
-      depth 1 and 195 and 147 at depth 8, so for those two the fragments are
-      the whole of the falsification. The witnesses are shorter by an order of magnitude as
-      well: [{//\nnh(h,chi}] against a 180-byte rust program.
+      The fragments are worth what they cost. Two of the separator defects read
+      zero over the mutated corpus at every depth now, and 27 and 14 over the
+      fragments at depth 1 and 195 and 147 at depth 8, so for those two the
+      fragments are the whole of the falsification. The witnesses are shorter
+      by an order of magnitude as well: [{//\nnh(h,chi}] against a 180-byte
+      rust program.
 
       Part (g) is about reading the witnesses the other six leave. A class
       keeps the shortest input that reached it, and the shortest of thousands
-      is 90 bytes of rust. The three separator defects M17 to M19 name were
-      each reduced by hand before anybody could say what they were, and a
-      throwaway probe was written to do the reducing. {!Fuzz.Shrink} does it in
-      the run that finds them, and M17's 90 bytes come out as [fn{a(//\nN{})].
+      is 90 bytes of rust. The three separator defects were each reduced by
+      hand before anybody could say what they were, and a throwaway probe was
+      written to do the reducing. {!Fuzz.Shrink} does it in the run that finds
+      them, and those 90 bytes come out as [fn{a(//\nN{})].
 
       There are two reductions here, and which one runs follows from the claim
       a finding breaks. Part (a) says the corpus is clean, so a witness for it
       has to stay a clean draw: the reduction edits the trace the draw was
       recorded under, and every replay of an edited trace is a draw. Parts (b)
       and (f) run on mutants and on fragments, where a broken witness is a fine
-      witness, so the token list is edited directly. M25 collapses the two, and
-      under M5 it leaves 16 of 26 classes with a witness that no longer
-      reproduces: the class there is the decoded input failing to lex back to
-      the tokens drawn, and reading a witness back through the lexer makes the
-      two agree by construction.
+      witness, so the token list is edited directly. Collapsing the two leaves
+      16 of 26 classes with a witness that no longer reproduces: the class
+      there is the decoded input failing to lex back to the tokens drawn, and
+      reading a witness back through the lexer makes the two agree by
+      construction.
 
-      The claim has two halves and a mutation reddens each. M24 takes a
-      candidate whatever the predicate says, and every witness then reduces to
-      [""] and reproduces nothing. M26 admits a candidate that is no smaller,
-      and two of thirty reductions then stop at the cap rather than running out
-      of moves. The cap is 1,200 candidates a class.
+      The claim has two halves and a mutation reddens each. Taking a candidate
+      whatever the predicate says reduces every witness to [""], and nothing
+      reproduces. Admitting a candidate that is no smaller stops two of thirty
+      reductions at the cap rather than running out of moves. The cap is 1,200
+      candidates a class.
 
       The corpus. 3,500 clean inputs, 7,000 mutated and 7,050 fragments with
       6,694 mutants of their own, over 14 corpora holding 4,422 comments, in
@@ -195,9 +197,9 @@
       recording. It costs 0.3 s of the 54 at depth 8 and nothing measurable at
       depth 1, and the corpus is the same either way. [Strategy.auto] records
       nothing, so under it part (g) reduces part (a)'s witnesses by editing the
-      token list. That is M25. The oracle half still reduces, and the half
-      about a draw lexing back to its tokens does not, because reading a
-      witness back through the lexer makes the two agree.
+      token list. The oracle half still reduces, and the half about a draw
+      lexing back to its tokens does not, because reading a witness back
+      through the lexer makes the two agree.
 
       What this says nothing about. Whether the emitted parser and the emitted
       formatter agree with the interpreter and the fold on this corpus, which
@@ -209,162 +211,46 @@
       No defect is open. Three were, all in the separator a body's policy adds,
       and the foot of this record says what they were.
 
-      Falsification. Every mutation was applied, built, run and reverted, and
-      the result recorded is the one observed. A count is the findings that
-      law reads, at depth 1 unless a depth is named, and where law_layout moves
-      as well it is named beside.
+      Three ways the separator a body's policy adds comes back somewhere the
+      fold cannot see it: in front of the last element, inside an error node, or
+      inside a frame the parse left open at the body's end. Each leaves the fold
+      writing another on the next pass, and one of the three grows without
+      bound. Only the first is reachable from a root at all, and only through
+      the mutated corpus. The other two need a fragment, which is the whole
+      argument for part (f): both were open defects that the corpus before it
+      reached at depth 8 and stopped reaching when the corpus moved.
 
-        M1  In [Fuzz.Coverage.at], pair nothing: read the previous point as
-            [None] always, so an edge is a point.
-            -> (c), 0 edges at both depths. (d), graft fires on no grammar: an
-               input is admitted as a donor when its parse found a new edge,
-               and there are none.
-        M2  In [Fuzz.Coverage.at], key on the whole parse stack rather than on
-            [State.site].
-            -> (c). The points read 32,900 and 67,592 where the site reads
-               1,663 and 2,127. A stack grows with the input's nesting, so
-               distinct stacks track the corpus however little of the plan a
-               parse reached.
-        M3  In [Fuzz.Mutate.regenerate], decline every call.
-            -> (d), naming it. Nothing else moves: the other five absorb the
-               iterations.
-        M4  In [Fuzz.Mutate.swap_arm], walk only the node children at an
-            alternation.
-            -> (d), naming both token shapes, with every other counter reading
-               as before. (c) moves too, because the corpus after it is a
-               different corpus.
-        M5  In [Sample.decode], write no joiner at all.
-            -> (a) first half, 3,956 inputs; (b) first half, 7,747 draws the
-               sweep took are not clean. (d), the token arm at an atom is then
-               never reached, because the corpus holds far fewer expressions to
-               swap one into. (f), 678 Law A findings: a fragment whose tokens
-               fused is one the rule stops partway through. (g) reduces the 26
-               classes from 785 bytes to 245, all of them through the trace.
-        M6  In [Lingo_runtime.Layout.flat_end], let a child that writes nothing
-            end the run.
-            -> (b), 5 findings, and (f), 2. All Law F, and (a) reads zero.
-               law_layout does not move.
-        M7  In [Lingo_runtime.Layout.node], start the body segment at the
-            opener rather than after its leading run.
-            -> (a), 330 findings; (b), 807; (f), 59. All Law F. law_layout does
-               not move.
-        M8  In [Lingo_runtime.Layout.node], read [flat_through] as [false].
-            -> (a), 22 findings; (b), 119; (f), 2. All Law F. law_layout (e)
-               reads lines past the ruler, which it did not before the
-               separator was folded once: this is the one of the three its own
-               corpus reaches.
-        M9  In [Lingo_runtime.Layout.walk], hand every child an empty tail.
-            -> (a), 35,935 findings; (b), 72,115 -- B 13,819, C and D 20,241
-               each, E 17,814; (f), 116,110. law_layout as well, and its (g)
-               then reads five steps the fold never takes. This is D8 with
-               nothing left of it.
-       M10  In [Lingo_runtime.Layout.join], answer [Touching] at every
-            boundary.
-            -> (a), 2,130 findings; (b), 4,209 -- B 657, C and D 1,314 each,
-               E 578, W 346; (f), 3,261. comments' ["//"] comes back ["//,"],
-               which is Law C and Law D reading one fusion from the two ends.
-       M11  In [Lingo_runtime.Layout.node], write a byte for a childless node.
-            -> (b), 14,143 findings -- B 3,840, C and D 3,840 each, E 2,622,
-               F 1; (f), 8,833 -- and (a) reads zero. A childless node is what
-               the parse leaves where it wanted a token and found none, so only
-               a recovered tree holds one and only a mutated input reaches it.
-       M12  In [Fuzz.Mutate.apply], decline every iteration.
-            -> (c), (d) six times and its arm half, and (e): the skip class
-               reads 1,000,000 per million against a ceiling of 20,000. The
-               fragments still draw, because a draw at a rule does not go
-               through a mutator, and they still read zero.
-       M13  In [Fuzz.Oracles.keeps], refuse the separator a body's policy adds,
-            so the comparison is an equality rather than a subsequence.
-            -> (a), 4,754 findings over Laws C and D on a corpus that is good;
-               (b), 9,592; (f), 9,790. This is the mutation part (a) exists
-               for: the oracle is wrong and every other part reads exactly what
-               it read before. (g) reduces the 30 classes from 632 bytes to
-               144, and [{{let a};}] and [enum u{C}] are what part (a)'s two
-               longest come to.
-       M14  In [Lingo_runtime.Layout.body], split the walk at the last element
-            under [`Plain] as well.
-            -> (b), 60 findings, all Law B; law_layout (c), 11 formats. A
-               policy that adds nothing has nothing to insert there, and
-               cutting the walk truncates every run that crosses the cut.
-       M15  In [Lingo_runtime.Layout.body], carry the state the folding *with*
-            the separator left rather than the one without.
-            -> (a), 231 findings; (b), 543 -- B 104, C and D 110 each, E 110,
-               W 109; (f), 185; law_layout loses a token. The flat branch
-               writes no separator, so its state is the one the closer glues
-               against.
-       M16  In [Lingo_runtime.Layout.node], take a plain group and a
-            conditional that always answers flat, so an [On_break] separator is
-            never written.
-            -> nothing, in either law, and 16 lines of comments.format move.
-               No law here says a body that broke carries its separator: Law C
-               allows one and does not require it, and a fold that never writes
-               one is stably idempotent. The golden is the whole of what covers
-               it, which is mechanism L and is where it belongs -- but it is
-               worth knowing that it is the only thing there.
+      What part (a) is for. An oracle that refuses the separator a body's policy
+      adds, comparing for equality where it should compare for a subsequence,
+      reads thousands of findings over a corpus that is good, and every other
+      part reads exactly what it read before. A forbidding oracle fails by
+      firing on input that is fine, and nothing inside an oracle can see that.
 
-       M17  In [Layout.Lower.expansion], leave a block's rule atoms out of the
-            kinds a slot admits.
-            -> (b), 4 findings at depth 1 and 10 at depth 8; (f), 1 and 11.
-               All Law B, and law_layout does not move. (g) takes the 90-byte
-               witness to [fn{a(//\nN{})] and the 77-byte one at depth 8 to
-               [val 1(y b unbox)].
-       M18  In [Lingo_runtime.Layout.node], read [swept_tail] as false, so the
-            policy separator goes after bytes an error node swept up.
-            -> (f), 27 findings at depth 1 and 195 at depth 8. (b) reads zero
-               at both. (g) takes the four witnesses from 134 bytes to 21, and
-               the shortest at depth 8 is [enum{H(h}] read at [File].
-       M19  In [Lingo_runtime.Layout.node], read an inner frame [swept_tail]
-            walks into and the parse never closed as closed.
-            -> (f), 14 findings at depth 1 and 147 at depth 8. (b) reads zero
-               at both. The two share their witnesses, and this is the narrower
-               half of M18. (g) takes the three witnesses from 110 bytes to 17,
-               and the shortest at depth 8 is [enum{H(h}] read at [File].
+      Why both parses enter at the same rule. A fragment read from the root is a
+      program that starts with a construct rather than the construct, so the
+      parse recovers rather than builds; and a reparse read at the root where
+      the first was read at a rule compares two readings of different grammars.
+      Part (f) holds both ends to [at].
 
-               Three ways for the separator a body's policy adds to come back
-               somewhere the fold cannot see it: in front of the last element,
-               inside an error node, or inside a frame still open at the body's
-               end. Each leaves the fold writing another on the next pass, and
-               M18's grows without bound.
+      Why the shrinker's check is a fresh call to the predicate. The witness
+      that comes back is asked again, so the claim does not depend on what the
+      reduction loop did on the way there.
 
-               Only M17 is reachable from a root at all, and only through the
-               mutated corpus. M18 and M19 need a fragment, which is the whole
-               argument for part (f): both were open defects that the corpus
-               before it reached at depth 8 and stopped reaching when the
-               corpus moved.
+      Why coverage keys on the site. A parse stack grows with the input's
+      nesting, so distinct stacks track the corpus however little of the plan a
+      parse reached: they read twenty times what the site reads and say nothing
+      about the plan.
 
-       M20  In [Fuzz.Harness.parse], ignore [at] and enter at the root always.
-            -> (f) first half, 13 of 238 rules. A fragment read from the root
-               is a program that starts with a construct rather than the
-               construct, and the parse recovers rather than builds.
-       M21  In [Fuzz.Oracles.run], read the reparse at the root rather than at
-            [at].
-            -> (f) second half, 54,673 findings -- B 18,583, E 36,090. Both
-               parses have to enter at the same rule or the comparison is
-               between two different readings of the bytes.
-       M22  In [Fuzz.Harness.dispatches], answer [true] always.
-            -> (f) second half, 9 findings, all Law B, and the shortest is 15
-               bytes. Every one is a delimited node whose opener a mutant
-               deleted, formatting its closer one way and the reparse of that
-               the other. The tree is not one a parser can build.
-       M23  In [Fuzz.Harness.reachable], drop the first rule it found.
-            -> (f), naming [File] on every corpus that builds one. The walk
-               over the grammar is checked against the walk over a tree in both
-               directions, and this is the direction that says the first walk
-               is not short.
+      What only a golden covers. No law here says a body that broke carries its
+      separator: Law C allows one and does not require it, and a fold that never
+      writes one is stably idempotent. A fold that never writes one moves
+      sixteen lines of [comments.format] and nothing else in either law. The
+      golden is the whole of what covers that, and it is worth knowing that the
+      golden is the only thing there.
 
-       M24  In [Fuzz.Shrink.reduce], take a candidate whatever [holds] says.
-            -> (g) under M17, both witnesses reduced to [""] and neither
-               reproducing. The check is a fresh call to the predicate on the
-               witness that came back, so it does not depend on what the loop
-               did to get there.
-       M25  In law_fuzz, reduce part (a)'s witnesses by editing the token list.
-            -> (g) under M5, 16 of 26 witnesses no longer reproducing, and the
-               bytes come out at 660 against 245. This is the two reductions
-               collapsed into one.
-       M26  In [Fuzz.Shrink.reduce], admit a candidate that is no smaller.
-            -> (g) under M13, 2 of 30 reductions stopping at the cap. The
-               candidates go from 1,552 to 5,790 and the witnesses come out a
-               third longer, 192 bytes against 144.
+      A childless node is what the parse leaves where it wanted a token and
+      found none, so only a recovered tree holds one and only a mutated input
+      reaches it. Part (a) reads zero for anything done to it.
 
       Depth. 1 is what the suite runs. [LINGO_SWEEP=8] is 28,000 clean inputs,
       56,000 mutated and 56,509 fragments in 54 s; 16 is 112,000 mutated and 32
@@ -373,17 +259,98 @@
       a property of the grammar. Every law reads zero at every depth, on all
       three corpora.
 
-      Depth is what found M17. It reads 4 findings at depth 1 and 10 at 8, and
-      the shortest witness is 90 bytes of rust at depth 1 and 77 of effekt at
-      8. Neither is a thing anyone would look at twice. Part (g) takes them to
-      12 and 16 bytes.
+      Depth is what found the first of the three separator defects. It reads 4
+      findings at depth 1 and 10 at 8, and the shortest witness is 90 bytes of
+      rust at depth 1 and 77 of effekt at 8. Neither is a thing anyone would
+      look at twice. Part (g) takes them to 12 and 16 bytes.
 
-      Nothing is open. The Law B findings this record carried until 2026-09-22
-      were three defects in the separator a body's policy adds, and M17 to M19
-      are them. Each left the fold writing a separator the next parse put
-      somewhere the fold could not see, so the pass after wrote another.
+      Nothing is open. The Law B findings this law carried until 2026-09-22
+      were three defects in the separator a body's policy adds. Each left the
+      fold writing a separator the next parse put somewhere the fold could not
+      see, so the pass after wrote another.
 
    -------------------------------------------------------------------------- *)
+
+(* The six blocks below are generated, and they are the evidence. assay derives
+   a mutation from the code rather than from a sentence beside it, applies every
+   one, and records what went red. Regenerate them with
+
+     assay -config assay.conf -only fuzz
+
+   and take the counts as they come: they move whenever the corpus grows, and
+   asserting them exactly would train everyone to ignore a red suite. What they
+   assert is that every mutant dies. A survivor is the finding, and the lines it
+   names are where to look.
+
+   These are the starkest records in the suite, and the reason is worth saying.
+   This is the instrument: the laws above check what it finds, and parts (c),
+   (d) and (e) are what check the instrument itself. They do not reach far.
+   lib/fuzz/shrink.ml and lib/fuzz/report.ml have nothing watching them at all.
+
+   The fold this law reads is lib/runtime/layout.ml, and its record lives with
+   the law that checks it, in test/laws/law_layout.ml. *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/fuzz/harness.ml, 103 mutants, 72 killed, 28 survived, 3 timed out.
+        extreme     30  22 killed, law_fuzz (d): 7, law_fuzz (f): 5, law_fuzz calc:: 3, law_fuzz comments: 3, law_parse sexp:: 2, law_fuzz: 1, law_fuzz calc: 1; 8 survived
+        sbr         27  21 killed, law_fuzz (f): 14, law_fuzz comments: 3, law_fuzz effekt+comments:: 2, law_fuzz: 1, law_fuzz (d): 1; 4 survived; 2 timed out
+        ror         18  8 killed, law_fuzz (f): 2, law_fuzz: 1, law_fuzz (d): 1, law_fuzz calc:: 1, law_fuzz comments: 1, law_parse: 1, law_parse sexp:: 1; 10 survived
+        lcr          6  3 killed, law_fuzz: 2, law_fuzz rust: 1; 3 survived
+        aor          8  4 killed, law_fuzz: 2, law_parse unicode:: 2; 3 survived; 1 timed out
+        uoi         14  all killed, law_fuzz: 3, law_parse sexp:: 3, law_fuzz (d): 2, law_fuzz (f): 2, law_fuzz calc:: 2, law_fuzz comments: 1, law_fuzz rassoc: 1
+      survived at lines 51 57 58 66 130 153 189 190 200 209 253 263 290 298 340 342 344 400 412 456 468 481 485
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/fuzz/mutate.ml, 131 mutants, 58 killed, 73 survived.
+        extreme     23  15 killed, (d) 13 (c) 2; 8 survived
+        sbr         35  16 killed, law_fuzz (d): 9, law_fuzz: 7; 19 survived
+        ror         30  8 killed, law_fuzz (d): 7, law_fuzz: 1; 22 survived
+        lcr         11  4 killed, law_fuzz: 2, law_fuzz (d): 2; 7 survived
+        aor         13  6 killed, law_fuzz: 3, law_fuzz (d): 3; 7 survived
+        uoi         19  9 killed, law_fuzz (d): 7, law_fuzz: 1, law_fuzz (c): 1; 10 survived
+      survived at lines 41 42 43 44 86 95 100 103 124 125 132 136 139 141 151 153 181 183 188 190 191 194 195 204 221 239 253 259 280 285 301 309 313 314 321 343 350 361 378 380 382 388 408 422 423 424 427 447 451 454 469 487 493
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/fuzz/oracles.ml, 53 mutants, 11 killed, 42 survived.
+        extreme     11  2 killed, calc 2; 9 survived
+        sbr         26  0 killed; 26 survived
+        ror          4  1 killed, comments 1; 3 survived
+        lcr          1  all killed, recovery 1
+        aor          2  0 killed; 2 survived
+        uoi          9  7 killed, calc 6 recovery 1; 2 survived
+      survived at lines 41 43 57 73 75 76 77 82 106 115 117 133 139 143 145 148 158 168 169 170 176 177 184 188 191 194 201 202
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/fuzz/shrink.ml, 36 mutants, 0 killed, 36 survived.
+        extreme      3  0 killed; 3 survived
+        sbr         11  0 killed; 11 survived
+        ror          8  0 killed; 8 survived
+        lcr          2  0 killed; 2 survived
+        aor          7  0 killed; 7 survived
+        uoi          5  0 killed; 5 survived
+      survived at lines 58 64 66 73 76 77 79 84 85 86 89 135 136 137 152 164 173 175 182 183 194 198
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/fuzz/coverage.ml, 12 mutants, 9 killed, 1 survived, 2 timed out.
+        extreme      5  4 killed, (c) 3 (d) 1; 1 timed out
+        sbr          5  3 killed, (c) 3; 1 survived; 1 timed out
+        uoi          2  all killed, (c) 2
+      survived at lines 19
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/fuzz/report.ml, 18 mutants, 0 killed, 18 survived.
+        extreme      4  0 killed; 4 survived
+        sbr          2  0 killed; 2 survived
+        ror          4  0 killed; 4 survived
+        aor          4  0 killed; 4 survived
+        uoi          4  0 killed; 4 survived
+      survived at lines 14 19 23 26 28 29 32 43 46 57 60 61
+   ---------------------------------------------------------------------- *)
 
 let first_ten l = List.filteri (fun i _ -> i < 10) l
 
@@ -405,9 +372,9 @@ let seed = [| 0xF0221 |]
    The fixed pair is the ruler anybody formats at and a narrow one, and it is
    fixed so that a count in the record below means the same thing from one
    depth to the next. Drawing all three instead was tried: it raised the widths
-   the corpus reaches and halved the rate at which it finds the defects M17 to
-   M19 name, from 71 per million to 40, because the widths those need came up
-   a third as often. Spread is worth having and it is worth having beside a
+   the corpus reaches and halved the rate at which it finds the three separator
+   defects, from 71 per million to 40, because the widths those need came up a
+   third as often. Spread is worth having and it is worth having beside a
    baseline rather than instead of one.
 
    The draw is from the run's own seeded generator, so the corpus is the same
@@ -708,8 +675,8 @@ let still_unclean
 ;;
 
 (* Part (a) is a claim over a corpus that is good, so a witness for it has to
-   stay a clean draw. Editing the trace keeps every candidate a draw, and M25
-   is the mutation that stops it. *)
+   stay a clean draw. Editing the trace keeps every candidate a draw; editing
+   the token list instead does not. *)
 let fires_on_clean
       (c : corpus)
       (k : Fuzz.Report.klass)
@@ -1084,9 +1051,9 @@ let reached_from_roots =
    Every rule, rather than the ones the draws above missed. Keying on the gap
    was tried and it is backwards: a deeper run's draws miss fewer rules, so the
    fragment corpus shrinks as the work grows and the law gets weaker. It cost
-   M18 and M19 their falsification at depth 8 while depth 1 still caught both.
-   Drawing at every rule makes this half of the corpus a property of the
-   grammar, so depth only ever adds.
+   two of the separator defects their falsification at depth 8 while depth 1
+   still caught both. Drawing at every rule makes this half of the corpus a
+   property of the grammar, so depth only ever adds.
 
    The species costs tables to build -- 3.1 s for all sixty-two of effekt's --
    and that is the whole of what this adds to a short run. *)

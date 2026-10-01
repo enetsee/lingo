@@ -18,6 +18,7 @@ depends: [
   "bolts"
   "handsome"
   "ppxlib"
+  "assay" {with-dev-setup}
   "odoc" {with-doc}
 ]
 build: [

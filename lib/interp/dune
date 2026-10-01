@@ -1,4 +1,6 @@
 (library
  (name interp)
  (public_name lingo.interp)
- (libraries ir lingo_runtime siesta))
+ (libraries ir lingo_runtime siesta)
+ (instrumentation
+  (backend assay)))

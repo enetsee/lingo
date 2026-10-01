@@ -1,0 +1,31 @@
+# Places where a mutant would tell nobody anything. One path to a line.
+# See scratch/docs/07-MUTATION.md §5.4.
+#
+# This list is lingo's, not assay's. Nothing general belongs on it: the trace
+# calls in lib/runtime/layout.ml read as logging in any other codebase and are
+# not logging here, because law_layout part (g) counts the steps and dropping
+# one goes red. A name earns its place here by a survivor proving it useless,
+# not by looking unimportant.
+
+# A formatter's arguments are computed for a reader and nothing reads them
+# back. Everything inside the call goes with it.
+Format.printf
+Format.eprintf
+Format.fprintf
+Format.asprintf
+Format.kasprintf
+Format.sprintf
+Printf.printf
+Printf.eprintf
+Printf.fprintf
+Printf.sprintf
+Printf.ksprintf
+print_string
+print_endline
+print_newline
+prerr_endline
+
+# Raising. The message is for a reader, and the decision to raise is made by
+# the test above it, which is mutated on its own.
+failwith
+invalid_arg

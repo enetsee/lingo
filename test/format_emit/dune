@@ -158,9 +158,16 @@
   ml_layout)
  (libraries lingo_runtime))
 
+; law_format part (c) reads the emitted modules as files and asks
+; [lingo.ocaml] for them again, so the generator itself is covered at run time
+; rather than only at build time.
+
 (tests
  (names law_format)
  (modules law_format)
+ (deps
+  (glob_files *_layout.ml)
+  (glob_files *_layout.mli))
  (libraries
   law
   emitted_formatters
@@ -169,6 +176,7 @@
   lingo.core
   lingo.interp
   lingo.layout
+  lingo.ocaml
   lingo.plan
   lingo_grammars
   lingo_runtime

@@ -14,60 +14,37 @@
       is a cross-check between the stage a code is filed under and the stage
       that emits it.
 
-      Falsification. Every mutation below was applied, run and reverted, and
-      the result recorded is the one observed.
+      Why each part is separate from the others. Part (a) compares sets of
+      codes, so a check that reports one code k times collapses to the same set
+      and (a) stays green; part (f) carries the count for that reason. Part (c)
+      cross-checks the stage a code is filed under against the stage that emits
+      it, so a check moved from one stage to another passes (a) and fails (c).
+      Part (e) rejects findings that are identical, which a left recursion
+      reported per member is not: the members differ in their site and message.
+      Each part exists because the one beside it cannot see something.
 
-        M1  Delete [|> nullable_tokens n] from [Check_names.run].
-            -> this law. nullable-token's witness is accepted, so (a) reports
-               the code as having no witness.
-        M2  In [Check_names.pratt], replace the mixed-role test
-            [List.mem t postfix_toks] with [false].
-            -> this law. mixed-pratt-role's witness is accepted.
-        M3  Move the nullable-token check from [Check_names.run] to
-            [Check_full.run].
-            -> this law, part (c). The code is filed under "names" and its
-               witness is now rejected at "full". Part (a) still passes, which
-               is why (c) is a separate check.
-        M4  In [Check_shape.arity], widen the delimited guard from [n = 1] to
-            [n <= 2].
-            -> this law. delimited-arity's witness is accepted.
-        M5  Add an entry to [Error.full_stage_codes] that nothing emits.
-            -> this law, part (a). The code has no witness.
-        M6  In [Check_full.first_follow], drop the [ch.greedy] guard.
-            -> this law, 10 findings. Three witnesses use the flag to isolate
-               their code and now report two codes each, and each of part
-               (f)'s six cycles reports a conflict beside the recursion.
-        M7  In [Facts.of_grammar], replace [sorted] with the identity.
-            -> this law, part (e). Findings come back in fold order.
-        M8  In [Check_names.collisions], skip the [View_accessor] scope.
-            -> this law. dup-child-name's witness is accepted. Recorded here
-               rather than under law_manifest: that law reads the manifest
-               for the collision and finds it.
-        M9  In [Check_full.left_recursion], report one finding per member of
-            a cyclic component rather than one per component.
-            -> this law, part (f), at every length above one, and nothing
-               else. Part (a) compares sets of codes, so k copies of one code
-               collapse, and part (e) rejects identical findings, where the
-               members differ in their site and message. The check had this
-               shape before the component walk, and it is why (f) carries
-               the count.
-        M10 In [Check_full.left_recursion], drop the self-edge test on a
-            one-rule component, so every component reports.
-            -> this law and five others. Every rule is a component of its
-               own, so every grammar is rejected. 21 findings here: 11 under
-               part (a), where a witness now reports left-recursion beside
-               its own code, and 10 under part (d), where every accepted
-               grammar is refused. Beside it, law_facts 15,
-               law_first_follow 10, law_manifest 10, and one each from
-               sexp_facts and pratt_desugar, since each needs a [Facts.t] the
-               checker now refuses to build. The blast radius is the
-               observation. That one test is what separates a rule from a
-               rule that reaches itself.
-        M11 In [Check_names.invalid_names], drop the postfix [kind_suffix]
-            entries from the list of names checked.
-            -> this law, parts (a) and (c). invalid-name's second witness is
-               accepted, and (c) reads the same fact from the other side: a
-               code filed under "names" whose grammar reaches "accepted".
+      Why three witnesses carry [~greedy:true]. Each uses the flag to keep a
+      FIRST/FOLLOW complaint quiet so that its own code is the only one it
+      reports. Drop the guard that reads the flag and those three report two
+      codes apiece, and each of part (f)'s six cycles reports a conflict beside
+      the recursion.
+
+      Where a collision is recorded. The duplicate-child-name witness lives
+      here rather than under test/laws/law_manifest.ml, because that law reads
+      the manifest for the collision and finds it either way. This one reads
+      whether the checker refused the grammar.
+
+      The one test with a blast radius. Dropping the self-edge test on a
+      one-rule component makes every rule a component of its own, so every
+      grammar in the tree is rejected: 21 findings here, 15 in law_facts, 10
+      each in law_first_follow and law_manifest, and one apiece from sexp_facts
+      and pratt_desugar, because each needs a [Facts.t] the checker now refuses
+      to build. That one test is what separates a rule from a rule that reaches
+      itself.
+
+      Why (c) is separate from (a). A check that moves stage keeps its witness
+      rejected, so (a) still passes: the grammar is refused, just not where the
+      code says it is refused. (c) is the part that reads the stage.
 
       Coverage. The 54 witness grammars and the 10 accepted ones: at least
       one grammar per rejection and a handful of near misses, together with
@@ -77,6 +54,57 @@
       grammars; a generated corpus is what would make it a statement about
       the checker.
    -------------------------------------------------------------------------- *)
+
+(* The four blocks below are generated, and they are the evidence. assay
+   derives a mutation from the code rather than from a sentence beside it,
+   applies every one, and records what went red. Regenerate them with
+
+     assay -config assay.conf -only core
+
+   and take the counts as they come: they move whenever the corpus grows, and
+   asserting them exactly would train everyone to ignore a red suite. What they
+   assert is that every mutant dies. A survivor is the finding, and the lines it
+   names are where to look. *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/core/check_names.ml, 57 mutants, 55 killed, 2 survived.
+        extreme     14  all killed, law_validate invalid-name:: 8, law_lower rust:: 2, law_validate empty-grammar:: 2, law_validate postfix-suffix-missing:: 1, law_validate unknown-delimiter-token:: 1
+        sbr         10  all killed, dup-kind-name: 1 dup-pratt-op: 1 dup-root: 1 invalid-token-literal: 1 mixed-assoc-at-bp: 1 no-roots: 1 nullable-token: 1 postfix-suffix-duplicate: 1 unknown-op-token: 1 unknown-rule: 1
+        ror         12  all killed, law_lower calc:: 3, law_lower sexp:: 3, law_validate dup-kind-name:: 2, law_validate postfix-suffix-missing:: 2, law_lower postfix:: 1, law_validate invalid-name:: 1
+        lcr          2  1 killed, calc: 1; 1 survived
+        aor          1  0 killed; 1 survived
+        uoi         18  all killed, law_lower calc:: 6, law_lower sexp:: 6, law_lower postfix:: 2, law_validate dup-kind-name:: 2, law_validate invalid-name:: 1, law_validate postfix-suffix-missing:: 1
+      survived at lines 110 553
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/core/check_shape.ml, 23 mutants, 21 killed, 2 survived.
+        extreme      6  4 killed, unused-resync-anchors: 3 delimited-arity: 1; 2 survived
+        sbr          4  all killed, repeated-vs-single: 2 delimited-arity: 1 unused-resync-anchors: 1
+        ror          6  all killed, law_lower ml:: 2, law_lower sexp:: 2, law_lower shapes:: 1, law_validate repeated-vs-single:: 1
+        lcr          1  all killed, sexp: 1
+        uoi          6  all killed, law_lower sexp:: 2, law_lower comments:: 1, law_lower json:: 1, law_lower ml:: 1, law_validate repeated-vs-single:: 1
+      survived at lines 20 24
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/core/check_full.ml, 138 mutants, 104 killed, 33 survived, 1 timed out.
+        extreme     13  12 killed, first-first-conflict: 12; 1 survived
+        sbr         52  36 killed, law_validate left-recursion:: 13, law_validate empty-first-set:: 5, law_validate first-follow-conflict:: 5, law_lower sexp:: 3, law_validate token-unreachable:: 3, law_lower: 1, law_validate: 1, law_validate nullable-pratt-atom:: 1, law_validate nullable-repeated:: 1, law_validate pratt-atom-conflict:: 1, law_validate prefix-atom-conflict:: 1, law_validate resync-anchor-conflict:: 1; 15 survived; 1 timed out
+        ror         22  12 killed, law_lower: 2, law_validate first-first-conflict:: 2, law_lower rust:: 1, law_lower sexp:: 1, law_validate empty-first-set:: 1, law_validate left-recursion:: 1, law_validate nullable-repeated:: 1, law_validate pratt-atom-conflict:: 1, law_validate prefix-atom-conflict:: 1, law_validate token-unreachable:: 1; 10 survived
+        lcr          7  5 killed, law_lower sexp:: 3, law_lower: 2; 2 survived
+        aor          7  all killed, law_lower: 6, law_lower sexp:: 1
+        uoi         34  30 killed, law_lower: 7, law_lower sexp:: 7, law_lower calc:: 3, law_validate left-recursion:: 3, law_lower rust:: 2, law_lower shapes:: 1, law_validate: 1, law_validate empty-first-set:: 1, law_validate first-first-conflict:: 1, law_validate nullable-repeated:: 1, law_validate pratt-atom-conflict:: 1, law_validate prefix-atom-conflict:: 1, law_validate token-unreachable:: 1; 4 survived
+        empty        3  2 killed, first-first-conflict: 1 pratt-atom-conflict: 1; 1 survived
+      survived at lines 10 77 84 93 113 176 180 182 185 219 233 239 323 339 360 385 387 388 393 397 401 474 508 509 516 518
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/core/error.ml, 62 mutants, 52 killed, 10 survived.
+        extreme     11  1 killed, empty-grammar: 1; 10 survived
+        sbr         51  all killed, ambiguous-same-kind-child 2 binder-not-pattern-token 2 empty-first-set 2 delimited-arity 1 dup-child-name 1 dup-kind-name 1 dup-pratt-op 1 dup-root 1 empty-grammar 1 empty-pratt-atoms 1 first-first-conflict 1 first-follow-conflict 1 invalid-name 1 invalid-token-literal 1 left-recursion 1 mixed-assoc-at-bp 1 mixed-pratt-role 1 name-collision 1 no-roots 1 nullable-pratt-atom 1 nullable-repeated 1 nullable-separated-element 1 nullable-token 1 overlapping-single-kinds 1 postfix-suffix-duplicate 1 postfix-suffix-missing 1 pratt-atom-conflict 1 prefix-atom-conflict 1 repeated-vs-single 1 repeated-vs-single-kinds 1 reserved-name 1 resync-anchor-conflict 1 root-is-block 1 separated-arity 1 token-unreachable 1 unknown-binder-child 1 unknown-delimiter-token 1 unknown-identity-child 1 unknown-message-child 1 unknown-op-token 1 unknown-recover-to-token 1 unknown-resync-anchor 1 unknown-root 1 unknown-rule 1 unknown-token 1 unused-message-child 1 unused-recover-to 1 unused-resync-anchors 1
+      survived at lines 30 271 279 285 287 323 524 567 577 593
+   ---------------------------------------------------------------------- *)
 
 let codes_of = function
   | Ok _ -> []

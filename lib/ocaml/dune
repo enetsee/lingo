@@ -3,4 +3,6 @@
 (library
  (name ocaml)
  (public_name lingo.ocaml)
- (libraries ppxlib lingo.core lingo_runtime.ir))
+ (libraries ppxlib lingo.core lingo_runtime.ir)
+ (instrumentation
+  (backend assay)))

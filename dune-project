@@ -54,6 +54,11 @@
   bolts
   handsome
   ppxlib
+  ; The mutation tester, and a dev dependency only. It is named here and in no
+  ; other package: every library in the tree names it as an instrumentation
+  ; backend, but a backend is absent until [--instrument-with assay] asks for
+  ; it, so [lingo_runtime] keeps the dependency set a generated parser links.
+  (assay :with-dev-setup)
   (odoc :with-doc)))
 
 (package

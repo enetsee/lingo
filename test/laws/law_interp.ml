@@ -46,93 +46,71 @@
       is it. Part (c) is the nearest thing available: a grammar that accepts
       an input has to parse it without complaint.
 
-      Falsification. Re-run on 2026-09-24, after ml joined the corpus. Every
-      mutation was applied, built, run and reverted, and the result recorded is
-      the one observed. Where a mutation reddens nothing here,
-      the expect goldens it moves are named, because that is then the only thing
-      that sees it.
+      What the parts see, and what only the goldens do. Parts (a) to (f) say
+      what holds for every input. None of them reads the shape of what recovery
+      built, so a change that leaves the same bytes in the tree under a
+      different frame passes every one of them. test/expect/*.parse is what
+      reads that shape, and it is the only reader of it.
 
-        M1  In [Interp.drain], drop the trailing [Cursor.skip_trivia].
-            -> part (a), 4 of 282 parses, and test/expect/comments.format moves.
-               [Cursor.eof] looks past trivia, so the sweep stops with the
-               trailing trivia unread and it never reaches the tree.
-        M2  In [Interp.exec], let an [Alt] take its first arm whatever the kind
-            under the cursor is.
-            -> part (c), 103 inputs: effekt 36, rust 17, ml 18, shapes 8,
-               sexp 7, json 7, recovery 4, wide 4, comments 2. An alt over
-               rules picks the wrong one, and the parse then reports what the
-               arm it took could not find. Nine expect goldens move with it.
-        M3  In [Lower.repetition], drop the [Trivia] after the loop.
-            -> nothing here, and three hunks in test/expect/*.plan: sexp, shapes
-               and recovery. The sweep matters for where trivia lands and not for
-               whether it lands: a delimited body's close takes the trivia before
-               it either way, because taking a token takes the trivia in front of
-               it too. So the bytes still reach the tree, in a different frame.
-        M4  In [Build.start_node], drop the [Cursor.skip_trivia].
-            -> part (e), 324 nodes: rust 106, effekt 78, wide 28, ml 25,
-               recovery 23, shapes 21, comments 18, sexp 13, json 12. It is
-               the one change that makes
-               leading trivia land inside the node it precedes, which is what
-               part (e) exists to catch.
-        M5  In [Lex.uchar_at], step one byte at a time rather than one codepoint.
-            -> part (c), all six inputs of the unicode grammar. Every token
-               there
-               is more than one byte in UTF-8, so a byte-stepping scan matches
-               none of them and the parse reports on input the grammar accepts.
-               No other grammar moves: they are all ASCII, where a byte and a
-               codepoint are the same thing.
-        M6  In [Interp.run], drop the range test on the entry.
-            -> part (f), both out-of-range entries: "index out of bounds", which
-               does not say what was wrong with it.
-        M7  In [Interp.run], drop the [may_enter] test.
-            -> part (f), two cases: [Failure "Builder.finish: nothing built"]
-               for the role and [Failure "Builder.checkpoint: no open node"] for
-               the block's rule. The parse raises either way; what the check
-               buys is a message about the entry rather than about the builder.
-        M8  In [Interp.loop], end the body where no state accepts, instead of
-            recovering.
-            -> part (d), ["loop-recover"] reads zero, and json.parse,
-               recovery.parse, shapes.format and shapes.parse move. This is
-               the arm pigeon has
-               and this loop did not: a body that meets a token it cannot use
-               sweeps it into an error node and carries on, rather than ending
-               and leaving the rest to the caller. On json's ["\[1 : 2\]"] the old
-               shape lost the [2] altogether.
-        M9  In [Interp.loop], sweep where a position is missing something,
-            instead of reporting it.
-            -> part (d), ["loop-missing"] reads zero, and five goldens move.
-               Recovery still reports there, through the sweep, so no part here
-               sees it, which is the coverage count's reason for being.
-               test/laws/law_residual.ml does: its part (b) reads 811 and its
-               part (g) 467, because a sweep and a report leave the parse at
-               different positions. That is new with rust and effekt; on the
-               eight small grammars the coverage count was the whole of it.
-       M10  In [Lower.ends_on_of], leave the resync anchors out of what ends a
-            body.
-            -> nothing here, and two hunks in test/expect: shapes.parse and
-               shapes.plan. shapes' ["{ let a end }"] sweeps the
-               [end] up and carries on to the closer, which is what declaring an
-               anchor is meant to stop.
-       M11  In [Lower.repeat_ends_on_of], give a root's repeated body [None] so
-            it ends where no element can start.
-            -> nothing here, and eight hunks in test/expect: recovery.parse,
-               recovery.plan, recovery.residual, and shapes.format beside the
-               same three for shapes, where shapes.parse moves twice. A stray
-               token between two declarations loses every declaration after
-               it.
+      Where the trivia sweeps are, and are not, load-bearing. Dropping the
+      sweep after a repetition moves where trivia lands and not whether it
+      lands: a delimited body's close takes the trivia in front of it either
+      way, because taking a token takes its leading trivia too. Dropping the
+      sweep at the start of a node is the one change that puts leading trivia
+      inside the node it precedes, which is what part (e) exists to catch.
 
-               The two *.residual hunks are what [ends_on] buys the tables: a
-               loop that recovers carries an edge on the error kind back to its
-               entry, and a loop that ends instead carries none.
-       M12  In [Interp.loop], parse an element without the body's stopping
-            points.
-            -> nothing here, and one hunk in test/expect/json.parse. A failure
-               nested inside an element escapes past the start of the next one.
+      What the guards on [run]'s entry buy. A parse with an entry out of range,
+      or one that may not be entered, raises whichever way the guards go. What
+      the guards buy is a message naming the entry rather than [Builder.finish:
+      nothing built] from somewhere further in.
 
-      Parts (a) to (f) say what holds for every input; none of them reads the
-      shape of what recovery built. test/expect/*.parse is that reader, and
-      M3, M10, M11 and M12 are the mutations that show it.
+      Why the loop recovers rather than ending. A body that meets a token it
+      cannot use sweeps it into an error node and carries on. Ending instead and
+      leaving the rest to the caller loses everything after the stray token:
+      json's ["\[1 : 2\]"] lost the [2] altogether before this arm existed.
+      The same argument settles a position that is missing something -- it is
+      reported rather than swept -- and no part here can see the difference,
+      because recovery reports through a sweep as well. That is what the
+      coverage count is for, and test/laws/law_residual.ml is what reads the
+      two apart: a sweep and a report leave the parse at different positions.
+
+      What the anchors and [ends_on] buy the tables. A declared resync anchor
+      stops a body sweeping past it; without one, shapes' ["{ let a end }"]
+      carries the [end] up to the closer. And a loop that recovers carries an
+      edge on the error kind back to its entry where a loop that ends carries
+      none, which is the difference the *.residual dumps show.
+
+      Why the unicode grammar is in the corpus. Stepping the scan one byte
+      rather than one codepoint moves every one of its inputs and nothing else
+      at all: the other grammars are ASCII, where a byte and a codepoint are the
+      same thing.
+
    -------------------------------------------------------------------------- *)
+
+(* The block below is generated, and it is the evidence for the interpreter
+   itself. assay derives a mutation from the code rather than from a sentence
+   beside it, applies every one, and records what went red. Regenerate it with
+
+     assay -config assay.conf -only interp
+
+   and take the counts as they come: they move whenever the corpus grows, and
+   asserting them exactly would train everyone to ignore a red suite. What it
+   asserts is that every mutant dies. A survivor is the finding, and the lines
+   it names are where to look.
+
+   The lowering and the builder this law also leans on are recorded under their
+   own laws: lib/plan in test/laws/law_plan.ml and lib/runtime in
+   test/laws/law_runtime.ml. *)
+
+(* -- mutation testing, generated by assay on 2026-09-30 ---------------------
+      lib/interp/interp.ml, 122 mutants, 113 killed, 9 timed out.
+        extreme      9  8 killed, law_interp (c): 3, dump_format: 2, law_interp: 1, law_interp (a): 1, law_residual (d): 1; 1 timed out
+        sbr         64  62 killed, law_interp (d): 21, law_interp: 8, law_interp (c): 8, dump_format: 6, law_residual (a): 5, law_interp (b): 4, law_interp (a): 2, law_interp (f): 2, law_parse (a): 2, dump_parse: 1, law_residual (e): 1, law_residual (g): 1, law_residual (h): 1; 2 timed out
+        ror         17  13 killed, law_interp (b): 5, dump_format: 2, law_interp: 2, law_interp (f): 2, law_parse (a): 2; 4 timed out
+        lcr          9  7 killed, dump_format: 2, law_interp (b): 2, law_interp (f): 2, dump_parse: 1; 2 timed out
+        aor          1  all killed, law_interp: 1
+        uoi         22  all killed, dump_format: 10, law_interp (b): 4, law_interp: 3, law_interp (c): 3, dump_parse: 1, law_interp (a): 1
+   ---------------------------------------------------------------------- *)
 
 (* -- the corpus ------------------------------------------------------------ *)
 

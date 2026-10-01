@@ -7,4 +7,6 @@
 (library
  (name treesitter)
  (public_name lingo_editors.treesitter)
- (libraries lingo.core lingo.scopes redfa ucharset))
+ (libraries lingo.core lingo.scopes redfa ucharset)
+ (instrumentation
+  (backend assay)))

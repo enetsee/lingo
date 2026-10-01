@@ -26,8 +26,9 @@
       part of its own. The runtime holds no loop now: a loop is parse control
       flow, so the emitter writes one and the interpreter brings its own, and
       what each of them writes is read where that code is tested.
-      test/parse_emit/law_parse.ml M4 is the emitter's, and
-      test/laws/law_interp.ml part (b) is the interpreter's.
+      test/parse_emit/law_parse.ml is where the emitter's guard is read, as a
+      timeout in its record, and test/laws/law_interp.ml part (b) is the
+      interpreter's.
 
       Part (a)'s oracle does not recompute what the code computes. The runtime
       builds the tree through siesta from a stream of events, and the oracle
@@ -43,59 +44,28 @@
       writes them with the kinds as constants and the interpreter brings its
       own.
 
-      Falsification. Every mutation was applied, run and reverted, and the
-      result recorded is the one observed.
+      Why each of these functions exists. [Cursor.eof] looks past trivia and
+      the drain loop stops on it, so without a sweep at the end the trivia after
+      the last meaningful token never reaches the tree: it falls off the end of
+      the input, which is the predecessor's own rule. A hole carries the id of
+      the diagnostic that made it, which is what makes tree-to-diagnostic one
+      step rather than a search. A committed production's two failing children
+      at one offset share a single diagnostic rather than reporting twice. And a
+      report records the range it was given rather than the cursor's own,
+      because the cursor has moved past what the span covers by the time the
+      report happens.
 
-        M1  In [drain], drop the trailing [Cursor.skip_trivia].
-            -> part (a), on 62 of 600 streams, and part (d), 60 of 600.
-               Trivia after the last meaningful token never reaches the tree,
-               because [Cursor.eof] looks past trivia and the loop stops on
-               it. This is the predecessor's own rule: trivia past the last
-               child otherwise falls off the end of the input.
-        M2  In [Cursor.bump], emit the token and leave [pos] where it is.
-            -> part (a), 570 of 600 streams; part (b), 570 drains hit the
-               ceiling; part (d), 3760 of 3792 tries.
-        M2b In [Cursor.emit_token], advance [pos] by two.
-            -> the suite dies on [Invalid_argument "index out of bounds"],
-               from [next_meaningful] indexed past its last entry. Red, and
-               not a report.
-        M3  In [Cursor.skip_trivia], advance [pos] without emitting the token.
-            -> part (a), 393 of 600 streams, and part (d), 395 of 600.
-        M4  In [Recover.expect], consume a token after reporting one missing.
-            -> part (d), 1881 of 2111 misses, and the same-offset case, which
-               reports two diagnostics because the second [expect] is no
-               longer at the first one's position.
-        M5  In [Recover.expect], never take the token.
-            -> part (d), all 3714 tries that asked for a token that was
-               there.
-        M6  In [Build.missing_node], drop the payload.
-            -> part (d), 1533 holes carry a payload that indexes no
-               diagnostic, and the same-offset case reads ids 0 and 0. This
-               is what makes tree-to-diagnostic one step rather than a
-               search.
-        M7  In [Cursor.report_id], append a [Missing] over a range that
-            already carries one instead of folding.
-            -> part (d), the same-offset case: two diagnostics where a
-               committed production's two failing children should share one.
-        M8  is gone. It mutated [Cursor.while_progress], and the runtime no
-            longer holds a loop for it to mutate.
-        M9  In [Cursor.report_at], record [Cursor.range] instead of the range
-            it was given.
-            -> part (e), all 288 spans. The cursor has moved past what the
-               span covers by the time the report happens, which is why the
-               function exists.
-        M10 In [Cursor.emit_token], advance the offset by one byte rather
-            than by the token's length.
-            -> part (e), both halves: the offset disagreed at 4271 of 8135
-               steps, and 156 of 288 spans named the wrong bytes. The spans
-               that still passed are the ones whose tokens are all one byte
-               long.
+      Part (b) holds by construction in two of its three halves. Nothing in the
+      runtime moves the cursor backwards, and both sites that advance it are
+      guarded, so no single-site mutation can report on those two. A mutation
+      that advances the offset by two does not report either -- it dies on
+      [Invalid_argument "index out of bounds"] from [next_meaningful] indexed
+      past its last entry, which is red and not a reading. What the check earns
+      is the third half: a cursor that stops advancing.
 
-      Part (b) holds by construction in two of its three halves. Nothing in
-      the runtime moves the cursor backwards, and both sites that advance it
-      are guarded, so no single-site mutation reports those. M2b is the
-      attempt, and it dies on an index rather than reporting. What M2 shows
-      is the half this check earns: a cursor that stops advancing.
+      Why one-byte tokens hide a defect. Advancing the offset by a byte rather
+      than by the token's length leaves every span correct whose tokens happen
+      to be one byte long. The corpus carries longer ones for that reason.
 
       Coverage. Two runs of 600 random streams, one seed for parts (a) and
       (b) and another for (d), plus 400 for part (e), over 9 token kinds with
@@ -110,6 +80,63 @@
       the law checks that trivia reaches the tree, and which frame it lands
       in is a question about a parser.
    -------------------------------------------------------------------------- *)
+
+(* The five blocks below are generated, and they are the evidence. assay derives
+   a mutation from the code rather than from a sentence beside it, applies every
+   one, and records what went red. Regenerate them with
+
+     assay -config assay.conf -only lingo_runtime
+
+   and take the counts as they come: they move whenever the corpus grows, and
+   asserting them exactly would train everyone to ignore a red suite. What they
+   assert is that every mutant dies. A survivor is the finding, and the lines it
+   names are where to look.
+
+   lib/runtime/layout.ml is the fold, and its record lives with the law that
+   checks it, in test/laws/law_layout.ml. *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/runtime/cursor.ml, 59 mutants, 41 killed, 14 survived, 4 timed out.
+        sbr         14  10 killed, law_interp (c): 3, law_residual (b): 3, law_interp (a): 2, law_runtime (d): 1, law_runtime (e): 1; 2 survived; 2 timed out
+        ror         16  7 killed, law_interp: 4, law_interp (b): 1, law_runtime: 1, law_runtime (d): 1; 8 survived; 1 timed out
+        lcr          6  5 killed, law_interp: 3, law_interp (a): 1, law_interp (c): 1; 1 survived
+        aor         17  15 killed, law_interp: 7, law_residual (b): 3, law_runtime: 2, dump_parse: 1, law_interp (e): 1, law_runtime (e): 1; 2 survived
+        uoi          6  4 killed, law_interp: 2, law_interp (a): 1, law_interp (c): 1; 1 survived; 1 timed out
+      survived at lines 29 33 54 72 73 76 145
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/runtime/recover.ml, 4 mutants, 3 killed, 1 survived.
+        extreme      1  all killed, (b) 1
+        sbr          2  1 killed, dump_parse: 1; 1 survived
+        uoi          1  all killed, (b) 1
+      survived at lines 18
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/runtime/build.ml, 9 mutants, 9 killed.
+        extreme      1  all killed, law_interp: 1
+        sbr          6  all killed, law_interp: 4, law_interp (e): 2
+        ror          1  all killed, law_interp: 1
+        uoi          1  all killed, law_interp: 1
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/runtime/ahead.ml, 51 mutants, 43 killed, 8 survived.
+        extreme     12  11 killed, law_ahead (b): 7, law_residual (h): 4; 1 survived
+        sbr          2  1 killed, (b) 1; 1 survived
+        ror         15  12 killed, law_residual (h): 7, law_ahead (b): 4, law_ahead: 1; 3 survived
+        lcr          4  1 killed, (h) 1; 3 survived
+        aor          6  all killed, law_residual (h): 4, law_ahead (b): 2
+        uoi         12  all killed, law_ahead (b): 6, law_residual (h): 5, law_ahead: 1
+      survived at lines 23 30 43 91 96
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/runtime/diagnostic.ml, 1 mutants, 0 killed, 1 survived.
+        extreme      1  0 killed; 1 survived
+      survived at lines 20
+   ---------------------------------------------------------------------- *)
 
 (* -- the law's own alphabet ------------------------------------------------ *)
 

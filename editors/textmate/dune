@@ -8,4 +8,6 @@
 (library
  (name textmate)
  (public_name lingo_editors.textmate)
- (libraries lingo.core lingo.scopes redfa yojson))
+ (libraries lingo.core lingo.scopes redfa yojson)
+ (instrumentation
+  (backend assay)))

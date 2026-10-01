@@ -114,135 +114,68 @@
       Every token they declare is a single character of punctuation, so they
       hold no pattern token for a lexeme walk to get wrong and no whitespace
       token for {!Sample.decode} to write. No sample of theirs ever needs a
-      joiner, which is why M8, M9 and M15 read the same on fifteen corpora as
-      they did on ten.
+      joiner, which is why the three mutations of [decode]'s joining read the
+      same on fifteen corpora as they did on ten.
 
-      Falsification. Every mutation was applied, built, run and reverted, and
-      the result recorded is the one observed. A count of lengths counts the
-      lengths that disagreed, and the grammars beside it are where they came
-      from.
+      Why part (a) has two halves. The first asks whether a sample parses
+      clean and the second whether it comes back. Leaving the closer out of a
+      delimited frame moves only the second: the system holds a shorter token
+      list and [decode] renders that list faithfully, which is the distinction
+      the halves are there to draw. Letting the lexeme walk stop at any
+      accepting state is why the first exists at all -- nineteen of twenty
+      corrupted samples parse clean, and the predecessor's own defect hid in
+      exactly that gap.
 
-      The counts below were measured before ml and wide joined this corpus on
-      2026-09-24. Each is a record of what the mutation did then, and each is
-      due a re-run.
+      What [decode]'s run is for. A line comment runs to the end of its line
+      and its own text may hold a tab. Clearing the run there loses the [//] in
+      front of it, the next token then finds a boundary where there is none,
+      and the comment swallows the rest of the line. json's strings hold blanks
+      too, 258 of 2,000 draws, and none of them reaches a class: losing the run
+      mid-string makes the next test an unterminated string and a space goes in
+      that was not needed, which parses. The error runs the safe way for every
+      lexeme but one that runs to the end of a line.
 
-        M1  In [Sample.repeat], treat every separator policy as [Never], so no
-            body carries a trailing separator.
-            -> part (c), 4 lengths: shapes 5, comments 4, 5 and 6. The parser
-               takes a trailing separator wherever the policy is not [Never],
-               so a system without one holds fewer strings than the language.
-               The twelve grammars that declare no policy but [Never] do not
-               move.
-        M2  In [Sample.child], translate [Zero_or_one] as a required child.
-            -> part (c), 4 lengths, shapes 2 to 5. Part (e), 1 rule: shapes
-               [Let] reads 5 against the grammar's 2.
-        M3  In [Sample.child], translate every repeated child as one or more.
-            -> part (c), 10 lengths: sexp 6, comments 4. Part (d), 2 rules:
-               recovery [File] and shapes [Program], each a root whose body is
-               a repeated child and so nullable. Part (e), 4 rules: sexp
-               [Group], recovery [File], shapes [Program], comments [Item].
-        M4  In [Sample.production], leave the closer out of a [Delimited]
-            frame.
-            -> part (a) second half, 18,000 of 30,000 inputs in 2,497 classes.
-               Part (c), 46 lengths over eight grammars. Part (e), 12 rules,
-               every delimited production in the corpus.
+      Keeping only the prefix a later byte cannot change is what makes [decode]
+      linear rather than quadratic, and shortening it further is not free.
 
-               The first half does not move. The system holds a shorter token
-               list and [decode] renders that list faithfully, which is the
-               distinction the two halves are there to draw.
-        M5  In the block's [loop], let an infix step leave no ceiling behind:
-            [step k (nt (expr right)) no_ceiling].
-            -> part (c), 9 lengths: rassoc 4, calc 2, pratt 2, postfix 1.
-               Every one reads more structures than the parser takes strings,
-               which is the ambiguity the ceiling is there to remove: calc at
-               length 5 holds 49 structures for 45 strings.
-        M6  In the block's [expr], leave the first prefix operator out.
-            -> part (c), 17 lengths: rassoc 7, calc 5, pratt 5. Part (f), 3
-               roles: calc and rassoc [ExprPrefix] and pratt [EPrefix], which
-               no sample then holds. postfix and pratt-postfix declare no
-               prefix operator and do not move.
-        M7  In the block's [loop], make the threshold strict: [bp > m] for
-            [bp >= m].
-            -> part (c), 6 lengths: rassoc 4, pratt 2. A right-associative
-               operator reads its own level and is the only one that does, so
-               calc's four left-associative operators do not move.
-        M8  In [Sample.system_of]'s [draw_for], let the lexeme walk stop at
-            any accepting state rather than one accepting this token.
-            -> part (a) first half, 1,953 inputs; second half, 103 in 94
-               classes. A pattern lexeme then spells a keyword. This is the
-               pair that says why the first half is there: nineteen out of
-               twenty corrupted samples parse clean, and the predecessor's own
-               version of this defect hid in exactly that gap.
-        M9  In [Sample.decode], join with nothing and never a space or a line
-            break.
-            -> part (a) first half, 8,301 inputs; second half, 7,591 in 1,578
-               classes. 710 samples merge two tokens into one and still parse.
+      One claim that reads zero whatever is done to the code. [decode] writes
+      its joiner in front of each token, so no sampled input ends in trivia and
+      there is none to lose. A mutation that drops the trailing
+      [Cursor.skip_trivia] reddens law_interp and cannot redden this.
 
-               Leaving out the space alone, and keeping the line break behind
-               it, moves nothing. No part here reads which of the three
-               joiners was taken, and the formatter's laws are what do.
-       M10  In [Core.Fixpoint.min_size], charge an absent child for its
-            element.
-            -> part (e), 15 rules over eight grammars. The grammar's side
-               alone moves, which is the shape a cross-check is supposed to
-               have.
-       M11  In [Core.Fixpoint.min_size], add one to a block's minimum.
-            -> part (e), 12 rules: every rule on a path to an expression
-               block, across all five grammars that have one.
-       M12  In [Sample.system_of]'s [terminal], translate a keyword or a
-            punctuation token uncounted: [gen0] for [atom].
-            -> part (g), both halves: 4,000 draws held a number of tokens the
-               sampler did not count, and unicode's mean reads 82.9 tokens and
-               recovery's 198.5 against a target of 40. Part (c), 9 lengths.
-               Part (d), 2 rules. Part (e), 8 rules.
+      What a cross-check should look like. Part (e) compares the sampler's
+      minimum size against the grammar's, and a mutation of either side moves
+      one side only. A mutation that moved both would be agreeing with itself.
 
-               Only the grammars whose smallest shapes are literal tokens
-               move. A grammar whose size still comes from its pattern tokens
-               is tuned to the same mean and reads a mean of tokens near it.
-       M13  In [Interp.drain], drop the trailing [Cursor.skip_trivia]. This is
-            law_interp's own M1 and it reddens there.
-            -> nothing. [decode] writes its joiner in front of each token, so
-               no sampled input ends in trivia and there is none to lose.
-       M14  In [Sample.decode], take the run from the last blank in the bytes
-            written, wherever that blank came from, rather than from the last
-            joiner [decode] itself wrote.
-            -> part (a) first half, 374 inputs; second half, 347 in 267
-               classes, and all 267 are in the corpus drawn with comments.
+      Why part (b) is here. It reads zero under every mutation of the sampler.
+      A parse rebuilding its input is the parse's property rather than the
+      corpus's, and every byte [decode] writes becomes a token. It is here
+      because this corpus is where an input the parse could not give back would
+      show, and nowhere else.
 
-               This was the defect. A line comment runs to the end of its
-               line, and its own text may hold a tab. Clearing the run there
-               loses the [//] in front of it, the next token then finds a
-               boundary where there is none, and the comment swallows the rest
-               of the line. Setting the run to the last token alone leaves the
-               [//] in place and moves nothing, which is why the mutation is
-               the blank and not the length.
-
-               json's strings hold blanks too -- 258 of 2,000 draws -- and
-               none of them reaches a class. Losing the run mid-string makes
-               the next test an unterminated string, and a space goes in that
-               was not needed, which parses. The error runs the safe way for
-               every lexeme but one that runs to the end of a line.
-       M15  In [Sample.live_suffix], drop a token whose scan was still running
-            when the run ran out, so the run is always empty.
-            -> part (a) first half, 8,301 inputs; second half, 7,591 in 1,578
-               classes, which is M9 exactly. An empty run tests only whether
-               the next token lexes on its own, which it always does, so no
-               joiner is ever written.
-
-               Keeping the prefix a later byte cannot change is what makes
-               [decode] linear rather than quadratic, and this is the mutation
-               that says the shortening is not free to go further.
-       M16  In [Sample.system_of]'s comment draw, draw no comment ever.
-            -> part (a), the corpus drawn with comments holds none. Nothing
-               else moves: that corpus is then the first corpus over again,
-               and every part would read exactly what it read without it.
-
-      Part (b) reads zero under every mutation above, M13 included. A parse
-      rebuilding its input is the parse's property rather than the corpus's,
-      and every byte [decode] writes becomes a token. It is here because the
-      corpus is new: this is where an input the parse could not give back
-      would show, and nowhere else.
    -------------------------------------------------------------------------- *)
+
+(* The block below is generated, and it is the evidence. assay derives a
+   mutation from the code rather than from a sentence beside it, applies every
+   one, and records what went red. Regenerate it with
+
+     assay -config assay.conf -only sample
+
+   and take the counts as they come: they move whenever the corpus grows, and
+   asserting them exactly would train everyone to ignore a red suite. What it
+   asserts is that every mutant dies. A survivor is the finding, and the lines
+   it names are where to look. *)
+
+(* -- mutation testing, generated by assay on 2026-09-30 ---------------------
+      lib/sample/sample.ml, 136 mutants, 99 killed, 29 survived, 8 timed out.
+        extreme     19  18 killed, law_sample (a): 10, law_parse: 2, law_parse calc:: 2, law_sample sexp:: 2, law_parse sexp:: 1, law_sample wide:: 1; 1 survived
+        sbr         45  37 killed, law_sample (a): 24, law_parse calc:: 6, law_sample (c): 3, law_parse postfix:: 1, law_parse sexp:: 1, law_sample ml:: 1, law_sample separated:: 1; 7 survived; 1 timed out
+        ror         29  14 killed, law_sample (a): 8, law_parse: 3, law_sample (c): 2, law_parse calc:: 1; 13 survived; 2 timed out
+        lcr         10  7 killed, law_sample (a): 5, law_parse sexp:: 1, law_sample (c): 1; 2 survived; 1 timed out
+        aor         11  6 killed, law_parse: 2, law_sample (a): 2, law_parse postfix:: 1, law_parse sexp:: 1; 3 survived; 2 timed out
+        uoi         22  17 killed, law_sample (a): 10, law_parse: 2, law_sample (c): 2, law_parse calc:: 1, law_parse sexp:: 1, law_sample ml:: 1; 3 survived; 2 timed out
+      survived at lines 34 41 44 57 113 121 125 200 208 241 471 482 484 486 495 514 515 529 542 548
+   ---------------------------------------------------------------------- *)
 
 let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
 

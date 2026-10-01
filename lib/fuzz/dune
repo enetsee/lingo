@@ -18,4 +18,6 @@
   lingo_runtime
   plan
   sample
-  siesta))
+  siesta)
+ (instrumentation
+  (backend assay)))

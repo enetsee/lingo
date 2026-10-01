@@ -56,59 +56,13 @@
       engine. The second needs a person, who reads test/editors/*.textmate by
       eye.
 
-      Falsification. Every mutation was applied, run and reverted, and the
-      result recorded is the one observed.
-
-        M1  In [Oniguruma.neutralise], return the argument unchanged.
-            -> part (k) alone, 1 finding: two parts were spliced and the regex
-               has 4 groups.
-
-               It reddens nothing else, so part (k) is written as a witness
-               rather than over the corpus. Nothing in the corpus splices a
-               capturing group. redfa emits [(?:] throughout and the trivia
-               separator is built non-capturing, so nothing reached the
-               function until the witness existed.
-        M2  In [Emit.rule_include], leave the alias unresolved.
-            -> part (a), 26 findings: effekt 13, wide 5, recovery 3, rust 2,
-               ml 2, shapes 1.
-               Every reference to a rule that forwards to another names an
-               entry no longer emitted. shapes gives the smallest case,
-               [let] referencing [#init].
-        M3  In [Textmate.prune], keep every entry.
-            -> part (b), 4 findings: postfix's [field] and three from ml.
-               Those are the only entries
-               in the corpus that nothing reaches, and it has a reason:
-               [Field] is the right-hand side of an access operator, and the
-               operator folds the token at the end of it into its own regex.
-        M4  In [Textmate.break_cycles], drop nothing.
-            -> part (c), 63 findings: effekt 60, ml 3. rust and postfix have flat
-               entries that reference a block. The way back runs through a
-               region's body, and a region compiles when it fires rather than
-               when the reference to it is read. Only effekt has blocks and
-               statements that reference each other flat all the way round.
-        M5  In [Emit.scope_string], leave the language off.
-            -> parts (e) and (h), 651 findings: 416 scopes that no longer end
-               in the language, and 235 scopes the document no longer carries
-               under their rendered name. Every grammar reddens.
-        M6  In [Scopes.resolve], read the token before the child override.
-            -> part (h), 12 findings, and part (k) beside them: json's
-               [Member.key], rust's [Field.name], [Variant.name],
-               [Param.name] and [Type.name], wide's [Alias.name] and
-               [Table.name], and five from ml.
-               These are exactly the positions where the same [ident] means
-               different things. A per-position scope exists for them.
-        M7  In [Shape.of_rule], let a rule framed by a matched pair fall
-            through to a flat pattern list.
-            -> parts (g) and (h), 53 findings: 31 rules that are framed and
-               emit no region, and 22 delimiter scopes that then reach
-               nothing. A delimiter's scope lives in the region's
-               [beginCaptures].
-        M8  In [Shape.region_begin], never fold the identity child.
-            -> part (h), 9 findings: rust 5, the [entity.name.*] scopes on
-               [Struct], [Enum], [Trait], [Fn] and [MethodSig], and ml 4. Those
-               scopes land only where the identity child is folded. A rule
-               that names itself by a child does it once, and a body pattern
-               fires everywhere.
+      What the corpus does not reach, and what the witnesses are for. Nothing
+      in the thirteen grammars splices a capturing group -- redfa emits [(?:]
+      throughout and the trivia separator is built non-capturing -- so part (k)
+      is written over a witness rather than over the corpus. No rule in them
+      contains its own errors, opens on a literal and ends on a child that may
+      be absent, and no token in them is both half of a matched pair and a child
+      somewhere else. Part (m) carries a witness for each of those two.
 
       Part (l) is about order alone. A TextMate engine takes the leftmost
       match, and among rules that match at the same position it takes the
@@ -120,45 +74,95 @@
       the rule runs the other way and the last pattern wins. That one found a
       real defect; this one reads zero and holds the order in place.
 
-        M9  In [Emit.with_tails], put [#tokens] at the head of a body rather
-            than at its end.
-            -> part (l), 66 findings: effekt 26, rust 16, ml 10, wide 3, json 2,
-               calc 2, and one each from the remaining five. Every body
-               pattern in the grammar goes dark, because the grammar-wide
-               token entry matches first at every position one of them would.
-        M10 In [Emit.tokens_entry], sort the literals shortest first.
-            -> part (l), 15 findings: effekt 7, rust 4, wide 2, ml 2. [=] then
-               takes the first character of [==] and [=>], and the longer
-               operator never matches whole.
-        M11 In [Emit.tokens_entry], write the pattern tokens ahead of the
-            literals.
-            -> part (l), 359 findings: effekt 188, wide 69, ml 50, rust 42,
-               json 10.
-               An identifier pattern reaches the text of every keyword, so
-               each keyword is taken by the pattern instead and loses its own
-               scope.
+      Facts the parts lean on. [Field] is the one entry in the corpus that
+      nothing reaches, and it has a reason: it is the right-hand side of an
+      access operator, and the operator folds the token at the end of it into
+      its own regex. Only effekt has blocks and statements that reference each
+      other flat all the way round, which is what a cycle break is for. A
+      delimiter's scope lives in a region's [beginCaptures], so a framed rule
+      that emits no region takes its delimiter scopes down with it. And an
+      [entity.name.*] scope lands only where a rule's identity child is folded
+      into the region's opening pattern: a rule that names itself by a child
+      does it once, where a body pattern fires everywhere.
 
-      Two mutations read zero over the corpus and now have a witness apiece.
-      Part (m) is where those witnesses live, and both reddened it when it was
-      written.
+      Where the same name means different things. json's [Member.key], rust's
+      [Field.name], [Variant.name], [Param.name] and [Type.name], wide's
+      [Alias.name] and [Table.name], and five positions in ml. A per-position
+      scope exists for exactly those, and reading the token's scope ahead of the
+      child's override is what loses them.
 
-        N1  In [Shape.closing_text], drop the guard that the last child be
-            required.
-            -> part (m), 1 finding, on its own witness. No rule in the thirteen
-               grammars contains its own errors, opens on a literal and ends
-               on a child that may be absent. The witness does: a committed
-               [Decl] opening on [sig] with an optional [;] after the name.
-               Without the guard it becomes a region whose [end] is a
-               lookbehind past a [;] that need not be there.
-        N2  In [Emit.bracket_only], stop subtracting the tokens that also
-            appear as an ordinary child.
-            -> part (m), 1 finding, on its own witness. No token in the thirteen
-               grammars is both half of a matched pair and a child somewhere
-               else. The witness has one: [\[] frames [File] and is an
-               alternative of [Item]. The subtraction keeps it in the
-               grammar-wide entry, where its occurrences outside any pair are
-               scoped.
    -------------------------------------------------------------------------- *)
+
+(* The six blocks below are generated, and they are the evidence. assay derives
+   a mutation from the code rather than from a sentence beside it, applies every
+   one, and records what went red. Regenerate them with
+
+     assay -config assay.conf -only textmate
+
+   and take the counts as they come: they move whenever the corpus grows, and
+   asserting them exactly would train everyone to ignore a red suite. What they
+   assert is that every mutant dies. A survivor is the finding, and the lines it
+   names are where to look. *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      editors/textmate/textmate.ml, 71 mutants, 46 killed, 24 survived, 1 timed out.
+        extreme     12  10 killed, law_textmate (a): 5, law_textmate (c): 3, dump_textmate: 1, law_textmate a: 1; 2 survived
+        sbr         29  18 killed, dump_textmate: 8, law_textmate (a): 7, law_textmate (b): 3; 10 survived; 1 timed out
+        ror          9  6 killed, law_textmate (a): 3, law_textmate (c): 2, dump_textmate: 1; 3 survived
+        lcr          8  2 killed, dump_textmate: 2; 6 survived
+        aor          3  all killed, law_textmate: 3
+        uoi         10  7 killed, dump_textmate: 2, law_textmate (a): 2, law_textmate (c): 2, law_textmate (h): 1; 3 survived
+      survived at lines 34 54 65 98 99 102 103 104 107 108 115 132 150 228 267 286
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      editors/textmate/emit.ml, 85 mutants, 72 killed, 13 survived.
+        extreme     21  20 killed, law_textmate (h): 14, dump_textmate: 3, law_textmate (a): 1, law_textmate (e): 1, law_textmate (l): 1; 1 survived
+        sbr         40  35 killed, law_textmate (h): 13, dump_textmate: 11, law_textmate (d): 8, law_textmate (m): 3; 5 survived
+        ror          5  2 killed, (h) 1 (l) 1; 3 survived
+        lcr          4  3 killed, dump_textmate: 2, law_textmate: 1; 1 survived
+        aor          9  6 killed, law_textmate: 5, law_textmate (k): 1; 3 survived
+        uoi          6  all killed, law_textmate (h): 3, dump_textmate: 2, law_textmate: 1
+      survived at lines 74 75 77 93 177 186 369 472 475
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      editors/textmate/shape.ml, 56 mutants, 48 killed, 8 survived.
+        extreme     17  all killed, dump_textmate: 10, law_textmate (k): 3, law_textmate (j): 2, law_textmate (g): 1, law_textmate (h): 1
+        sbr          9  8 killed, dump_textmate: 4, law_textmate (h): 4; 1 survived
+        ror          7  4 killed, dump_textmate: 3, law_textmate (k): 1; 3 survived
+        lcr          5  2 killed, (h) 2; 3 survived
+        aor          3  2 killed, law_textmate: 2; 1 survived
+        uoi         15  all killed, dump_textmate: 8, law_textmate (h): 5, law_textmate (k): 1, law_textmate (m): 1
+      survived at lines 70 81 252 256 372 382
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      editors/textmate/check.ml, 91 mutants, 73 killed, 18 survived.
+        extreme     19  12 killed, (j) 9 a 2 (n) 1; 7 survived
+        sbr         39  32 killed, (n) 20 (j) 6 a 6; 7 survived
+        ror          9  7 killed, law_textmate (n): 2, law_textmate a: 2, law_textmate: 1, law_textmate (j): 1, law_textmate rust:: 1; 2 survived
+        lcr          7  6 killed, law_textmate (n): 5, law_textmate: 1; 1 survived
+        aor          1  all killed, law_textmate: 1
+        uoi         16  15 killed, a 5 (n) 3 sexp: 3 (j) 2 postfix: 1 rust: 1; 1 survived
+      survived at lines 79 83 89 137 148 266 301 327 344 348 357 360 361 402 403 411 473
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      editors/textmate/oniguruma.ml, 51 mutants, 33 killed, 17 survived, 1 timed out.
+        extreme      7  6 killed, dump_textmate: 5, law_textmate (m): 1; 1 survived
+        sbr          8  6 killed, dump_textmate: 3, law_textmate (m): 2, law_textmate (d): 1; 2 survived
+        ror         11  6 killed, law_textmate (k): 3, dump_textmate: 1, law_textmate: 1, law_textmate (d): 1; 5 survived
+        lcr          9  6 killed, law_textmate (k): 3, dump_textmate: 2, law_textmate (d): 1; 3 survived
+        aor          9  3 killed, law_textmate: 3; 5 survived; 1 timed out
+        uoi          7  6 killed, dump_textmate: 2, law_textmate (k): 2, law_textmate: 1, law_textmate (m): 1; 1 survived
+      survived at lines 10 30 34 35 36 63 77 98 103 109 111 113
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      editors/textmate/key.ml, 2 mutants, 2 killed.
+        extreme      2  all killed, (e) 1 sexp: 1
+   ---------------------------------------------------------------------- *)
 
 (* -- what the corpus emits ----------------------------------------------- *)
 
@@ -1227,6 +1231,154 @@ let () =
       | _ -> Law.fail "(m) the witness emitted no repository"));
   if Law.failures () = before
   then Law.pass "(m) both guards the corpus cannot reach have a witness"
+;;
+
+(* -- (n) every field and every reference form ------------------------------ *)
+
+(* Part (j) says the checker rejects. It does not say what the checker
+   accepts, and two of its tables were read by nothing but themselves.
+   [known_fields] lists the fifteen keys a hand-written pattern may carry, and
+   [is_reference] decides which of four forms an include takes. On 2026-09-26
+   twenty-three mutations survived the whole suite there: fifteen dropped a
+   field from the list and the rest moved a branch of the reference test.
+
+   So both tables are written a second time here, on purpose. Dropping a field
+   makes the pattern that uses it fail, and loosening the reference test makes
+   a form that should be refused come back accepted. *)
+
+let rust_scopes = lazy (scopes_of (facts_of Lingo_grammars.Rust_grammar.grammar))
+
+let checked (raw : string) : (string, Textmate.Check.problem list) result =
+  Textmate.generate
+    (Lazy.force rust_scopes)
+    ~raw:[ Core.Grammar.Name.Rule.of_string "Block", raw ]
+    ~language:"rust"
+    ()
+;;
+
+let accepts (what : string) (raw : string) : unit =
+  match checked raw with
+  | Ok _ -> ()
+  | Error problems ->
+    Law.fail
+      "(n) %s was refused: %s"
+      what
+      (String.concat ", " (List.map Textmate.Check.problem_to_string problems))
+;;
+
+let refuses (what : string) (raw : string) : unit =
+  match checked raw with
+  | Ok _ -> Law.fail "(n) %s was accepted" what
+  | Error problems ->
+    if
+      not
+        (List.exists
+           (function
+             | Textmate.Check.Bad_raw_pattern _ -> true
+             | _ -> false)
+           problems)
+    then
+      Law.fail
+        "(n) %s: reported %s"
+        what
+        (String.concat ", " (List.map Textmate.Check.problem_to_string problems))
+;;
+
+(* One pattern per key. A key that needs company brings it: [begin] needs an
+   [end], and a capture list needs a group to hang off. *)
+let fields =
+  [ "match", {|{ "match": "a", "name": "keyword.rust" }|}
+  ; "name", {|{ "match": "a", "name": "keyword.rust" }|}
+  ; "begin", {|{ "begin": "a", "end": "b", "name": "keyword.rust" }|}
+  ; "end", {|{ "begin": "a", "end": "b", "name": "keyword.rust" }|}
+  ; "include", {|{ "include": "$self" }|}
+  ; "patterns", {|{ "patterns": [ { "match": "a", "name": "keyword.rust" } ] }|}
+  ; "captures", {|{ "match": "(a)", "captures": { "1": { "name": "keyword.rust" } } }|}
+  ; ( "beginCaptures"
+    , {|{ "begin": "(a)", "end": "b", "beginCaptures": { "1": { "name": "keyword.rust" } } }|}
+    )
+  ; ( "endCaptures"
+    , {|{ "begin": "a", "end": "(b)", "endCaptures": { "1": { "name": "keyword.rust" } } }|}
+    )
+  ; "contentName", {|{ "begin": "a", "end": "b", "contentName": "keyword.rust" }|}
+  ; "applyEndPatternLast", {|{ "begin": "a", "end": "b", "applyEndPatternLast": true }|}
+  ; "while", {|{ "begin": "a", "end": "b", "while": "c" }|}
+  ; ( "whileCaptures"
+    , {|{ "begin": "a", "end": "b", "while": "(c)", "whileCaptures": { "1": { "name": "keyword.rust" } } }|}
+    )
+  ; "comment", {|{ "match": "a", "name": "keyword.rust", "comment": "why" }|}
+  ; "disabled", {|{ "match": "a", "name": "keyword.rust", "disabled": true }|}
+  ]
+;;
+
+(* The four forms a reference takes, and the slips that look like one. *)
+let references =
+  [ "#entry", true
+  ; "$self", true
+  ; "$base", true
+  ; "source.js", true
+  ; "source.js#entry", true
+  ; "trivia", false
+  ; "#", false
+  ; "", false
+  ; "source.js#a#b", false
+  ; "source.js#", false
+  ]
+;;
+
+(* The settings a caller passes, rather than anything in the grammar. Each is
+   refused for being empty and for holding whitespace, and the two halves of
+   that test are separate places in the code. *)
+let setting (what : string) (result : (string, Textmate.Check.problem list) result) : unit
+  =
+  match result with
+  | Ok _ -> Law.fail "(n) %s was accepted" what
+  | Error problems ->
+    if
+      not
+        (List.exists
+           (function
+             | Textmate.Check.Bad_setting _ -> true
+             | _ -> false)
+           problems)
+    then
+      Law.fail
+        "(n) %s: reported %s"
+        what
+        (String.concat ", " (List.map Textmate.Check.problem_to_string problems))
+;;
+
+let () =
+  let before = Law.failures () in
+  let rust = Lazy.force rust_scopes in
+  setting "an empty language" (Textmate.generate rust ~language:"" ());
+  setting "a language holding a space" (Textmate.generate rust ~language:"r ust" ());
+  setting
+    "an empty scope prefix"
+    (Textmate.generate rust ~language:"rust" ~scope_prefix:"" ());
+  setting
+    "a scope prefix holding a space"
+    (Textmate.generate rust ~language:"rust" ~scope_prefix:"so urce" ());
+  setting
+    "an empty file type"
+    (Textmate.generate rust ~language:"rust" ~file_types:[ "" ] ());
+  setting
+    "a file type holding a space"
+    (Textmate.generate rust ~language:"rust" ~file_types:[ "r s" ] ());
+  List.iter (fun (field, raw) -> accepts ("a pattern with " ^ field) raw) fields;
+  List.iter
+    (fun (reference, good) ->
+       let raw = Printf.sprintf {|{ "include": %S }|} reference in
+       let what = Printf.sprintf "the reference %S" reference in
+       if good then accepts what raw else refuses what raw)
+    references;
+  if Law.failures () = before
+  then
+    Law.pass
+      "(n) every one of the %d fields, %d reference forms and the settings read as they \
+       should"
+      (List.length fields)
+      (List.length references)
 ;;
 
 let () = Law.summarise "law_textmate"

@@ -1,4 +1,6 @@
 (library
  (name layout)
  (public_name lingo.layout)
- (libraries ir core))
+ (libraries ir core)
+ (instrumentation
+  (backend assay)))

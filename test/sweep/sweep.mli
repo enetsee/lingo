@@ -7,7 +7,7 @@
 
     The generator is a linear congruential one with a fixed seed, and the state
     is global. So the corpus is the same on every run, and a count in a
-    falsification record is reproducible as long as the calls stay in the same
+    mutation record is reproducible as long as the calls stay in the same
     order. *)
 
 (** [inputs facts seeds] is the generated corpus. The seeds are not in it; a

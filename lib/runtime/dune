@@ -1,4 +1,13 @@
+; The instrumentation backend is named here, and this library is the one where
+; naming it looks like a mistake. It is not. A backend is absent until
+; [--instrument-with assay] asks for it, and the runtime it links comes from
+; assay's own [ppx_runtime_libraries] rather than from the field below. So the
+; [lingo_runtime] a generated parser links carries nothing of assay's, and the
+; opam package gains no dependency either.
+
 (library
  (name lingo_runtime)
  (public_name lingo_runtime)
- (libraries ir siesta handsome))
+ (libraries ir siesta handsome)
+ (instrumentation
+  (backend assay)))

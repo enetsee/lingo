@@ -7,6 +7,7 @@
       (c) The tree rebuilds the input, byte for byte, whatever the input.
       (d) Every instruction form the corpus plans hold is one a compared parse
           runs.
+      (e) Every module the emitter wrote is what it writes now, byte for byte.
 
       Mechanism. Twelve grammars, and two corpora over each.
 
@@ -46,12 +47,12 @@
       lived.
 
       grammars/recovery_grammar.ml is in the corpus for the recovery set
-      alone, and M7 is what says so: a boundary rule's inbound set reddens on
-      that grammar and on no other. M6 and M8 did too until rust and effekt
-      went in. Both now move on more than recovery, which is the honest
-      reading of what a big grammar buys: a resume set and a rule's adds were
-      covered by a set the position already held on every small grammar, and
-      are not on a grammar with sixty productions.
+      alone. A boundary rule's inbound set reddens on that grammar and on no
+      other. A rule's adds and a commit's resume set did too until rust and
+      effekt went in; both now move on more than recovery, which is the honest
+      reading of what a big grammar buys: each was covered by a set the
+      position already held on every small grammar, and is not on a grammar
+      with sixty productions.
 
       What this says nothing about. Whether the interpreter is right, which
       test/laws/law_interp.ml reads, and what recovery builds, which
@@ -61,160 +62,75 @@
       Part (d) says nothing about the recovery set either. It counts what the
       interpreter traces, and the interpreter traces no event for a boundary
       rule, for a rule's adds, or for a resume that declined a skip. Dropping
-      the recovery grammar from the corpus here reddens nothing in part (d),
-      and M6 to M8 in everything else.
+      the recovery grammar from the corpus reddens nothing in part (d), and
+      three of the recovery mutations in everything else.
 
-      Falsification. Re-run on 2026-09-24, after ml joined the corpus. Every mutation was applied, built, run and reverted, and the
-      result recorded is the one observed. A count of inputs counts distinct
-      inputs, and the grammars beside it are where they came from.
+      What the progress guard is for. A body whose step takes no token runs
+      forever, and the guard inside the body loop is the whole of what stops
+      it: dropping it hangs the law rather than reddening it, which is what a
+      timeout in the record below means. This is the only place that guard is
+      read. The runtime held it as [Cursor.while_progress] and no longer does,
+      so no law but this one and test/laws/law_interp.ml part (b) says a parse
+      stops at all.
 
-      Where a mutation's wording could be read two ways, the edit is named
-      exactly, because three of these could not be re-created from their own
-      prose the last time round.
+      What each grammar is in the corpus for. rassoc is here for right
+      associativity: it is the [>=] in the infix guard and nothing else, so
+      [1^2^3] groups the other way under a [>]. calc and effekt do not move on
+      that one, because their operators are all left-associative and
+      [(bp, bp + 1)] groups the same under either test. recovery holds one
+      separated list of a rule, where the body has no closer and the separator
+      reaches the elements through the rule's adds alone; effekt's one is the
+      same shape and the only other in 202,250 inputs, which is how narrow
+      that position is. shapes holds the other boundary rule and its body's
+      stopping set already holds the [let] and [{] a caller contributes.
 
-        M1  In [Ocaml.Parser.loop], build [stops] from the ends-on kinds alone:
-            [union [ ends; continues ]] becomes [ends].
-            -> parts (a) and (b), 27,535 inputs, none of them drawn: sexp 298,
-               json 1,309, postfix 169, unicode 464, recovery 5,897,
-               shapes 5,206, comments 784, rust 3,215, effekt 7,213, wide 7,
-               ml 2,973. A body that
-               meets junk runs to the closer instead of picking up at its next
-               element.
-        M2  In [Ocaml.Parser.loop], have [stuck] give [swept] whatever
-            [when_missing] holds.
-            -> part (a), 2,502 inputs: json 466, postfix 69, unicode 307,
-               recovery 35, shapes 101, comments 668, rust 231, effekt 66,
-               wide 517, ml 42. Part (b), 3,544: json 774, postfix 147,
-               unicode 417, recovery 35, shapes 123, comments 1,013, rust 277,
-               effekt 127, wide 517, ml 114. The separator that is not there goes unreported and
-               the element after it is swept away.
-        M3  In [Ocaml.Parser.loop], bind [from] to [Cursor.offset] rather than
-            to the first byte of [Cursor.range].
-            -> part (b), 239 inputs: json 10, postfix 10, unicode 89,
-               recovery 112, shapes 8, rust 1, wide 9. A trailing separator is
-               then reported over the trivia in front of it as well. comments
-               and effekt do not move: no body of theirs reports on exit.
-        M4  In [Ocaml.Parser.loop], stop the progress guard ending the body:
-            both [assign "going" false] inside it become [Emit.eunit].
-            -> the suite does not finish inside 120 s. A body whose step takes
-               no token runs forever, and the guard is what stops it. Reverted
-               without a count.
+      What the drawn half of the corpus buys. Every grammar with an operator
+      table gains exactly 500 findings on a mutation to the wrapping of an
+      operator's left side -- every drawn input it has. A draw from a grammar
+      with an expression in it is an expression, so all of them catch that and
+      only some hand-written seeds do.
 
-               This is the only place that guard is read. The runtime held it as
-               [Cursor.while_progress] and no longer does, so no law but this
-               one and test/laws/law_interp.ml part (b) says a parse stops.
-        M5  In [Ocaml.Parser.commit], skip on [recover] alone, leaving out what
-            [extend] adds from the position's own [local].
-            -> part (a), 6,819 inputs: calc 565, postfix 785, recovery 1,534,
-               shapes 76, comments 72, rust 695, effekt 1,712, wide 295,
-               ml 1,085. Part (b), 6,688: the same but shapes 9 and
-               effekt 1,648.
-        M6  In [Ocaml.Parser.commit], build the skip's set from the resume set
-            rather than from [local].
-            -> part (a), 4,421 inputs: calc 565, postfix 468, recovery 840,
-               rust 537, effekt 313, wide 1,115, ml 583. Part (b), 4,420: the
-               same but effekt 312.
+      Six roots end their body with a [Trivia], which takes the trailing
+      trivia before the drain runs. shapes, recovery, rust, effekt, wide and ml
+      read zero for anything done to the drain's own trailing skip, and the
+      other six grammars are the whole of what covers it.
 
-               The record used to read 579, recovery alone, from an edit its own
-               prose never named exactly. This one is named above and measured. A
-               commit's resume set holds the FIRST set of every later child and
-               its recovery set stops at the first later child that is not
-               nullable, so the two differ wherever two children follow the
-               commit.
-        M7  In [Ocaml.Parser.rule_binding], bind [inbound] to the caller's set
-            whether or not the rule is a boundary.
-            -> parts (a) and (b), 1,612 inputs, recovery alone, rust and
-               effekt included. [Group] is committed and a boundary, and its
-               body names [rparen] and nothing else, so dropping the inbound set
-               is the difference between stopping at the close and stopping at
-               the caller's next item.
+      Nothing but the payload in a dump reads a hole's report id, which is why
+      the dump carries it.
 
-               shapes holds the other boundary rule and does not move: its
-               body's stopping set already holds the [let] and [{] a caller
-               contributes.
-        M8  In [Ocaml.Parser.rule_binding], extend [passed_down] with the empty
-            list rather than with [rule.adds].
-            -> parts (a) and (b), 232 inputs: recovery 231, effekt 1.
-               [Fields] is a separated list of a rule. A separated body has no
-               closer, so its loop adds nothing to what it passes its elements,
-               and the separator reaches them through the adds alone. effekt's
-               one is the same shape and the only one outside recovery in
-               202,250 inputs, which is how narrow this position is.
-        M9  In [Ocaml.Parser.rule_binding], bind [inbound] to the empty set for
-            every rule.
-            -> parts (a) and (b), 5,584 inputs: json 377, postfix 5,
-               recovery 2,195, shapes 9, comments 5, rust 628, effekt 2,013,
-               wide 1, ml 351.
-       M10  In [Ocaml.Parser.skip_item], make [unmatched_closer] bump
-            unconditionally before halting.
-            -> parts (a) and (b), 2,595 inputs: sexp 56, json 389, postfix 68,
-               unicode 88, shapes 461, comments 39, rust 658, effekt 688,
-               ml 148. The skip still halts, so the frame above is handed a closer that is
-               already eaten.
-       M11  In [Ocaml.Parser.skip_item], make [unmatched_closer] just [bump], so
-            the skip runs on.
-            -> parts (a) and (b), 28,398 inputs: sexp 2,454, json 2,997,
-               calc 1,786, postfix 4,315, unicode 2,854, shapes 2,009,
-               comments 970, rust 4,338, effekt 3,679, ml 2,996. The skip
-               swallows the
-               rest of the production it was recovering inside.
-       M12  In [Ocaml.Parser.infix_body], guard an infix arm with
-            [Emit.egreater] rather than [Emit.egreater_equal].
-            -> part (a), 1,353 inputs: rassoc 1,040, rust 205, ml 108. Right
-               associativity is the [>=] and nothing else, so [1^2^3] groups
-               the other way. rust's [=] is the second right-associative
-               operator in the corpus. calc and effekt do not move: their
-               operators are all left-associative, and [(bp, bp + 1)] groups
-               the same under either test. rassoc exists for this.
+      One form in part (d) is worth knowing about. The postfix instruction read
+      its whole count from the one grammar named after it, before the drawn
+      corpus and before rust and effekt. All three reach it now, so no form in
+      the list rests on a single grammar.
 
-               It read 702 over the swept corpus alone. The drawn half nests
-               operators deeper than a hand-written seed does, and this is one
-               of the two mutations that gained from it.
-       M13  In [Ocaml.Parser.wrap], call [Build.start_node] rather than
-            [Build.start_node_at].
-            -> part (a), 39,913 inputs: calc 8,820, rassoc 8,366,
-               postfix 6,383, rust 2,924, effekt 5,260, wide 2,183, ml 5,977.
-               An operator
-               that has already read its left side stops wrapping it, and the
-               tree flattens.
-
-               Every grammar with an operator table gained exactly 500, which
-               is every drawn input it has. A draw from a grammar with an
-               expression in it is an expression, so all of them catch this and
-               only some swept inputs do.
-
-               Part (b) read 113 on postfix before the guard changed and reads
-               zero now. The trees still differ; the diagnostics no longer do.
-       M14  In [Ocaml.Parser.drain], drop the trailing [Cursor.skip_trivia].
-            -> parts (a) and (c), 8,614 inputs: sexp 1,934, json 341,
-               calc 1,034, postfix 549, unicode 778, comments 3,978. shapes,
-               recovery, rust, effekt, wide and ml do not move: every one of those
-               roots ends its body with a [Trivia], which has taken the
-               trailing trivia before the drain runs.
-       M15  In [Ocaml.Parser.hole_node], add one to the id [Cursor.report_id]
-            gives.
-            -> part (a), 107,995 inputs, every grammar. Nothing but the
-               payload in the dump reads this, which is why the dump carries
-               it.
-       M16  In [Ocaml.Parser.instr], pass [None] for an [Expect]'s placeholder.
-            -> part (a), 26,175 inputs: sexp 2,119, json 3,666, calc 2,009,
-               postfix 1,647, unicode 1,646, shapes 4,664, comments 3,909,
-               rust 2,982, effekt 2,717, ml 816. Part (b), 6,594: sexp 704,
-               json 512, calc 1,305, postfix 759, shapes 665, comments 780,
-               rust 1,043, effekt 687, ml 139.
-       M17  Drop the postfix case from [corpus] here.
-            -> nothing, and it used to redden part (d) with ["postfix"]
-               reading zero, before the drawn corpus and before rust and
-               effekt. rust and effekt reach the same instruction, so
-               dropping the one grammar named after it no longer empties the
-               count. The same thing happened to law_residual's M16, and both
-               are recorded rather than replaced: a form reached three ways is
-               the result.
-
-               Emptying [Inputs.postfix] instead does not work either. The
-               generator draws from the pool its seeds make, and an empty pool
-               raises.
    -------------------------------------------------------------------------- *)
+
+(* The record below is generated. assay derives a mutation from the emitter's
+   code rather than from a sentence beside it, applies every one, and records
+   what went red. Regenerate it with
+
+     assay -config assay.conf -only ocaml
+
+   Part (e) is what makes those mutants reachable at all: the module parts (a)
+   to (d) run is compiled before the law starts, so without (e) every point in
+   [Ocaml.Parser] reads 0 killed whatever the tests do. That is what this
+   record read on 2026-09-26, and the number said nothing about the tests.
+
+   Five survivors. Four are the width of a recovery set: [words] takes the
+   whole plan's highest kind, and no grammar in the corpus is wide enough for a
+   looser bound to cost it a word. The fifth is a function nothing calls. All
+   five are in assay.findings. *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/ocaml/parser.ml, 239 mutants, 230 killed, 5 survived, 4 timed out.
+        extreme     11  10 killed, law_parse sexp_parser.ml:: 6, law_parse calc_parser.ml:: 2, law_parse: 1, law_parse sexp_parser.mli:: 1; 1 survived
+        sbr        211  204 killed, sexp_parser.ml: 144 calc_parser.ml: 31 json_parser.ml: 22 sexp_parser.mli: 5 postfix_parser.ml: 2; 3 survived; 4 timed out
+        ror          1  0 killed; 1 survived
+        lcr          2  all killed, sexp_parser.ml: 2
+        aor          4  all killed, law_parse: 3, law_parse sexp_parser.ml:: 1
+        uoi         10  all killed, sexp_parser.ml: 10
+      survived at lines 51 69 128 165
+   ---------------------------------------------------------------------- *)
 
 (* -- the corpus ------------------------------------------------------------- *)
 
@@ -406,8 +322,13 @@ let trees_differ = ref 0
 let diagnostics_differ = ref 0
 let not_lossless = ref 0
 
-(* Which grammars a disagreement came from, so a failure says where to look
-   and the falsification record can be written from what the run printed. *)
+(* Part (e) reads the module dune compiled and asks the emitter for it again.
+   Everything above runs the parser that module holds, and the module is
+   compiled before the law starts, so nothing above can see a change in
+   {!Ocaml.Parser} itself. This can: the emitter runs here. *)
+let modules = ref 0
+
+(* Which grammars a disagreement came from, so a failure says where to look. *)
 let blamed : (string * string, int) Hashtbl.t = Hashtbl.create 16
 
 let blame (part : string) (grammar : string) : unit =
@@ -517,7 +438,14 @@ let () =
          drawn_inputs := !drawn_inputs + List.length drawn;
          List.iter
            (run_one case facts plan)
-           (case.seeds @ Sweep.inputs facts case.seeds @ drawn))
+           (case.seeds @ Sweep.inputs facts case.seeds @ drawn);
+         modules := !modules + 2;
+         Law.generated
+           ~file:(case.name ^ "_parser.ml")
+           (Ocaml.Emit.render (Ocaml.Parser.generate plan));
+         Law.generated
+           ~file:(case.name ^ "_parser.mli")
+           (Ocaml.Emit.render_signature (Ocaml.Parser.signature plan)))
     corpus
 ;;
 
@@ -569,5 +497,6 @@ let () =
    | missed -> List.iter (fun name -> Law.fail "(d) no parse ran %s" name) missed);
   Law.pass "%d of %d inputs reported at least one diagnostic" !with_diagnostics !inputs;
   if !with_diagnostics = 0 then Law.fail "no input reached a recovery path";
+  Law.pass "%d emitted modules are what the emitter writes now" !modules;
   Law.exit_on_failure ()
 ;;

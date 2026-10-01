@@ -1,4 +1,6 @@
 (library
  (name plan)
  (public_name lingo.plan)
- (libraries ir core))
+ (libraries ir core)
+ (instrumentation
+  (backend assay)))

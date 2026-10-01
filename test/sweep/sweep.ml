@@ -5,7 +5,7 @@
 
       test/parse_emit/law_parse.ml and test/laws/law_layout.ml both read this.
       A copy in each would be two corpora that drift, and the numbers in a
-      falsification record are only reproducible while the corpus is.
+      mutation record are only reproducible while the corpus is.
    -------------------------------------------------------------------------- *)
 
 (* A linear congruential generator. The corpus is then the same on every run,

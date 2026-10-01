@@ -1,3 +1,5 @@
 (library
  (name ir)
- (public_name lingo_runtime.ir))
+ (public_name lingo_runtime.ir)
+ (instrumentation
+  (backend assay)))

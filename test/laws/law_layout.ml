@@ -43,31 +43,31 @@
       - the fold dropping a token. Part (b). Dropping changes the token run,
         which changes which frame the next parse gives the closer to, so a
         body's tail loses one separator per pass and never settles. The fold
-        did that until 2026-09-19, on the grammar's [trailing_sep]. M6.
+        did that until 2026-09-19, on the grammar's [trailing_sep].
 
         The one exception is the trailing separator, and it is guarded by the
-        same question M6 failed to ask. A body may drop it only where the parse
+        same question the fold failed to ask. A body may drop it only where the parse
         closed the frame and the body up to its last element does not end inside
         a frame the parse left open. Without that second half [\[\[j,,\]]
         loses a comma a pass: the two commas sit in different frames, the outer
         closed and the inner not, and dropping the outer's hands its [\]] to
-        the inner frame, which closes it and reveals the next. M31.
+        the inner frame, which closes it and reveals the next.
       - the fold writing one it may not. The type holds the general case. What
         the type cannot say is *where*: a separator written into a frame the
         parse did not close lets the next parse take a token from outside the
-        frame as an element, so the body grows by one on every pass. M12. It also
+        frame as an element, so the body grows by one on every pass. It also
         wrote the closing delimiter of such a frame until 2026-09-18, which made
-        its output repaired input. M5.
+        its output repaired input.
       - a boundary that does not read back. Part (b) again, through the join.
       - a break outliving the child that asked for it. A boundary in front of a
         child that is not there is not a boundary, so the request goes back where
         that child writes nothing. Carried on, it reaches a token in some other
-        frame. M17.
+        frame.
 
         A closer the parse never found is the same thing at a frame's own edge,
         and it needs the same treatment or the first half makes matters worse. It
         writes nothing, so its break cuts a run for no reason and the group that
-        settles the line stops short. M18.
+        settles the line stops short.
 
       The argument is what to reason from. The corpus is what says the code does
       what the argument says it does.
@@ -85,7 +85,7 @@
       moves a decision that nothing moved on the pass that wrote it. A body
       forced broken measures its opener; one that chose to break measures its
       full width. The formatter then settles on the second pass rather than the
-      first. M30.
+      first.
 
       Every other mark the fold makes only adds bytes, so every measurement
       grows and a group that broke goes on breaking. The request was the one
@@ -98,7 +98,9 @@
       One shape either way. Splitting the last run only when the fold adds a
       separator makes the document's shape depend on where the separator came
       from, and the glue then lands somewhere else on the pass after the one that
-      added it. M15.
+      added it. The two shapes are one document rather than two kept in step:
+      [`Present] is [rest ~sep:false] and a flat [`Maybe] is the same call, so
+      the property holds by construction rather than by agreement.
 
       The parse and its trivia. Six formats of 255,756 could not settle until 2026-09-18, alternating
       between two outputs holding the same tokens and parsing to two different
@@ -118,268 +120,80 @@
       token. Measured after: 0 of 462,529 inputs parse differently when
       respaced.
 
-      Falsification. Every mutation was applied, built, run and reverted, and
-      the result recorded is the one observed. A count of formats counts
-      distinct (input, width) pairs. Depth is 1 unless the entry says
-      otherwise, and where it says 8 the mutation reads zero at 1.
+      What the corpus cannot reach. Three things the parts here read zero on,
+      and test/laws/law_fuzz.ml is what falsifies all of them.
 
-        M1  In [Layout.join], give [Touching] at every boundary.
-            -> (b) 877 formats, (c) 34, (d) 22 inputs, (g) two joins read zero.
-               comments' ["1 . 1"] comes out ["1.1"] and reads back as one
-               number. This is the law for the whole of D9.
-        M2  In [Layout.glue], take the join over the last byte written rather
-            than over the run.
-            -> (b) 877 formats, (c) 256, (d) 22 inputs, (g) one join reads zero.
-               No pair of ["1"], ["."] and ["5"] joins and the three of them are
-               one number, so a boundary stated over the previous token alone
-               reads safe.
-        M3  In [Layout.entries], take a held child's break from the layout.
-            -> (g) both holds read zero, and nothing else. recovery.format moves
-               by 46 lines, comments.format by 128 and shapes.format by 2. A comment is held to the
-               line the source put it on; taking the break from the layout is
-               legible and idempotent, so only the goldens carry it.
-        M4  In [Layout.walk], hand the last child of a run [nothing] as its tail.
-            -> (b) 91,082 formats, (c) 33,719, (g) both separators read zero.
-               This is D8, and it reddens more than anything else here: a group
-               that does not measure what follows it on its line renders flat,
-               and what follows is then placed by a fit it was left out of.
-        M5  In [Layout.node], write something for a childless node.
-            -> (b) 36,824 formats, (c) 38,836, (e) 8 lines. A childless node is
-               the parse saying it wanted a token and never found one. Its bytes
-               are not in the tree, and writing any is repair.
-        M6  In [Layout.entries], drop the separators at the end of a body.
-            -> (b) 23,330 formats, (c) 4,176, (g) both separators read zero.
-               Dropping is as much a change to the token run as writing, and each
-               drop reshapes the parse and reveals the next. The trailing
-               separator is dropped under guards now; M31 is what those guards
-               are worth.
-        M7  In [Layout.entries], write whitespace trivia out rather than letting
-            the boundaries re-emit it.
-            -> (c) 190,949 formats, (e) 2 lines, (g) three read zero. The
-               source's indentation is written, then indented again, on every
-               pass.
-        M8  In [Layout.node], nest the body of every rule, whether or not it has
-            a boundary of its own.
-            -> nothing here. json.format moves by 86 lines, comments.format by
-               39 and shapes.format by 1. Every rule that wraps a single child
-               adds its indent again, so json's ["{\"a\": 1}"] indents six where
-               the object's own indent is two. It stays idempotent and inside the
-               ruler, so only the goldens carry it.
-        M9  In [Layout.Written.doc], leave a token's own newlines inside its text
-            node.
-            -> (f) 296 documents. An unterminated block comment holds them, and
-               so does any comment that spans lines. This is D6, and the engine's
-               own [check] is what states it.
-       M10  In [Layout.node], end the body segment at the closer always.
-            [depth 8]
-            -> (e) 675 lines. A recovery node beside the closer holds it to the
-               body's last line, and the group that settles that line then has
-               not measured it.
-       M11  In [Lower.slots], give slot zero the rule's break rather than [Flat].
-            -> (a) 39 findings across the nine grammars, and nothing else.
-               Nothing downstream reads that break, so the check is what says the
-               layout means one thing.
-       M12  In [Layout.node], write the separator into a frame the parse never
-            closed.
-            -> (b) 11 formats, (c) 17, (d) 1 input. The body grows one element
-               per pass: the separator lets the next parse take a token that was
-               outside the frame, which gives the body a new last element, which
-               earns another separator. This is pigeon's [format] exactly.
-       M13  In [Layout.node], stop reading a separator the source has as a
-            request to break.
-            -> this is the code as of 2026-09-25, so M30 is the mutation and
-               this entry is its history. It read nothing here and moved
-               comments.format by 53 lines, and what made it legible rather
-               than desirable was that the fold could not then drop the
-               separator, so a flat body carried a trailing one. The fold drops
-               it now.
-       M14  In [Layout.body], carry the state the folding *with* the separator
-            left, rather than the one without it.
-            -> (b) 7 formats, (d) 1 input, and law_fuzz by 231 over its good
-               corpus, 543 over its mutated one and 185 over its fragments.
-               The flat branch writes no separator, so its state is the one the
-               closer glues against. Carrying the other one puts the
-               separator's bytes in the run twice over.
+      A run that lands on a group's line and sits outside it. The head of a
+      frame is empty unless something sits before the opener, and the only
+      production shape that has one is an enclosed postfix operator whose
+      operand is a group. Nothing written by hand in test/inputs puts a long
+      enough postfix chain at a narrow enough width, and a swept input mangles
+      the chain before it gets there.
 
-               Re-measured after the fold moved this from [Layout.node] to
-               [Layout.body]. It read 5 formats and 3 inputs before, which is
-               the corpus reaching the same defect through a different
-               document.
+      A separator coming back somewhere the fold cannot see it. Recovery
+      sweeps one into the error node at a body's end, and a frame the parse
+      left open takes one as its own trailing separator. Only law_fuzz's
+      fragments reach either, and only at depth.
 
-               The first version of this was a shadowed name that made the
-               second folding start where the first one left off. It read one
-               format, and the corpus was the only thing that saw it.
-       M15  In [Layout.body], fold a body whose separator is already there in a
-            different shape from one that gains it: let [`Present] skip the
-            split at the last element that [`Add] and [`Maybe] take.
-            -> nothing, here or in law_fuzz, where it read 209 formats before
-               the separator was folded once.
+      The traces are part of part (g) rather than beside it. [say] reads as
+      logging and is not: the step counts are what say the corpus reached a
+      case, so a dropped trace goes red. They are the instrument, and an
+      instrument nothing watches says less than it reads.
 
-               The two shapes are now the same document rather than two
-               documents kept in step: [`Present] is [rest ~sep:false] and a
-               flat [`Maybe] is the same call. So the property holds by
-               construction, and what this mutation now says is that no input
-               in either corpus reaches a case where the difference shows. A
-               shape that cannot be told apart is not the same as one that is
-               the same, and this is the entry that would notice if the
-               construction stopped holding.
-       M16  In [Layout.body], put the [On_break] separator in the flat branch.
-            -> (c) 3 formats, and law_fuzz by 64, 143 and 35 over its three
-               corpora, every one of them Law B. comments.format moves by 99
-               lines as well. A flat body then carries a trailing separator,
-               and the pass after it lies flat again and takes the separator
-               back out.
+      What the parts say. That the fold is correct on this corpus. Not that it
+      is good, and not that the corpus is the whole of what the fold has to be
+      right about. No mutation of the fold reddens (h): that is a claim about
+      the corpus, and what would falsify it is a generator that stops
+      exploring.
 
-               Re-measured on 2026-09-25, after M13 became the code. It read
-               2,576 formats and 970, 1,875 and 2,338 before, on 43 golden
-               lines. The mutation was louder while the separator was also a
-               request to break: a flat body carrying one was read as asking
-               to break, so it broke, so the pass after that took it out of the
-               flat branch. The loop is gone and what is left is the drop and
-               the write disagreeing, which is the same defect one turn
-               quieter.
-
-       M17  In [Layout.node], carry a break on out of the child that asked for
-            it, rather than putting it back where the child writes nothing.
-            [depth 64]
-            -> nothing here. recovery.format moves by 55 lines and
-               comments.format by 2. A boundary in front of a child that is not
-               there is not a boundary. Carried on, the request reaches a token
-               in some other frame: the trailing separator of a list lands on a
-               line of its own, taking the break meant for the name a [Field]
-               never got. It is idempotent and inside the ruler, so only the
-               goldens carry it.
-
-               Re-measured on 2026-09-19 against the [break-back] step, which
-               marks this situation. Still nothing, and that is the honest
-               reading: the step fires on a request outstanding where a child
-               wrote nothing, before anything is done about it. A step on the
-               restoring would have reddened (g) for having been deleted rather
-               than for the layout being wrong.
-       M18  In [Layout.entries], leave the rule's break on a closer the parse
-            never found. [depth 8]
-            -> (e) 584 lines. Such a closer writes nothing, so there is nothing
-               to break in front of. Leaving the break there cuts the run, and
-               the group that settles the line then stops short of the tokens
-               the caller writes on it.
-
-       M21  In [Lower.rule], write [edge_before] and [edge_after] as [None].
-            -> (g), both of its steps, and the two sexp goldens move by 14
-               lines. The override is what puts a space between a group and what
-               sits beside it. Neither parenthesis can carry that, because two
-               parentheses still touch.
-
-       M19  In [Layout.node], drop the [absent] trace.
-       M20  In [Layout.node], replace [undo] with the identity, which drops the
-            restoring and the [break-back] trace together.
-            -> (g), each naming its own step. Both are mutations of the
-               instrument rather than of the layout, and they are here because
-               a step the corpus cannot reach makes (g) and the coverage count
-               both say less than they read.
-
-       M30  In [Layout.node], read a separator the source has as a request to
-            break: write it in both branches and turn the body's [Fit]
-            boundaries into [Hard 1]. This is Black's magic trailing comma, and
-            it is what the fold did until 2026-09-25.
-            -> (c) 1 format, and law_fuzz by 2, 7 and 1 over its three corpora,
-               every one of them Law B. The fold wrote that separator itself on
-               the pass before, so reading it back is the one mark it makes
-               that shrinks a measurement rather than growing it: a body forced
-               broken measures its opener where one that chose to break
-               measures its full width. Under [Handsome.Content] nothing
-               outside the body ever read that number. Under [Handsome.Line]
-               whatever shares its line does, so the pass that wrote the
-               separator and the pass that reads it place the break in front of
-               it differently. Every witness settles on the second pass.
-       M31  In [Layout.node], let [`Held] ask the swept question from the body's
-            end rather than from its last element.
-            -> (c) 66 formats, and law_fuzz by 5 Law B and 5 Law E over its
-               mutated corpus, nothing over the good one or the fragments. A
-               separator already there is the last token the body-end question
-               reaches, so it never sees the element in front of it.
-               [\[\[j,,\]] is the shortest: the two commas sit in different
-               frames, the outer closed and the inner not, and dropping the
-               outer's hands its [\]] to the inner frame on the next parse,
-               which closes it and reveals the next comma. That is M6's finding
-               reached through the guarded path, and the guard is what stops it.
-
-       M22  In [Layout.flat_end], let a child that writes nothing end the run.
-       M23  In [Layout.node], start the body segment at the opener rather than
-            after its leading run.
-            -> nothing here, and no golden moves. Both redden
-               test/laws/law_fuzz.ml, which reads zero, by 7 and by 1,196,
-               every one of them Law F. They are two halves of one defect: a run
-               that lands on a group's line and sits outside it. This corpus
-               cannot reach it. The head of a frame is empty unless something
-               sits before the opener, and the only production shape that has
-               one is an enclosed postfix operator, whose operand is a group.
-               Nothing anyone wrote by hand in test/inputs puts a long enough
-               postfix chain at a narrow enough width, and a swept input
-               mangles the chain before it gets there.
-       M24  In [Layout.node], read [flat_through] as [false].
-            -> (e), 70 lines past the ruler, and law_fuzz by 143. The third
-               half of the same defect, and the one this corpus does reach:
-               it did not before the separator was folded once, and what
-               changed is that the body's document no longer splits around the
-               last run.
-       M25  In [Layout.body], split the walk at the last element under
-            [`Plain] as well.
-            -> (c), 11 formats, and law_fuzz by 60. A policy that adds nothing
-               has nothing to insert there, and cutting the walk truncates
-               every run that crosses the cut.
-       M26  In [Layout.node], take a plain group and a conditional that always
-            answers flat, so an [On_break] separator is never written.
-            -> nothing here, nothing in law_fuzz, and comments.format moves by
-               16 lines. No law says a body that broke carries its separator.
-               Law C allows one and does not require it, and a fold that never
-               writes one is stably idempotent. The golden is the whole of what
-               covers it.
-
-       M27  In [Lower.expansion], leave a block's rule atoms out of the kinds a
-            slot admits.
-            -> nothing here. law_fuzz reads 4 over its mutated corpus at depth
-               1 and 10 at depth 8, and 1 over its fragments and 11.
-               calc.layout loses kind 1 from four slots, which is [Parens], its
-               only rule atom.
-
-               A slot whose symbol is an expression block admits the block, its
-               hole and its roles. A rule atom is the fourth thing that parse
-               builds, and it stands unwrapped, so without it the fold does not
-               count one as an element: the separator a body's policy adds goes
-               in front of the atom rather than after it, and the next parse
-               reads it as a real separator. rust's [f(0, i, {})] is the shape.
-       M28  In [Layout.node], write the policy separator after bytes an error
-            node swept up.
-       M29  In [Layout.node], read an inner frame the parse never closed as
-            closed, so the policy separator is written after it.
-            -> nothing here, and nothing over law_fuzz's mutated corpus
-               either, at any depth. Its fragments read 27 and 14 at depth 1
-               and 195 and 147 at depth 8, on one witness between them, and
-               they are the whole of what falsifies these two.
-
-               Two ways for a separator to come back somewhere this fold cannot
-               see it. Under M28 recovery sweeps it into the error node at the
-               body's end, and [fn{match]{e(}] goes [e(] to [e(,] to [e(,,],
-               gaining one on every pass without ever settling. Under M29 a
-               frame still open there takes it as its own trailing separator,
-               and [fn{match]{e\te(!}] settles on the second pass rather than
-               the first: the call [e(] has no [)], and the comma this body
-               wrote becomes that call's.
-
-      All three read zero at depth 1, which is why the law takes a depth and
-      this one does not.
-
-      Five of the twenty-nine redden nothing here and move the goldens instead,
-      and six more redden nothing here at all: three of those redden law_fuzz,
-      two move no golden either, and M15 is the one whose property became
-      structural. That
-      is the honest state of the parts: they say the fold is correct on this
-      corpus, they do not say it is good, and law_fuzz is what says this corpus
-      is not the whole of what the fold has to be right about.
-
-      No mutation of the fold reddens (h). It is a claim about the corpus, and
-      what would falsify it is a generator that stops exploring.
    -------------------------------------------------------------------------- *)
+
+(* The four blocks below are generated, and they are the evidence. assay
+   derives a mutation from the code rather than from a sentence beside it,
+   applies every one, and records what went red. Regenerate them with
+
+     assay -config assay.conf -only layout,lingo_runtime
+
+   and take the counts as they come: they move whenever the corpus grows, and
+   asserting them exactly would train everyone to ignore a red suite. What
+   they assert is that every mutant dies. A survivor is the finding, and the
+   lines it names are where to look. *)
+
+(* -- mutation testing, generated by assay on 2026-09-27 ---------------------
+      lib/runtime/layout.ml, 232 mutants, 185 killed, 45 survived, 2 timed out.
+        extreme      9  8 killed, width 11: 4, law_layout (g): 2, dump_format: 1, law_layout (c): 1; 1 survived
+        sbr         29  26 killed, law_layout (g): 17, width 11: 4, width 23: 2, dump_format: 1, law_layout (c): 1, width: 1; 3 survived
+        ror         71  44 killed, dump_format: 22, width 23: 9, law_layout (c): 4, width: 4, width 11: 4, law_layout (g): 1; 27 survived
+        lcr         29  23 killed, dump_format: 9, law_layout (c): 5, width: 3, width 11: 3, width 23: 2, law_layout (g): 1; 6 survived
+        aor         33  29 killed, dump_format: 14, width: 11, width 11: 2, law_format: 1, law_layout (b): 1; 2 survived; 2 timed out
+        uoi         61  55 killed, dump_format: 28, width 23: 17, width 11: 6, width: 2, law_layout (c): 1, law_layout (g): 1; 6 survived
+      survived at lines 116 143 273 355 389 392 396 438 450 457 458 472 485 489 495 514 517 575 598 613 619 638 666 673 679 686 723 735 743 773 819 828 838
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-27 ---------------------
+      lib/layout/check.ml, 63 mutants, 62 killed, 1 survived.
+        sbr         25  all killed, (i) 25
+        ror         17  16 killed, dump_layout: 8, law_layout (i): 5, law_layout: 2, law_layout (a): 1; 1 survived
+        lcr         10  all killed, dump_layout: 8, law_layout (i): 2
+        aor          3  all killed, dump_layout: 3
+        uoi          8  all killed, dump_layout: 8
+      survived at lines 78
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-27 ---------------------
+      lib/layout/lower.ml, 25 mutants, 23 killed, 2 survived.
+        extreme      2  all killed, dump_format: 2
+        sbr         13  12 killed, dump_layout: 9, dump_format: 2, width 11: 1; 1 survived
+        ror          5  4 killed, dump_format: 2, dump_layout: 2; 1 survived
+        uoi          5  all killed, dump_layout: 3, dump_format: 2
+      survived at lines 143 149
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-27 ---------------------
+      lib/layout/text.ml, 21 mutants, 21 killed.
+        extreme      6  all killed, dump_layout: 6
+        sbr         15  all killed, dump_layout: 15
+   ---------------------------------------------------------------------- *)
 
 (* -- the corpus ------------------------------------------------------------ *)
 
@@ -443,8 +257,8 @@ let ran ~(step : string) ~kind:(_ : Ir.Kind.t) : unit =
 
    Counting pairs of them is not enough either, and that was this law's own
    reading until 2026-09-19: 97 pairs at depth 1, 99 at 4 and 100 at 16,
-   with the ceiling at fifteen steps squared. Depth 8 found M10 and M18 and
-   depth 64 found M17 while the count stood still. So the step is paired with
+   with the ceiling at fifteen steps squared. Depth 8 found two defects and
+   depth 64 a third while the count stood still. So the step is paired with
    the rule it was taken in, which is where the grammar enters. A point is a
    grammar, a step and a rule kind, and an edge is two consecutive points.
    That reads 1,544 at depth 1, 1,639 at 4, 1,702 at 16, 1,748 at 64 and 1,772
@@ -764,7 +578,8 @@ let () =
 
 (* -- (h) the search is searching ------------------------------------------- *)
 
-(* M1's other half. A count is only evidence while it is still moving, so the
+(* The coverage count's other half. A count is only evidence while it is still
+   moving, so the
    corpus is taken to twice the depth and has to reach pairs the first pass did
    not. A count that stops is measuring the fold's vocabulary.
 
@@ -829,6 +644,247 @@ let () =
       (String.concat
          " "
          (List.map (fun n -> Printf.sprintf "%s %d" n (Hashtbl.find reach n)) steps))
+;;
+
+(* -- (i) every check is checked where it stands ---------------------------- *)
+
+(* Part (a) says [Check.run] accepts every layout the lowering builds. That is
+   half a claim: a checker that accepted everything would pass it too.
+
+   The other half is that it rejects, and one broken layout per problem it can
+   name is still not enough. It raises each of those from several places, so a
+   layout aimed at one of them proves only that the checker can say the word.
+   Thirty-six mutations to lib/layout/check.ml survived the whole suite before
+   this part existed, twenty-five of them a [report] call deleted outright.
+
+   So the broken layouts here are derived. The walk breaks one thing at a time
+   in a real layout and the law asserts the checker names it. A field added to
+   [Ir.Layout] is covered the day it appears. *)
+let map_rule (l : Ir.Layout.t) (i : int) ~(f : Ir.Layout.rule -> Ir.Layout.rule)
+  : Ir.Layout.t
+  =
+  { l with rules = Array.mapi (fun j r -> if j = i then f r else r) l.rules }
+;;
+
+let map_slot (r : Ir.Layout.rule) (j : int) ~(f : Ir.Layout.slot -> Ir.Layout.slot)
+  : Ir.Layout.rule
+  =
+  { r with slots = Array.mapi (fun k s -> if k = j then f s else s) r.slots }
+;;
+
+let is_kind_out_of_range (p : Layout.Check.problem) : bool =
+  match p with
+  | Layout.Check.Kind_out_of_range _ -> true
+  | _ -> false
+;;
+
+let is_empty_break (p : Layout.Check.problem) : bool =
+  match p with
+  | Layout.Check.Empty_break _ -> true
+  | _ -> false
+;;
+
+(* One broken layout per place the checker looks, with the problem it owes. *)
+let variants (l : Ir.Layout.t)
+  : (string * Ir.Layout.t * (Layout.Check.problem -> bool)) list
+  =
+  let out = ref [] in
+  let add name broken owed = out := (name, broken, owed) :: !out in
+  let negative = -1 in
+  (* One past the end as well as below it. A bounds test is two comparisons
+     and only one of them is reached from below. *)
+  let past_end = Array.length l.tokens in
+  let a_token =
+    let found = ref None in
+    Array.iteri (fun k t -> if !found = None && t <> None then found := Some k) l.tokens;
+    !found
+  in
+  Array.iteri
+    (fun k _ ->
+       let of_kind = Array.copy l.of_kind in
+       of_kind.(k) <- Array.length l.rules;
+       add (Printf.sprintf "of_kind %d out of range" k) { l with of_kind } (fun p ->
+         match p with
+         | Layout.Check.Rule_out_of_range _ -> true
+         | _ -> false))
+    l.of_kind;
+  Array.iteri
+    (fun i (r : Ir.Layout.rule) ->
+       let at = Printf.sprintf "rule %d %s" i r.name in
+       add
+         (at ^ " kind")
+         (map_rule l i ~f:(fun r -> { r with kind = negative }))
+         is_kind_out_of_range;
+       add
+         (at ^ " kind past the end")
+         (map_rule l i ~f:(fun r -> { r with kind = past_end }))
+         is_kind_out_of_range;
+       (* A rule the fold cannot be reached by is a rule that never runs, so
+          the kind has to index back to this rule and not to another one. *)
+       if Array.length l.rules > 1
+       then (
+         let other = (i + 1) mod Array.length l.rules in
+         let theirs = l.rules.(other).Ir.Layout.kind in
+         if theirs <> r.kind && theirs >= 0 && theirs < Array.length l.of_kind
+         then
+           add
+             (at ^ " kind is another rule's")
+             (map_rule l i ~f:(fun r -> { r with kind = theirs }))
+             (fun p ->
+                match p with
+                | Layout.Check.Kind_not_its_rule _ -> true
+                | _ -> false));
+       (match a_token with
+        | None -> ()
+        | Some k ->
+          add
+            (at ^ " kind is a token")
+            (map_rule l i ~f:(fun r -> { r with kind = k }))
+            (fun p ->
+               match p with
+               | Layout.Check.Rule_kind_is_a_token _ -> true
+               | _ -> false));
+       add
+         (at ^ " indent")
+         (map_rule l i ~f:(fun r -> { r with indent = -1 }))
+         (fun p ->
+            match p with
+            | Layout.Check.Negative_indent _ -> true
+            | _ -> false);
+       add
+         (at ^ " body break")
+         (map_rule l i ~f:(fun r -> { r with body = Ir.Layout.Hard 0 }))
+         is_empty_break;
+       add
+         (at ^ " inner break")
+         (map_rule l i ~f:(fun r -> { r with inner = Ir.Layout.Hard 0 }))
+         is_empty_break;
+       (match r.frame with
+        | Ir.Layout.Plain -> ()
+        | Ir.Layout.Delimited d ->
+          add
+            (at ^ " open")
+            (map_rule l i ~f:(fun r ->
+               { r with frame = Ir.Layout.Delimited { d with open_ = negative } }))
+            is_kind_out_of_range;
+          add
+            (at ^ " close")
+            (map_rule l i ~f:(fun r ->
+               { r with frame = Ir.Layout.Delimited { d with close = negative } }))
+            is_kind_out_of_range;
+          (match d.sep with
+           | None -> ()
+           | Some s ->
+             add
+               (at ^ " delimited sep")
+               (map_rule l i ~f:(fun r ->
+                  { r with
+                    frame =
+                      Ir.Layout.Delimited
+                        { d with sep = Some { s with sep_kind = negative } }
+                  }))
+               is_kind_out_of_range)
+        | Ir.Layout.Separated s ->
+          add
+            (at ^ " separated sep")
+            (map_rule l i ~f:(fun r ->
+               { r with frame = Ir.Layout.Separated { s with sep_kind = negative } }))
+            is_kind_out_of_range);
+       Array.iteri
+         (fun j (s : Ir.Layout.slot) ->
+            let at = Printf.sprintf "%s slot %d" at j in
+            if Array.length s.kinds > 0
+            then (
+              add
+                (at ^ " kind")
+                (map_rule l i ~f:(fun r ->
+                   map_slot r j ~f:(fun s ->
+                     let kinds = Array.copy s.kinds in
+                     kinds.(0) <- negative;
+                     { s with kinds })))
+                is_kind_out_of_range;
+              add
+                (at ^ " kind past the end")
+                (map_rule l i ~f:(fun r ->
+                   map_slot r j ~f:(fun s ->
+                     let kinds = Array.copy s.kinds in
+                     kinds.(0) <- past_end;
+                     { s with kinds })))
+                is_kind_out_of_range;
+              if Array.length s.kinds > 1
+              then
+                add
+                  (at ^ " kinds ascending")
+                  (map_rule l i ~f:(fun r ->
+                     map_slot r j ~f:(fun s ->
+                       let kinds = Array.copy s.kinds in
+                       kinds.(1) <- kinds.(0);
+                       { s with kinds })))
+                  (fun p ->
+                     match p with
+                     | Layout.Check.Kinds_unordered _ -> true
+                     | _ -> false));
+            add
+              (at ^ " before break")
+              (map_rule l i ~f:(fun r ->
+                 map_slot r j ~f:(fun s -> { s with before = Ir.Layout.Hard 0 })))
+              is_empty_break;
+            add
+              (at ^ " between break")
+              (map_rule l i ~f:(fun r ->
+                 map_slot r j ~f:(fun s -> { s with between = Ir.Layout.Hard 0 })))
+              is_empty_break;
+            if j = 0 && s.before = Ir.Layout.Flat
+            then
+              add
+                (at ^ " lead break")
+                (map_rule l i ~f:(fun r ->
+                   map_slot r j ~f:(fun s -> { s with before = Ir.Layout.Fit })))
+                (fun p ->
+                   match p with
+                   | Layout.Check.Lead_slot_breaks _ -> true
+                   | _ -> false);
+            if (not s.repeats) && s.between = s.before && s.before <> Ir.Layout.Fit
+            then
+              add
+                (at ^ " single slot between")
+                (map_rule l i ~f:(fun r ->
+                   map_slot r j ~f:(fun s -> { s with between = Ir.Layout.Fit })))
+                (fun p ->
+                   match p with
+                   | Layout.Check.Single_slot_between _ -> true
+                   | _ -> false))
+         r.slots)
+    l.rules;
+  List.rev !out
+;;
+
+let () =
+  let places = ref 0 in
+  let missed = ref [] in
+  List.iter
+    (fun c ->
+       match Core.Facts.of_grammar c.grammar with
+       | Error _ -> ()
+       | Ok f ->
+         let l = Layout.Lower.of_facts f in
+         List.iter
+           (fun (where, broken, owed) ->
+              incr places;
+              let named =
+                match Layout.Check.run broken with
+                | Ok () -> false
+                | Error ps -> List.exists owed ps
+              in
+              if not named then missed := Printf.sprintf "%s %s" c.name where :: !missed)
+           (variants l))
+    corpus;
+  match List.rev !missed with
+  | [] ->
+    Law.pass
+      "(i) every invariant is reported wherever it can be broken, over %d places"
+      !places
+  | wheres -> List.iter (fun w -> Law.fail "(i) breaking %s is not reported" w) wheres
 ;;
 
 let () = Law.summarise "law_layout"

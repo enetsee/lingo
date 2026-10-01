@@ -55,109 +55,101 @@
       root's own node, and with several it is the one the emitter makes up to
       choose between them.
 
+      What tree-sitter does, which the emitter has to match. It takes the last
+      pattern that matches a node, so the highlight sections go catch-alls
+      first and positions last: written the other way round, [(ident)
+      @variable] beat every per-position capture and rust's type and function
+      names rendered as variables. Checked against tree-sitter 0.26.9 both
+      ways round. It also takes no part in recovery, so a query for a resync
+      anchor can never fire, and a query file is UTF-8, so a separator is
+      written as itself rather than as escapes.
+
+      Why three parts carry a witness of their own. Every grammar in the
+      corpus declares its root first, declares its identifier before its other
+      pattern tokens, and writes no intersection to reduce. Parts (c), (i) and
+      (k) are about those three, so the corpus cannot reach any of them and
+      each has a witness instead.
+
+      A law may not build what it expects from the value it is checking. Part
+      (l) reads the grammar rather than [Rule.def.binders], because a law that
+      read the field would agree with it however the field was built, and a
+      binder dropped on the way there would leave both sides saying the same
+      wrong thing. The same reasoning puts part (g) where it is: a scope that
+      quietly translates to nothing leaves the trace of one that was never
+      set, so the part has to separate them.
+
       What this says nothing about. Whether tree-sitter's generator finds a
       conflict. lingo checks LL(1) and tree-sitter builds an LR automaton, and
       a grammar can pass the first and fail the second. The binding powers
       carry over as precedences, and that covers most of it. The rest needs
       the generator in the loop.
 
-      Falsification. Every mutation was applied, run and reverted, and the
-      result recorded is the one observed.
-
-        M1  In [Grammar_js.symbol], send a reference to an expression block to
-            the block's own node rather than to the hidden choice.
-            -> part (b), 77 findings across the seven grammars with a block:
-               effekt 33, rust 10, postfix 8, wide 4, calc 4, rassoc 3. The
-               hidden
-               rule becomes unreachable, and so does everything only it
-               reached. That is every shape the block's operators build.
-        M2  In [Grammar_js.role_body], emit every role as its plain body.
-            -> part (e), 7 findings, one per grammar with a block. The whole
-               operator table collapses into one choice with no precedence.
-               tree-sitter would report that as a conflict over the entire
-               expression grammar.
-        M3  In [Queries.token_patterns], stop filtering by what the grammar
-            matches.
-            -> part (d), 1 finding: shapes' [end]. It is a resync anchor and
-               nothing else. It says where recovery stops, and no production
-               holds it. tree-sitter takes no part in recovery, so a query for
-               it can never fire.
-        M4  In [Queries.token_patterns], write the literal the way OCaml
-            writes one.
-            -> part (d), 1 finding: unicode's separator, which comes out as
-               three decimal escapes instead of an arrow. A query file is
-               UTF-8, so the arrow is written as itself.
-        M5  In [Js.regex], wrap a spliced alternation in a capturing group.
-            -> part (h), 1 finding on json. Only json has an alternation
-               inside a repetition inside a token, and the group survives
-               into the emitted regex only in that shape.
-        M6  In [Grammar_js.ordered], leave the rules in the order the facts
-            hold them.
-            -> part (c), 1 finding, on the law's own witness. Every grammar in
-               the corpus declares its root first. The corpus cannot reach
-               this, so the witness exists for it.
-        M7  In [Queries.capture], translate a function name to nothing.
-            -> part (g), 4 findings: rust 2, for [Fn] and [MethodSig], and ml 2.
-
-               This read zero before part (g) said that every scope outside
-               the two escape hatches must translate. A scope that quietly
-               translates to nothing left the same trace as one that was never
-               set. Part (g) separates the two.
-        M8  In [Treesitter.word_token], take the first pattern token rather
-            than the token that holds every keyword.
-            -> part (i), 1 finding on json, whose first pattern token is
-               [number] and whose keywords are [true], [false] and [null]. The
-               other grammars declare the identifier first, so the wrong
-               choice and the right one coincide.
-        M9  In [Js.as_charset], never reduce an intersection.
-            -> part (k), 1 finding: the witness is rejected with
-               [No_js_regex]. The term has no JavaScript form at all without
-               the reduction.
-
-               Every one of these was run again after the four grammars that
-               used to write [inter any (complement …)] were changed to write
-               [not_chars]. Only this part's witness exercises the reduction
-               now. The witness exists for that.
-        M10 In [Queries.definition_patterns], write a definition for every
-            child rather than for the binders.
-            -> part (l), 377 findings: effekt 137, ml 65, rust 57, wide 50, postfix
-               16, recovery 16, shapes 9, calc 7, json 6, rassoc 6, comments
-               4, sexp 2, unicode 2. Every child position with one symbol
-               behind it becomes a binding site, in every grammar, whether or
-               not the author declared one.
-        M11 In [Queries.scope_patterns], write no scope.
-            -> part (l), 15 findings: effekt 9, rust 4, ml 2. An editor would put
-               every name in one flat scope, so a local would shadow
-               everything of its name in the file.
-        M12 In [Stage.shape], build a user production's [binders] empty.
-            -> part (l), 24 findings: effekt 10, rust 7, ml 7.
-
-               This read zero while part (l) built what it expected from
-               [Rule.def.binders]. The emitter agreed with the field it was
-               handed, and the field was the mutated one. Part (l) reads the
-               grammar instead, so a binder dropped anywhere along the way
-               reddens it.
-        M13 In [Queries.definition_patterns], name the inner node by the
-            child rather than by the token it holds.
-            -> part (d), 24 findings, and part (l), 48. A field name is not a
-               node name, so the pattern matches nothing and both directions
-               of (l) fire on every binder.
-        M14 In [Queries.locals], write no reference pattern.
-            -> part (l), 6 findings: shapes, recovery, rust, effekt, wide and ml,
-               the grammars with a token that holds every keyword. A
-               definition with nothing to resolve against resolves nothing.
-        M15 In [Queries.highlights], write the sections in the order they
-            were written in before part (m) existed: the positions first and
-            the catch-alls last.
-            -> part (m), 19 findings: rust 9, ml 8, wide 2.
-
-               That order was what the emitter wrote, and part (m) is the
-               law that found it. tree-sitter takes the last pattern that
-               matches a node, so [(ident) @variable] beat every per-position
-               capture and rust's type and function names rendered as
-               variables. Checked against tree-sitter 0.26.9 both ways round
-               before the order was reversed.
    -------------------------------------------------------------------------- *)
+
+(* The six blocks below are generated, and they are the evidence. assay derives
+   a mutation from the code rather than from a sentence beside it, applies
+   every one, and records what went red. Regenerate them with
+
+     assay -config assay.conf -only treesitter
+
+   and take the counts as they come: they move whenever the corpus grows, and
+   asserting them exactly would train everyone to ignore a red suite. What
+   they assert is that every mutant dies. A survivor is the finding, and the
+   lines it names are where to look. *)
+
+(* -- mutation testing, generated by assay on 2026-09-29 ---------------------
+      editors/treesitter/grammar_js.ml, 89 mutants, 86 killed, 3 survived.
+        extreme     12  all killed, law_treesitter (a): 5, law_treesitter (e): 3, dump_treesitter: 1, law_treesitter (b): 1, law_treesitter (c): 1, law_treesitter (d): 1
+        sbr         49  47 killed, dump_treesitter: 15, law_treesitter (b): 15, law_treesitter (a): 6, law_treesitter (d): 6, law_treesitter (c): 2, law_treesitter (e): 2, law_treesitter (i): 1; 2 survived
+        ror         11  10 killed, dump_treesitter: 3, law_treesitter (a): 3, law_treesitter (b): 2, law_treesitter (e): 2; 1 survived
+        lcr          2  all killed, (a) 1 (b) 1
+        aor          2  all killed, law_treesitter: 2
+        uoi         13  all killed, law_treesitter (e): 4, dump_treesitter: 3, law_treesitter (a): 3, law_treesitter (b): 3
+      survived at lines 92 269 341
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-29 ---------------------
+      editors/treesitter/queries.ml, 51 mutants, 35 killed, 16 survived.
+        extreme     17  16 killed, law_treesitter (g): 11, law_treesitter (l): 3, dump_treesitter: 2; 1 survived
+        sbr         28  14 killed, law_treesitter (g): 6, dump_treesitter: 4, law_treesitter (d): 3, law_treesitter (l): 1; 14 survived
+        ror          1  all killed, dump_treesitter: 1
+        aor          1  0 killed; 1 survived
+        uoi          3  all killed, dump_treesitter: 1, law_treesitter (d): 1, law_treesitter (l): 1
+        empty        1  all killed, (g) 1
+      survived at lines 50 55 92 95 96 97 98 99 104 108 150 177 179 233 242 289
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-29 ---------------------
+      editors/treesitter/js.ml, 76 mutants, 69 killed, 7 survived.
+        extreme     14  all killed, law_treesitter (k): 7, law_treesitter (b): 3, dump_treesitter: 2, law_treesitter (j): 2
+        sbr         32  29 killed, dump_treesitter: 12, law_treesitter (k): 6, law_treesitter (d): 3, law_treesitter (h): 3, law_treesitter (b): 2, law_treesitter (e): 2, law_treesitter (j): 1; 3 survived
+        ror          9  7 killed, law_treesitter (k): 4, dump_treesitter: 3; 2 survived
+        lcr          5  4 killed, law_treesitter (k): 3, dump_treesitter: 1; 1 survived
+        aor          4  3 killed, dump_treesitter: 3; 1 survived
+        uoi         12  all killed, law_treesitter (k): 8, dump_treesitter: 2, law_treesitter (d): 1, law_treesitter sexp:: 1
+      survived at lines 11 16 45 46 99 115
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-29 ---------------------
+      editors/treesitter/check.ml, 13 mutants, 9 killed, 4 survived.
+        extreme      6  4 killed, (j) 4; 2 survived
+        sbr          4  2 killed, (j) 2; 2 survived
+        uoi          3  all killed, sexp: 3
+      survived at lines 33 37 65 82
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-29 ---------------------
+      editors/treesitter/treesitter.ml, 5 mutants, 4 killed, 1 survived.
+        extreme      3  all killed, (i) 3
+        sbr          1  0 killed; 1 survived
+        lcr          1  all killed, (i) 1
+      survived at lines 70
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-29 ---------------------
+      editors/treesitter/node.ml, 3 mutants, 3 killed.
+        extreme      3  all killed, sexp: 2 ml: 1
+   ---------------------------------------------------------------------- *)
 
 (* -- what the corpus emits ----------------------------------------------- *)
 

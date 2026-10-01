@@ -37,70 +37,81 @@
       a quote, a backslash, the three named whitespace escapes, a byte below
       32, byte 127, and a byte above 127 that goes out as it stands.
 
-      Falsification. Every mutation was applied, run and reverted, and the
-      result recorded is the one observed.
+      Why the round trip runs both ways. A printer that puts a commit's
+      [recover] set where its [first] set goes, or writes a reporting exit as a
+      bare [may], produces output that still parses. The plans differ and a
+      check on the reader alone would see nothing, so the law compares the plan
+      that came back with the plan that went out.
 
-        M1  In [Check.run], drop the ascending test on a set of kinds.
-            -> part (c), the case with a repeated kind, and nothing else.
-        M2  In [Check.run], leave an [Alt]'s arms unwalked.
-            -> part (c), two cases: the empty arm and the two arms on one
-               kind. The empty-alt case still reports, because that test is
-               on the [Alt] itself.
-        M3  In [Check.run], give [Ok ()] whatever it found.
-            -> part (c), all twenty-two broken plans.
-        M4  In [Text.sexp_of_instr], drop the [at-child] field of an [expect].
-            -> part (a), on the reader: an expect has five fields and four
-               arrived, so the form is not an instruction.
-        M5  In [Text.sexp_of_instr], print a [commit]'s [recover] set where its
-            [first] set goes.
-            -> part (a). The plans differ, and the output still parses, which
-               is the case a reader-side check alone would miss.
-        M6  In [Sexp.pp], print every atom bare.
-            -> part (a). The child name in this plan has spaces in it, so the
-               reader takes it as three atoms and the field has too many
-               values. The plan carries that name for this reason and for no
-               other.
-        M7  In [Sexp.of_string], stop treating [;] as the start of a comment.
-            -> part (a), the commented plan. A printed plan carries no
-               comment, so only the hand-edited case reaches this.
-        M8  In [Check.run], test the net depth alone and drop the lowest
-            depth a branch passed through.
-            -> part (c), the close-before-open case. Its opens and closes
-               come to nothing overall, which is why counting them is not
-               enough.
-        M9  In [Check.run], leave the infix and prefix tables unwalked.
-            -> part (c), four cases: the two with an operator on a kind below
-               zero, and the two declaring one operator twice.
-        M10 In [Check.run], leave the delimiter pairs unwalked.
-            -> part (c), three cases: the two out of order and the one on a
-               kind below zero. Dropping the order test alone reddens the
-               first two.
-        M11 In [Check.run], let [taker] record a kind without reporting one
-            an earlier entry took.
-            -> part (c), six cases, one per dispatch: an [Alt]'s arms, a loop
-               state's accepts, and a block's atoms, infix, prefix and
-               postfix tables. Nothing else, which is the point: the six are
-               separate cascades and a token may sit in more than one.
-        M12 In [Sexp.of_string], drop the branch that reads a [\ddd] escape.
-            -> part (a), both round trips: "an escape with no case here:
-               \0". The child name holds a byte below 32 and byte 127, and
-               the printer has no other way to write either.
+      Why the corpus looks the way it does. One child name carries spaces, so a
+      printer that quoted nothing would have the reader take it as three atoms.
+      The same name holds a byte below 32 and byte 127, which the printer has no
+      other way to write than as an escape. And one plan is hand-edited with
+      comments in it, because a printed plan carries none and nothing else would
+      reach the reader's comment branch.
 
-        M13 In [Text], print a [May_exit_reporting] exit as a bare [may].
-            -> part (a), both round trips. The plans differ and the output
-               still parses, so a reader-side check alone would miss it.
+      Why part (c) counts six cascades. An [Alt]'s arms, a loop state's accepts,
+      and a block's atoms, infix, prefix and postfix tables are separate
+      dispatches, and a token may sit in more than one of them. One cascade
+      shared between them would report an overlap that is not there.
 
-      One that reddens nothing, recorded as a finding.
+      Why depth is two numbers. A branch whose opens and closes come to nothing
+      overall can still close a node it never opened, so the net depth is not
+      enough on its own and the lowest depth the branch passed through is
+      carried beside it.
 
-        M14 In [Sexp.pp], quote with [%S] again, which is what it did before.
-            -> nothing reddens. [%S] writes a byte above 127 as [\ddd], and
-               the reader takes that now, so the two agree either way. The
-               defect this fixed was in the reader. The writer is here so a
-               name in UTF-8 appears in a dump as itself rather than as a run
-               of escapes, which is a claim about reading a diff rather than
-               about correctness.
+      One thing the printer does for a reader rather than for correctness.
+      Quoting with [%S] would write a byte above 127 as [\ddd], and the reader
+      takes that form too, so the two agree either way and no mutation of it
+      reddens anything. The printer writes such a byte as itself so that a name
+      in UTF-8 appears in a dump as itself rather than as a run of escapes. That
+      is a claim about reading a diff.
 
    -------------------------------------------------------------------------- *)
+
+(* The four blocks below are generated, and they are the evidence. assay derives
+   a mutation from the code rather than from a sentence beside it, applies every
+   one, and records what went red. Regenerate them with
+
+     assay -config assay.conf -only plan
+
+   and take the counts as they come: they move whenever the corpus grows, and
+   asserting them exactly would train everyone to ignore a red suite. What they
+   assert is that every mutant dies. A survivor is the finding, and the lines it
+   names are where to look. *)
+
+(* -- mutation testing, generated by assay on 2026-09-30 ---------------------
+      lib/plan/check.ml, 130 mutants, 107 killed, 23 survived.
+        sbr         71  64 killed, law_plan (c): 35, law_lower (e): 29; 7 survived
+        ror         27  16 killed, law_plan check: 11, law_plan: 2, law_plan (c): 2, law_lower (a): 1; 11 survived
+        lcr          9  5 killed, law_plan (c): 3, law_plan: 2; 4 survived
+        aor          4  3 killed, law_plan: 2, law_plan check: 1; 1 survived
+        uoi         19  all killed, law_plan check: 18, law_lower (a): 1
+      survived at lines 78 116 130 133 159 167 170 175 215 221 228 229
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-30 ---------------------
+      lib/plan/text.ml, 86 mutants, 86 killed.
+        extreme      3  all killed, (a) 3
+        sbr         82  all killed, law_plan (a): 79, dump_plan: 3
+        uoi          1  all killed, (a) 1
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-30 ---------------------
+      lib/plan/sexp.ml, 86 mutants, 49 killed, 22 survived, 15 timed out.
+        extreme      3  all killed, (a) 3
+        sbr         29  16 killed, law_plan (a): 15, law_plan: 1; 6 survived; 7 timed out
+        ror         18  7 killed, dump_plan: 3, law_plan (a): 3, law_plan: 1; 10 survived; 1 timed out
+        lcr          6  3 killed, law_plan: 2, law_plan (a): 1; 3 survived
+        aor         19  10 killed, law_plan (a): 7, law_plan: 3; 3 survived; 6 timed out
+        uoi         11  10 killed, (a) 10; 1 timed out
+      survived at lines 18 37 75 81 86 92 110 112 115 131 143 151 152 169
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-09-30 ---------------------
+      lib/plan/messages.ml, 2 mutants, 2 killed.
+        sbr          2  all killed, dump_plan: 1, law_lower (b): 1
+   ---------------------------------------------------------------------- *)
 
 let msg n = Ir.Message.of_int n
 

@@ -1,0 +1,956 @@
+# Mutations nothing in lingo notices. Measured 2026-09-26 over 4163 points,
+# all seven operators. 822 of them, over 3609 points; 77% were caught.
+#
+# lib/ocaml is in, as of 2026-10-01. Its emitters run under a dune rule at
+# build time, when no mutant is selected, so the modules they write were out of
+# reach and all 510 points read as survivors. Four laws now ask the emitter for
+# its own module again in their own process and compare the bytes, which is
+# law_parse (e), law_lex (f), law_format (c) and law_ahead (c). 536 of 551 die.
+#
+# Each line is a change you could make to that line today with no test
+# objecting.  file:line  operator  the edit
+
+## lib/docs/railroad.ml  (95)
+lib/docs/railroad.ml:193   extreme  row_of -> 0
+lib/docs/railroad.ml:195   aor      - -> +
+lib/docs/railroad.ml:210   aor      / -> *
+lib/docs/railroad.ml:210   aor      / -> *
+lib/docs/railroad.ml:221   aor      - -> +
+lib/docs/railroad.ml:221   aor      + -> -
+lib/docs/railroad.ml:221   aor      + -> -
+lib/docs/railroad.ml:225   aor      / -> *
+lib/docs/railroad.ml:225   aor      / -> *
+lib/docs/railroad.ml:232   aor      + -> -
+lib/docs/railroad.ml:232   aor      + -> -
+lib/docs/railroad.ml:232   aor      + -> -
+lib/docs/railroad.ml:255   aor      + -> -
+lib/docs/railroad.ml:274   aor      - -> +
+lib/docs/railroad.ml:274   aor      + -> -
+lib/docs/railroad.ml:282   ror      > -> >=
+lib/docs/railroad.ml:299   uoi      c -> not c
+lib/docs/railroad.ml:302   aor      / -> *
+lib/docs/railroad.ml:316   aor      * -> /
+lib/docs/railroad.ml:316   aor      - -> +
+lib/docs/railroad.ml:321   ror      <= -> <
+lib/docs/railroad.ml:321   ror      < -> <=
+lib/docs/railroad.ml:321   lcr      || -> &&
+lib/docs/railroad.ml:324   aor      * -> /
+lib/docs/railroad.ml:324   aor      - -> +
+lib/docs/railroad.ml:370   aor      + -> -
+lib/docs/railroad.ml:387   aor      + -> -
+lib/docs/railroad.ml:387   aor      + -> -
+lib/docs/railroad.ml:388   sbr      drop 1 of 2
+lib/docs/railroad.ml:388   aor      + -> -
+lib/docs/railroad.ml:388   sbr      drop 2 of 2
+lib/docs/railroad.ml:396   aor      + -> -
+lib/docs/railroad.ml:404   aor      + -> -
+lib/docs/railroad.ml:404   aor      + -> -
+lib/docs/railroad.ml:406   aor      + -> -
+lib/docs/railroad.ml:409   ror      > -> >=
+lib/docs/railroad.ml:409   uoi      c -> not c
+lib/docs/railroad.ml:409   sbr      if c then e -> ()
+lib/docs/railroad.ml:409   sbr      e1; e2 -> e2
+lib/docs/railroad.ml:411   aor      + -> -
+lib/docs/railroad.ml:411   sbr      drop 1 of 2
+lib/docs/railroad.ml:411   aor      - -> +
+lib/docs/railroad.ml:411   aor      + -> -
+lib/docs/railroad.ml:411   sbr      drop 2 of 2
+lib/docs/railroad.ml:411   sbr      e1; e2 -> e2
+lib/docs/railroad.ml:412   aor      - -> +
+lib/docs/railroad.ml:413   aor      - -> +
+lib/docs/railroad.ml:413   sbr      e1; e2 -> e2
+lib/docs/railroad.ml:414   aor      + -> -
+lib/docs/railroad.ml:415   aor      + -> -
+lib/docs/railroad.ml:416   sbr      drop 1 of 2
+lib/docs/railroad.ml:416   aor      + -> -
+lib/docs/railroad.ml:416   sbr      drop 2 of 2
+lib/docs/railroad.ml:425   sbr      e1; e2 -> e2
+lib/docs/railroad.ml:427   aor      + -> -
+lib/docs/railroad.ml:427   aor      - -> +
+lib/docs/railroad.ml:427   aor      - -> +
+lib/docs/railroad.ml:427   aor      - -> +
+lib/docs/railroad.ml:427   sbr      e1; e2 -> e2
+lib/docs/railroad.ml:436   aor      + -> -
+lib/docs/railroad.ml:453   aor      + -> -
+lib/docs/railroad.ml:453   aor      + -> -
+lib/docs/railroad.ml:459   aor      + -> -
+lib/docs/railroad.ml:460   aor      + -> -
+lib/docs/railroad.ml:480   aor      + -> -
+lib/docs/railroad.ml:495   aor      * -> /
+lib/docs/railroad.ml:495   aor      - -> +
+lib/docs/railroad.ml:521   extreme  pp_fault -> ()
+lib/docs/railroad.ml:530   extreme  crosses -> None
+lib/docs/railroad.ml:535   extreme  inside -> false
+lib/docs/railroad.ml:538   ror      < -> <=
+lib/docs/railroad.ml:538   ror      < -> <=
+lib/docs/railroad.ml:538   extreme  strictly -> false
+lib/docs/railroad.ml:539   ror      = -> <>
+lib/docs/railroad.ml:539   aor      + -> -
+lib/docs/railroad.ml:539   aor      + -> -
+lib/docs/railroad.ml:541   ror      = -> <>
+lib/docs/railroad.ml:541   aor      + -> -
+lib/docs/railroad.ml:541   aor      + -> -
+lib/docs/railroad.ml:547   extreme  check -> []
+lib/docs/railroad.ml:555   extreme  note -> ()
+lib/docs/railroad.ml:556   extreme  within -> ()
+lib/docs/railroad.ml:557   ror      < -> <=
+lib/docs/railroad.ml:557   ror      > -> >=
+lib/docs/railroad.ml:557   ror      < -> <=
+lib/docs/railroad.ml:557   ror      > -> >=
+lib/docs/railroad.ml:557   lcr      || -> &&
+lib/docs/railroad.ml:557   lcr      || -> &&
+lib/docs/railroad.ml:557   lcr      || -> &&
+lib/docs/railroad.ml:557   sbr      if c then e -> ()
+lib/docs/railroad.ml:560   sbr      iter -> ()
+lib/docs/railroad.ml:564   sbr      e1; e2 -> e2
+lib/docs/railroad.ml:567   sbr      iter -> ()
+lib/docs/railroad.ml:568   extreme  segments -> ()
+lib/docs/railroad.ml:571   sbr      iter -> ()
+
+## lib/fuzz/mutate.ml  (73)
+lib/fuzz/mutate.ml:41    sbr      drop 1 of 4
+lib/fuzz/mutate.ml:42    sbr      drop 2 of 4
+lib/fuzz/mutate.ml:43    sbr      drop 3 of 4
+lib/fuzz/mutate.ml:44    sbr      drop 4 of 4
+lib/fuzz/mutate.ml:86    ror      = -> <>
+lib/fuzz/mutate.ml:86    uoi      c -> not c
+lib/fuzz/mutate.ml:86    sbr      e |> f -> e
+lib/fuzz/mutate.ml:95    extreme  arms -> []
+lib/fuzz/mutate.ml:100   extreme  same -> false
+lib/fuzz/mutate.ml:103   lcr      && -> ||
+lib/fuzz/mutate.ml:124   aor      - -> +
+lib/fuzz/mutate.ml:124   aor      + -> -
+lib/fuzz/mutate.ml:125   aor      - -> +
+lib/fuzz/mutate.ml:125   aor      - -> +
+lib/fuzz/mutate.ml:125   sbr      e |> f -> e
+lib/fuzz/mutate.ml:132   ror      < -> <=
+lib/fuzz/mutate.ml:132   ror      >= -> >
+lib/fuzz/mutate.ml:132   lcr      || -> &&
+lib/fuzz/mutate.ml:136   ror      < -> <=
+lib/fuzz/mutate.ml:139   extreme  rule_name -> ""
+lib/fuzz/mutate.ml:141   extreme  is_base_role -> false
+lib/fuzz/mutate.ml:151   sbr      e |> f -> e
+lib/fuzz/mutate.ml:153   ror      = -> <>
+lib/fuzz/mutate.ml:181   ror      = -> <>
+lib/fuzz/mutate.ml:183   uoi      c -> not c
+lib/fuzz/mutate.ml:188   extreme  note_lexeme -> ()
+lib/fuzz/mutate.ml:190   uoi      c -> not c
+lib/fuzz/mutate.ml:190   sbr      if c then e -> ()
+lib/fuzz/mutate.ml:191   ror      > -> >=
+lib/fuzz/mutate.ml:191   uoi      c -> not c
+lib/fuzz/mutate.ml:194   extreme  observe -> ()
+lib/fuzz/mutate.ml:195   sbr      iter -> ()
+lib/fuzz/mutate.ml:204   extreme  spell -> None
+lib/fuzz/mutate.ml:221   sbr      drop 1 of 1
+lib/fuzz/mutate.ml:239   ror      == -> !=
+lib/fuzz/mutate.ml:253   aor      - -> +
+lib/fuzz/mutate.ml:259   uoi      c -> not c
+lib/fuzz/mutate.ml:277   lcr      && -> ||
+lib/fuzz/mutate.ml:280   ror      = -> <>
+lib/fuzz/mutate.ml:285   ror      = -> <>
+lib/fuzz/mutate.ml:285   lcr      && -> ||
+lib/fuzz/mutate.ml:285   uoi      c -> not c
+lib/fuzz/mutate.ml:301   ror      >= -> >
+lib/fuzz/mutate.ml:301   ror      < -> <=
+lib/fuzz/mutate.ml:301   lcr      && -> ||
+lib/fuzz/mutate.ml:309   sbr      e1; e2 -> e2
+lib/fuzz/mutate.ml:313   ror      >= -> >
+lib/fuzz/mutate.ml:313   ror      < -> <=
+lib/fuzz/mutate.ml:313   lcr      && -> ||
+lib/fuzz/mutate.ml:314   ror      <> -> =
+lib/fuzz/mutate.ml:314   uoi      c -> not c
+lib/fuzz/mutate.ml:321   ror      < -> <=
+lib/fuzz/mutate.ml:343   uoi      c -> not c
+lib/fuzz/mutate.ml:350   sbr      e1; e2 -> e2
+lib/fuzz/mutate.ml:361   aor      + -> -
+lib/fuzz/mutate.ml:378   extreme  mine -> false
+lib/fuzz/mutate.ml:379   lcr      || -> &&
+lib/fuzz/mutate.ml:382   ror      = -> <>
+lib/fuzz/mutate.ml:388   aor      - -> +
+lib/fuzz/mutate.ml:408   sbr      e1; e2 -> e2
+lib/fuzz/mutate.ml:422   sbr      iter -> ()
+lib/fuzz/mutate.ml:423   sbr      iter -> ()
+lib/fuzz/mutate.ml:424   sbr      iter -> ()
+lib/fuzz/mutate.ml:427   ror      = -> <>
+lib/fuzz/mutate.ml:427   sbr      e |> f -> e
+lib/fuzz/mutate.ml:447   ror      = -> <>
+lib/fuzz/mutate.ml:447   uoi      c -> not c
+lib/fuzz/mutate.ml:451   sbr      e1; e2 -> e2
+lib/fuzz/mutate.ml:454   ror      = -> <>
+lib/fuzz/mutate.ml:454   uoi      c -> not c
+lib/fuzz/mutate.ml:469   ror      <> -> =
+lib/fuzz/mutate.ml:487   sbr      e1; e2 -> e2
+lib/fuzz/mutate.ml:493   ror      >= -> >
+
+## editors/textmate/check.ml  (53)
+editors/textmate/check.ml:33    extreme  problem_to_string -> ""
+editors/textmate/check.ml:79    extreme  pp_problem -> ()
+editors/textmate/check.ml:83    extreme  compare_problem -> 0
+editors/textmate/check.ml:89    extreme  json_kind -> ""
+editors/textmate/check.ml:101   sbr      drop 1 of 15
+editors/textmate/check.ml:102   sbr      drop 2 of 15
+editors/textmate/check.ml:103   sbr      drop 3 of 15
+editors/textmate/check.ml:105   sbr      drop 5 of 15
+editors/textmate/check.ml:106   sbr      drop 6 of 15
+editors/textmate/check.ml:107   sbr      drop 7 of 15
+editors/textmate/check.ml:108   sbr      drop 8 of 15
+editors/textmate/check.ml:109   sbr      drop 9 of 15
+editors/textmate/check.ml:110   sbr      drop 10 of 15
+editors/textmate/check.ml:111   sbr      drop 11 of 15
+editors/textmate/check.ml:112   sbr      drop 12 of 15
+editors/textmate/check.ml:113   sbr      drop 13 of 15
+editors/textmate/check.ml:114   sbr      drop 14 of 15
+editors/textmate/check.ml:115   sbr      drop 15 of 15
+editors/textmate/check.ml:128   lcr      || -> &&
+editors/textmate/check.ml:128   uoi      c -> not c
+editors/textmate/check.ml:130   ror      = -> <>
+editors/textmate/check.ml:130   uoi      c -> not c
+editors/textmate/check.ml:131   ror      > -> >=
+editors/textmate/check.ml:137   sbr      e1; e2 -> e2
+editors/textmate/check.ml:145   lcr      || -> &&
+editors/textmate/check.ml:145   uoi      c -> not c
+editors/textmate/check.ml:145   sbr      e1; e2 -> e2
+editors/textmate/check.ml:148   sbr      if c then e -> ()
+editors/textmate/check.ml:148   sbr      e1; e2 -> e2
+editors/textmate/check.ml:153   lcr      && -> ||
+editors/textmate/check.ml:153   lcr      && -> ||
+editors/textmate/check.ml:153   lcr      && -> ||
+editors/textmate/check.ml:176   sbr      drop 1 of 4
+editors/textmate/check.ml:176   sbr      drop 2 of 4
+editors/textmate/check.ml:176   sbr      drop 4 of 4
+editors/textmate/check.ml:266   sbr      e |> f -> e
+editors/textmate/check.ml:301   sbr      e |> f -> e
+editors/textmate/check.ml:327   extreme  check_postfix_leads -> []
+editors/textmate/check.ml:344   sbr      e1; e2 -> e2
+editors/textmate/check.ml:348   extreme  check_forwarding -> []
+editors/textmate/check.ml:357   uoi      c -> not c
+editors/textmate/check.ml:360   sbr      iter -> ()
+editors/textmate/check.ml:361   extreme  walk -> ()
+editors/textmate/check.ml:402   ror      < -> <=
+editors/textmate/check.ml:402   lcr      && -> ||
+editors/textmate/check.ml:411   sbr      e1; e2 -> e2
+editors/textmate/check.ml:432   extreme  check_no_whitespace -> []
+editors/textmate/check.ml:434   sbr      drop 1 of 1
+editors/textmate/check.ml:440   sbr      drop 1 of 1
+editors/textmate/check.ml:473   ror      <> -> =
+editors/textmate/check.ml:473   extreme  has_raw -> false
+editors/textmate/check.ml:481   ror      > -> >=
+editors/textmate/check.ml:481   lcr      && -> ||
+
+## lib/fuzz/oracles.ml  (48)
+lib/fuzz/oracles.ml:41    sbr      drop 1 of 10
+lib/fuzz/oracles.ml:41    sbr      drop 2 of 10
+lib/fuzz/oracles.ml:41    sbr      drop 3 of 10
+lib/fuzz/oracles.ml:41    sbr      drop 4 of 10
+lib/fuzz/oracles.ml:41    sbr      drop 5 of 10
+lib/fuzz/oracles.ml:41    sbr      drop 6 of 10
+lib/fuzz/oracles.ml:41    sbr      drop 7 of 10
+lib/fuzz/oracles.ml:41    sbr      drop 8 of 10
+lib/fuzz/oracles.ml:41    sbr      drop 9 of 10
+lib/fuzz/oracles.ml:41    sbr      drop 10 of 10
+lib/fuzz/oracles.ml:43    extreme  law -> ""
+lib/fuzz/oracles.ml:57    extreme  describe -> ""
+lib/fuzz/oracles.ml:73    extreme  shape -> ""
+lib/fuzz/oracles.ml:75    extreme  go -> ()
+lib/fuzz/oracles.ml:76    sbr      e1; e2 -> e2
+lib/fuzz/oracles.ml:77    sbr      iter -> ()
+lib/fuzz/oracles.ml:82    sbr      e1; e2 -> e2
+lib/fuzz/oracles.ml:106   extreme  difference -> ""
+lib/fuzz/oracles.ml:115   aor      + -> -
+lib/fuzz/oracles.ml:117   aor      + -> -
+lib/fuzz/oracles.ml:133   extreme  texts -> ""
+lib/fuzz/oracles.ml:139   extreme  run -> []
+lib/fuzz/oracles.ml:143   extreme  add -> ()
+lib/fuzz/oracles.ml:145   sbr      e1; e2 -> e2
+lib/fuzz/oracles.ml:148   sbr      if c then e -> ()
+lib/fuzz/oracles.ml:148   sbr      e1; e2 -> e2
+lib/fuzz/oracles.ml:158   sbr      e1; e2 -> e2
+lib/fuzz/oracles.ml:168   ror      <> -> =
+lib/fuzz/oracles.ml:168   uoi      c -> not c
+lib/fuzz/oracles.ml:168   sbr      if c then e -> ()
+lib/fuzz/oracles.ml:168   sbr      e1; e2 -> e2
+lib/fuzz/oracles.ml:169   ror      <> -> =
+lib/fuzz/oracles.ml:169   uoi      c -> not c
+lib/fuzz/oracles.ml:169   sbr      if c then e -> ()
+lib/fuzz/oracles.ml:170   extreme  at_width -> []
+lib/fuzz/oracles.ml:176   sbr      iter -> ()
+lib/fuzz/oracles.ml:177   ror      < -> <=
+lib/fuzz/oracles.ml:177   sbr      if c then e -> ()
+lib/fuzz/oracles.ml:184   sbr      if c then e -> ()
+lib/fuzz/oracles.ml:184   sbr      e1; e2 -> e2
+lib/fuzz/oracles.ml:188   sbr      if c then e -> ()
+lib/fuzz/oracles.ml:188   sbr      e1; e2 -> e2
+lib/fuzz/oracles.ml:191   sbr      if c then e -> ()
+lib/fuzz/oracles.ml:191   sbr      e1; e2 -> e2
+lib/fuzz/oracles.ml:194   sbr      if c then e -> ()
+lib/fuzz/oracles.ml:194   sbr      e1; e2 -> e2
+lib/fuzz/oracles.ml:201   sbr      iter -> ()
+lib/fuzz/oracles.ml:202   sbr      if c then e -> ()
+
+## lib/runtime/layout.ml  (45)
+lib/runtime/layout.ml:116   ror      > -> >=
+lib/runtime/layout.ml:116   uoi      c -> not c
+lib/runtime/layout.ml:143   lcr      || -> &&
+lib/runtime/layout.ml:273   aor      + -> -
+lib/runtime/layout.ml:355   ror      = -> <>
+lib/runtime/layout.ml:355   ror      = -> <>
+lib/runtime/layout.ml:389   ror      >= -> >
+lib/runtime/layout.ml:392   ror      < -> <=
+lib/runtime/layout.ml:392   aor      - -> +
+lib/runtime/layout.ml:396   ror      > -> >=
+lib/runtime/layout.ml:438   ror      < -> <=
+lib/runtime/layout.ml:450   ror      > -> >=
+lib/runtime/layout.ml:450   ror      < -> <=
+lib/runtime/layout.ml:450   ror      < -> <=
+lib/runtime/layout.ml:450   lcr      && -> ||
+lib/runtime/layout.ml:457   sbr      e1; e2 -> e2
+lib/runtime/layout.ml:458   uoi      c -> not c
+lib/runtime/layout.ml:472   uoi      c -> not c
+lib/runtime/layout.ml:485   ror      = -> <>
+lib/runtime/layout.ml:489   lcr      && -> ||
+lib/runtime/layout.ml:495   sbr      e1; e2 -> e2
+lib/runtime/layout.ml:514   extreme  silent -> false
+lib/runtime/layout.ml:517   ror      = -> <>
+lib/runtime/layout.ml:575   ror      <> -> =
+lib/runtime/layout.ml:575   ror      <> -> =
+lib/runtime/layout.ml:575   uoi      c -> not c
+lib/runtime/layout.ml:598   uoi      c -> not c
+lib/runtime/layout.ml:613   ror      >= -> >
+lib/runtime/layout.ml:619   ror      >= -> >
+lib/runtime/layout.ml:638   ror      < -> <=
+lib/runtime/layout.ml:666   lcr      || -> &&
+lib/runtime/layout.ml:673   ror      < -> <=
+lib/runtime/layout.ml:673   ror      >= -> >
+lib/runtime/layout.ml:673   lcr      || -> &&
+lib/runtime/layout.ml:679   ror      < -> <=
+lib/runtime/layout.ml:686   ror      <> -> =
+lib/runtime/layout.ml:723   ror      >= -> >
+lib/runtime/layout.ml:723   lcr      && -> ||
+lib/runtime/layout.ml:735   uoi      c -> not c
+lib/runtime/layout.ml:743   ror      >= -> >
+lib/runtime/layout.ml:773   ror      >= -> >
+lib/runtime/layout.ml:819   ror      < -> <=
+lib/runtime/layout.ml:819   ror      >= -> >
+lib/runtime/layout.ml:828   sbr      e1; e2 -> e2
+lib/runtime/layout.ml:838   ror      >= -> >
+
+## lib/layout/check.ml  (37)
+lib/layout/check.ml:35    extreme  pp_problem -> ()
+lib/layout/check.ml:46    sbr      iter -> ()
+lib/layout/check.ml:63    ror      >= -> >
+lib/layout/check.ml:63    lcr      || -> &&
+lib/layout/check.ml:63    sbr      if c then e -> ()
+lib/layout/check.ml:70    sbr      iter -> ()
+lib/layout/check.ml:72    ror      >= -> >
+lib/layout/check.ml:72    sbr      if c then e -> ()
+lib/layout/check.ml:73    sbr      iter -> ()
+lib/layout/check.ml:75    sbr      e1; e2 -> e2
+lib/layout/check.ml:76    ror      >= -> >
+lib/layout/check.ml:76    ror      < -> <=
+lib/layout/check.ml:76    sbr      if c then e -> ()
+lib/layout/check.ml:76    sbr      e1; e2 -> e2
+lib/layout/check.ml:78    ror      >= -> >
+lib/layout/check.ml:78    ror      < -> <=
+lib/layout/check.ml:78    sbr      if c then e -> ()
+lib/layout/check.ml:78    sbr      e1; e2 -> e2
+lib/layout/check.ml:80    sbr      if c then e -> ()
+lib/layout/check.ml:80    sbr      e1; e2 -> e2
+lib/layout/check.ml:81    sbr      e1; e2 -> e2
+lib/layout/check.ml:82    sbr      e1; e2 -> e2
+lib/layout/check.ml:83    sbr      e1; e2 -> e2
+lib/layout/check.ml:86    sbr      e1; e2 -> e2
+lib/layout/check.ml:87    sbr      e1; e2 -> e2
+lib/layout/check.ml:92    sbr      iter -> ()
+lib/layout/check.ml:94    sbr      iter -> ()
+lib/layout/check.ml:97    ror      < -> <=
+lib/layout/check.ml:97    lcr      && -> ||
+lib/layout/check.ml:99    ror      = -> <>
+lib/layout/check.ml:101   sbr      if c then e -> ()
+lib/layout/check.ml:101   sbr      e1; e2 -> e2
+lib/layout/check.ml:102   sbr      e1; e2 -> e2
+lib/layout/check.ml:103   sbr      e1; e2 -> e2
+lib/layout/check.ml:104   sbr      if c then e -> ()
+lib/layout/check.ml:104   sbr      e1; e2 -> e2
+lib/layout/check.ml:105   sbr      if c then e -> ()
+
+## lib/fuzz/shrink.ml  (36)
+lib/fuzz/shrink.ml:58    extreme  scan -> None
+lib/fuzz/shrink.ml:64    ror      >= -> >
+lib/fuzz/shrink.ml:64    uoi      c -> not c
+lib/fuzz/shrink.ml:66    sbr      e1; e2 -> e2
+lib/fuzz/shrink.ml:73    ror      >= -> >
+lib/fuzz/shrink.ml:73    uoi      c -> not c
+lib/fuzz/shrink.ml:76    sbr      e1; e2 -> e2
+lib/fuzz/shrink.ml:77    uoi      c -> not c
+lib/fuzz/shrink.ml:79    extreme  settle -> ()
+lib/fuzz/shrink.ml:84    sbr      e1; e2 -> e2
+lib/fuzz/shrink.ml:85    sbr      e1; e2 -> e2
+lib/fuzz/shrink.ml:86    sbr      e1; e2 -> e2
+lib/fuzz/shrink.ml:89    sbr      e1; e2 -> e2
+lib/fuzz/shrink.ml:135   ror      == -> !=
+lib/fuzz/shrink.ml:135   ror      > -> >=
+lib/fuzz/shrink.ml:135   lcr      && -> ||
+lib/fuzz/shrink.ml:136   sbr      e |> f -> e
+lib/fuzz/shrink.ml:137   aor      - -> +
+lib/fuzz/shrink.ml:137   aor      - -> +
+lib/fuzz/shrink.ml:152   aor      - -> +
+lib/fuzz/shrink.ml:152   ror      >= -> >
+lib/fuzz/shrink.ml:164   aor      + -> -
+lib/fuzz/shrink.ml:173   sbr      drop 1 of 3
+lib/fuzz/shrink.ml:173   aor      / -> *
+lib/fuzz/shrink.ml:173   sbr      drop 2 of 3
+lib/fuzz/shrink.ml:173   aor      - -> +
+lib/fuzz/shrink.ml:173   sbr      drop 3 of 3
+lib/fuzz/shrink.ml:175   ror      <= -> <
+lib/fuzz/shrink.ml:175   ror      >= -> >
+lib/fuzz/shrink.ml:175   lcr      || -> &&
+lib/fuzz/shrink.ml:175   uoi      c -> not c
+lib/fuzz/shrink.ml:182   aor      + -> -
+lib/fuzz/shrink.ml:183   sbr      drop 1 of 1
+lib/fuzz/shrink.ml:194   extreme  reads_back -> None
+lib/fuzz/shrink.ml:198   ror      = -> <>
+lib/fuzz/shrink.ml:198   uoi      c -> not c
+
+## lib/core/check_full.ml  (33)
+lib/core/check_full.ml:10    extreme  kind_refs -> []
+lib/core/check_full.ml:77    uoi      c -> not c
+lib/core/check_full.ml:84    empty    Set.add x s -> s
+lib/core/check_full.ml:92    lcr      && -> ||
+lib/core/check_full.ml:113   sbr      drop 2 of 3
+lib/core/check_full.ml:113   sbr      drop 3 of 3
+lib/core/check_full.ml:176   sbr      if c then e -> ()
+lib/core/check_full.ml:180   sbr      iter -> ()
+lib/core/check_full.ml:182   sbr      iter -> ()
+lib/core/check_full.ml:185   ror      >= -> >
+lib/core/check_full.ml:185   sbr      if c then e -> ()
+lib/core/check_full.ml:219   ror      < -> <=
+lib/core/check_full.ml:233   sbr      e1; e2 -> e2
+lib/core/check_full.ml:239   ror      < -> <=
+lib/core/check_full.ml:323   ror      >= -> >
+lib/core/check_full.ml:339   ror      >= -> >
+lib/core/check_full.ml:360   ror      >= -> >
+lib/core/check_full.ml:385   sbr      iter -> ()
+lib/core/check_full.ml:387   sbr      iter -> ()
+lib/core/check_full.ml:388   sbr      iter -> ()
+lib/core/check_full.ml:393   sbr      iter -> ()
+lib/core/check_full.ml:397   sbr      iter -> ()
+lib/core/check_full.ml:401   sbr      iter -> ()
+lib/core/check_full.ml:474   ror      < -> <=
+lib/core/check_full.ml:508   sbr      iter -> ()
+lib/core/check_full.ml:509   ror      < -> <=
+lib/core/check_full.ml:509   ror      < -> <=
+lib/core/check_full.ml:509   lcr      || -> &&
+lib/core/check_full.ml:509   uoi      c -> not c
+lib/core/check_full.ml:509   sbr      if c then e -> ()
+lib/core/check_full.ml:516   uoi      c -> not c
+lib/core/check_full.ml:518   ror      >= -> >
+lib/core/check_full.ml:518   uoi      c -> not c
+
+## lib/sample/sample.ml  (31)
+lib/sample/sample.ml:34    ror      < -> <=
+lib/sample/sample.ml:41    sbr      e1; e2 -> e2
+lib/sample/sample.ml:44    ror      = -> <>
+lib/sample/sample.ml:44    sbr      iter -> ()
+lib/sample/sample.ml:44    uoi      c -> not c
+lib/sample/sample.ml:44    sbr      if c then e -> ()
+lib/sample/sample.ml:44    sbr      e1; e2 -> e2
+lib/sample/sample.ml:57    ror      >= -> >
+lib/sample/sample.ml:57    ror      > -> >=
+lib/sample/sample.ml:113   aor      + -> -
+lib/sample/sample.ml:121   ror      >= -> >
+lib/sample/sample.ml:125   ror      < -> <=
+lib/sample/sample.ml:200   ror      <= -> <
+lib/sample/sample.ml:200   lcr      || -> &&
+lib/sample/sample.ml:208   ror      < -> <=
+lib/sample/sample.ml:208   uoi      c -> not c
+lib/sample/sample.ml:241   sbr      e1; e2 -> e2
+lib/sample/sample.ml:471   ror      > -> >=
+lib/sample/sample.ml:471   lcr      && -> ||
+lib/sample/sample.ml:482   ror      > -> >=
+lib/sample/sample.ml:484   ror      >= -> >
+lib/sample/sample.ml:484   uoi      c -> not c
+lib/sample/sample.ml:486   aor      + -> -
+lib/sample/sample.ml:495   ror      < -> <=
+lib/sample/sample.ml:514   extreme  first_live -> 0
+lib/sample/sample.ml:515   ror      >= -> >
+lib/sample/sample.ml:529   sbr      if c then e -> ()
+lib/sample/sample.ml:529   sbr      e1; e2 -> e2
+lib/sample/sample.ml:542   aor      + -> -
+lib/sample/sample.ml:548   sbr      drop 2 of 3
+lib/sample/sample.ml:548   sbr      drop 3 of 3
+
+## lib/fuzz/harness.ml  (29)
+lib/fuzz/harness.ml:51    ror      < -> <=
+lib/fuzz/harness.ml:57    aor      * -> /
+lib/fuzz/harness.ml:57    aor      / -> *
+lib/fuzz/harness.ml:58    aor      / -> *
+lib/fuzz/harness.ml:66    ror      < -> <=
+lib/fuzz/harness.ml:130   sbr      e1; e2 -> e2
+lib/fuzz/harness.ml:153   sbr      if c then e -> ()
+lib/fuzz/harness.ml:153   sbr      e1; e2 -> e2
+lib/fuzz/harness.ml:189   extreme  engine_of -> ""
+lib/fuzz/harness.ml:190   extreme  draw -> []
+lib/fuzz/harness.ml:200   extreme  draw_traced -> None
+lib/fuzz/harness.ml:209   extreme  replay -> None
+lib/fuzz/harness.ml:253   sbr      e1; e2 -> e2
+lib/fuzz/harness.ml:263   ror      < -> <=
+lib/fuzz/harness.ml:263   ror      > -> >=
+lib/fuzz/harness.ml:290   extreme  dispatches -> false
+lib/fuzz/harness.ml:298   ror      = -> <>
+lib/fuzz/harness.ml:340   extreme  tokens_of -> None
+lib/fuzz/harness.ml:342   sbr      iter -> ()
+lib/fuzz/harness.ml:344   extreme  go -> None
+lib/fuzz/harness.ml:400   lcr      || -> &&
+lib/fuzz/harness.ml:412   extreme  splice -> []
+lib/fuzz/harness.ml:456   ror      = -> <>
+lib/fuzz/harness.ml:468   ror      < -> <=
+lib/fuzz/harness.ml:468   lcr      && -> ||
+lib/fuzz/harness.ml:481   ror      < -> <=
+lib/fuzz/harness.ml:481   ror      >= -> >
+lib/fuzz/harness.ml:481   lcr      || -> &&
+lib/fuzz/harness.ml:485   ror      < -> <=
+
+## lib/plan/sexp.ml  (27)
+lib/plan/sexp.ml:18    ror      < -> <=
+lib/plan/sexp.ml:18    lcr      || -> &&
+lib/plan/sexp.ml:37    aor      + -> -
+lib/plan/sexp.ml:75    ror      < -> <=
+lib/plan/sexp.ml:81    ror      <= -> <
+lib/plan/sexp.ml:81    lcr      && -> ||
+lib/plan/sexp.ml:86    ror      >= -> >
+lib/plan/sexp.ml:92    aor      + -> -
+lib/plan/sexp.ml:92    ror      >= -> >
+lib/plan/sexp.ml:92    sbr      if c then e -> ()
+lib/plan/sexp.ml:92    sbr      e1; e2 -> e2
+lib/plan/sexp.ml:110   aor      + -> -
+lib/plan/sexp.ml:110   ror      >= -> >
+lib/plan/sexp.ml:110   sbr      if c then e -> ()
+lib/plan/sexp.ml:110   sbr      e1; e2 -> e2
+lib/plan/sexp.ml:112   lcr      && -> ||
+lib/plan/sexp.ml:112   sbr      if c then e -> ()
+lib/plan/sexp.ml:112   sbr      e1; e2 -> e2
+lib/plan/sexp.ml:115   ror      > -> >=
+lib/plan/sexp.ml:115   sbr      if c then e -> ()
+lib/plan/sexp.ml:115   sbr      e1; e2 -> e2
+lib/plan/sexp.ml:131   ror      < -> <=
+lib/plan/sexp.ml:143   ror      >= -> >
+lib/plan/sexp.ml:151   sbr      e1; e2 -> e2
+lib/plan/sexp.ml:152   ror      >= -> >
+lib/plan/sexp.ml:169   sbr      if c then e -> ()
+lib/plan/sexp.ml:169   sbr      e1; e2 -> e2
+
+## lib/plan/check.ml  (25)
+lib/plan/check.ml:78    ror      < -> <=
+lib/plan/check.ml:116   aor      + -> -
+lib/plan/check.ml:130   ror      < -> <=
+lib/plan/check.ml:130   ror      >= -> >
+lib/plan/check.ml:133   ror      >= -> >
+lib/plan/check.ml:159   ror      >= -> >
+lib/plan/check.ml:167   sbr      if c then e -> ()
+lib/plan/check.ml:167   sbr      e1; e2 -> e2
+lib/plan/check.ml:170   ror      >= -> >
+lib/plan/check.ml:170   lcr      || -> &&
+lib/plan/check.ml:170   sbr      if c then e -> ()
+lib/plan/check.ml:175   ror      < -> <=
+lib/plan/check.ml:175   ror      >= -> >
+lib/plan/check.ml:175   lcr      || -> &&
+lib/plan/check.ml:175   sbr      if c then e -> ()
+lib/plan/check.ml:215   sbr      if c then e -> ()
+lib/plan/check.ml:215   sbr      e1; e2 -> e2
+lib/plan/check.ml:221   ror      < -> <=
+lib/plan/check.ml:221   ror      >= -> >
+lib/plan/check.ml:221   lcr      || -> &&
+lib/plan/check.ml:221   sbr      if c then e -> ()
+lib/plan/check.ml:228   sbr      iter -> ()
+lib/plan/check.ml:229   ror      >= -> >
+lib/plan/check.ml:229   lcr      || -> &&
+lib/plan/check.ml:229   sbr      if c then e -> ()
+
+## editors/textmate/textmate.ml  (24)
+editors/textmate/textmate.ml:34    sbr      e1; e2 -> e2
+editors/textmate/textmate.ml:54    lcr      || -> &&
+editors/textmate/textmate.ml:54    lcr      || -> &&
+editors/textmate/textmate.ml:65    ror      > -> >=
+editors/textmate/textmate.ml:65    lcr      && -> ||
+editors/textmate/textmate.ml:98    extreme  walk -> ()
+editors/textmate/textmate.ml:99    lcr      || -> &&
+editors/textmate/textmate.ml:99    uoi      c -> not c
+editors/textmate/textmate.ml:102   sbr      e1; e2 -> e2
+editors/textmate/textmate.ml:103   sbr      e1; e2 -> e2
+editors/textmate/textmate.ml:104   sbr      e1; e2 -> e2
+editors/textmate/textmate.ml:107   sbr      iter -> ()
+editors/textmate/textmate.ml:108   sbr      if c then e -> ()
+editors/textmate/textmate.ml:115   uoi      c -> not c
+editors/textmate/textmate.ml:115   sbr      if c then e -> ()
+editors/textmate/textmate.ml:115   sbr      iter -> ()
+editors/textmate/textmate.ml:132   ror      > -> >=
+editors/textmate/textmate.ml:132   lcr      && -> ||
+editors/textmate/textmate.ml:150   ror      > -> >=
+editors/textmate/textmate.ml:150   lcr      && -> ||
+editors/textmate/textmate.ml:228   extreme  has_raw -> false
+editors/textmate/textmate.ml:267   sbr      drop 1 of 1
+editors/textmate/textmate.ml:267   uoi      c -> not c
+editors/textmate/textmate.ml:286   sbr      drop 1 of 1
+
+## lib/core/manifest.ml  (21)
+lib/core/manifest.ml:210   sbr      drop 1 of 6
+lib/core/manifest.ml:211   sbr      drop 2 of 6
+lib/core/manifest.ml:214   sbr      drop 3 of 6
+lib/core/manifest.ml:215   sbr      drop 4 of 6
+lib/core/manifest.ml:217   sbr      drop 6 of 6
+lib/core/manifest.ml:229   sbr      drop 1 of 1
+lib/core/manifest.ml:243   extreme  block_entries -> []
+lib/core/manifest.ml:246   sbr      drop 1 of 9
+lib/core/manifest.ml:247   sbr      drop 2 of 9
+lib/core/manifest.ml:248   sbr      drop 3 of 9
+lib/core/manifest.ml:249   sbr      drop 4 of 9
+lib/core/manifest.ml:250   sbr      drop 5 of 9
+lib/core/manifest.ml:255   sbr      drop 6 of 9
+lib/core/manifest.ml:260   sbr      drop 7 of 9
+lib/core/manifest.ml:261   sbr      drop 8 of 9
+lib/core/manifest.ml:262   sbr      drop 9 of 9
+lib/core/manifest.ml:277   uoi      c -> not c
+lib/core/manifest.ml:279   sbr      drop 1 of 2
+lib/core/manifest.ml:280   sbr      drop 2 of 2
+lib/core/manifest.ml:286   sbr      drop 1 of 1
+lib/core/manifest.ml:365   sbr      e |> f -> e
+
+## lib/ocaml/parser.ml  (5)
+lib/ocaml/parser.ml:51     sbr      drop 1 of 1
+lib/ocaml/parser.ml:69     extreme  instr_kinds -> 0
+lib/ocaml/parser.ml:128    sbr      drop 1 of 2
+lib/ocaml/parser.ml:128    sbr      drop 2 of 2
+lib/ocaml/parser.ml:165    ror      >= -> >
+
+# [holds] at :51 has no caller. The three in [words] and its helper are the
+# width of a recovery set: it is the whole plan's highest kind divided by 63,
+# so a bound that comes out lower still gives the same word count on every
+# grammar in the corpus. :165 drops kind 0 from a packed set, and no set in the
+# corpus holds it.
+
+## lib/ocaml/lexer.ml  (4)
+lib/ocaml/lexer.ml:170     ror      > -> >=
+lib/ocaml/lexer.ml:186     ror      < -> <=
+lib/ocaml/lexer.ml:211     ror      <= -> <
+lib/ocaml/lexer.ml:377     aor      * -> /
+
+# :170 is [bits_for], which loses a bit where the count is an exact power of
+# two, and no grammar's is. :186 sends state 0 nowhere, and no cell in the
+# corpus transitions to it. :211 moves the first segment above the ASCII table,
+# which only matters where a segment starts at exactly U+0080, and none does.
+# :377 cannot be killed by anything: [Core.Lexer.initial] is 0, so the initial
+# row is 0 whether the class count multiplies it or divides it.
+
+## lib/fuzz/report.ml  (18)
+lib/fuzz/report.ml:14    extreme  note -> ()
+lib/fuzz/report.ml:19    ror      < -> <=
+lib/fuzz/report.ml:19    uoi      c -> not c
+lib/fuzz/report.ml:23    aor      + -> -
+lib/fuzz/report.ml:26    extreme  classes -> []
+lib/fuzz/report.ml:28    sbr      e |> f -> e
+lib/fuzz/report.ml:29    ror      = -> <>
+lib/fuzz/report.ml:29    uoi      c -> not c
+lib/fuzz/report.ml:32    aor      + -> -
+lib/fuzz/report.ml:32    extreme  total -> 0
+lib/fuzz/report.ml:43    sbr      drop 1 of 1
+lib/fuzz/report.ml:46    extreme  check_skips -> []
+lib/fuzz/report.ml:57    ror      < -> <=
+lib/fuzz/report.ml:57    uoi      c -> not c
+lib/fuzz/report.ml:60    aor      * -> /
+lib/fuzz/report.ml:60    aor      / -> *
+lib/fuzz/report.ml:61    ror      <= -> <
+lib/fuzz/report.ml:61    uoi      c -> not c
+
+## editors/textmate/oniguruma.ml  (17)
+editors/textmate/oniguruma.ml:10    aor      + -> -
+editors/textmate/oniguruma.ml:30    ror      >= -> >
+editors/textmate/oniguruma.ml:34    ror      > -> >=
+editors/textmate/oniguruma.ml:34    lcr      && -> ||
+editors/textmate/oniguruma.ml:35    lcr      && -> ||
+editors/textmate/oniguruma.ml:63    extreme  longer_literals -> []
+editors/textmate/oniguruma.ml:77    aor      - -> +
+editors/textmate/oniguruma.ml:98    aor      + -> -
+editors/textmate/oniguruma.ml:103   aor      + -> -
+editors/textmate/oniguruma.ml:103   ror      < -> <=
+editors/textmate/oniguruma.ml:109   sbr      e1; e2 -> e2
+editors/textmate/oniguruma.ml:111   ror      = -> <>
+editors/textmate/oniguruma.ml:111   lcr      && -> ||
+editors/textmate/oniguruma.ml:111   uoi      c -> not c
+editors/textmate/oniguruma.ml:111   sbr      if c then e -> ()
+editors/textmate/oniguruma.ml:113   aor      + -> -
+editors/textmate/oniguruma.ml:113   ror      < -> <=
+
+## lib/core/kind.ml  (16)
+lib/core/kind.ml:30    ror      < -> <=
+lib/core/kind.ml:72    ror      >= -> >
+lib/core/kind.ml:78    ror      < -> <=
+lib/core/kind.ml:78    uoi      c -> not c
+lib/core/kind.ml:80    ror      >= -> >
+lib/core/kind.ml:80    uoi      c -> not c
+lib/core/kind.ml:84    aor      + -> -
+lib/core/kind.ml:96    aor      - -> +
+lib/core/kind.ml:106   lcr      || -> &&
+lib/core/kind.ml:107   lcr      && -> ||
+lib/core/kind.ml:108   uoi      c -> not c
+lib/core/kind.ml:135   extreme  compare -> 0
+lib/core/kind.ml:136   extreme  pp -> ()
+lib/core/kind.ml:151   aor      * -> /
+lib/core/kind.ml:163   extreme  mem_name -> false
+lib/core/kind.ml:167   extreme  pp_set -> ()
+
+## lib/core/facts.ml  (16)
+lib/core/facts.ml:93    ror      >= -> >
+lib/core/facts.ml:100   ror      >= -> >
+lib/core/facts.ml:122   ror      >= -> >
+lib/core/facts.ml:122   lcr      || -> &&
+lib/core/facts.ml:178   ror      >= -> >
+lib/core/facts.ml:178   lcr      || -> &&
+lib/core/facts.ml:213   extreme  pp_frame -> ()
+lib/core/facts.ml:214   extreme  k -> ""
+lib/core/facts.ml:247   extreme  pp -> ()
+lib/core/facts.ml:249   sbr      e1; e2 -> e2
+lib/core/facts.ml:250   sbr      iter -> ()
+lib/core/facts.ml:253   sbr      e1; e2 -> e2
+lib/core/facts.ml:254   sbr      iter -> ()
+lib/core/facts.ml:256   sbr      e1; e2 -> e2
+lib/core/facts.ml:270   sbr      e1; e2 -> e2
+lib/core/facts.ml:276   sbr      iter -> ()
+
+## lib/core/fixpoint.ml  (16)
+lib/core/fixpoint.ml:33    sbr      e1; e2 -> e2
+lib/core/fixpoint.ml:54    aor      - -> +
+lib/core/fixpoint.ml:75    ror      < -> <=
+lib/core/fixpoint.ml:93    ror      >= -> >
+lib/core/fixpoint.ml:102   sbr      iter -> ()
+lib/core/fixpoint.ml:103   sbr      iter -> ()
+lib/core/fixpoint.ml:116   ror      >= -> >
+lib/core/fixpoint.ml:129   ror      >= -> >
+lib/core/fixpoint.ml:140   ror      >= -> >
+lib/core/fixpoint.ml:203   ror      >= -> >
+lib/core/fixpoint.ml:335   empty    Set.add x s -> s
+lib/core/fixpoint.ml:416   ror      >= -> >
+lib/core/fixpoint.ml:506   ror      >= -> >
+lib/core/fixpoint.ml:580   extreme  child_nullable -> false
+lib/core/fixpoint.ml:602   empty    Set.union a b -> a
+lib/core/fixpoint.ml:602   sbr      e1; e2 -> e2
+
+## editors/treesitter/queries.ml  (16)
+editors/treesitter/queries.ml:50    aor      + -> -
+editors/treesitter/queries.ml:55    sbr      e1; e2 -> e2
+editors/treesitter/queries.ml:92    sbr      iter -> ()
+editors/treesitter/queries.ml:95    sbr      e1; e2 -> e2
+editors/treesitter/queries.ml:96    sbr      iter -> ()
+editors/treesitter/queries.ml:97    sbr      iter -> ()
+editors/treesitter/queries.ml:98    sbr      iter -> ()
+editors/treesitter/queries.ml:99    sbr      e1; e2 -> e2
+editors/treesitter/queries.ml:104   sbr      e1; e2 -> e2
+editors/treesitter/queries.ml:108   sbr      e1; e2 -> e2
+editors/treesitter/queries.ml:150   sbr      e |> f -> e
+editors/treesitter/queries.ml:177   extreme  rule_patterns -> []
+editors/treesitter/queries.ml:179   sbr      e |> f -> e
+editors/treesitter/queries.ml:233   sbr      e |> f -> e
+editors/treesitter/queries.ml:242   sbr      e |> f -> e
+editors/treesitter/queries.ml:289   sbr      e |> f -> e
+
+## lib/runtime/cursor.ml  (14)
+lib/runtime/cursor.ml:29    ror      >= -> >
+lib/runtime/cursor.ml:33    ror      >= -> >
+lib/runtime/cursor.ml:33    ror      < -> <=
+lib/runtime/cursor.ml:54    ror      >= -> >
+lib/runtime/cursor.ml:54    ror      < -> <=
+lib/runtime/cursor.ml:72    ror      > -> >=
+lib/runtime/cursor.ml:72    ror      < -> <=
+lib/runtime/cursor.ml:72    lcr      && -> ||
+lib/runtime/cursor.ml:72    sbr      e1; e2 -> e2
+lib/runtime/cursor.ml:73    aor      + -> -
+lib/runtime/cursor.ml:73    sbr      e1; e2 -> e2
+lib/runtime/cursor.ml:76    ror      >= -> >
+lib/runtime/cursor.ml:76    uoi      c -> not c
+lib/runtime/cursor.ml:145   aor      - -> +
+
+## lib/core/error.ml  (13)
+lib/core/error.ml:30    extreme  kind_refs -> []
+lib/core/error.ml:271   extreme  listed -> ""
+lib/core/error.ml:279   extreme  kinds -> ""
+lib/core/error.ml:285   extreme  plain -> ""
+lib/core/error.ml:287   extreme  hint -> None
+lib/core/error.ml:323   extreme  message -> ""
+lib/core/error.ml:524   extreme  pp_where -> ()
+lib/core/error.ml:542   extreme  pp -> ()
+lib/core/error.ml:556   extreme  pp_list -> ()
+lib/core/error.ml:565   extreme  to_string -> ""
+lib/core/error.ml:567   extreme  where_rank -> 0
+lib/core/error.ml:577   extreme  compare_where -> 0
+lib/core/error.ml:593   extreme  compare -> 0
+
+## editors/textmate/emit.ml  (13)
+editors/textmate/emit.ml:74    ror      > -> >=
+editors/textmate/emit.ml:75    aor      - -> +
+editors/textmate/emit.ml:75    ror      = -> <>
+editors/textmate/emit.ml:77    aor      - -> +
+editors/textmate/emit.ml:77    aor      - -> +
+editors/textmate/emit.ml:93    ror      = -> <>
+editors/textmate/emit.ml:93    lcr      && -> ||
+editors/textmate/emit.ml:177   extreme  separator_pattern -> []
+editors/textmate/emit.ml:186   sbr      drop 1 of 1
+editors/textmate/emit.ml:186   sbr      drop 1 of 1
+editors/textmate/emit.ml:369   sbr      drop 1 of 1
+editors/textmate/emit.ml:472   sbr      iter -> ()
+editors/textmate/emit.ml:475   sbr      iter -> ()
+
+## lib/ir/residual.ml  (11)
+lib/ir/residual.ml:43    extreme  equal -> false
+lib/ir/residual.ml:83    sbr      e1; e2 -> e2
+lib/ir/residual.ml:131   ror      >= -> >
+lib/ir/residual.ml:133   ror      >= -> >
+lib/ir/residual.ml:180   extreme  nullable_rules -> [||]
+lib/ir/residual.ml:183   sbr      e1; e2 -> e2
+lib/ir/residual.ml:185   sbr      iter -> ()
+lib/ir/residual.ml:186   sbr      if c then e -> ()
+lib/ir/residual.ml:400   sbr      drop 1 of 1
+lib/ir/residual.ml:438   sbr      drop 1 of 1
+lib/ir/residual.ml:676   sbr      e |> f -> e
+
+## lib/scopes/scopes.ml  (10)
+lib/scopes/scopes.ml:38    extreme  override_to_string -> ""
+lib/scopes/scopes.ml:52    extreme  finding_to_string -> ""
+lib/scopes/scopes.ml:70    extreme  pp_finding -> ()
+lib/scopes/scopes.ml:76    extreme  finding_rank -> 0
+lib/scopes/scopes.ml:85    extreme  compare_finding -> 0
+lib/scopes/scopes.ml:87    ror      <> -> =
+lib/scopes/scopes.ml:87    uoi      c -> not c
+lib/scopes/scopes.ml:281   sbr      e1; e2 -> e2
+lib/scopes/scopes.ml:282   sbr      e1; e2 -> e2
+lib/scopes/scopes.ml:286   sbr      e1; e2 -> e2
+
+## lib/interp/interp.ml  (9)
+lib/interp/interp.ml:305   sbr      e1; e2 -> e2
+lib/interp/interp.ml:306   ror      > -> >=
+lib/interp/interp.ml:306   sbr      if c then e -> ()
+lib/interp/interp.ml:350   ror      >= -> >
+lib/interp/interp.ml:485   extreme  may_enter -> false
+lib/interp/interp.ml:486   ror      >= -> >
+lib/interp/interp.ml:486   ror      < -> <=
+lib/interp/interp.ml:486   lcr      && -> ||
+lib/interp/interp.ml:486   lcr      && -> ||
+
+## lib/runtime/ahead.ml  (9)
+lib/runtime/ahead.ml:23    ror      >= -> >
+lib/runtime/ahead.ml:23    lcr      || -> &&
+lib/runtime/ahead.ml:23    sbr      if c then e -> ()
+lib/runtime/ahead.ml:23    sbr      e1; e2 -> e2
+lib/runtime/ahead.ml:30    ror      >= -> >
+lib/runtime/ahead.ml:30    lcr      || -> &&
+lib/runtime/ahead.ml:43    extreme  is_error -> false
+lib/runtime/ahead.ml:91    ror      <= -> <
+lib/runtime/ahead.ml:96    lcr      && -> ||
+
+## editors/textmate/shape.ml  (8)
+editors/textmate/shape.ml:70    ror      > -> >=
+editors/textmate/shape.ml:70    lcr      || -> &&
+editors/textmate/shape.ml:70    lcr      || -> &&
+editors/textmate/shape.ml:81    aor      + -> -
+editors/textmate/shape.ml:252   sbr      drop 1 of 1
+editors/textmate/shape.ml:256   ror      > -> >=
+editors/textmate/shape.ml:372   ror      > -> >=
+editors/textmate/shape.ml:382   lcr      || -> &&
+
+## lib/grammar/grammar.ml  (7)
+lib/grammar/grammar.ml:11    sbr      if c then e -> ()
+lib/grammar/grammar.ml:11    sbr      e1; e2 -> e2
+lib/grammar/grammar.ml:552   ror      < -> <=
+lib/grammar/grammar.ml:552   ror      > -> >=
+lib/grammar/grammar.ml:552   lcr      || -> &&
+lib/grammar/grammar.ml:552   sbr      if c then e -> ()
+lib/grammar/grammar.ml:552   sbr      e1; e2 -> e2
+
+## editors/treesitter/js.ml  (7)
+editors/treesitter/js.ml:11    aor      + -> -
+editors/treesitter/js.ml:16    sbr      e1; e2 -> e2
+editors/treesitter/js.ml:45    lcr      || -> &&
+editors/treesitter/js.ml:46    ror      <= -> <
+editors/treesitter/js.ml:99    sbr      if c then e -> ()
+editors/treesitter/js.ml:99    sbr      e1; e2 -> e2
+editors/treesitter/js.ml:115   ror      < -> <=
+
+## lib/docs/highlight.ml  (5)
+lib/docs/highlight.ml:20    ror      < -> <=
+lib/docs/highlight.ml:32    ror      >= -> >
+lib/docs/highlight.ml:32    uoi      c -> not c
+lib/docs/highlight.ml:56    ror      < -> <=
+lib/docs/highlight.ml:59    aor      - -> +
+
+## lib/runtime/diagnostic.ml  (5)
+lib/runtime/diagnostic.ml:20    extreme  pp -> ()
+lib/runtime/diagnostic.ml:36    ror      <> -> =
+lib/runtime/diagnostic.ml:36    uoi      c -> not c
+lib/runtime/diagnostic.ml:36    sbr      if c then e -> ()
+lib/runtime/diagnostic.ml:50    extreme  pp_list -> ()
+
+## editors/treesitter/check.ml  (5)
+editors/treesitter/check.ml:18    extreme  problem_to_string -> ""
+editors/treesitter/check.ml:33    extreme  pp_problem -> ()
+editors/treesitter/check.ml:37    extreme  compare_problem -> 0
+editors/treesitter/check.ml:65    sbr      drop 1 of 1
+editors/treesitter/check.ml:82    sbr      drop 1 of 1
+
+## lib/plan/lower.ml  (4)
+lib/plan/lower.ml:82    ror      >= -> >
+lib/plan/lower.ml:157   ror      < -> <=
+lib/plan/lower.ml:274   lcr      && -> ||
+lib/plan/lower.ml:601   ror      >= -> >
+
+## lib/core/lexer.ml  (3)
+lib/core/lexer.ml:42    ror      <= -> <
+lib/core/lexer.ml:42    sbr      if c then e -> ()
+lib/core/lexer.ml:42    sbr      e1; e2 -> e2
+
+## lib/core/mangle.ml  (3)
+lib/core/mangle.ml:18    lcr      && -> ||
+lib/core/mangle.ml:106   ror      <= -> <
+lib/core/mangle.ml:106   ror      <= -> <
+
+## lib/core/stage.ml  (3)
+lib/core/stage.ml:139   ror      < -> <=
+lib/core/stage.ml:144   ror      < -> <=
+lib/core/stage.ml:201   sbr      e |> f -> e
+
+## editors/treesitter/grammar_js.ml  (3)
+editors/treesitter/grammar_js.ml:92    sbr      drop 1 of 1
+editors/treesitter/grammar_js.ml:269   ror      >= -> >
+editors/treesitter/grammar_js.ml:341   sbr      drop 1 of 1
+
+## lib/core/check_names.ml  (2)
+lib/core/check_names.ml:109   lcr      && -> ||
+lib/core/check_names.ml:553   aor      + -> -
+
+## lib/core/check_shape.ml  (2)
+lib/core/check_shape.ml:20    extreme  kind_refs -> []
+lib/core/check_shape.ml:24    extreme  child_kinds -> []
+
+## lib/docs/render.ml  (2)
+lib/docs/render.ml:6     aor      + -> -
+lib/docs/render.ml:54    sbr      e1; e2 -> e2
+
+## lib/layout/lower.ml  (2)
+lib/layout/lower.ml:143   ror      < -> <=
+lib/layout/lower.ml:149   sbr      e1; e2 -> e2
+
+## lib/fuzz/coverage.ml  (1)
+lib/fuzz/coverage.ml:19    sbr      e1; e2 -> e2
+
+## lib/grammar/name.ml  (1)
+lib/grammar/name.ml:21    extreme  pp -> ()
+
+## lib/ir/message.ml  (1)
+lib/ir/message.ml:5     ror      = -> <>
+
+## lib/runtime/recover.ml  (1)
+lib/runtime/recover.ml:18    sbr      drop 1 of 1
+
+## lib/scopes/scope.ml  (1)
+lib/scopes/scope.ml:162   extreme  compare -> 0
+
+## editors/treesitter/treesitter.ml  (1)
+editors/treesitter/treesitter.ml:70    sbr      drop 1 of 1
+

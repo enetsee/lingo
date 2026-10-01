@@ -15,7 +15,8 @@
       (g) [delimiter_pairs] holds one pair per framed rule, an enclosed
           postfix's among them, and no duplicate.
 
-      Mechanism: (a) is a golden, and see the note on M9. (b) to (g) are
+      Mechanism: (a) is a golden, and the note below says what it misses.
+      (b) to (g) are
       oracles over the corpus, and (d), (e), (f) and (g) each add a grammar
       built in the law for a case the corpus does not cover.
 
@@ -28,75 +29,37 @@
       checked that, which is how a recovery set missing every enclosing
       closer stayed green.
 
-      Falsification. Every mutation below was applied, run and reverted, and
-      the result recorded is the one observed.
+      Which half of the recovery set holds what. The override lives in the
+      local half, so replacing the computed set there brings [T_TA] back;
+      mutating the outer [recovery_set] reddens nothing, because it takes the
+      [None] branch and calls the local half, which still honours the override.
+      Dropping the enclosing closers from the override branch loses [T_RP] and
+      leaves a recovery inside [Item] free to skip the [)] that [Root] is
+      waiting for -- which is the failure the enclosing closers exist to
+      prevent, reached through the override. And unioning the enclosing table
+      back into the local half reddens part (f) alone, because the union is
+      idempotent and [recovery_set] is unchanged by it. That is why (f) looks at
+      the local half.
 
-      The counts below were measured before ml joined the corpus on
-      2026-09-24. Each is a record of what the mutation did then, and each is
-      due a re-run.
+      Why the delimiter pairs read the role rules too. The predecessor's own
+      [delimiter_pairs] reads its productions and leaves the expression blocks
+      alone. pratt-postfix's one pair comes from an enclosed postfix, so reading
+      only the user productions leaves the list empty and a balanced skip walks
+      straight through a stray opener inside a call's arguments.
 
-        M1  In [Facts.recovery_set], drop the [frame] term from the union.
-            -> this law, part (d), on the two corpus grammars whose root
-               carries a frame: delimited-with-sep and separated. M2 is the
-               stronger of the two.
-        M2  In [Facts.recovery_set], drop the [t.enclosing] term from the
-            union, which is what the function did before the enclosing table
-            existed.
-            -> this law, part (d), four times: three positions in
-               pratt-postfix, where a role rule sits inside a call's
-               parentheses, and the nested-frame grammar built below, where
-               the first of two children in a plain rule sits inside a
-               delimited parent. That last is the reported defect.
-        M3  In [Facts.local_recovery_set], ignore the override and take the
-            computed set.
-            -> this law, part (e): the computed set is back, [T_TA] with it.
-               The override lives in the local half. Mutating
-               [Facts.recovery_set] instead reddens nothing, since it takes
-               the [None] branch and calls the local half, which still
-               honours the override.
-        M4  In [Facts.recovery_set], drop the enclosing closers from the
-            override branch, so [recover_to] replaces the whole set the way
-            it did before 2026-09-07.
-            -> this law, part (e). [T_RP] goes missing, leaving a recovery
-               inside [Item] free to skip the [)] that [Root] is waiting
-               for. That is the failure the enclosing closers exist to
-               prevent, reached through the override.
-        M5  In [Facts.local_recovery_set], union [t.enclosing] back into the
-            result, collapsing the two queries into one.
-            -> this law, part (f). The local set carries the two closers the
-               two-context grammar's enclosing frames put there. Nothing else
-               moves: [recovery_set] is unchanged, since the union is
-               idempotent, and that is why (f) looks at the local half.
-        M6  In [Facts.delimiter_pairs], take pairs from user productions and
-            skip the role rules, which is what the predecessor's own
-            [delimiter_pairs] does: it reads its productions and leaves the
-            expression blocks alone.
-            -> this law, part (g), twice on pratt-postfix. That grammar's one
-               pair comes from an enclosed postfix, so under the mutation the
-               list is empty and a balanced skip would walk straight through
-               a stray opener inside a call's arguments.
-        M7  In [Kind.Set.add], write the bit into the argument array where it is
-            already wide enough, in place of copying first.
-            -> this law, part (c). [add] mutates its argument.
-        M8  In [Kind.Set.elements], drop the [List.rev].
-            -> this law, part (c). Elements descend.
+      What part (a) cannot see, and what covers it instead. Determinism here is
+      two runs in one process, and an unordered traversal is stable within one
+      process: a numbering that followed a hash table's fold order rather than
+      the manifest's list would pass. The statement with teeth about the
+      numbering is the literal in test/units/sexp_facts.ml, which reddens on
+      exactly that.
 
-      One that reddens nothing here, recorded as a finding.
-
-        M9  Make [Kind.Table.of_names] build its index from a hash table's fold
-            order, so the numbering stops following the manifest's list.
-            -> sexp_facts reddens; part (a) does not. Determinism is checked
-               by running the derivation twice in one process, and an
-               unordered traversal is stable within one process.
-               Chasing that found the cause: every traversal in the
-               derivation is over an array or a list, and the two that fold a
-               hash table ([Check_shape.view_hazards],
-               [Check_full.empty_first_sets]) produce findings, which are
-               sorted before they leave. Nothing short of real randomness
-               reddens part (a). It stays as a guard on a future change that
-               puts a hash-ordered traversal in the path to the output. The
-               statement with teeth about the numbering is the literal one in
-               test/units/sexp_facts.ml.
+      Part (a) is still worth its seconds. Every traversal in the derivation is
+      over an array or a list, and the two that fold a hash table
+      ([Check_shape.view_hazards], [Check_full.empty_first_sets]) sort their
+      findings before returning, so nothing short of real randomness reaches
+      the output today. The part is the guard on a future change that puts a
+      hash-ordered traversal in that path.
 
       Coverage: the accepted corpus. Part (d) covers every child position in
       it, some thirty of them, plus the nested-frame grammar it builds. Only
@@ -107,6 +70,40 @@
       grammar and one position. Part (g) counts the enclosed postfixes it
       reads and fails at zero, since only pratt-postfix carries one.
    -------------------------------------------------------------------------- *)
+
+(* The two blocks below are generated, and they are the evidence. assay derives
+   a mutation from the code rather than from a sentence beside it, applies every
+   one, and records what went red. Regenerate them with
+
+     assay -config assay.conf -only core
+
+   and take the counts as they come: they move whenever the corpus grows, and
+   asserting them exactly would train everyone to ignore a red suite. What they
+   assert is that every mutant dies. A survivor is the finding, and the lines it
+   names are where to look. *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/core/facts.ml, 51 mutants, 35 killed, 16 survived.
+        extreme      9  6 killed, law_facts: 1, law_facts ml/DataBody.ctor:: 1, law_facts sexp/Sexp.kind:: 1, law_facts sexp:: 1, law_first_follow a: 1, law_lower (a): 1; 3 survived
+        sbr         10  3 killed, dump_parse: 1, law_facts ml/DataBody.ctor:: 1, sexp_facts recover(Group.elt): 1; 7 survived
+        ror         10  6 killed, dump_layout: 1, law_facts ml/DataBody.ctor:: 1, law_facts sexp/Sexp.kind:: 1, law_first_follow a: 1, law_lower: 1, law_treesitter (c): 1; 4 survived
+        lcr          4  2 killed, law_lower: 1, law_textmate: 1; 2 survived
+        aor          4  all killed, law_lower: 4
+        uoi          8  all killed, law_facts the: 2, law_lower: 2, law_facts ml/DataBody.ctor:: 1, law_facts sexp/Sexp.kind:: 1, law_first_follow a: 1, law_interp (c): 1
+        empty        6  all killed, dump_parse: 2, law_facts json/Member.key:: 1, law_facts ml/CtorPayload.ty:: 1, law_facts the: 1, law_interp (c): 1
+      survived at lines 93 100 122 178 213 214 247 249 250 253 254 256 270 276
+   ---------------------------------------------------------------------- *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/core/kind.ml, 62 mutants, 45 killed, 15 survived, 2 timed out.
+        extreme      9  6 killed, law_lower sexp:: 2, law_facts sexp:: 1, law_lex: 1, law_lower: 1, sexp_facts kind: 1; 3 survived
+        sbr          8  all killed, law_lower (a): 3, law_lower sexp:: 3, law_facts remove: 2
+        ror         15  10 killed, law_lower: 5, law_lower calc:: 2, law_facts: 1, law_lower (a): 1, law_lower sexp:: 1; 4 survived; 1 timed out
+        lcr          7  4 killed, law_lower sexp:: 2, law_lower: 1, law_lower calc:: 1; 2 survived; 1 timed out
+        aor         13  10 killed, law_lower: 5, law_facts add: 1, law_facts cardinal: 1, law_facts remove: 1, law_lower (a): 1, law_lower effekt:: 1; 3 survived
+        uoi         10  7 killed, law_lower: 4, law_facts: 1, law_lower (a): 1, law_lower sexp:: 1; 3 survived
+      survived at lines 30 72 78 80 84 96 106 107 108 135 136 151 163
+   ---------------------------------------------------------------------- *)
 
 let dump f = Format.asprintf "%a" Core.Facts.pp f
 

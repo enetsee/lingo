@@ -8,7 +8,7 @@
 
       test/laws/corpus.ml holds the witness list alone and law_layout reads it.
       This one is the union, and it is here rather than there because widening
-      that list would move four falsification records.
+      that list would move four mutation records.
 
       rust and effekt are not here, and the reason is the engine rather than
       the grammars. law_sample fixes a one-pointing Boltzmann sampler so its

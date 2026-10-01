@@ -308,6 +308,11 @@
 (tests
  (names law_ahead)
  (modules law_ahead)
+ (deps
+  (glob_files *_parser.ml)
+  (glob_files *_parser.mli)
+  (glob_files *_residual.ml)
+  (glob_files *_residual.mli))
  (libraries
   law
   emitted_parsers
@@ -315,14 +320,24 @@
   lex
   lingo.core
   lingo.interp
+  lingo.ocaml
   lingo.plan
   lingo_grammars
   lingo_runtime
   siesta))
 
+; law_parse part (e) and law_ahead part (c) read the emitted modules as files
+; and ask [lingo.ocaml] for them again, so the generator itself is covered at
+; run time rather than only at build time.
+
 (tests
  (names law_parse)
  (modules law_parse)
+ (deps
+  (glob_files *_parser.ml)
+  (glob_files *_parser.mli)
+  (glob_files *_residual.ml)
+  (glob_files *_residual.mli))
  (libraries
   law
   emitted_parsers
@@ -332,6 +347,7 @@
   lex
   lingo.core
   lingo.interp
+  lingo.ocaml
   lingo.plan
   lingo_grammars
   lingo_runtime

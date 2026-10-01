@@ -300,7 +300,23 @@
   ml_match)
  (libraries lingo_runtime))
 
+; law_lex part (f) reads the emitted modules as files and asks [lingo.ocaml]
+; for them again, so the generator itself is covered at run time rather than
+; only at build time.
+
 (tests
  (names law_lex)
  (modules law_lex)
- (libraries law emitted lex lingo.core lingo_grammars lingo_runtime inputs))
+ (deps
+  (glob_files *_lexer.ml)
+  (glob_files *_lexer.mli)
+  (glob_files *_match.ml))
+ (libraries
+  law
+  emitted
+  lex
+  lingo.core
+  lingo.ocaml
+  lingo_grammars
+  lingo_runtime
+  inputs))

@@ -11,6 +11,7 @@
       (d) A lexeme the input ended inside leaves as one unterminated token
           spanning those bytes.
       (e) The emitted lexer and test/lex agree, token for token.
+      (f) Every emitted module is what the emitter writes now, byte for byte.
 
       Mechanism. Seven grammars, and for each of them a list of inputs
       written here. The emitted lexers are compiled and run: dune runs the
@@ -35,99 +36,56 @@
       automaton, or in writing it out as control flow, shows up as a
       disagreement.
 
-      Coverage. Thirteen grammars, 255 inputs, 2,674 tokens, two shapes. The
-      counts
-      print beside the result. A law with no unterminated token and no error
-      token to look at proves nothing about either, so both counts have to
-      read above zero.
+      Coverage. Thirteen grammars, 255 inputs, 2,674 tokens, two shapes, and
+      the counts print beside the result. A law with no unterminated token and
+      no error token to look at proves nothing about either, so both counts
+      have to read above zero.
 
       What this says nothing about. What the parser makes of the tokens;
       test/laws/law_interp.ml reads that, over the same lexer. Nor which
       shape to emit, which test/bench/bench_lex.ml measures.
 
-      Falsification. Every mutation was applied, run and reverted, and the
-      result recorded is the one observed. A count of inputs counts distinct
-      inputs: one input failing in both shapes counts once.
+      What the match shape has that the table does not. The compiler reads the
+      dispatch. A run that stops one character short of its range leaves the
+      arms not covering the byte, and the exhaustiveness check says so before
+      any test runs. The same edit to the table compiles and has to be caught
+      by lexing something.
 
-      The counts below were measured before ml joined the corpus on 2026-09-24
-      and before the corpus here widened from seven grammars to thirteen. Each
-      is a record of what the mutation did then, and each is due a re-run.
+      Two gaps in the corpus, both above U+007F. Every non-ASCII input here is
+      a guillemet, Greek or one emoji, and none of them sits at the top of a
+      range its grammar names, so a run that ends one character short above
+      U+007F changes nothing any of them lexes. The other gap closed: the
+      inputs above U+007F were all characters their grammar had no token for,
+      and a wrong class and no class stop the scan in the same place.
+      unicode's "«©»" separates them, because U+00A9 is the first codepoint
+      above the ASCII table and a search that starts one segment too high
+      reads it as the character after it.
 
-        M1  In [Ocaml.Lexer.cells], pack the accept of the cell's own row
-            rather than the destination's.
-            -> part (c), 225 extents, and part (e), 59 of 74 inputs. Each
-               state records the accept of the state before it. Part (a)
-               reads 1, because the bytes still reach the stream, in tokens
-               whose text is wrong.
-        M2  In [Ocaml.Lexer.finish_body], send a run that ended inside a
-            lexeme to the error arm.
-            -> part (e), 4 inputs, and the count of unterminated tokens falls
-               to zero, which is the line that fails. Part (a) reads zero:
-               the bytes still reach the stream, one error token a codepoint.
-               The unterminated token has its own arm for that reason, and
-               the count sits beside the parts for the same one.
-        M3  In [Ocaml.Lexer.finish_body], restart after an error token one
-            byte on rather than one codepoint.
-            -> part (e), 5 inputs across sexp and unicode. A multi-byte
-               character splits across error tokens, so the stream holds
-               characters the input never had. Part (a) reads zero again, and
-               for the same reason: the bytes are all still there.
-        M4  In [Ocaml.Lexer.intern_item], cut an interned token's text to its
-            first byte.
-            -> part (a), 20 inputs, part (c), 64 extents, and part (e), 20.
-               The stream holds the interned record, so the record's text is
-               the token's text.
-        M5  In [Ocaml.Lexer.scan_body], start the search one segment above
-            the one holding U+0080.
-            -> parts (a), (c) and (e), 1 input: unicode's "«©»". The search
-               skips the segment U+00A9 is in and lands on the one after
-               it, which is [«]'s own class, so the copyright sign lexes as a
-               left guillemet.
-
-               The first run of this reddened nothing, which was a finding
-               about the corpus. Every input above U+007F was a character its
-               grammar had no token for, and a wrong class and no class stop
-               the scan in the same place. "«©»" separates them.
-        M6  In [Ocaml.Lexer.table_items], build the ASCII table from
-            [class_of (cp + 1)].
-            -> parts (a), (c) and (e): 16, 157 and 53. Every ASCII character
-               reads its neighbour's class, and the unterminated count falls
-               to zero as well.
-        M7  In [Ocaml.Lexer.cells], store the destination state rather than
-            its row.
-            -> parts (a), (c) and (e): 33, 129 and 55. The row is the
-               destination times the class count, and the scan indexes with
-               an add.
-        M8  In [Core.Lexer.of_facts], take the last accepting case id rather
-            than the first.
-            -> part (c), 9 extents, part (e), 7 inputs, and part (d) of
-               test/laws/law_lexer.ml, 3 states. [let] lexes as [name], so a
-               keyword stops beating an identifier spelled the same way.
-        M9  In [Ocaml.Lexer.take], shift the cell one bit too few.
-            -> parts (a), (b), (c) and (e): 8, 6, 79 and 37. The row and the
-               accept share one int, and shifting at the wrong bit mixes the
-               two.
-        M10 In [Ocaml.Lexer.condition], end every run one character short.
-            -> nothing. [condition] writes the match shape's arms above
-               U+007F, and no input here ends a token on the last character
-               of one of those ranges. That is a finding about the corpus.
-               Its non-ASCII inputs are guillemets, Greek and one emoji, and
-               none of them sits at the top of a range the grammar names.
-        M11 In [Ocaml.Lexer.pattern_of], end every run one character short.
-            -> nothing here, because it does not compile. The arms stop
-               covering the byte and the exhaustiveness check says so. The
-               match shape has that and the table does not: the compiler
-               reads the dispatch.
-        M12 In the wide arm of [Ocaml.Lexer.state_body_match], advance one
-            byte rather than the decoded length.
-            -> part (e), 12 inputs. A multi-byte character is read as its own
-               first byte and then again from the middle.
-        M13 In [Ocaml.Lexer.self_arm], go to [finish] after the run rather
-            than back through the state.
-            -> part (e), 15 inputs. The run is consumed and nothing then reads
-               what ended it, so an accepting state stops where it started
-               and every run comes out as a one-character token.
    -------------------------------------------------------------------------- *)
+
+(* The record below is generated. assay derives a mutation from the emitter's
+   code rather than from a sentence beside it, applies every one, and records
+   what went red. Regenerate it with
+
+     assay -config assay.conf -only ocaml
+
+   Part (f) is what makes those mutants reachable at all: the two modules parts
+   (a) to (e) run are compiled before the law starts, so without (f) every
+   point in [Ocaml.Lexer] reads 0 killed whatever the tests do. That is what
+   this record read on 2026-09-26, and the number said nothing about the tests.
+
+   Four survivors, and each is a corpus that stops short rather than a test
+   that does. They are in assay.findings with what they turn on. *)
+
+(* -- mutation testing, generated by assay on 2026-10-01 ---------------------
+      lib/ocaml/lexer.ml, 201 mutants, 197 killed, 4 survived.
+        extreme     13  all killed, sexp_lexer.ml: 8 sexp_match.ml: 5
+        sbr        169  all killed, sexp_lexer.ml: 125 sexp_match.ml: 33 json_match.ml: 9 sexp_lexer.mli: 2
+        ror          7  4 killed, sexp_match.ml: 3 json_match.ml: 1; 3 survived
+        aor          5  4 killed, sexp_lexer.ml: 4; 1 survived
+        uoi          7  all killed, law_lex sexp_match.ml:: 3, law_lex sexp_lexer.ml:: 2, law_lex: 1, law_lex json_match.ml:: 1
+      survived at lines 170 186 211 377
+   ---------------------------------------------------------------------- *)
 
 (* -- the corpus ------------------------------------------------------------ *)
 
@@ -493,6 +451,18 @@ let part_e
       (show_kinds walked)
 ;;
 
+(* Part (f) reads the module dune compiled and asks the emitter for it again.
+   Everything above runs the lexer that module holds, which is built before the
+   law starts, so nothing above can see a change in the emitter itself. This
+   can: it calls {!Ocaml.Lexer.generate} in the law's own process. *)
+
+let modules = ref 0
+
+let part_f (file : string) (now : string) : unit =
+  incr modules;
+  Law.generated ~file now
+;;
+
 (* -- running --------------------------------------------------------------- *)
 
 let () =
@@ -528,7 +498,14 @@ let () =
               part_d facts case.name src emitted;
               part_e case.name "table" src emitted walked;
               part_e case.name "match" src (case.matched src) walked)
-           case.inputs)
+           case.inputs;
+         part_f (case.name ^ "_lexer.ml") (Ocaml.Emit.render (Ocaml.Lexer.generate facts));
+         part_f
+           (case.name ^ "_match.ml")
+           (Ocaml.Emit.render (Ocaml.Lexer.generate ~shape:Match facts));
+         part_f
+           (case.name ^ "_lexer.mli")
+           (Ocaml.Emit.render_signature Ocaml.Lexer.signature))
     corpus
 ;;
 
@@ -542,5 +519,6 @@ let () =
     !extents
     !skipped;
   Law.pass "%d unterminated tokens, %d error tokens" !unterminated !errors;
+  Law.pass "%d emitted modules are what the emitter writes now" !modules;
   Law.exit_on_failure ()
 ;;

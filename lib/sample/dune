@@ -1,4 +1,6 @@
 (library
  (name sample)
  (public_name lingo.sample)
- (libraries core bolts))
+ (libraries core bolts)
+ (instrumentation
+  (backend assay)))

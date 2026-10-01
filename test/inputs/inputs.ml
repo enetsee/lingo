@@ -3,7 +3,7 @@
    law_interp's missing twenty-one, so an input added for one law was not seen
    by the other two.
 
-   Adding one here moves all three falsification records: law_parse generates
+   Adding one here moves all three mutation records: law_parse generates
    its corpus from these, and a seed changes every input drawn after it. *)
 
 type t =

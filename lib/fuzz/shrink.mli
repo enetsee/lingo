@@ -2,9 +2,9 @@
 
     A class keeps the shortest input that reached it, and the shortest of
     thousands still runs to ninety bytes of rust: the corpus is drawn around
-    forty tokens. The three separator defects test/laws/law_fuzz.ml records as
-    M17 to M19 were each reduced by hand, over several runs of a throwaway
-    probe, before anybody could say what they were.
+    forty tokens. The three separator defects test/laws/law_fuzz.ml describes
+    were each reduced by hand, over several runs of a throwaway probe, before
+    anybody could say what they were.
 
     {1 Two reductions}
 
