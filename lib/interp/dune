@@ -3,4 +3,5 @@
  (public_name lingo.interp)
  (libraries ir lingo_runtime siesta)
  (instrumentation
-  (backend assay)))
+  (backend assay -skip assay.skip -arid assay.arid)
+  (deps %{workspace_root}/assay.skip %{workspace_root}/assay.arid)))

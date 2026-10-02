@@ -1,57 +1,52 @@
-# Points assay must leave alone: the id, the library, the operator, then why.
-# Derived. assay builds it by reading the compiler back, one clean build per
-# round. Kept here rather than under _build because that loop is expensive
-# and because each line is a claim worth reading.
-22497785529551645	textmate	sbr	e |> f -> e at editors/textmate/check.ml:332 does not type-check
-412916232803096313	textmate	sbr	e |> f -> e at editors/textmate/emit.ml:423 does not type-check
-514892518978719013	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:153 does not type-check
-521827652988234476	textmate	sbr	e |> f -> e at editors/textmate/check.ml:267 does not type-check
-565623179460865850	fuzz	sbr	e |> f -> e at lib/fuzz/mutate.ml:126 does not type-check
-665653023585505847	treesitter	sbr	e |> f -> e at editors/treesitter/check.ml:70 does not type-check
-910578385989319142	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:213 does not type-check
-1019411287453445361	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:234 does not type-check
-1145945084185631801	core	sbr	e |> f -> e at lib/core/stage.ml:200 does not type-check
-1218215210534498969	textmate	sbr	e |> f -> e at editors/textmate/emit.ml:364 does not type-check
-1243150468935205103	ir	sbr	e |> f -> e at lib/ir/residual.ml:684 does not type-check
-1454371527452146883	docs	sbr	e |> f -> e at lib/docs/tables.ml:137 does not type-check
-3598767886572196282	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:326 does not type-check
-1594519305100985355	sample	sbr	e |> f -> e at lib/sample/sample.ml:258 inside a failure at lib/sample/sample.ml:257 that names no single point
-4556263655348699118	ir	sbr	e |> f -> e at lib/ir/residual.ml:691 does not type-check
-1781621152274461199	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:245 does not type-check
-2044361530389213789	textmate	sbr	e |> f -> e at editors/textmate/textmate.ml:196 does not type-check
-2153955596533973309	core	sbr	e |> f -> e at lib/core/role.ml:42 does not type-check
-2267964016296998063	textmate	sbr	e |> f -> e at editors/textmate/check.ml:329 does not type-check
-725479945919776236	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:346 does not type-check
-2298342393614240997	sample	sbr	e |> f -> e at lib/sample/sample.ml:263 inside a failure at lib/sample/sample.ml:261 that names no single point
-2364398134768305463	fuzz	sbr	e |> f -> e at lib/fuzz/report.ml:48 does not type-check
-2496957199739923115	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:243 does not type-check
-2520374907703047570	sample	sbr	e |> f -> e at lib/sample/sample.ml:259 inside a failure at lib/sample/sample.ml:257 that names no single point
-2565846999128136973	docs	sbr	e |> f -> e at lib/docs/tables.ml:111 does not type-check
-2711975169160348287	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:180 does not type-check
-2732576373702346072	textmate	sbr	e |> f -> e at editors/textmate/check.ml:302 does not type-check
-2823007060217910663	fuzz	sbr	e |> f -> e at lib/fuzz/mutate.ml:426 does not type-check
-2837355054660806577	textmate	sbr	e |> f -> e at editors/textmate/emit.ml:416 does not type-check
-2857871981434829005	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:195 does not type-check
-2887376355629606201	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:290 does not type-check
-2910133280427015594	textmate	sbr	e |> f -> e at editors/textmate/emit.ml:439 does not type-check
-577845018839460574	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:247 does not type-check
-3124921080027602750	sample	sbr	e |> f -> e at lib/sample/sample.ml:262 inside a failure at lib/sample/sample.ml:261 that names no single point
-3172735839728860297	fuzz	sbr	e |> f -> e at lib/fuzz/harness.ml:330 does not type-check
-2413834111447076233	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:255 does not type-check
-3299511910004529781	textmate	sbr	e |> f -> e at editors/textmate/check.ml:257 does not type-check
-3321373501511372202	docs	sbr	e |> f -> e at lib/docs/railroad.ml:232 does not type-check
-3344760357605873850	textmate	sbr	e |> f -> e at editors/textmate/emit.ml:136 does not type-check
-3481638645504218438	textmate	sbr	e |> f -> e at editors/textmate/check.ml:425 does not type-check
-3519568720786786528	textmate	sbr	e |> f -> e at editors/textmate/emit.ml:237 does not type-check
-1307947751532250997	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:334 does not type-check
-3662663126370961479	treesitter	sbr	e |> f -> e at editors/treesitter/check.ml:43 does not type-check
-3681660720306522847	treesitter	sbr	e |> f -> e at editors/treesitter/check.ml:59 does not type-check
-3707512564844858142	docs	sbr	e |> f -> e at lib/docs/railroad.ml:236 does not type-check
-3717557826987934672	textmate	sbr	e |> f -> e at editors/textmate/textmate.ml:193 does not type-check
-3737561474307686802	grammar	empty	Map.add k v m -> m at lib/grammar/grammar.ml:438 does not type-check
-1331485666416023347	layout	sbr	e |> f -> e at lib/layout/lower.ml:132 does not type-check
-3966968525713065871	core	sbr	e |> f -> e at lib/core/stage.ml:202 does not type-check
-4059058694084146413	docs	sbr	e |> f -> e at lib/docs/tables.ml:58 does not type-check
-4151654103874924422	textmate	sbr	e |> f -> e at editors/textmate/textmate.ml:238 does not type-check
-4324146509774563773	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:151 does not type-check
-4443784129276240301	fuzz	sbr	e |> f -> e at lib/fuzz/mutate.ml:428 does not type-check
+# Points assay leaves out of the build: the id, a tab, then why.
+# Lines whose reason starts "doesn't type-check:" were added by assay when
+# the build failed at them. It removes those when their code changes. Lines
+# written by hand stay until someone removes them.
+125924991120407882	doesn't type-check: The value Array.of_list has type 'a list -> 'a array
+691861657151390248	doesn't type-check: This expression has type Plan.block list -> (int * point array) list
+950752167485317532	doesn't type-check: This expression has type Core.Block.def list -> Core.Block.def option
+1144381515379838292	doesn't type-check: This expression has type int list -> string list
+1636793085686556145	doesn't type-check: This expression has type Core.Token.def list -> problem list
+1833728917647121812	doesn't type-check: This expression has type
+1901607133656883712	doesn't type-check: This expression has type Core.Token.def list -> string list
+2130535775971385419	doesn't type-check: This expression has type Core.Kind.t list -> (string * string) list
+2151401862733310537	doesn't type-check: This expression has type klass list -> string list
+3070487460284849987	doesn't type-check: This expression has type metrics list -> int
+3185807797104270716	doesn't type-check: This expression has type Core.Rule.def list -> Js.t list
+3600284971655655684	doesn't type-check: This expression has type int list -> Sample.token list option
+4252470886351753874	doesn't type-check: This expression has type string list -> string
+4307538783605529676	doesn't type-check: This expression has type Core.Kind.t list -> Yojson.Basic.t list
+4538646771662022177	doesn't type-check: This expression has type Core.Token.def list -> problem list
+31465511532660012	doesn't type-check: This expression has type ('a * 'b option) list -> ('a * 'b) list
+209339624908487443	doesn't type-check: This expression has type Core.Rule.def list -> (string * string) list
+1005126189426432502	doesn't type-check: This expression has type Core.Block.def list -> (string * string) list
+1200697621715933163	doesn't type-check: This expression has type Plan.rule list -> (int * point array) list
+1351281275804385558	doesn't type-check: This expression has type
+1476718404638423540	doesn't type-check: This expression has type Grammar.Name.Child.t list -> int list
+1756144539916201265	doesn't type-check: This expression has type Core.Rule.def list -> (string * string) list
+2085037826115481238	doesn't type-check: This expression has type Core.Rule.def list -> string list
+2225491790477203272	doesn't type-check: This expression has type metrics list -> int
+3331847149688477022	doesn't type-check: This expression has type Core.Kind.t list -> Js.t list
+4132374976753343124	doesn't type-check: The value String.of_seq has type char Seq.t -> string
+195863381999374463	doesn't type-check: This expression has type Core.Token.def list -> (string * string) list
+357585022119053240	doesn't type-check: This expression has type
+1444462137160649815	doesn't type-check: The value String.to_seq has type string -> char Seq.t
+1542263586922492078	doesn't type-check: This expression has type Core.Rule.def list -> string list
+2116072771611540529	doesn't type-check: This expression has type Core.Rule.def list -> string list
+2510952260819946694	doesn't type-check: This expression has type Core.Kind.t list -> Yojson.Basic.t list
+3417930865134092044	doesn't type-check: This expression has type Core.Rule.def list -> problem list
+3868032998610379323	doesn't type-check: This expression has type Core.Token.def list -> (string * Js.t) list
+1432820385789225123	doesn't type-check: This expression has type Core.Kind.t list -> Yojson.Basic.t list
+2205798463675788362	doesn't type-check: This expression has type Core.Block.postfix list -> problem list
+2690953309063117092	doesn't type-check: This expression has type Core.Token.def list -> string list
+3432688646854373361	doesn't type-check: This expression has type Core.Token.def list -> Js.t list
+1709326469139412012	doesn't type-check: This expression has type Core.Rule.def list -> (string * Js.t) list
+3506969472990048357	doesn't type-check: This expression has type Core.Block.def list -> problem list
+3787649537548311600	doesn't type-check: This expression has type string list -> string
+4157080761376040533	doesn't type-check: This expression has type
+135868559959855862	doesn't type-check: This expression has type Core.Rule.def list -> problem list
+1682286850331892843	doesn't type-check: This expression has type
+1882267031189650918	doesn't type-check: This expression has type Core.Rule.def list -> string list
+386101293276136205	doesn't type-check: This expression has type int list -> string list
+4144066219441276628	doesn't type-check: This expression has type Core.Rule.def list -> string list
+1511708223216655015	doesn't type-check: This expression has type Core.Rule.def list -> string list

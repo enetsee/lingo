@@ -129,7 +129,8 @@
         lcr          2  all killed, sexp_parser.ml: 2
         aor          4  all killed, law_parse: 3, law_parse sexp_parser.ml:: 1
         uoi         10  all killed, sexp_parser.ml: 10
-      survived at lines 51 69 129 166
+      survived in holds (sbr), instr_kinds (extreme), words (sbr 2),
+        bitset (ror)
    ---------------------------------------------------------------------- *)
 
 (* -- the corpus ------------------------------------------------------------- *)

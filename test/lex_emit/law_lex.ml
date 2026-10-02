@@ -84,7 +84,8 @@
         ror          7  4 killed, sexp_match.ml: 3 json_match.ml: 1; 3 survived
         aor          5  4 killed, sexp_lexer.ml: 4; 1 survived
         uoi          7  all killed, law_lex sexp_match.ml:: 3, law_lex sexp_lexer.ml:: 2, law_lex: 1, law_lex json_match.ml:: 1
-      survived at lines 170 186 211 377
+      survived in bits_for (ror), cells (ror), first_high (ror),
+        table_cluster (aor)
    ---------------------------------------------------------------------- *)
 
 (* -- the corpus ------------------------------------------------------------ *)

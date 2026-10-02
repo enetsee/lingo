@@ -76,7 +76,7 @@
         lcr         15  14 killed, law_lower sexp:: 3, law_validate invalid-name:: 3, mangle_test snake_case_acronym: 3, law_manifest sexp:: 2, dump_treesitter: 1, law_textmate: 1, law_validate token-unreachable:: 1; 1 survived
         aor          5  all killed, law_lower: 2, mangle_test: 2, mangle_test snake_case_acronym: 1
         uoi          9  all killed, law_lower sexp:: 3, law_manifest sexp:: 2, law_lower: 1, law_manifest reserved-name:: 1, law_textmate: 1, mangle_test snake_case_acronym: 1
-      survived at lines 18 106
+      survived in snake_case_acronym (lcr), ident_error (ror 2)
    ---------------------------------------------------------------------- *)
 
 (* A built tree carries no positions and a parsed one carries real ones, so

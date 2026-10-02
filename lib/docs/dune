@@ -10,4 +10,5 @@
  (public_name lingo.docs)
  (libraries core scopes handsome redfa)
  (instrumentation
-  (backend assay)))
+  (backend assay -skip assay.skip -arid assay.arid)
+  (deps %{workspace_root}/assay.skip %{workspace_root}/assay.arid)))

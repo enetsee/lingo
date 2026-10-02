@@ -50,7 +50,11 @@
         aor         17  15 killed, law_lower: 15; 1 survived; 1 timed out
         uoi         29  23 killed, law_lower: 10, law_lower sexp:: 3, law_facts json/Member.key:: 2, law_first_follow sexp/Sexp: 2, law_lower shapes:: 2, law_facts sexp/Sexp.kind:: 1, law_first_follow ml/Path: 1, law_lower effekt:: 1, law_sample (e): 1; 6 timed out
         empty       19  16 killed, law_facts json/Member.key:: 3, law_lower sexp:: 3, law_first_follow ml/List: 2, law_first_follow sexp/Sexp: 2, dump_docs: 1, law_facts ml/Stmt.e:: 1, law_first_follow calc/File: 1, law_first_follow calc/Parens: 1, law_first_follow json/Value: 1, law_lower (a): 1; 3 survived
-      survived at lines 33 54 75 93 102 103 116 129 140 203 303 347 428 518 592 614
+      survived in solve (sbr), body_children (aor), rule_of_kind (ror),
+        context (sbr 2, ror), kind_nullable (ror), kind_first (ror),
+        rule_targets (ror), min_size (ror), first (empty),
+        follow (ror, empty), enclosing (ror), Reader.child_nullable (extreme),
+        Reader.suffix_first (sbr, empty)
    ---------------------------------------------------------------------- *)
 
 module String_set = Set.Make (String)

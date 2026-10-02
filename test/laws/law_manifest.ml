@@ -48,7 +48,8 @@
         extreme      6  5 killed, law_lower: 1, law_lower calc:: 1, law_lower json:: 1, law_manifest dup-kind-name:: 1, law_manifest reserved-name:: 1; 1 survived
         sbr         27  8 killed, sexp: 7 reserved-name: 1; 19 survived
         uoi          3  2 killed, law_manifest dup-kind-name:: 1, law_validate dup-child-name:: 1; 1 survived
-      survived at lines 210 211 214 215 217 229 243 246 247 248 249 250 255 260 261 262 277 279 280 286 365
+      survived in production_entries (sbr 6),
+        block_entries (extreme, sbr 12, uoi), collisions (sbr)
    ---------------------------------------------------------------------- *)
 
 let starts_upper s = s <> "" && s.[0] >= 'A' && s.[0] <= 'Z'

@@ -76,7 +76,7 @@
         lcr          1  all killed, sexp: 1
         aor         12  10 killed, dump_lexer: 4, law_lexer: 4, law_lexer sexp:: 2; 2 timed out
         uoi          8  all killed, law_lexer sexp:: 4, dump_lexer: 2, law_lex sexp_lexer.ml:: 1, law_lexer: 1
-      survived at lines 42
+      survived in flatten (sbr, ror)
    ---------------------------------------------------------------------- *)
 
 let grammars : (string * Core.Grammar.t) list =

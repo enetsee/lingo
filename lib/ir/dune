@@ -2,4 +2,5 @@
  (name ir)
  (public_name lingo_runtime.ir)
  (instrumentation
-  (backend assay)))
+  (backend assay -skip assay.skip -arid assay.arid)
+  (deps %{workspace_root}/assay.skip %{workspace_root}/assay.arid)))
