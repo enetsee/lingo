@@ -25,7 +25,7 @@
     (slot (kinds 1) (before flat) (between flat))
   )
   (rule 1 Doc 1
-    (frame delimited 2 3 (sep 4 never))
+    (frame delimited 2 3 (sep 4 never never))
     (body fit) (inner fit) (indent 2)
     (slot (kinds 5) repeats (before flat) (between fit))
   )

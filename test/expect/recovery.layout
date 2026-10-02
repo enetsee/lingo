@@ -76,7 +76,7 @@
     (slot (kinds 10) (before fit) (between fit))
   )
   (rule 5 Fields 5
-    (frame separated (sep 14 never))
+    (frame separated (sep 14 never never))
     (body fit) (inner fit) (indent 2)
     (slot (kinds 6) repeats (before flat) (between fit))
   )

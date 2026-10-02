@@ -23,6 +23,7 @@ let rec sexp_of_instr (i : Ir.Plan.instr) : Sexp.t =
   | Close -> atom "close"
   | Trivia -> atom "trivia"
   | Bump -> atom "bump"
+  | Bump_reporting m -> keyed "bump" [ msg m ]
   | Drain m -> keyed "drain" [ msg m ]
   | Open k -> keyed "open" [ num k ]
   | Call r -> keyed "call" [ num r ]
@@ -207,6 +208,7 @@ let rec instr_of_sexp (s : Sexp.t) : Ir.Plan.instr =
   | Sexp.Atom "bump" -> Bump
   | Sexp.List (Sexp.Atom "seq" :: xs) ->
     Seq (Array.of_list (List.map xs ~f:instr_of_sexp))
+  | Sexp.List [ Sexp.Atom "bump"; m ] -> Bump_reporting (msg_of m)
   | Sexp.List [ Sexp.Atom "drain"; m ] -> Drain (msg_of m)
   | Sexp.List [ Sexp.Atom "open"; k ] -> Open (as_int k)
   | Sexp.List [ Sexp.Atom "call"; r ] -> Call (as_int r)

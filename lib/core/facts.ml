@@ -210,37 +210,51 @@ let pp_modifier (fmt : Format.formatter) : Grammar.modifier -> unit = function
   | Grammar.One_or_more _ -> Format.pp_print_string fmt "+"
 ;;
 
+(* Where a separator goes when its body breaks. The default prints nothing. *)
+let starts_line (p : Grammar.operator_position) : string =
+  match p with
+  | Grammar.Op_after -> ""
+  | Grammar.Op_before -> "/starts-line"
+;;
+
+(* A separator's policy at one end, leading or trailing. *)
+let optional_sep (p : Grammar.optional_sep) : string =
+  match p with
+  | Grammar.Never -> "never"
+  | Grammar.On_break -> "on_break"
+  | Grammar.Always -> "always"
+;;
+
 let pp_frame (t : t) (fmt : Format.formatter) (f : Rule.frame) : unit =
   let k (kind : Kind.t) : string = Kind.Name.to_string (Kind.Table.name t.kinds kind) in
   match f with
   | Rule.Plain -> Format.pp_print_string fmt "plain"
   | Rule.Committed { boundary } -> Format.fprintf fmt "committed(boundary=%b)" boundary
-  | Rule.Delimited { open_; close; sep; boundary } ->
+  | Rule.Delimited { open_; close; sep; pad; boundary } ->
     Format.fprintf
       fmt
-      "delimited(%s .. %s%s, boundary=%b)"
+      "delimited(%s .. %s%s%s, boundary=%b)"
       (k open_)
       (k close)
       (match sep with
        | None -> ""
-       | Some { sep_tok; trailing } ->
+       | Some { sep_tok; leading; trailing; position } ->
          Printf.sprintf
-           ", sep=%s/%s"
+           ", sep=%s/%s/%s%s"
            (k sep_tok)
-           (match trailing with
-            | Grammar.Never -> "never"
-            | Grammar.On_break -> "on_break"
-            | Grammar.Always -> "always"))
+           (optional_sep leading)
+           (optional_sep trailing)
+           (starts_line position))
+      (if pad then ", pad" else "")
       boundary
-  | Rule.Separated { sep_tok; trailing; boundary } ->
+  | Rule.Separated { sep_tok; leading; trailing; position; boundary } ->
     Format.fprintf
       fmt
-      "separated(%s/%s, boundary=%b)"
+      "separated(%s/%s/%s%s, boundary=%b)"
       (k sep_tok)
-      (match trailing with
-       | Grammar.Never -> "never"
-       | Grammar.On_break -> "on_break"
-       | Grammar.Always -> "always")
+      (optional_sep leading)
+      (optional_sep trailing)
+      (starts_line position)
       boundary
 ;;
 

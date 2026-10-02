@@ -21,7 +21,7 @@ let break (b : Ir.Layout.break) : Emit.expr =
   | Hard lines -> ctor "Hard" [ Emit.eint lines ]
 ;;
 
-let trailing (t : Ir.Layout.trailing) : Emit.expr =
+let optional_sep (t : Ir.Layout.optional_sep) : Emit.expr =
   match t with
   | Never -> ctor "Never" []
   | On_break -> ctor "On_break" []
@@ -32,7 +32,12 @@ let sep (s : Ir.Layout.sep) : Emit.expr =
   Emit.erecord
     [ "Lingo_runtime.Layout.sep_kind", Emit.eint s.sep_kind
     ; "text", Emit.estr s.text
-    ; "trailing", trailing s.trailing
+    ; "leading", optional_sep s.leading
+    ; "trailing", optional_sep s.trailing
+    ; ( "position"
+      , match s.position with
+        | Ends_line -> ctor "Ends_line" []
+        | Starts_line -> ctor "Starts_line" [] )
     ]
 ;;
 
@@ -49,6 +54,7 @@ let frame (f : Ir.Layout.frame) : Emit.expr =
           ; "close", Emit.eint d.close
           ; "sep", option sep d.sep
           ; "open_space", Emit.ebool d.open_space
+          ; "pad", Emit.ebool d.pad
           ]
       ]
   | Separated s -> ctor "Separated" [ sep s ]
@@ -82,10 +88,17 @@ let trivia (t : Ir.Layout.trivia) : Emit.expr =
   | Preserve -> ctor "Preserve" []
 ;;
 
+let side (s : Ir.Layout.side) : Emit.expr =
+  match s with
+  | Hug -> ctor "Hug" []
+  | Free -> ctor "Free" []
+  | Space -> ctor "Space" []
+;;
+
 let token (t : Ir.Layout.token) : Emit.expr =
   Emit.erecord
-    [ "Lingo_runtime.Layout.space_before", Emit.ebool t.space_before
-    ; "space_after", Emit.ebool t.space_after
+    [ "Lingo_runtime.Layout.space_before", side t.space_before
+    ; "space_after", side t.space_after
     ; "trivia", option trivia t.trivia
     ]
 ;;

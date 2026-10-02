@@ -32,6 +32,12 @@ type instr =
   | Close (** Finish the open node. *)
   | Trivia (** Put the trivia under the cursor into the open node. *)
   | Bump (** Take one token. *)
+  | Bump_reporting of Message.id
+  (** Take one token, and report one [Extra] over it. A separator the grammar
+          forbids in front of a body's first element is the case: it is
+          leading as soon as it is taken, so the report goes with the taking.
+          A trailing one is trailing only once the body ends, and its report
+          is the loop's exit instead; see {!exit_policy}. *)
   | Expect of
       { tok : Kind.t
       ; message : Message.id

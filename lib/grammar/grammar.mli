@@ -120,26 +120,41 @@ type child =
   ; c_parse : child_parse
   }
 
-(** What happens to a separator after the last element.
+(** Where an infix operator or a separator goes when what holds it breaks
+    across lines. *)
+type operator_position =
+  | Op_before (** At the start of the next line. *)
+  | Op_after (** At the end of the previous line. *)
 
-    - [Never]: the parser rejects one and the formatter emits none.
-    - [On_break]: the parser accepts one; the formatter strips whatever the
-      source had and emits one when the body breaks across lines.
-    - [Always]: the parser accepts one; the formatter strips whatever the
-      source had and emits one. *)
-type trailing_sep =
+(** What the formatter does with a separator the grammar allows at one end of a
+    body: in front of the first element, or after the last.
+
+    The parser takes one at either end whatever the policy, because it is bytes
+    the source had. The policy says whether it belongs there.
+
+    - [Never]: it does not belong. The parser reports it, and the formatter
+      writes none.
+    - [On_break]: the formatter writes one where the body breaks across lines,
+      and none where it lies flat.
+    - [Always]: the formatter writes one whether the body breaks or not. *)
+type optional_sep =
   | Never
   | On_break
   | Always
 
 (** The separator in a delimited body or an enclosed postfix. Carries the
-    separator and its trailing policy together, so a trailing policy always
-    has a separator to apply to. *)
+    separator and its two end policies together, so a policy always has a
+    separator to apply to. *)
 type sep_policy =
   | No_sep
   | With_sep of
       { sep : Name.Token.t
-      ; trailing : trailing_sep
+      ; leading : optional_sep (** In front of the first element. *)
+      ; trailing : optional_sep (** After the last element. *)
+      ; position : operator_position
+        (** Where it goes when the body breaks: [Op_after] ends a line with
+              it, as [a,] does, and [Op_before] starts the next with it, as
+              [| B] does. *)
       }
 
 (** A recovery lookahead count in [1, max_recovery_lookahead]. Built with 
@@ -175,11 +190,16 @@ type framing =
       { open_tok : Name.Token.t
       ; close_tok : Name.Token.t
       ; sep_policy : sep_policy
+      ; pad : bool
+        (** Whether a space goes just inside each delimiter of a body with
+              something in it: [{ a }] rather than [{a}]. *)
       ; boundary : bool
       }
   | Separated of
       { sep : Name.Token.t
-      ; trailing : trailing_sep
+      ; leading : optional_sep
+      ; trailing : optional_sep
+      ; position : operator_position
       ; boundary : bool
       }
 
@@ -276,12 +296,11 @@ and postfix_op =
   ; space : bool
     (** Whether a space goes between the operand and the lead token. Every
           builder defaults it to [false]. *)
+  ; pad : bool
+    (** Whether a space goes just inside the pair of an enclosed body, as a
+          delimited production's [pad] does. Every builder defaults it to
+          [false]. *)
   }
-
-(** Where the operator goes when an infix expression breaks across lines. *)
-type operator_position =
-  | Op_before (** At the start of the next line. *)
-  | Op_after (** At the end of the previous line. *)
 
 type expr_format =
   { operator_position : operator_position
@@ -329,15 +348,21 @@ type token_class =
   | Punctuation of string
   | Pattern of pattern_spec
 
-(** Where a token allows a space. Both sides default to [true].
+(** What one side of a token does to the space there.
 
-    The production holding a boundary sets whether a space goes there. A
-    [false] side removes it, wherever the token appears. That is for a token
-    written against its neighbour everywhere in a language: [,] and [;] take
-    [false] before, [(] takes [false] after, [.] takes [false] on both. *)
+    The production holding a boundary sets whether a space goes there, and a
+    token's side outranks it. Both are for how a language writes the token
+    everywhere it appears. Where the two tokens of a boundary disagree, [Hug]
+    wins. *)
+type side =
+  | Hug (** Never a space: [,] and [;] before, [(] after, [.] on both. *)
+  | Free (** The production holding the boundary decides. *)
+  | Space (** Always a space: rust's [{] before. *)
+
+(** Both sides default to [Free]. *)
 type token_format =
-  { space_before : bool
-  ; space_after : bool
+  { space_before : side
+  ; space_after : side
   }
 
 (** A token.
@@ -390,9 +415,14 @@ val prefix : ?assoc:assoc -> token:string -> bp:int -> unit -> operator
 
 (** A separator for a delimited body or an enclosed postfix. Use it when you
     are building a {!type-sep_policy} yourself, as {!postfix_call} needs. The
-    [with_] functions take a plain [~sep] instead. [trailing] defaults to
-    [Never]. *)
-val with_sep : ?trailing:trailing_sep -> string -> sep_policy
+    [with_] functions take a plain [~sep] instead. [leading] and [trailing]
+    default to [Never], and [position] to [Op_after]. *)
+val with_sep
+  :  ?leading:optional_sep
+  -> ?trailing:optional_sep
+  -> ?position:operator_position
+  -> string
+  -> sep_policy
 
 val expr_block
   :  rule_name:string
@@ -420,8 +450,8 @@ val expr_block
     v}
 
     A postfix operator is written against its operand, so [space] defaults to
-    [false]. effekt's trailing block, [f(x) { s; }], gives {!postfix_brace}
-    [~space:true]. *)
+    [false]. A lead token whose side is [Space] still takes one, which is how
+    effekt's trailing block comes out as [f(x) { s; }]. *)
 
 val postfix_simple
   :  ?kind_suffix:string
@@ -443,6 +473,7 @@ val postfix_access
 val postfix_index
   :  ?kind_suffix:string
   -> ?space:bool
+  -> ?pad:bool
   -> open_tok:string
   -> close_tok:string
   -> index:symbol
@@ -453,6 +484,7 @@ val postfix_index
 val postfix_brace
   :  ?kind_suffix:string
   -> ?space:bool
+  -> ?pad:bool
   -> open_tok:string
   -> close_tok:string
   -> body:symbol
@@ -464,6 +496,7 @@ val postfix_brace
 val postfix_call
   :  ?kind_suffix:string
   -> ?space:bool
+  -> ?pad:bool
   -> open_tok:string
   -> close_tok:string
   -> elem:symbol
@@ -565,10 +598,10 @@ val child_alt_rules
 val kw : ?name:string -> ?trivia:trivia_class -> string -> token_def
 
 (** Punctuation. [~name] is required, since a literal such as ["("] cannot
-    double as an identifier. Spacing defaults to [true] on both sides. *)
+    double as an identifier. Both sides default to [Free]. *)
 val punct
-  :  ?space_before:bool
-  -> ?space_after:bool
+  :  ?space_before:side
+  -> ?space_after:side
   -> ?trivia:trivia_class
   -> name:string
   -> string
@@ -599,30 +632,42 @@ val with_messages : (string * string) list -> production -> production
     A delimited production takes a different parser shape from a plain
     sequence of children. The body loop runs until it reaches the close
     token, and never consults element FIRST sets. The recovery set inside
-    the body gains the closer, so a broken child resumes at the bracket. *)
+    the body gains the closer, so a broken child resumes at the bracket.
+
+    [pad] puts a space just inside each delimiter when the body has something
+    in it and lies on one line, and defaults to [false]. *)
 val with_delimited
   :  open_tok:string
   -> close_tok:string
+  -> ?pad:bool
   -> ?boundary:bool
   -> production
   -> production
 
-(** {!with_delimited} with a separator between elements. *)
+(** {!with_delimited} with a separator between elements. [leading_sep] and
+    [trailing_sep] default to [Never] and [sep_position] to [Op_after]; see
+    {!type-sep_policy}. *)
 val with_delimited_sep
   :  open_tok:string
   -> close_tok:string
   -> sep:string
-  -> ?trailing_sep:trailing_sep
+  -> ?leading_sep:optional_sep
+  -> ?trailing_sep:optional_sep
+  -> ?sep_position:operator_position
+  -> ?pad:bool
   -> ?boundary:bool
   -> production
   -> production
 
 (** A [sep]-separated list with nothing around it. The child's modifier says
     whether it can be empty, and {!child_rep1} is usually what one of these
-    takes: an empty list with nothing around it is no syntax at all. *)
+    takes: an empty list with nothing around it is no syntax at all. The
+    separator arguments are {!with_delimited_sep}'s. *)
 val with_separator
   :  sep:string
-  -> ?trailing_sep:trailing_sep
+  -> ?leading_sep:optional_sep
+  -> ?trailing_sep:optional_sep
+  -> ?sep_position:operator_position
   -> ?boundary:bool
   -> production
   -> production

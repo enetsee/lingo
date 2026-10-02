@@ -32,8 +32,8 @@ let grammar : t =
   in
   let digit = Redfa.Regex.range_char ~lo:'0' ~hi:'9' in
   let tokens =
-    [ punct ~space_after:false ~name:"lparen" "("
-    ; punct ~space_before:false ~name:"rparen" ")"
+    [ punct ~space_after:Hug ~name:"lparen" "("
+    ; punct ~space_before:Hug ~name:"rparen" ")"
     ; pat "ident" Redfa.Regex.(seq ident_head (star ident_cont))
     ; pat
         "number"

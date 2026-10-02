@@ -92,7 +92,7 @@
     (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
   )
   (rule 8 ExprPostfixCall 22
-    (frame delimited 2 3 (sep 9 never))
+    (frame delimited 2 3 (sep 9 never never))
     (body fit) (inner fit) (indent 2)
     (slot (kinds 15 16 18 19 20 21 22 25) (before flat) (between flat))
     (slot (kinds 15 16 18 19 20 21 22 25) repeats (before flat) (between fit))

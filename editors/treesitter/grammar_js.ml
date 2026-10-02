@@ -68,7 +68,8 @@ let separated
       (facts : Core.Facts.t)
       (element_child : Core.Rule.child)
       ~(sep : Core.Kind.t)
-      ~(trailing : Core.Grammar.trailing_sep)
+      ~(leading : Core.Grammar.optional_sep)
+      ~(trailing : Core.Grammar.optional_sep)
       ~(uses : (string, unit) Hashtbl.t)
   : Js.t
   =
@@ -85,9 +86,21 @@ let separated
     | Core.Grammar.On_break | Core.Grammar.Always ->
       Js.call "seq" [ one_or_more; Js.call "optional" [ sep ] ]
   in
+  (* A leading separator sits in front of the first element, and a body with
+     no elements may hold one alone, as the parser takes it. *)
+  let with_leading (rest : Js.t) : Js.t =
+    match leading with
+    | Core.Grammar.Never -> rest
+    | Core.Grammar.On_break | Core.Grammar.Always ->
+      Js.call "seq" [ Js.call "optional" [ sep ]; rest ]
+  in
   match element_child.modifier with
-  | Core.Grammar.One_or_more _ -> with_trailing
-  | Core.Grammar.Zero_or_more _ -> Js.call "optional" [ with_trailing ]
+  | Core.Grammar.One_or_more _ -> with_leading with_trailing
+  | Core.Grammar.Zero_or_more _ ->
+    (match leading with
+     | Core.Grammar.Never -> Js.call "optional" [ with_trailing ]
+     | Core.Grammar.On_break | Core.Grammar.Always ->
+       with_leading (Js.call "optional" [ with_trailing ]))
   | Core.Grammar.Exactly_one -> element
   | Core.Grammar.Zero_or_one -> Js.call "optional" [ element ]
 ;;
@@ -123,16 +136,16 @@ let body (facts : Core.Facts.t) (rule : Core.Rule.def) ~(uses : (string, unit) H
   | Core.Rule.Delimited { open_; close; sep; _ } ->
     let inside =
       match framed, sep with
-      | [ element_child ], Some { sep_tok; trailing } ->
-        [ separated facts element_child ~sep:sep_tok ~trailing ~uses ]
+      | [ element_child ], Some { sep_tok; leading = first; trailing } ->
+        [ separated facts element_child ~sep:sep_tok ~leading:first ~trailing ~uses ]
       | _ -> List.map framed ~f:(child facts)
     in
     seq_of ((leading @ [ symbol facts open_ ]) @ inside @ [ symbol facts close ])
-  | Core.Rule.Separated { sep_tok; trailing; _ } ->
+  | Core.Rule.Separated { sep_tok; leading = first; trailing; _ } ->
     let inside =
       match framed with
       | [ element_child ] ->
-        [ separated facts element_child ~sep:sep_tok ~trailing ~uses ]
+        [ separated facts element_child ~sep:sep_tok ~leading:first ~trailing ~uses ]
       | _ -> List.map framed ~f:(child facts)
     in
     seq_of (leading @ inside)

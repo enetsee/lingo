@@ -54,15 +54,15 @@ let grammar : t =
     ; kw "fn"
     ; kw "let"
     ; kw "match"
-    ; punct ~space_after:false ~name:"lbrace" "{"
-    ; punct ~space_before:false ~name:"rbrace" "}"
-    ; punct ~space_after:false ~name:"lparen" "("
-    ; punct ~space_before:false ~name:"rparen" ")"
-    ; punct ~space_after:false ~name:"lbracket" "["
-    ; punct ~space_before:false ~name:"rbracket" "]"
-    ; punct ~space_before:false ~name:"comma" ","
-    ; punct ~space_before:false ~name:"semi" ";"
-    ; punct ~space_before:false ~name:"colon" ":"
+    ; punct ~space_before:Space ~name:"lbrace" "{"
+    ; punct ~name:"rbrace" "}"
+    ; punct ~space_after:Hug ~name:"lparen" "("
+    ; punct ~space_before:Hug ~name:"rparen" ")"
+    ; punct ~space_after:Hug ~name:"lbracket" "["
+    ; punct ~space_before:Hug ~name:"rbracket" "]"
+    ; punct ~space_before:Hug ~name:"comma" ","
+    ; punct ~space_before:Hug ~name:"semi" ";"
+    ; punct ~space_before:Hug ~name:"colon" ":"
     ; punct_tight ~name:"dot" "."
     ; punct_tight ~name:"question" "?"
     ; punct ~name:"arrow" "->"
@@ -74,7 +74,7 @@ let grammar : t =
     ; punct ~name:"slash" "/"
     ; punct ~name:"eqeq" "=="
     ; punct ~name:"bangeq" "!="
-    ; punct ~space_after:false ~name:"bang" "!"
+    ; punct ~space_after:Hug ~name:"bang" "!"
     ; pat "ident" ident
     ; pat "int" (Redfa.Regex.plus digit)
     ; pat
@@ -111,6 +111,7 @@ let grammar : t =
   let struct_body =
     prod "StructBody" [ child_rep "field" (Rule "Field") ]
     |> with_delimited_sep
+         ~pad:true
          ~open_tok:"lbrace"
          ~close_tok:"rbrace"
          ~sep:"comma"
@@ -141,6 +142,7 @@ let grammar : t =
   let struct_payload =
     prod "StructPayload" [ child_rep "field" (Rule "Field") ]
     |> with_delimited_sep
+         ~pad:true
          ~open_tok:"lbrace"
          ~close_tok:"rbrace"
          ~sep:"comma"
@@ -162,6 +164,7 @@ let grammar : t =
   let enum_body =
     prod "EnumBody" [ child_rep "variant" (Rule "Variant") ]
     |> with_delimited_sep
+         ~pad:true
          ~open_tok:"lbrace"
          ~close_tok:"rbrace"
          ~sep:"comma"
@@ -217,7 +220,7 @@ let grammar : t =
     prod
       "TraitBody"
       [ child_rep ~break:(always 1) ~between:(always 1) "method_" (Rule "MethodSig") ]
-    |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_delimited ~pad:true ~open_tok:"lbrace" ~close_tok:"rbrace"
   in
   let trait =
     prod
@@ -291,7 +294,7 @@ let grammar : t =
       ~indent_width:2
       "Block"
       [ child_rep ~break:(always 1) ~between:(always 1) "stmt" (Rule "Stmt") ]
-    |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_delimited ~pad:true ~open_tok:"lbrace" ~close_tok:"rbrace"
     |> with_scope
     |> with_recovery_strategy (Lookahead (lookahead_n 3))
   in
@@ -313,6 +316,7 @@ let grammar : t =
       "MatchBody"
       [ child_rep ~break:(always 1) ~between:(always 1) "arm" (Rule "MatchArm") ]
     |> with_delimited_sep
+         ~pad:true
          ~open_tok:"lbrace"
          ~close_tok:"rbrace"
          ~sep:"comma"

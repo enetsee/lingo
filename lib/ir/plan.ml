@@ -7,6 +7,7 @@ type instr =
   | Close
   | Trivia
   | Bump
+  | Bump_reporting of Message.id
   | Expect of
       { tok : Kind.t
       ; message : Message.id

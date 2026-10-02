@@ -75,22 +75,25 @@ let token_text (grammar : Core.Grammar.t) (name : Core.Grammar.Name.Token.t)
   symbol grammar (Core.Grammar.Token (Core.Grammar.Name.Token.to_string name))
 ;;
 
-(* A framed body shows its separator and its trailing policy. A reader has
-   to know both to type the language. *)
+(* A framed body shows its separator and its two end policies. A reader has
+   to know all three to type the language. *)
 let separator (grammar : Core.Grammar.t) (sep : Core.Grammar.sep_policy) : Render.document
   =
   match sep with
   | Core.Grammar.No_sep -> Handsome.Utf8.empty
-  | Core.Grammar.With_sep { sep; trailing } ->
+  | Core.Grammar.With_sep { sep; leading; trailing } ->
+    let policy (at : string) (p : Core.Grammar.optional_sep) =
+      match p with
+      | Core.Grammar.Never -> Handsome.Utf8.empty
+      | Core.Grammar.On_break -> doc " " ^^ notation (at ^ "-on-break")
+      | Core.Grammar.Always -> doc " " ^^ notation at
+    in
     doc " "
     ^^ notation "sep"
     ^^ doc " "
     ^^ token_text grammar sep
-    ^^
-      (match trailing with
-      | Core.Grammar.Never -> Handsome.Utf8.empty
-      | Core.Grammar.On_break -> doc " " ^^ notation "trailing-on-break"
-      | Core.Grammar.Always -> doc " " ^^ notation "trailing")
+    ^^ policy "leading" leading
+    ^^ policy "trailing" trailing
 ;;
 
 let production (grammar : Core.Grammar.t) (production : Core.Grammar.production)
@@ -113,8 +116,9 @@ let production (grammar : Core.Grammar.t) (production : Core.Grammar.production)
       ^^ space
       ^^ token_text grammar close_tok
       ^^ separator grammar sep_policy
-    | Core.Grammar.Separated { sep; trailing; _ } ->
-      children ^^ separator grammar (Core.Grammar.With_sep { sep; trailing })
+    | Core.Grammar.Separated { sep; leading; trailing; position; _ } ->
+      children
+      ^^ separator grammar (Core.Grammar.With_sep { sep; leading; trailing; position })
   in
   Handsome.Utf8.group
     (mark

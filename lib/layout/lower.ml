@@ -9,23 +9,54 @@ let break (style : Grammar.break_style) : Ir.Layout.break =
   | Always n -> Hard (n :> int)
 ;;
 
-let trailing (t : Grammar.trailing_sep) : Ir.Layout.trailing =
+let side (s : Grammar.side) : Ir.Layout.side =
+  match s with
+  | Hug -> Hug
+  | Free -> Free
+  | Space -> Space
+;;
+
+let optional_sep (t : Grammar.optional_sep) : Ir.Layout.optional_sep =
   match t with
   | Never -> Never
   | On_break -> On_break
   | Always -> Always
 ;;
 
-(* A separator with no fixed spelling cannot be written, so the policy drops to
-   [Never]: the parser still reports a trailing one and the formatter adds none.
+let position (p : Grammar.operator_position) : Ir.Layout.position =
+  match p with
+  | Op_after -> Ends_line
+  | Op_before -> Starts_line
+;;
+
+(* A separator with no fixed spelling cannot be written, so both policies drop
+   to [Never]: the parser still reports one and the formatter adds none.
    A pattern token matched whatever it matched and there is nothing to write. *)
 let sep (f : Core.Facts.t) (s : Core.Rule.sep) : Ir.Layout.sep =
   match Core.Facts.token_of_kind f s.sep_tok with
   | Some t ->
     (match Core.Token.text t with
-     | Some text -> { sep_kind = kind s.sep_tok; text; trailing = trailing s.trailing }
-     | None -> { sep_kind = kind s.sep_tok; text = ""; trailing = Never })
-  | None -> { sep_kind = kind s.sep_tok; text = ""; trailing = Never }
+     | Some text ->
+       { sep_kind = kind s.sep_tok
+       ; text
+       ; leading = optional_sep s.leading
+       ; trailing = optional_sep s.trailing
+       ; position = position s.position
+       }
+     | None ->
+       { sep_kind = kind s.sep_tok
+       ; text = ""
+       ; leading = Never
+       ; trailing = Never
+       ; position = position s.position
+       })
+  | None ->
+    { sep_kind = kind s.sep_tok
+    ; text = ""
+    ; leading = Never
+    ; trailing = Never
+    ; position = position s.position
+    }
 ;;
 
 (* [open_space] is the gap between an enclosed postfix's operand and its
@@ -35,7 +66,7 @@ let frame (facts : Core.Facts.t) ~(open_space : bool) (f : Core.Rule.frame)
   =
   match f with
   | Plain | Committed _ -> Plain
-  | Delimited { open_; close; sep = s; boundary = _ } ->
+  | Delimited { open_; close; sep = s; pad; boundary = _ } ->
     Delimited
       { open_ = kind open_
       ; close = kind close
@@ -44,9 +75,10 @@ let frame (facts : Core.Facts.t) ~(open_space : bool) (f : Core.Rule.frame)
            | None -> None
            | Some s -> Some (sep facts s))
       ; open_space
+      ; pad
       }
-  | Separated ({ sep_tok = _; trailing = _; boundary = _ } as sp) ->
-    Separated (sep facts { Core.Rule.sep_tok = sp.sep_tok; trailing = sp.trailing })
+  | Separated { sep_tok; leading; trailing; position; boundary = _ } ->
+    Separated (sep facts { Core.Rule.sep_tok; leading; trailing; position })
 ;;
 
 (* A child whose symbol is an expression block is filled by any node that
@@ -205,8 +237,8 @@ let tokens (f : Core.Facts.t) =
   Array.iter f.tokens ~f:(fun (t : Core.Token.def) ->
     out.(kind t.kind)
     <- Some
-         { Ir.Layout.space_before = t.format.space_before
-         ; space_after = t.format.space_after
+         { Ir.Layout.space_before = side t.format.space_before
+         ; space_after = side t.format.space_after
          ; trivia =
              (match t.trivia with
               | None -> None
@@ -216,7 +248,7 @@ let tokens (f : Core.Facts.t) =
   (* The two the lexer makes rather than the grammar. Both hold bytes nobody
      described, and the best a formatter can do with those is leave them where
      the source had them, so neither takes a space. *)
-  let raw = Some { Ir.Layout.space_before = false; space_after = false; trivia = None } in
+  let raw = Some { Ir.Layout.space_before = Hug; space_after = Hug; trivia = None } in
   out.(kind f.error_token_kind) <- raw;
   out.(kind f.unterminated_kind) <- raw;
   out

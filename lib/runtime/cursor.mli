@@ -92,6 +92,11 @@ val offset : t -> int
     only in the light of what follows it. *)
 val report_at : t -> int * int -> Diagnostic.kind -> unit
 
+(** [bump_reporting c id] takes one token, as {!bump} does, and reports one
+    [Extra] over it. A separator the grammar forbids in front of a body's first
+    element is the case: it is leading as soon as it is taken. *)
+val bump_reporting : t -> Ir.Message.id -> unit
+
 (** The same, giving the diagnostic's 1-based id. Stamp that id on
     the recovery node as its payload, and a consumer walking the tree gets
     from a node to its diagnostic in one step.

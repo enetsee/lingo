@@ -283,12 +283,24 @@ let first (ctx : ctx) ~(nullable : bool array) : Kind.Set.t array =
           pre
           (match d.frame with
            | Rule.Delimited { open_; _ } -> Kind.Set.singleton open_
-           | Rule.Separated _ ->
-             (* A separated body takes one element, then enters the separator loop. So
-                FIRST is the element's FIRST, whatever modifier the child slot carries. *)
+           | Rule.Separated { sep_tok; leading; _ } ->
+             (* A separated body takes one element, then enters the separator
+                loop. So FIRST is the element's FIRST, whatever modifier the
+                child slot carries, and the separator as well where the grammar
+                allows one in front of the first element.
+
+                A parse inside a body takes a leading separator under every
+                policy, and [Never] reports it. An undelimited body is entered
+                on its FIRST, though, and FIRST is what may start it. A set
+                that dispatched on a separator the parse then reports would be
+                two sets where the parser needs one. *)
              if Array.length body = 0
              then Kind.Set.empty
-             else alts_first ctx ~first body.(0)
+             else (
+               let element = alts_first ctx ~first body.(0) in
+               match leading with
+               | Grammar.Never -> element
+               | Grammar.On_break | Grammar.Always -> Kind.Set.add sep_tok element)
            | Rule.Plain | Rule.Committed _ -> fst (seq_first body))))
   in
   solve

@@ -47,13 +47,13 @@ module.exports = grammar({
 
     data_decl: $ => seq(field('kw', 'data'), field('name', $.ident), field('body', $.data_body)),
 
-    data_body: $ => seq('{', repeat(field('ctor', $.ctor)), '}'),
-
-    ctor: $ => seq(
-      field('bar', '|'),
-      field('name', $.ident),
-      optional(field('payload', $.ctor_payload))
+    data_body: $ => seq(
+      '{',
+      seq(optional('|'), optional(sepBy1('|', field('ctor', $.ctor)))),
+      '}'
     ),
+
+    ctor: $ => seq(field('name', $.ident), optional(field('payload', $.ctor_payload))),
 
     ctor_payload: $ => seq('(', optional(sepBy1(',', field('ty', $._type))), ')'),
 

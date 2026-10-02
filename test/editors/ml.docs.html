@@ -364,8 +364,8 @@
   </section>
   <section id="rule-DataBody">
   <h3>DataBody</h3>
-  <pre class="lg-listing"><span class="lg-rule">DataBody</span> <span class="lg-notation">=</span> <a href="#token-lbrace"><span class="lg-literal">&#39;{&#39;</span></a> <span class="lg-child">ctor</span><span class="lg-notation">:</span><a href="#rule-Ctor"><span class="lg-ref">Ctor</span></a><span class="lg-notation">*</span> <a href="#token-rbrace"><span class="lg-literal">&#39;}&#39;</span></a></pre>
-  <svg class="lg-diagram" role="img" viewBox="0 0 212 94" width="212" height="94" xmlns="http://www.w3.org/2000/svg">
+  <pre class="lg-listing"><span class="lg-rule">DataBody</span> <span class="lg-notation">=</span> <a href="#token-lbrace"><span class="lg-literal">&#39;{&#39;</span></a> <span class="lg-child">ctor</span><span class="lg-notation">:</span><a href="#rule-Ctor"><span class="lg-ref">Ctor</span></a><span class="lg-notation">*</span> <a href="#token-rbrace"><span class="lg-literal">&#39;}&#39;</span></a> <span class="lg-notation">sep</span> <a href="#token-bar"><span class="lg-literal">&#39;|&#39;</span></a> <span class="lg-notation">leading-on-break</span></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 260 132" width="260" height="132" xmlns="http://www.w3.org/2000/svg">
     <title>DataBody</title>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
@@ -375,61 +375,65 @@
     </a>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="44,35 56,35" />
     <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="56" y="18">ctor</text>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 106,35" />
-    <path class="lg-arrow" fill="currentColor" d="M 86 35 L 76 31 L 76 39 Z" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="106,35 106,35" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="106,35 156,35" />
-    <path class="lg-arrow" fill="currentColor" d="M 136 35 L 126 31 L 126 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 130,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 98 35 L 88 31 L 88 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="130,35 130,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="130,35 204,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 172 35 L 162 31 L 162 39 Z" />
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 68,35 68,73 80,73" />
-    <path class="lg-arrow" fill="currentColor" d="M 58 35 L 66 31 L 66 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="80,73 104,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 97 73 L 87 69 L 87 77 Z" />
     <a href="#rule-Ctor">
-    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="80" y="60" width="52" height="26" rx="3" />
-    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="106" y="77">Ctor</text>
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="104" y="60" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="130" y="77">Ctor</text>
     </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="132,73 144,73 144,35 156,35" />
-    <path class="lg-arrow" fill="currentColor" d="M 134 73 L 142 69 L 142 77 Z" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="156,35 168,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="156,73 180,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 173 73 L 163 69 L 163 77 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="80,73 92,73 92,111 116,111" />
+    <path class="lg-arrow" fill="currentColor" d="M 99 111 L 109 107 L 109 115 Z" />
+    <a href="#token-bar">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="116" y="98" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="130" y="115">|</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="144,111 168,111 168,73 180,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 151 111 L 161 107 L 161 115 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="180,73 192,73 192,35 204,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="204,35 216,35" />
     <a href="#token-rbrace">
-    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="168" y="22" width="28" height="26" rx="13" />
-    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="182" y="39">}</text>
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="216" y="22" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="230" y="39">}</text>
     </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="196,35 210,35" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="210,28 210,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="244,35 258,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="258,28 258,42" />
   </svg>
   </section>
   <section id="rule-Ctor">
   <h3>Ctor</h3>
-  <pre class="lg-listing"><span class="lg-rule">Ctor</span> <span class="lg-notation">=</span> <span class="lg-child">bar</span><span class="lg-notation">:</span><a href="#token-bar"><span class="lg-literal">&#39;|&#39;</span></a> <span class="lg-child">name</span><span class="lg-notation">:</span><a href="#token-ident"><span class="lg-token">ident</span></a> <span class="lg-child">payload</span><span class="lg-notation">:</span><a href="#rule-CtorPayload"><span class="lg-ref">CtorPayload</span></a><span class="lg-notation">?</span></pre>
-  <svg class="lg-diagram" role="img" viewBox="0 0 300 94" width="300" height="94" xmlns="http://www.w3.org/2000/svg">
+  <pre class="lg-listing"><span class="lg-rule">Ctor</span> <span class="lg-notation">=</span> <span class="lg-child">name</span><span class="lg-notation">:</span><a href="#token-ident"><span class="lg-token">ident</span></a> <span class="lg-child">payload</span><span class="lg-notation">:</span><a href="#rule-CtorPayload"><span class="lg-ref">CtorPayload</span></a><span class="lg-notation">?</span></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 260 94" width="260" height="94" xmlns="http://www.w3.org/2000/svg">
     <title>Ctor</title>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
-    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">bar</text>
-    <a href="#token-bar">
-    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="28" height="26" rx="13" />
-    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="30" y="39">|</text>
-    </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="44,35 56,35" />
-    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="56" y="18">name</text>
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">name</text>
     <a href="#token-ident">
-    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="56" y="22" width="60" height="26" rx="3" />
-    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="86" y="39">ident</text>
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="46" y="39">ident</text>
     </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="116,35 128,35" />
-    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="128" y="18">payload</text>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="128,35 206,35" />
-    <path class="lg-arrow" fill="currentColor" d="M 172 35 L 162 31 L 162 39 Z" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="206,35 206,35" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="206,35 284,35" />
-    <path class="lg-arrow" fill="currentColor" d="M 250 35 L 240 31 L 240 39 Z" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="128,35 140,35 140,73 152,73" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="76,35 88,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="88" y="18">payload</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="88,35 166,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 132 35 L 122 31 L 122 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="166,35 166,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="166,35 244,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 210 35 L 200 31 L 200 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="88,35 100,35 100,73 112,73" />
     <a href="#rule-CtorPayload">
-    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="152" y="60" width="108" height="26" rx="3" />
-    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="206" y="77">CtorPayload</text>
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="112" y="60" width="108" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="166" y="77">CtorPayload</text>
     </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="260,73 272,73 272,35 284,35" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="284,35 298,35" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="298,28 298,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="220,73 232,73 232,35 244,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="244,35 258,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="258,28 258,42" />
   </svg>
   </section>
   <section id="rule-CtorPayload">
@@ -1086,7 +1090,7 @@
     <tr><td><a href="#rule-TypeGroup"><code>TypeGroup</code></a></td><td><code>(</code></td><td><code>)</code> <code>,</code> <code>;</code> <code>-&gt;</code> <code>=</code> <code>*</code></td><td></td></tr>
     <tr><td><a href="#rule-DataDecl"><code>DataDecl</code></a></td><td><code>data</code></td><td><code>import</code> <code>type</code> <code>data</code> <code>let</code></td><td></td></tr>
     <tr><td><a href="#rule-DataBody"><code>DataBody</code></a></td><td><code>{</code></td><td><code>import</code> <code>type</code> <code>data</code> <code>let</code></td><td></td></tr>
-    <tr><td><a href="#rule-Ctor"><code>Ctor</code></a></td><td><code>|</code></td><td><code>}</code> <code>|</code></td><td></td></tr>
+    <tr><td><a href="#rule-Ctor"><code>Ctor</code></a></td><td><code>ident</code></td><td><code>}</code> <code>|</code></td><td></td></tr>
     <tr><td><a href="#rule-CtorPayload"><code>CtorPayload</code></a></td><td><code>(</code></td><td><code>}</code> <code>|</code></td><td></td></tr>
     <tr><td><a href="#rule-LetDecl"><code>LetDecl</code></a></td><td><code>let</code></td><td><code>import</code> <code>type</code> <code>data</code> <code>let</code></td><td></td></tr>
     <tr><td><a href="#rule-Param"><code>Param</code></a></td><td><code>(</code> <code>~</code></td><td><code>(</code> <code>~</code> <code>:</code></td><td></td></tr>

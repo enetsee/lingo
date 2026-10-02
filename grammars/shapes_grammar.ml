@@ -28,8 +28,8 @@ let grammar : t =
   let letter = Redfa.Regex.range_char ~lo:'a' ~hi:'z' in
   let tokens =
     [ kw "let"
-    ; punct ~space_after:false ~name:"lbrace" "{"
-    ; punct ~space_before:false ~name:"rbrace" "}"
+    ; punct ~space_after:Hug ~name:"lbrace" "{"
+    ; punct ~space_before:Hug ~name:"rbrace" "}"
     ; punct_tight ~name:"semi" ";"
     ; punct_tight ~name:"comma" ","
     ; punct ~name:"equals" "="

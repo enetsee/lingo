@@ -44,36 +44,53 @@ N_INIT
 N_NAMES
   0
     next T_NAME
-    on T_NAME -> 1
-    on T_COMMA -> 2
-  1 may-end
-    next T_COMMA
-    on T_COMMA -> 2
-  2
+    on T_COMMA -> 1
+    on T_NAME -> 2
+    on T_COMMA -> 3
+  1
     next T_NAME
-    on T_NAME -> 1
+    on T_NAME -> 2
+    on T_COMMA -> 3
+  2 may-end
+    next T_COMMA
+    on T_COMMA -> 3
+  3
+    next T_NAME
+    on T_NAME -> 2
 
 N_BLOCK
   0
     next T_LBRACE
     on T_LBRACE -> 1
-    on N_DECL -> 2
-    on N_ERROR -> 1
-    on T_RBRACE -> 4
+    on T_SEMI -> 2
+    on N_DECL -> 3
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
   1
     next T_LET T_LBRACE T_RBRACE
-    on N_DECL -> 2
-    on N_ERROR -> 1
-    on T_RBRACE -> 4
+    on T_SEMI -> 2
+    on N_DECL -> 3
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
   2
-    next T_RBRACE T_SEMI
-    on T_SEMI -> 3
-    on N_ERROR -> 1
-    on T_RBRACE -> 4
-  3
     next T_LET T_LBRACE T_RBRACE
-    on N_DECL -> 2
-    on N_ERROR -> 1
-    on T_RBRACE -> 4
-  4 may-end
+    on N_DECL -> 3
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
+  3
+    next T_RBRACE T_SEMI
+    on T_SEMI -> 4
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
+  4
+    next T_LET T_LBRACE T_RBRACE
+    on N_DECL -> 3
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
+  5
+    next T_LET T_LBRACE T_RBRACE
+    on N_DECL -> 3
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
+  6 may-end
 

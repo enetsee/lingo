@@ -12,16 +12,16 @@
 1019411287453445361	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:234 does not type-check
 1145945084185631801	core	sbr	e |> f -> e at lib/core/stage.ml:200 does not type-check
 1218215210534498969	textmate	sbr	e |> f -> e at editors/textmate/emit.ml:364 does not type-check
-1352093181103130849	ir	sbr	e |> f -> e at lib/ir/residual.ml:673 does not type-check
+1243150468935205103	ir	sbr	e |> f -> e at lib/ir/residual.ml:684 does not type-check
 1454371527452146883	docs	sbr	e |> f -> e at lib/docs/tables.ml:137 does not type-check
-1465176982244382966	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:313 does not type-check
+3598767886572196282	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:326 does not type-check
 1594519305100985355	sample	sbr	e |> f -> e at lib/sample/sample.ml:258 inside a failure at lib/sample/sample.ml:257 that names no single point
-1746563966780313136	ir	sbr	e |> f -> e at lib/ir/residual.ml:680 does not type-check
+4556263655348699118	ir	sbr	e |> f -> e at lib/ir/residual.ml:691 does not type-check
 1781621152274461199	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:245 does not type-check
 2044361530389213789	textmate	sbr	e |> f -> e at editors/textmate/textmate.ml:196 does not type-check
 2153955596533973309	core	sbr	e |> f -> e at lib/core/role.ml:42 does not type-check
 2267964016296998063	textmate	sbr	e |> f -> e at editors/textmate/check.ml:329 does not type-check
-2292211709022415568	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:333 does not type-check
+725479945919776236	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:346 does not type-check
 2298342393614240997	sample	sbr	e |> f -> e at lib/sample/sample.ml:263 inside a failure at lib/sample/sample.ml:261 that names no single point
 2364398134768305463	fuzz	sbr	e |> f -> e at lib/fuzz/report.ml:48 does not type-check
 2496957199739923115	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:243 does not type-check
@@ -34,22 +34,22 @@
 2857871981434829005	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:195 does not type-check
 2887376355629606201	treesitter	sbr	e |> f -> e at editors/treesitter/queries.ml:290 does not type-check
 2910133280427015594	textmate	sbr	e |> f -> e at editors/textmate/emit.ml:439 does not type-check
-3079774799284002132	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:234 does not type-check
+577845018839460574	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:247 does not type-check
 3124921080027602750	sample	sbr	e |> f -> e at lib/sample/sample.ml:262 inside a failure at lib/sample/sample.ml:261 that names no single point
 3172735839728860297	fuzz	sbr	e |> f -> e at lib/fuzz/harness.ml:330 does not type-check
-3233727289807616497	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:242 does not type-check
+2413834111447076233	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:255 does not type-check
 3299511910004529781	textmate	sbr	e |> f -> e at editors/textmate/check.ml:257 does not type-check
 3321373501511372202	docs	sbr	e |> f -> e at lib/docs/railroad.ml:232 does not type-check
 3344760357605873850	textmate	sbr	e |> f -> e at editors/textmate/emit.ml:136 does not type-check
 3481638645504218438	textmate	sbr	e |> f -> e at editors/textmate/check.ml:425 does not type-check
 3519568720786786528	textmate	sbr	e |> f -> e at editors/textmate/emit.ml:237 does not type-check
-3565875633576829459	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:321 does not type-check
+1307947751532250997	treesitter	sbr	e |> f -> e at editors/treesitter/grammar_js.ml:334 does not type-check
 3662663126370961479	treesitter	sbr	e |> f -> e at editors/treesitter/check.ml:43 does not type-check
 3681660720306522847	treesitter	sbr	e |> f -> e at editors/treesitter/check.ml:59 does not type-check
 3707512564844858142	docs	sbr	e |> f -> e at lib/docs/railroad.ml:236 does not type-check
 3717557826987934672	textmate	sbr	e |> f -> e at editors/textmate/textmate.ml:193 does not type-check
 3737561474307686802	grammar	empty	Map.add k v m -> m at lib/grammar/grammar.ml:438 does not type-check
-3771018423339025744	layout	sbr	e |> f -> e at lib/layout/lower.ml:102 does not type-check
+1331485666416023347	layout	sbr	e |> f -> e at lib/layout/lower.ml:132 does not type-check
 3966968525713065871	core	sbr	e |> f -> e at lib/core/stage.ml:202 does not type-check
 4059058694084146413	docs	sbr	e |> f -> e at lib/docs/tables.ml:58 does not type-check
 4151654103874924422	textmate	sbr	e |> f -> e at editors/textmate/textmate.ml:238 does not type-check

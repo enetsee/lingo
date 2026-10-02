@@ -47,12 +47,12 @@ let grammar : t =
     [ kw "true"
     ; kw "false"
     ; kw "null"
-    ; punct ~space_after:false ~name:"lbrace" "{"
-    ; punct ~space_before:false ~name:"rbrace" "}"
-    ; punct ~space_after:false ~name:"lbracket" "["
-    ; punct ~space_before:false ~name:"rbracket" "]"
-    ; punct ~space_before:false ~name:"comma" ","
-    ; punct ~space_before:false ~name:"colon" ":"
+    ; punct ~space_after:Hug ~name:"lbrace" "{"
+    ; punct ~space_before:Hug ~name:"rbrace" "}"
+    ; punct ~space_after:Hug ~name:"lbracket" "["
+    ; punct ~space_before:Hug ~name:"rbracket" "]"
+    ; punct ~space_before:Hug ~name:"comma" ","
+    ; punct ~space_before:Hug ~name:"colon" ":"
     ; pat "number" number
     ; pat "string" string_
     ; pat

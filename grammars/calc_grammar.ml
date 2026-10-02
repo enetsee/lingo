@@ -18,8 +18,8 @@ open Grammar
 let grammar : t =
   let digit = Redfa.Regex.range_char ~lo:'0' ~hi:'9' in
   let tokens =
-    [ punct ~space_after:false ~name:"lparen" "("
-    ; punct ~space_before:false ~name:"rparen" ")"
+    [ punct ~space_after:Hug ~name:"lparen" "("
+    ; punct ~space_before:Hug ~name:"rparen" ")"
     ; punct ~name:"plus" "+"
     ; punct ~name:"minus" "-"
     ; punct ~name:"star" "*"

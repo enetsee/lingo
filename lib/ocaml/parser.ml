@@ -79,7 +79,11 @@ let rec instr_kinds (instruction : Ir.Plan.instr) (acc : int) : int =
   | Ir.Plan.Seq instructions ->
     Array.fold_left instructions ~init:acc ~f:(fun acc i -> instr_kinds i acc)
   | Ir.Plan.Open kind -> max acc kind
-  | Ir.Plan.Close | Ir.Plan.Trivia | Ir.Plan.Bump | Ir.Plan.Drain _ -> acc
+  | Ir.Plan.Close
+  | Ir.Plan.Trivia
+  | Ir.Plan.Bump
+  | Ir.Plan.Bump_reporting _
+  | Ir.Plan.Drain _ -> acc
   | Ir.Plan.Expect e -> some e.hole (some e.placeholder (max acc e.tok))
   | Ir.Plan.Call _ -> acc
   | Ir.Plan.Pratt _ -> acc
@@ -287,6 +291,8 @@ let rec instr (plan : Ir.Plan.t) (instruction : Ir.Plan.instr) : Emit.expr * nee
   | Close -> finish_node, needs_nothing
   | Trivia -> call "Cursor.skip_trivia" [ cursor ], needs_nothing
   | Bump -> call "Cursor.bump" [ cursor ], needs_nothing
+  | Bump_reporting report ->
+    call "Cursor.bump_reporting" [ cursor; message_id report ], needs_nothing
   | Drain report -> drain report, needs_nothing
   | Expect { tok; message; at_child; hole; placeholder } ->
     ( Emit.eapply_labelled

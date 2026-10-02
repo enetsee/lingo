@@ -45,6 +45,7 @@ type postfix =
   ; p_body : body
   ; p_rule : Rule.id (** The rule describing the node this builds. *)
   ; p_space : bool (** Whether a space goes between the operand and the lead. *)
+  ; p_pad : bool (** Whether a space goes just inside an enclosed body's pair. *)
   }
 
 type def =

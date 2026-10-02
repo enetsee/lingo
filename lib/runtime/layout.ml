@@ -8,15 +8,21 @@ type break = Ir.Layout.break =
   | Fit
   | Hard of int
 
-type trailing = Ir.Layout.trailing =
+type optional_sep = Ir.Layout.optional_sep =
   | Never
   | On_break
   | Always
 
+type position = Ir.Layout.position =
+  | Ends_line
+  | Starts_line
+
 type sep = Ir.Layout.sep =
   { sep_kind : Ir.Kind.t
   ; text : string
-  ; trailing : trailing
+  ; leading : optional_sep
+  ; trailing : optional_sep
+  ; position : position
   }
 
 type frame = Ir.Layout.frame =
@@ -26,6 +32,7 @@ type frame = Ir.Layout.frame =
       ; close : Ir.Kind.t
       ; sep : sep option
       ; open_space : bool
+      ; pad : bool
       }
   | Separated of sep
 
@@ -51,9 +58,14 @@ type trivia = Ir.Layout.trivia =
   | Reformat
   | Preserve
 
+type side = Ir.Layout.side =
+  | Hug
+  | Free
+  | Space
+
 type token = Ir.Layout.token =
-  { space_before : bool
-  ; space_after : bool
+  { space_before : side
+  ; space_after : side
   ; trivia : trivia option
   }
 
@@ -76,10 +88,75 @@ let boundary ~(lex : string -> Token.t array) (s : string) (i : int) : bool =
     !hit)
 ;;
 
+(* Indentation is a count of spaces clamped at zero. handsome has no primitive
+   for a line at column zero, so one comes from nesting down by more than any
+   document nests up. *)
+let column_zero = Handsome.Utf8.nest (-1_000_000) Handsome.Utf8.hardline
+
+(* The bytes the fold may write, and where they come from.
+
+   Law B rests on this: a formatter prints what the tree holds. The predecessor
+   left it in a comment, and its [format] wrote a delimiter the tree recorded as
+   missing, then wrote one more on every pass.
+
+   So it is a signature instead. A [t] is a token the tree carries or the
+   separator a body's policy adds, and there is no third constructor. The one
+   exception has a name of its own, so it is easy to find. *)
+module Written : sig
+  type t
+
+  val of_token : Siesta.Green.token -> t
+
+  (* The separator a body's policy adds in front of its first element or after
+     its last. These are the only bytes in the output that the tree does not
+     hold.
+
+     A trailing one goes only into a frame the parse closed. Written anywhere
+     else it changes the token run, and that changes which frame the next parse
+     gives the closer to. A leading one sits between the opener and the first
+     element, where no frame boundary moves. *)
+  val separator : Ir.Kind.t -> string -> t
+  val kind : t -> Ir.Kind.t
+  val text : t -> string
+
+  (* The token, with its own newlines in the document rather than inside a text
+     node. An unterminated block comment holds them, and so does any comment
+     spanning lines.
+
+     A newline inside a text node leaves every enclosing group measuring the
+     token as though it could be flat, and the column wrong after it. That is
+     D6, and [Handsome.check] rejects it.
+
+     The later lines go back at column zero. Their indentation is already in the
+     token's own text, and adding more would change the bytes it matched. *)
+  val doc : t -> Ir.Kind.t Handsome.Utf8.t
+end = struct
+  type t =
+    { kind : Ir.Kind.t
+    ; text : string
+    }
+
+  let of_token t = { kind = Siesta.Green.Token.kind t; text = Siesta.Green.Token.text t }
+  let separator kind text = { kind; text }
+  let kind t = t.kind
+  let text t = t.text
+
+  let doc t =
+    let d =
+      match String.split_on_char ~sep:'\n' t.text with
+      | [] -> empty
+      | first :: rest ->
+        List.fold_left rest ~init:(Handsome.Utf8.text first) ~f:(fun acc line ->
+          acc ^^ column_zero ^^ Handsome.Utf8.text line)
+    in
+    Handsome.Utf8.annotate t.kind d
+  ;;
+end
+
 (* The last token written, and whether a space may follow it. *)
 type edge =
   { kind : Ir.Kind.t
-  ; space_after : bool
+  ; space_after : side
   }
 
 (* [run] is every byte written since the last blank. That is the left-hand side
@@ -102,6 +179,10 @@ type state =
   ; hard : int
     (* How many line breaks the document holds whatever the ruler: one at a
        boundary that broke hard, and each newline inside a token. *)
+  ; first : Written.t option
+    (* The first token written since this was [None]. {!walk} reads it to glue
+       the first element of a body a second way, behind a leading separator,
+       without folding the element twice. *)
   }
 
 let start =
@@ -112,6 +193,7 @@ let start =
   ; held = false
   ; written = 0
   ; hard = 0
+  ; first = None
   }
 ;;
 
@@ -173,6 +255,11 @@ type env =
   ; boundary : string -> int -> bool
   ; trace : step:string -> kind:Ir.Kind.t -> unit
   ; kind : Ir.Kind.t (* The rule the fold is inside. *)
+  ; alt :
+      Ir.Kind.t Handsome.Utf8.t -> Ir.Kind.t Handsome.Utf8.t -> Ir.Kind.t Handsome.Utf8.t
+    (* The conditional of the frame the fold is inside: its first argument
+       where the frame lies flat and its second where it breaks. Outside a
+       frame that has one, it is the first. *)
   }
 
 let say (e : env) (step : string) : unit = e.trace ~step ~kind:e.kind
@@ -190,69 +277,6 @@ let joins (e : env) (st : state) ~(next : string) : join =
   say e (name_of j);
   j
 ;;
-
-(* Indentation is a count of spaces clamped at zero. handsome has no primitive
-   for a line at column zero, so one comes from nesting down by more than any
-   document nests up. *)
-let column_zero = Handsome.Utf8.nest (-1_000_000) Handsome.Utf8.hardline
-
-(* The bytes the fold may write, and where they come from.
-
-   Law B rests on this: a formatter prints what the tree holds. The predecessor
-   left it in a comment, and its [format] wrote a delimiter the tree recorded as
-   missing, then wrote one more on every pass.
-
-   So it is a signature instead. A [t] is a token the tree carries or the
-   separator a body's policy adds, and there is no third constructor. The one
-   exception has a name of its own, so it is easy to find. *)
-module Written : sig
-  type t
-
-  val of_token : Siesta.Green.token -> t
-
-  (* The separator a body's policy adds after its last element. These are the
-     only bytes in the output that the tree does not hold.
-
-     It only ever adds, and only into a frame the parse closed. Removing one does
-     not settle: it changes the token run, and that changes which frame the next
-     parse gives the closer to. *)
-  val separator : Ir.Kind.t -> string -> t
-  val kind : t -> Ir.Kind.t
-  val text : t -> string
-
-  (* The token, with its own newlines in the document rather than inside a text
-     node. An unterminated block comment holds them, and so does any comment
-     spanning lines.
-
-     A newline inside a text node leaves every enclosing group measuring the
-     token as though it could be flat, and the column wrong after it. That is
-     D6, and [Handsome.check] rejects it.
-
-     The later lines go back at column zero. Their indentation is already in the
-     token's own text, and adding more would change the bytes it matched. *)
-  val doc : t -> Ir.Kind.t Handsome.Utf8.t
-end = struct
-  type t =
-    { kind : Ir.Kind.t
-    ; text : string
-    }
-
-  let of_token t = { kind = Siesta.Green.Token.kind t; text = Siesta.Green.Token.text t }
-  let separator kind text = { kind; text }
-  let kind t = t.kind
-  let text t = t.text
-
-  let doc t =
-    let d =
-      match String.split_on_char ~sep:'\n' t.text with
-      | [] -> empty
-      | first :: rest ->
-        List.fold_left rest ~init:(Handsome.Utf8.text first) ~f:(fun acc line ->
-          acc ^^ column_zero ^^ Handsome.Utf8.text line)
-    in
-    Handsome.Utf8.annotate t.kind d
-  ;;
-end
 
 (* Every space, every line break and every byte of a token goes through here.
 
@@ -278,15 +302,20 @@ let glue (e : env) (st : state) (w : Written.t) : Ir.Kind.t Handsome.Utf8.t * st
     ; written = st.written + 1
     ; hard =
         (st.hard + (if broke then 1 else 0) + if String.contains text '\n' then 1 else 0)
+    ; first =
+        (match st.first with
+         | None -> Some w
+         | Some _ as f -> f)
     }
   in
   match st.last with
   | None -> empty, leaving ~clears:false ~broke:false
   | Some prev ->
     let spaced =
-      Option.value st.gap ~default:true
-      && prev.space_after
-      && (token lay kind).space_before
+      match prev.space_after, (token lay kind).space_before with
+      | Hug, _ | _, Hug -> false
+      | Space, _ | _, Space -> true
+      | Free, Free -> Option.value st.gap ~default:true
     in
     let j = joins e st ~next:text in
     let blank = spaced || j = Blank in
@@ -319,6 +348,15 @@ type role =
   | Filled
   | Stray
 
+(* What goes in front of a body's first element where the grammar's policy
+   owns the leading separator. *)
+type head =
+  { sep : Ir.Layout.sep
+  ; always : bool
+    (* [Always] writes it whatever the frame does, [On_break] where it breaks. *)
+  ; after : Ir.Layout.break (* The break between the separator and the element. *)
+  }
+
 type entry =
   { child : Siesta.Green.child
   ; role : role
@@ -328,6 +366,9 @@ type entry =
   ; starts_line : bool
     (* The grammar breaks hard in front of this child, so its line is a new one
        rather than a continuation of the rule. *)
+  ; head :
+      head
+        option (* Set on the first element of a body that owns its leading separator. *)
   }
 
 (* The rule for a kind that has none: a sequence, on the lines the source had.
@@ -423,6 +464,77 @@ let entries
     | Some s -> Some s.sep_kind
     | None -> None
   in
+  (* Which side of a separator a line may end on. Under [Starts_line] the break
+     between two elements sits in front of the separator, and the element after
+     it keeps the separator's line. *)
+  let sep_starts_line =
+    match sep_of r with
+    | Some { position = Starts_line; _ } -> true
+    | Some { position = Ends_line; _ } | None -> false
+  in
+  (* The leading separator the policy owns, and the first element it goes in
+     front of, as indices into [cs].
+
+     The policy owns it under [On_break] and [Always] and writes it itself, so a
+     lone one the source has is left out here, as dropped whitespace is. Only a
+     lone one, straight after the opener and straight before an element: two
+     of them, or a comment or a stray beside one, are bytes the policy does not
+     cover, and they are written as they stand. *)
+  let n_cs = Array.length cs in
+  let dropped (ch : Siesta.Green.child) : bool =
+    match ch with
+    | Siesta.Green.Token t ->
+      (token lay (Siesta.Green.Token.kind t)).trivia = Some Reformat
+      && all_space (Siesta.Green.Token.text t)
+    | Siesta.Green.Node _ -> false
+  in
+  let rec next_kept (j : int) : int =
+    if j < n_cs && dropped cs.(j) then next_kept (j + 1) else j
+  in
+  let element (ch : Siesta.Green.child) : bool =
+    let k = kind_of ch in
+    let in_slot =
+      Array.exists r.slots ~f:(fun (sl : Ir.Layout.slot) ->
+        Array.exists sl.kinds ~f:(fun x -> x = k))
+    in
+    in_slot
+    &&
+    match ch with
+    | Siesta.Green.Node n -> lay.of_kind.(k) >= 0 && Siesta.Green.num_children n > 0
+    | Siesta.Green.Token t ->
+      Siesta.Green.Token.text t <> "" && (token lay k).trivia = None && Some k <> sep_kind
+  in
+  let owned, head_at, head =
+    let policy =
+      match sep_of r with
+      | Some s when s.text <> "" ->
+        (match s.leading with
+         | Never -> None
+         | On_break -> Some (s, false)
+         | Always -> Some (s, true))
+      | Some _ | None -> None
+    in
+    match policy with
+    | None -> -1, -1, None
+    | Some (s, always) ->
+      let after =
+        match s.position with
+        | Starts_line -> Ir.Layout.Flat
+        | Ends_line -> r.slots.(Array.length r.slots - 1).between
+      in
+      let h = Some { sep = s; always; after } in
+      let inside (j : int) = j < n_cs && (c < 0 || j < c) in
+      let start = next_kept (o + 1) in
+      if not (inside start)
+      then -1, -1, None
+      else if Some (kind_of cs.(start)) = sep_kind
+      then (
+        let j = next_kept (start + 1) in
+        if inside j && element cs.(j) then start, j, h else -1, -1, None)
+      else if element cs.(start)
+      then -1, start, h
+      else -1, -1, None
+  in
   let kept = ref [] in
   (* How many line breaks the whitespace dropped in front of a child held. *)
   let nls = ref 0 in
@@ -442,6 +554,7 @@ let entries
     | Some s when all_space s ->
       nls
       := !nls + String.fold_left s ~init:0 ~f:(fun n c -> if c = '\n' then n + 1 else n)
+    | (Some _ | None) when i = owned -> say e "lead-sep-owned"
     | Some _ | None ->
       let recovered =
         match ch with
@@ -503,7 +616,13 @@ let entries
           if !nls > 0 then Hard 1 else Flat)
         else (
           match role with
-          | Opener | Separator -> Flat
+          | Opener -> Flat
+          | Separator ->
+            if not sep_starts_line
+            then Flat
+            else if not !body_started
+            then if !seen_open then r.inner else Flat
+            else r.slots.(!prev_slot).between
           | Closer ->
             (match !kept, ch with
              (* A frame with nothing in it has nothing to break around. *)
@@ -516,14 +635,22 @@ let entries
              | _, _ -> r.inner)
           | Stray -> r.body
           | Filled ->
-            if !seen_open && not !body_started
+            let after_sep =
+              match !kept with
+              | { role = Separator; _ } :: _ -> true
+              | _ -> false
+            in
+            if sep_starts_line && after_sep
+            then Flat
+            else if !seen_open && not !body_started
             then r.inner
             else if !again
             then r.slots.(!prev_slot).between
             else r.slots.(!prev_slot).before)
       in
       (* The rule's slots set the gap between two of its children, and its
-         frame sets the gaps just inside the delimiters, whatever sits there.
+         frame sets the gaps just inside the delimiters, whatever sits there:
+         none, or a space where it pads a body with something in it.
          A separator takes a space on both sides, and [,] removes the one in
          front of it with its own flag. [→] keeps both. *)
       let gap =
@@ -536,7 +663,11 @@ let entries
                (match r.frame with
                 | Delimited { open_space; _ } -> open_space
                 | Plain | Separated _ -> true)
-             | Opener, _ | _, Closer -> false
+             | Opener, Closer -> false
+             | Opener, _ | _, Closer ->
+               (match r.frame with
+                | Delimited { pad; _ } -> pad
+                | Plain | Separated _ -> false)
              | _, (Separator | Stray) | Separator, Filled -> true
              | (Closer | Filled | Stray), Filled -> r.slots.(!prev_slot).space)
       in
@@ -552,7 +683,8 @@ let entries
         | Hard _ -> true
         | Flat | Fit -> false
       in
-      kept := { child = ch; role; held; before; gap; starts_line } :: !kept);
+      let head = if i = head_at then head else None in
+      kept := { child = ch; role; held; before; gap; starts_line; head } :: !kept);
   let es = Array.of_list (List.rev !kept) in
   let n = Array.length es in
   let index role =
@@ -621,7 +753,11 @@ let rec walk (e : env) (es : entry array) (i : int) (stop : int) (st : state) =
       | Some _ as g -> { st with gap = g }
       | None -> st
     in
-    let lead, d, st = child e it ~stood ~stood_gap st in
+    let lead, d, st =
+      match it.head with
+      | None -> child e it ~stood ~stood_gap st
+      | Some h -> headed e it h ~stood ~stood_gap st
+    in
     let l, rest, st = walk e es (i + 1) stop st in
     lead, d ^^ l ^^ rest, st)
 
@@ -712,6 +848,47 @@ and split
     in
     lead, d, st)
 
+(* The first element of a body whose policy owns the leading separator.
+
+   The element is folded once. Only the glue in front of it differs with the
+   separator there and without, so the fold records the first token the element
+   writes and glues it a second time, behind the separator. Folding the element
+   twice would double the work at every level of a nested body.
+
+   The element's own joins hold either way. A boundary the lexer settled starts
+   it afresh, so what lexes after that boundary turns on the bytes after it,
+   and the bytes in front of the element are all that differ. *)
+and headed
+      (e : env)
+      (it : entry)
+      (h : head)
+      ~(stood : Ir.Layout.break)
+      ~(stood_gap : bool option)
+      (st : state)
+  =
+  let held = st.first in
+  let lead, d, after = child e it ~stood ~stood_gap { st with first = None } in
+  let first = after.first in
+  let after =
+    { after with
+      first =
+        (match held with
+         | None -> first
+         | Some _ -> held)
+    }
+  in
+  match first with
+  | None -> lead, d, after
+  | Some w ->
+    say e "lead-sep";
+    let sep = Written.separator h.sep.sep_kind h.sep.text in
+    let sep_lead, behind = glue e st sep in
+    let element_lead, _ =
+      glue e { behind with brk = stronger behind.brk h.after; gap = Some true } w
+    in
+    let with_sep = sep_lead ^^ Written.doc sep ^^ element_lead in
+    (if h.always then with_sep else e.alt lead with_sep), d, after
+
 and child
       (e : env)
       (it : entry)
@@ -744,7 +921,7 @@ and node
     else st
   in
   let k = Siesta.Green.kind n in
-  let e = { e with kind = k } in
+  let e = { e with kind = k; alt = (fun flat _ -> flat) } in
   let cs = Siesta.Green.children_array n in
   (* A node with no children stands in for something the parse never read: a
      hole, or a delimiter it looked for and did not find. It has no bytes, so
@@ -957,6 +1134,7 @@ and node
           (stop : int)
           (st : state)
       =
+      let e = { e with alt } in
       match tail_policy with
       (* No policy, so no split: cutting the walk at the last element would
          truncate every run that crosses it. *)
@@ -1002,7 +1180,15 @@ and node
                    | Always -> "sep-always"
                    | On_break -> "sep-on-break"
                    | Never -> "sep-never");
-                let lead, st = glue e { st with gap = Some true } written in
+                (* Under [Starts_line] the separator takes the break between
+                   two elements in front of it, as one the source has does. *)
+                let brk =
+                  match s.position with
+                  | Ends_line -> st.brk
+                  | Starts_line ->
+                    stronger st.brk r.slots.(Array.length r.slots - 1).between
+                in
+                let lead, st = glue e { st with gap = Some true; brk } written in
                 lead ^^ Written.doc written, st)
             in
             let l, d, st = walk e es (elt + 1) stop st in
@@ -1024,6 +1210,7 @@ and node
           lead, head ^^ d, st)
     in
     let build ~alt =
+      let e = { e with alt } in
       if o < 0
       then (
         let lead, d, st = body ~alt 0 last st in
@@ -1051,15 +1238,21 @@ and node
        the document, which the callback has no room for, so it is put down as
        the body is built. [framed] calls the body once.
 
-       Only [On_break] needs one, whether the separator comes from here or
-       from the tree. The other policies write theirs either way, so there is
-       nothing for a conditional to turn on, and a plain group is what they
-       take. *)
-    match tail_policy with
-    | `Plain | `Present _ | `Add _ ->
+       Only [On_break] needs one, at either end, whether the separator comes
+       from here or from the tree. The other policies write theirs either way,
+       so there is nothing for a conditional to turn on, and a plain group is
+       what they take. *)
+    let head_turns =
+      Array.exists es ~f:(fun (it : entry) ->
+        match it.head with
+        | Some { always = false; _ } -> true
+        | Some { always = true; _ } | None -> false)
+    in
+    match tail_policy, head_turns with
+    | (`Plain | `Present _ | `Add _), false ->
       let lead, d, st = build ~alt:(fun flat _ -> flat) in
       lead, Handsome.Utf8.group (Handsome.Utf8.annotate k d), undo st
-    | `Maybe _ | `Held _ ->
+    | (`Plain | `Present _ | `Add _), true | (`Maybe _ | `Held _), _ ->
       let out = ref None in
       let d =
         Handsome.Utf8.framed (fun alt ->
@@ -1082,7 +1275,12 @@ let doc
   =
   let kind = Siesta.Green.kind n in
   let lead, d, _ =
-    node { lay; boundary; trace; kind } n ~stood:Ir.Layout.Flat ~stood_gap:None start
+    node
+      { lay; boundary; trace; kind; alt = (fun flat _ -> flat) }
+      n
+      ~stood:Ir.Layout.Flat
+      ~stood_gap:None
+      start
   in
   lead ^^ d
 ;;

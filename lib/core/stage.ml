@@ -255,20 +255,22 @@ let shape (names : names) : shape =
   in
   let of_sep = function
     | Grammar.No_sep -> None
-    | With_sep { sep; trailing } -> Some { Rule.sep_tok = res_tok sep; trailing }
+    | With_sep { sep; leading; trailing; position } ->
+      Some { Rule.sep_tok = res_tok sep; leading; trailing; position }
   in
   let of_framing = function
     | Grammar.Plain -> Rule.Plain
     | Grammar.Committed { boundary } -> Rule.Committed { boundary }
-    | Grammar.Delimited { open_tok; close_tok; sep_policy; boundary } ->
+    | Grammar.Delimited { open_tok; close_tok; sep_policy; pad; boundary } ->
       Rule.Delimited
         { open_ = res_tok open_tok
         ; close = res_tok close_tok
         ; sep = of_sep sep_policy
+        ; pad
         ; boundary
         }
-    | Grammar.Separated { sep; trailing; boundary } ->
-      Rule.Separated { sep_tok = res_tok sep; trailing; boundary }
+    | Grammar.Separated { sep; leading; trailing; position; boundary } ->
+      Rule.Separated { sep_tok = res_tok sep; leading; trailing; position; boundary }
   in
   let default_format = Grammar.{ indent_width = 2 } in
   let synthetic_recovery = Grammar.{ strategy = Insert_only } in
@@ -411,7 +413,12 @@ let shape (names : names) : shape =
              in
              ( [| operand "operand"; body_child |]
              , Rule.Delimited
-                 { open_ = res_tok p.lead; close = res_tok close; sep; boundary = false }
+                 { open_ = res_tok p.lead
+                 ; close = res_tok close
+                 ; sep
+                 ; pad = p.pad
+                 ; boundary = false
+                 }
              , 1 ))
       in
       { id
@@ -483,6 +490,7 @@ let shape (names : names) : shape =
                            | Some r -> r
                            | None -> block_rule)
                       ; p_space = p.space
+                      ; p_pad = p.pad
                       })
                     b.postfix)
            ; infix_recovery = b.infix_recovery

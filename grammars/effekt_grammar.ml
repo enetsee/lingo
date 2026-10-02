@@ -121,20 +121,20 @@ let grammar : t =
     ; kw "resume"
     ; kw "true"
     ; kw "false"
-    ; punct ~space_after:false ~name:"lbrace" "{"
-    ; punct ~space_before:false ~name:"rbrace" "}"
-    ; punct ~space_after:false ~name:"lparen" "("
-    ; punct ~space_before:false ~name:"rparen" ")"
-    ; punct ~space_after:false ~name:"lbracket" "["
-    ; punct ~space_before:false ~name:"rbracket" "]"
+    ; punct ~space_before:Space ~name:"lbrace" "{"
+    ; punct ~name:"rbrace" "}"
+    ; punct ~space_after:Hug ~name:"lparen" "("
+    ; punct ~space_before:Hug ~name:"rparen" ")"
+    ; punct ~space_after:Hug ~name:"lbracket" "["
+    ; punct ~space_before:Hug ~name:"rbracket" "]"
       (* A matched pair of two-character delimiters. [<{] is also a [<] beside
          a [{], and [}>] a [}] beside a [>], so longest match in the lexer
          settles both edges. *)
-    ; punct ~space_after:false ~name:"lhole" "<{"
-    ; punct ~space_before:false ~name:"rhole" "}>"
-    ; punct ~space_before:false ~name:"comma" ","
-    ; punct ~space_before:false ~name:"semi" ";"
-    ; punct ~space_before:false ~name:"colon" ":"
+    ; punct ~space_after:Hug ~name:"lhole" "<{"
+    ; punct ~space_before:Hug ~name:"rhole" "}>"
+    ; punct ~space_before:Hug ~name:"comma" ","
+    ; punct ~space_before:Hug ~name:"semi" ";"
+    ; punct ~space_before:Hug ~name:"colon" ":"
     ; punct_tight ~name:"dot" "."
     ; punct_tight ~name:"coloncolon" "::"
     ; punct ~name:"arrow" "->"
@@ -151,7 +151,7 @@ let grammar : t =
     ; punct ~name:"star" "*"
     ; punct ~name:"slash" "/"
     ; punct ~name:"pipe" "|"
-    ; punct ~space_after:false ~name:"bang" "!"
+    ; punct ~space_after:Hug ~name:"bang" "!"
     ; pat "ident" ident
     ; pat "int" (Redfa.Regex.plus digit)
     ; pat "string" string_
@@ -348,7 +348,7 @@ let grammar : t =
     prod
       "InterfaceBody"
       [ child_rep ~break:(always 1) ~between:(always 1) "op" (Rule "Operation") ]
-    |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_delimited ~pad:true ~open_tok:"lbrace" ~close_tok:"rbrace"
   in
   let interface =
     prod
@@ -380,7 +380,7 @@ let grammar : t =
     prod
       "NamespaceBody"
       [ child_rep ~break:(always 1) ~between:(always 1) "item" (Rule "Item") ]
-    |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_delimited ~pad:true ~open_tok:"lbrace" ~close_tok:"rbrace"
   in
   let namespace =
     prod
@@ -421,7 +421,7 @@ let grammar : t =
   in
   let capture_list =
     prod "CaptureList" [ child_rep "name" (Token "ident") ]
-    |> with_delimited_sep ~open_tok:"lbrace" ~close_tok:"rbrace" ~sep:"comma"
+    |> with_delimited_sep ~pad:true ~open_tok:"lbrace" ~close_tok:"rbrace" ~sep:"comma"
   in
   let atomic_type =
     prod
@@ -440,7 +440,7 @@ let grammar : t =
       ~indent_width:2
       "Block"
       [ child_rep ~break:(always 1) ~between:(always 1) "stmt" (Rule "Stmt") ]
-    |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_delimited ~pad:true ~open_tok:"lbrace" ~close_tok:"rbrace"
     |> with_scope
     |> with_recovery_strategy (Lookahead (lookahead_n 3))
   in
@@ -557,7 +557,7 @@ let grammar : t =
     prod
       "HandlerBody"
       [ child_rep ~break:(always 1) ~between:(always 1) "clause" (Rule "Clause") ]
-    |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_delimited ~pad:true ~open_tok:"lbrace" ~close_tok:"rbrace"
   in
   let clause =
     prod
@@ -587,7 +587,7 @@ let grammar : t =
     prod
       "MatchBody"
       [ child_rep ~break:(always 1) ~between:(always 1) "arm" (Rule "MatchArm") ]
-    |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    |> with_delimited ~pad:true ~open_tok:"lbrace" ~close_tok:"rbrace"
   in
   let match_arm =
     prod
@@ -692,7 +692,7 @@ let grammar : t =
             ()
         ; postfix_brace
             ~kind_suffix:"block"
-            ~space:true
+            ~pad:true
             ~open_tok:"lbrace"
             ~close_tok:"rbrace"
             ~body:(Rule "Stmt")

@@ -3,15 +3,21 @@ type break =
   | Fit
   | Hard of int
 
-type trailing =
+type optional_sep =
   | Never
   | On_break
   | Always
 
+type position =
+  | Ends_line
+  | Starts_line
+
 type sep =
   { sep_kind : Kind.t
   ; text : string
-  ; trailing : trailing
+  ; leading : optional_sep
+  ; trailing : optional_sep
+  ; position : position
   }
 
 type frame =
@@ -21,6 +27,7 @@ type frame =
       ; close : Kind.t
       ; sep : sep option
       ; open_space : bool
+      ; pad : bool
       }
   | Separated of sep
 
@@ -46,13 +53,18 @@ type trivia =
   | Reformat
   | Preserve
 
+type side =
+  | Hug
+  | Free
+  | Space
+
 type token =
-  { space_before : bool
-  ; space_after : bool
+  { space_before : side
+  ; space_after : side
   ; trivia : trivia option
   }
 
-let not_a_token = { space_before = true; space_after = true; trivia = None }
+let not_a_token = { space_before = Free; space_after = Free; trivia = None }
 
 type t =
   { rules : rule array

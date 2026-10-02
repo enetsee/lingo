@@ -97,9 +97,15 @@ let compute (g : Core.Grammar.t) : tables =
     match p.framing with
     | Delimited { open_tok; _ } ->
       String_set.singleton (Core.Grammar.Name.Token.to_string open_tok)
-    | Separated _ ->
+    (* The separator starts a separated body as well, where the grammar allows
+       one in front of the first element. *)
+    | Separated { sep; leading; _ } ->
       (match p.children with
-       | c :: _ -> csym_first c
+       | c :: _ ->
+         (match leading with
+          | Never -> csym_first c
+          | On_break | Always ->
+            String_set.add (Core.Grammar.Name.Token.to_string sep) (csym_first c))
        | [] -> String_set.empty)
     | Plain | Committed _ -> children_first p.children
   in

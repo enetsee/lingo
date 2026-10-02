@@ -62,12 +62,12 @@
     (slot (kinds 4) (before fit) (between fit))
   )
   (rule 4 Names 4
-    (frame separated (sep 10 never))
+    (frame separated (sep 10 never never))
     (body fit) (inner fit) (indent 2)
     (slot (kinds 14) repeats (before flat) (between fit))
   )
   (rule 5 Block 5
-    (frame delimited 7 8 (sep 9 always))
+    (frame delimited 7 8 (sep 9 never always))
     (body fit) (inner fit) (indent 2)
     (slot (kinds 1) repeats (before flat) (between fit))
   )

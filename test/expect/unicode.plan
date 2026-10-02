@@ -50,6 +50,15 @@
         (expect 2 (message 0) (at-child) (hole) (placeholder))
         (loop
           0
+          (ends-on)
+          (state
+            (accepts ((on 4) 1))
+            (exit may)
+            (missing)
+            (bump (message 5)))
+          (state (accepts) (exit may) (missing) (bump (message 5))))
+        (loop
+          0
           (ends-on (kinds 3))
           (state (accepts ((on 5) 1)) (exit may) (missing) bump)
           (state
@@ -68,3 +77,4 @@
 ;   2 expected "»"
 ;   3 a trailing "→"
 ;   4 expected "→"
+;   5 a leading "→"

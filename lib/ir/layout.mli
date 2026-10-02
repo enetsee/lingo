@@ -35,35 +35,44 @@ type break =
   | Fit (** It ends here when what follows does not fit. *)
   | Hard of int
 
-(** What a body does about a separator after its last element.
-
-    The formatter only ever writes one. It never takes one away: dropping
-    changes the token run, which changes which frame the next parse gives the
-    closer to, so the tail loses one separator per pass and never settles.
+(** What a body does about a separator at one of its ends: in front of the
+    first element, or after the last.
 
     - [Never]: the parser reports one, and the formatter writes none.
-    - [On_break]: the formatter writes one where the body breaks across lines.
-      A separator the source already had is a request for a broken body, and it
-      is the only way a grammar's user can make one directly. It stays, and the
-      body breaks.
-    - [Always]: the formatter writes one whether the body breaks or not. This is
-      a terminator rather than a separator. It is the [;] after every statement
-      in a block, the last one included, so a separator the source had carries no
-      request and the body still lays out by width. *)
-type trailing =
+    - [On_break]: the formatter writes one where the body breaks across lines,
+      and leaves out a lone one the source has where the body lies flat.
+    - [Always]: the formatter writes one whether the body breaks or not. At the
+      trailing end this is a terminator rather than a separator: the [;] after
+      every statement in a block, the last one included.
+
+    At the trailing end the formatter leaves one out only where the parse closed
+    the frame, and where nothing in the body ends inside a frame the parse left
+    open. Anywhere else, dropping it changes which frame the next parse gives a
+    token to, and the body never settles. At the leading end it leaves out a
+    lone one straight after the opener and straight before an element, where
+    no frame boundary moves. *)
+type optional_sep =
   | Never
   | On_break
   | Always
 
+(** Where a separator sits when the body breaks around it. *)
+type position =
+  | Ends_line (** [a,], and the next element on the next line. *)
+  | Starts_line (** The element, then [| b] on the next line. *)
+
 (** The separator of a delimited body or a separated list.
 
     The fold reads {!sep.sep_kind} to recognise a separator it meets in the
-    tree: the boundary in front of one does not end the line, so [a,] never
-    becomes [a\n,]. *)
+    tree. One boundary beside it never ends the line, and {!sep.position} says
+    which: under [Ends_line] [a,] never becomes [a\n,], and under
+    [Starts_line] [| b] never becomes [|\nb]. *)
 type sep =
   { sep_kind : Kind.t
   ; text : string (** Its spelling, which is the only byte string the fold writes. *)
-  ; trailing : trailing
+  ; leading : optional_sep
+  ; trailing : optional_sep
+  ; position : position
   }
 
 (** How a body is bracketed.
@@ -81,6 +90,9 @@ type frame =
       ; open_space : bool
         (** Whether a space goes in front of the opener. Only an enclosed
               postfix has anything there, its operand. *)
+      ; pad : bool
+        (** Whether a space goes just inside each delimiter of a body with
+              something in it. *)
       }
   | Separated of sep
 
@@ -116,20 +128,27 @@ type trivia =
   | Reformat (** Drop it and let the boundary re-emit the spacing. *)
   | Preserve (** Write it as it stands, on the line the source put it on. *)
 
-(** A token's own contribution to a boundary. A [false] side removes the space
-    there.
+(** What one side of a token does to the space there. Where the two tokens of a
+    boundary disagree, [Hug] wins; where neither takes a side, the rule holding
+    the boundary decides. *)
+type side =
+  | Hug (** Never a space. *)
+  | Free (** The rule holding the boundary decides. *)
+  | Space (** Always a space. *)
+
+(** A token's own contribution to a boundary.
 
     There is no spelling here. The fold writes the tokens the tree holds, and
     their bytes come with them, so a layout that carried a token's text would be
     carrying bytes for the fold to write of its own accord. It has none to
     write. *)
 type token =
-  { space_before : bool
-  ; space_after : bool
+  { space_before : side
+  ; space_after : side
   ; trivia : trivia option
   }
 
-(** What a kind that is not a token holds: a space on either side and no trivia.
+(** What a kind that is not a token holds: [Free] on either side and no trivia.
     Only a token's flags are read at a boundary, so the spacing here is dead.
     [trivia] is read of every child, so it is not. *)
 val not_a_token : token

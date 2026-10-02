@@ -12,7 +12,9 @@ type origin =
 
 type sep =
   { sep_tok : Kind.t
-  ; trailing : Grammar.trailing_sep
+  ; leading : Grammar.optional_sep
+  ; trailing : Grammar.optional_sep
+  ; position : Grammar.operator_position
   }
 
 type frame =
@@ -22,11 +24,14 @@ type frame =
       { open_ : Kind.t
       ; close : Kind.t
       ; sep : sep option
+      ; pad : bool
       ; boundary : bool
       }
   | Separated of
       { sep_tok : Kind.t
-      ; trailing : Grammar.trailing_sep
+      ; leading : Grammar.optional_sep
+      ; trailing : Grammar.optional_sep
+      ; position : Grammar.operator_position
       ; boundary : bool
       }
 
@@ -58,6 +63,14 @@ type def =
   ; binders : int array
   ; opens_scope : bool
   }
+
+let sep_of (f : frame) : sep option =
+  match f with
+  | Delimited d -> d.sep
+  | Separated { sep_tok; leading; trailing; position; boundary = _ } ->
+    Some { sep_tok; leading; trailing; position }
+  | Plain | Committed _ -> None
+;;
 
 let body_children (d : def) =
   let n = Array.length d.children in

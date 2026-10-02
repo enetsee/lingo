@@ -555,3 +555,13 @@
  (alias runtest)
  (action
   (diff effekt.format effekt.format.actual)))
+
+(rule
+ (with-stdout-to
+  ml.format.actual
+  (run ./dump_format.exe ml)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff ml.format ml.format.actual)))

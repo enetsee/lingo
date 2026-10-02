@@ -267,10 +267,11 @@ let system_of ?(comments = 0.) (f : Core.Facts.t) : Bolts.system * map =
     | [ only ] -> sym only
     | kinds -> Bolts.sum (List.map ~f:sym kinds)
   in
-  (* Elements with a separator between them, and one after the last where the
-     policy allows it. A trailing separator the policy forbids is bytes the
-     parser still takes and then reports, so [Never] is the one policy that
-     leaves it out. *)
+  (* Elements with a separator between them, and one at either end where the
+     policy allows it. A separator the policy forbids is bytes the parser still
+     takes and then reports, so [Never] is the one policy that leaves it out.
+     A leading separator may stand alone in a body with no elements, as the
+     parser takes it. *)
   let repeat
         (element : token list Bolts.t)
         (sep : Core.Rule.sep option)
@@ -287,7 +288,11 @@ let system_of ?(comments = 0.) (f : Core.Facts.t) : Bolts.system * map =
         | Core.Grammar.On_break | Core.Grammar.Always ->
           cat elements (maybe (sym sep.sep_tok))
       in
-      if nonempty then elements else maybe elements
+      let elements = if nonempty then elements else maybe elements in
+      (match sep.leading with
+       | Core.Grammar.Never -> elements
+       | Core.Grammar.On_break | Core.Grammar.Always ->
+         cat (maybe (sym sep.sep_tok)) elements)
   in
   let repeated (child : Core.Rule.child) : bool =
     match child.modifier with
@@ -322,9 +327,8 @@ let system_of ?(comments = 0.) (f : Core.Facts.t) : Bolts.system * map =
   let framed (rule : Core.Rule.def) : token list Bolts.t list =
     match rule.frame with
     | Core.Rule.Plain | Core.Rule.Committed _ -> body rule None
-    | Core.Rule.Separated sep ->
-      body rule (Some { Core.Rule.sep_tok = sep.sep_tok; trailing = sep.trailing })
-    | Core.Rule.Delimited frame -> body rule frame.sep
+    | Core.Rule.Separated _ | Core.Rule.Delimited _ ->
+      body rule (Core.Rule.sep_of rule.frame)
   in
   (* The children before the frame opens, then the frame.
 

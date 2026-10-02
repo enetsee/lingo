@@ -31,7 +31,9 @@ type origin =
 
 type sep =
   { sep_tok : Kind.t
-  ; trailing : Grammar.trailing_sep
+  ; leading : Grammar.optional_sep
+  ; trailing : Grammar.optional_sep
+  ; position : Grammar.operator_position
   }
 
 (** Framing with the delimiters resolved. *)
@@ -42,11 +44,14 @@ type frame =
       { open_ : Kind.t
       ; close : Kind.t
       ; sep : sep option
+      ; pad : bool
       ; boundary : bool
       }
   | Separated of
       { sep_tok : Kind.t
-      ; trailing : Grammar.trailing_sep
+      ; leading : Grammar.optional_sep
+      ; trailing : Grammar.optional_sep
+      ; position : Grammar.operator_position
       ; boundary : bool
       }
 
@@ -107,6 +112,9 @@ type def =
     (** Whether a name introduced inside this rule belongs to it. See
           {!Grammar.with_scope}. *)
   }
+
+(** The separator a frame carries, delimited or not. *)
+val sep_of : frame -> sep option
 
 (** The children the frame applies to. That is everything from
     {!def.body_from} onwards. *)

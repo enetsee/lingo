@@ -8,23 +8,35 @@ N_DOC
   0
     next T_LAQUO
     on T_LAQUO -> 1
-    on T_WORD -> 2
-    on N_ERROR -> 1
-    on T_RAQUO -> 4
+    on T_ARROW -> 2
+    on T_WORD -> 3
+    on N_ERROR -> 5
+    on T_RAQUO -> 6
   1
     next T_RAQUO T_WORD
-    on T_WORD -> 2
-    on N_ERROR -> 1
-    on T_RAQUO -> 4
+    on T_ARROW -> 2
+    on T_WORD -> 3
+    on N_ERROR -> 5
+    on T_RAQUO -> 6
   2
-    next T_RAQUO T_ARROW
-    on T_ARROW -> 3
-    on N_ERROR -> 1
-    on T_RAQUO -> 4
+    next T_RAQUO T_WORD
+    on T_WORD -> 3
+    on N_ERROR -> 5
+    on T_RAQUO -> 6
   3
+    next T_RAQUO T_ARROW
+    on T_ARROW -> 4
+    on N_ERROR -> 5
+    on T_RAQUO -> 6
+  4
     next T_WORD
-    on T_WORD -> 2
-    on N_ERROR -> 1
-    on T_RAQUO -> 4
-  4 may-end
+    on T_WORD -> 3
+    on N_ERROR -> 5
+    on T_RAQUO -> 6
+  5
+    next T_RAQUO T_WORD
+    on T_WORD -> 3
+    on N_ERROR -> 5
+    on T_RAQUO -> 6
+  6 may-end
 

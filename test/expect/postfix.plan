@@ -148,6 +148,15 @@
           (seq
             (loop
               0
+              (ends-on)
+              (state
+                (accepts ((on 9) 1))
+                (exit may)
+                (missing)
+                (bump (message 8)))
+              (state (accepts) (exit may) (missing) (bump (message 8))))
+            (loop
+              0
               (ends-on (kinds 3))
               (state (accepts ((on 12 13) 1)) (exit may) (missing) (call 2))
               (state
@@ -172,3 +181,4 @@
 ;   5 expected ")"
 ;   6 a trailing ","
 ;   7 expected ","
+;   8 a leading ","

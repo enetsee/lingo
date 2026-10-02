@@ -107,6 +107,15 @@
       (boundary false)
       (seq
         (open 4)
+        (loop
+          0
+          (ends-on)
+          (state
+            (accepts ((on 10) 1))
+            (exit may)
+            (missing)
+            (bump (message 7)))
+          (state (accepts) (exit may) (missing) (bump (message 7))))
         (expect 14 (message 3) (at-child items) (hole 20) (placeholder))
         (loop
           1
@@ -128,7 +137,16 @@
       (boundary true)
       (seq
         (open 5)
-        (expect 7 (message 9) (at-child) (hole) (placeholder))
+        (expect 7 (message 11) (at-child) (hole) (placeholder))
+        (loop
+          0
+          (ends-on)
+          (state
+            (accepts ((on 9) 1))
+            (exit may)
+            (missing)
+            (bump (message 10)))
+          (state (accepts) (exit may) (missing) (bump (message 10))))
         (loop
           0
           (ends-on (kinds 8 13))
@@ -136,11 +154,11 @@
           (state
             (accepts ((on 9) 2))
             (exit may)
-            (missing 9 (message 8) 2)
+            (missing 9 (message 9) 2)
             bump)
           (state (accepts ((on 6 7) 1)) (exit may) (missing) (call 1)))
         trivia
-        (expect 8 (message 7) (at-child) (hole) (placeholder 8))
+        (expect 8 (message 8) (at-child) (hole) (placeholder 8))
         close)))
   (blocks))
 ; -- messages -----------------------------------------------------
@@ -151,6 +169,8 @@
 ;   4 expected "="
 ;   5 a trailing ","
 ;   6 expected ","
-;   7 expected "}"
-;   8 expected ";"
-;   9 expected "{"
+;   7 a leading ","
+;   8 expected "}"
+;   9 expected ";"
+;  10 a leading ";"
+;  11 expected "{"

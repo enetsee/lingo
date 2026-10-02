@@ -29,6 +29,7 @@ type postfix =
   ; p_body : body
   ; p_rule : Rule.id
   ; p_space : bool
+  ; p_pad : bool
   }
 
 type def =

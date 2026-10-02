@@ -247,6 +247,39 @@ let trailing_exit (facts : Core.Facts.t) (msgs : Messages.Builder.t) (sep : Core
   | Core.Grammar.On_break | Core.Grammar.Always -> Ir.Plan.May_exit
 ;;
 
+(* A separator in front of the first element. The parser takes one where the
+   source has it, whatever the policy, because it is bytes the source had, and
+   [Never] reports it.
+
+   It is the dual of [trailing_exit]. A trailing separator is trailing only
+   once the body ends, so its report is an exit. A leading one is leading as
+   soon as it is taken, so its report goes with the taking. *)
+let leading_loop (facts : Core.Facts.t) (msgs : Messages.Builder.t) (sep : Core.Rule.sep)
+  : Ir.Plan.instr
+  =
+  let take =
+    match sep.leading with
+    | Core.Grammar.Never ->
+      Ir.Plan.Bump_reporting
+        (Messages.Builder.intern
+           msgs
+           ("a leading " ^ diagnostic_string facts sep.sep_tok))
+    | Core.Grammar.On_break | Core.Grammar.Always -> Ir.Plan.Bump
+  in
+  Ir.Plan.Loop
+    { entry = 0
+    ; ends_on = None
+    ; states =
+        [| { accepts = [| [| Core.Kind.to_int sep.sep_tok |], 1 |]
+           ; exit = Ir.Plan.May_exit
+           ; when_missing = None
+           ; emits = take
+           }
+         ; { accepts = [||]; exit = Ir.Plan.May_exit; when_missing = None; emits = take }
+        |]
+    }
+;;
+
 (* Lowers the children a frame wraps. A separator only applies to a repeated
    child. So where the body is a sequence of required children, it lowers the
    way a plain body does. *)
@@ -326,7 +359,7 @@ let body_instrs
         msgs
         (default_text facts (Core.Kind.Set.singleton sep.sep_tok))
     in
-    first_element child
+    (leading_loop facts msgs sep :: first_element child)
     @ [ separated_loop
           ~entry:(if one_or_more child then 1 else 0)
           elem_first
@@ -474,13 +507,7 @@ let rule_of
             None
             rule_def.children.(index))
       in
-      let sep =
-        match rule_def.frame with
-        | Core.Rule.Delimited d -> d.sep
-        | Core.Rule.Separated s ->
-          Some { Core.Rule.sep_tok = s.sep_tok; trailing = s.trailing }
-        | Core.Rule.Plain | Core.Rule.Committed _ -> None
-      in
+      let sep = Core.Rule.sep_of rule_def.frame in
       (match rule_def.frame with
        | Core.Rule.Delimited d ->
          before

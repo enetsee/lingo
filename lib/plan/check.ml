@@ -120,7 +120,7 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
       kind at k;
       1, 0
     | Close -> -1, -1
-    | Trivia | Bump | Drain _ -> 0, 0
+    | Trivia | Bump | Bump_reporting _ | Drain _ -> 0, 0
     | Expect e ->
       kind at e.tok;
       opt_kind at e.hole;

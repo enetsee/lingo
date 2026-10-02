@@ -30,48 +30,74 @@ N_OBJECT
   0
     next T_LBRACE
     on T_LBRACE -> 1
-    on N_MEMBER -> 2
-    on N_ERROR -> 1
-    on T_RBRACE -> 4
+    on T_COMMA -> 2
+    on N_MEMBER -> 3
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
   1
     next T_RBRACE T_STRING
-    on N_MEMBER -> 2
-    on N_ERROR -> 1
-    on T_RBRACE -> 4
+    on T_COMMA -> 2
+    on N_MEMBER -> 3
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
   2
-    next T_RBRACE T_COMMA
-    on T_COMMA -> 3
-    on N_ERROR -> 1
-    on T_RBRACE -> 4
+    next T_RBRACE T_STRING
+    on N_MEMBER -> 3
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
   3
+    next T_RBRACE T_COMMA
+    on T_COMMA -> 4
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
+  4
     next T_STRING
-    on N_MEMBER -> 2
-    on N_ERROR -> 1
-    on T_RBRACE -> 4
-  4 may-end
+    on N_MEMBER -> 3
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
+  5
+    next T_RBRACE T_STRING
+    on N_MEMBER -> 3
+    on N_ERROR -> 5
+    on T_RBRACE -> 6
+  6 may-end
 
 N_ARRAY
   0
     next T_LBRACKET
     on T_LBRACKET -> 1
-    on N_VALUE -> 2
-    on N_ERROR -> 1
-    on T_RBRACKET -> 4
+    on T_COMMA -> 2
+    on N_VALUE -> 3
+    on N_ERROR -> 5
+    on T_RBRACKET -> 6
   1
     next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_RBRACKET T_NUMBER
     next   T_STRING
-    on N_VALUE -> 2
-    on N_ERROR -> 1
-    on T_RBRACKET -> 4
+    on T_COMMA -> 2
+    on N_VALUE -> 3
+    on N_ERROR -> 5
+    on T_RBRACKET -> 6
   2
-    next T_RBRACKET T_COMMA
-    on T_COMMA -> 3
-    on N_ERROR -> 1
-    on T_RBRACKET -> 4
+    next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_RBRACKET T_NUMBER
+    next   T_STRING
+    on N_VALUE -> 3
+    on N_ERROR -> 5
+    on T_RBRACKET -> 6
   3
+    next T_RBRACKET T_COMMA
+    on T_COMMA -> 4
+    on N_ERROR -> 5
+    on T_RBRACKET -> 6
+  4
     next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_NUMBER T_STRING
-    on N_VALUE -> 2
-    on N_ERROR -> 1
-    on T_RBRACKET -> 4
-  4 may-end
+    on N_VALUE -> 3
+    on N_ERROR -> 5
+    on T_RBRACKET -> 6
+  5
+    next T_TRUE T_FALSE T_NULL T_LBRACE T_LBRACKET T_RBRACKET T_NUMBER
+    next   T_STRING
+    on N_VALUE -> 3
+    on N_ERROR -> 5
+    on T_RBRACKET -> 6
+  6 may-end
 

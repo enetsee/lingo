@@ -64,14 +64,19 @@ N_SIG
 N_FIELDS
   0
     next T_COLON
-    on N_FIELD N_FIELDS_HOLE -> 1
-    on T_COMMA -> 2
-  1 may-end
-    next T_COMMA
-    on T_COMMA -> 2
-  2
+    on T_COMMA -> 1
+    on N_FIELD N_FIELDS_HOLE -> 2
+    on T_COMMA -> 3
+  1
     next T_COLON
-    on N_FIELD -> 1
+    on N_FIELD N_FIELDS_HOLE -> 2
+    on T_COMMA -> 3
+  2 may-end
+    next T_COMMA
+    on T_COMMA -> 3
+  3
+    next T_COLON
+    on N_FIELD -> 2
 
 N_FIELD
   0

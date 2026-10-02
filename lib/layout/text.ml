@@ -9,7 +9,7 @@ let break (ppf : Format.formatter) (b : Ir.Layout.break) : unit =
   | Hard n -> Format.fprintf ppf "(hard %d)" n
 ;;
 
-let trailing (ppf : Format.formatter) (t : Ir.Layout.trailing) : unit =
+let optional_sep (ppf : Format.formatter) (t : Ir.Layout.optional_sep) : unit =
   Format.pp_print_string
     ppf
     (match t with
@@ -19,15 +19,26 @@ let trailing (ppf : Format.formatter) (t : Ir.Layout.trailing) : unit =
 ;;
 
 let sep (ppf : Format.formatter) (s : Ir.Layout.sep) : unit =
-  Format.fprintf ppf "(sep %d %a)" s.sep_kind trailing s.trailing
+  Format.fprintf
+    ppf
+    "(sep %d %a %a%s)"
+    s.sep_kind
+    optional_sep
+    s.leading
+    optional_sep
+    s.trailing
+    (match s.position with
+     | Ends_line -> ""
+     | Starts_line -> " starts-line")
 ;;
 
 let frame (ppf : Format.formatter) (f : Ir.Layout.frame) : unit =
   match f with
   | Plain -> Format.pp_print_string ppf "(frame plain)"
-  | Delimited { open_; close; sep = s; open_space } ->
+  | Delimited { open_; close; sep = s; open_space; pad } ->
     Format.fprintf ppf "(frame delimited %d %d" open_ close;
     if open_space then Format.pp_print_string ppf " open-space";
+    if pad then Format.pp_print_string ppf " pad";
     (match s with
      | None -> ()
      | Some s -> Format.fprintf ppf " %a" sep s);
@@ -40,8 +51,14 @@ let token (ppf : Format.formatter) (k : int) (t : Ir.Layout.token) : unit =
     ppf
     "  (token %d%s%s"
     k
-    (if t.space_before then " before" else "")
-    (if t.space_after then " after" else "");
+    (match t.space_before with
+     | Hug -> ""
+     | Free -> " before"
+     | Space -> " space-before")
+    (match t.space_after with
+     | Hug -> ""
+     | Free -> " after"
+     | Space -> " space-after");
   (match t.trivia with
    | None -> ()
    | Some Reformat -> Format.pp_print_string ppf " reformat"

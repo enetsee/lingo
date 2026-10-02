@@ -141,6 +141,15 @@
       (boundary false)
       (seq
         (open 5)
+        (loop
+          0
+          (ends-on)
+          (state
+            (accepts ((on 14) 1))
+            (exit may)
+            (missing)
+            (bump (message 12)))
+          (state (accepts) (exit may) (missing) (bump (message 12))))
         (commit
           (first 16)
           (recover 10 14)
@@ -184,7 +193,7 @@
           (placeholder 25)
           (resume 15)
           (call 7))
-        (expect 15 (message 12) (at-child tail) (hole 25) (placeholder))
+        (expect 15 (message 13) (at-child tail) (hole 25) (placeholder))
         close))
     (rule
       Leaf
@@ -210,4 +219,5 @@
 ;   9 expected ":"
 ;  10 a trailing ","
 ;  11 expected ","
-;  12 expected ";"
+;  12 a leading ","
+;  13 expected ";"

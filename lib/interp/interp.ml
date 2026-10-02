@@ -134,6 +134,10 @@ let rec exec
     t.trace "bump";
     reached t where;
     Cursor.bump t.cursor
+  | Bump_reporting id ->
+    t.trace "bump-reporting";
+    reached t where;
+    Cursor.bump_reporting t.cursor id
   | Drain id ->
     t.trace "drain";
     reached t where;
@@ -474,6 +478,7 @@ let rec opens (i : Ir.Plan.instr) : bool =
   | Ir.Plan.Close
   | Ir.Plan.Trivia
   | Ir.Plan.Bump
+  | Ir.Plan.Bump_reporting _
   | Ir.Plan.Expect _
   | Ir.Plan.Call _
   | Ir.Plan.Pratt _

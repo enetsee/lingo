@@ -57,12 +57,12 @@
     (slot (kinds 1) (before fit) (between fit))
   )
   (rule 3 Object 3
-    (frame delimited 8 9 (sep 12 never))
+    (frame delimited 8 9 (sep 12 never never))
     (body (hard 1)) (inner (hard 1)) (indent 2)
     (slot (kinds 2) repeats (before flat) (between (hard 1)))
   )
   (rule 4 Array 4
-    (frame delimited 10 11 (sep 12 never))
+    (frame delimited 10 11 (sep 12 never never))
     (body fit) (inner fit) (indent 2)
     (slot (kinds 1) repeats (before flat) (between fit))
   )

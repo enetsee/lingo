@@ -100,10 +100,6 @@ let arms_gate (arms : (Kind.t array * Plan.instr) array) : Kind.t list =
   Array.fold_left arms ~init:[] ~f:(fun acc (on, _) -> Array.to_list on @ acc)
 ;;
 
-let accepts (state : Plan.loop_state) : Kind.t list =
-  Array.fold_left state.accepts ~init:[] ~f:(fun acc (on, _) -> Array.to_list on @ acc)
-;;
-
 (* A state that reports on the way out is one the grammar does not let a body
    end at. A separated list forbidding a trailing separator is the case: it
    ends after its separator only by taking bytes the source had and reporting
@@ -114,11 +110,27 @@ let ends (state : Plan.loop_state) : bool =
   | Plan.May_exit_reporting _ -> false
 ;;
 
+(* What a state takes, where the grammar admits it. A state whose transition
+   reports takes bytes the source had and the grammar has no place for: a
+   separator in front of the first element where the grammar forbids one. The
+   parse still takes it, and it is not what may come next. *)
+let accepts (states : Plan.loop_state array) (i : int) : Kind.t list =
+  let state = states.(i) in
+  match state.emits with
+  | Plan.Bump_reporting _ -> []
+  | _ ->
+    Array.fold_left state.accepts ~init:[] ~f:(fun acc (on, _) -> Array.to_list on @ acc)
+;;
+
 (* A state runs one instruction whichever transition fires, so where it went
-   is the only record of what got in. *)
+   is the only record of what got in. A state whose transition reports let in
+   nothing the grammar admits, as in [accepts]. *)
 let taken (state : Plan.loop_state) ~(goto : int) : Kind.t list =
-  Array.fold_left state.accepts ~init:[] ~f:(fun acc (on, dest) ->
-    if Int.equal dest goto then Array.to_list on @ acc else acc)
+  match state.emits with
+  | Plan.Bump_reporting _ -> []
+  | _ ->
+    Array.fold_left state.accepts ~init:[] ~f:(fun acc (on, dest) ->
+      if Int.equal dest goto then Array.to_list on @ acc else acc)
 ;;
 
 let head_set (block : Plan.block) : Kind.t list =
@@ -144,7 +156,7 @@ let rec whole (plan : Plan.t) (null : bool array) (instr : Plan.instr)
   (* A bump takes whatever is under the cursor and names no kind of its own.
      The kinds it can take are the ones the dispatch above let through, and
      [entered] uses that set, and it runs before this is reached. *)
-  | Plan.Bump -> [], false
+  | Plan.Bump | Plan.Bump_reporting _ -> [], false
   (* Nothing may appear where a drain is, and it takes nothing where nothing
      is left. *)
   | Plan.Drain _ -> [], true
@@ -157,7 +169,7 @@ let rec whole (plan : Plan.t) (null : bool array) (instr : Plan.instr)
   (* [ends_on] is missing from this on purpose. It holds the closer, which the
      instruction after the loop takes anyway, and the resync anchors, which
      are what recovery stops at rather than what the grammar admits. *)
-  | Plan.Loop l -> accepts l.states.(l.entry), ends l.states.(l.entry)
+  | Plan.Loop l -> accepts l.states l.entry, ends l.states.(l.entry)
 
 and from (plan : Plan.t) (null : bool array) (instrs : Plan.instr array) (index : int)
   : Kind.t list * bool
@@ -209,6 +221,7 @@ let mismatch (step : step) (instr : Plan.instr) : 'a =
     | Plan.Close -> "close"
     | Plan.Trivia -> "trivia"
     | Plan.Bump -> "bump"
+    | Plan.Bump_reporting _ -> "bump-reporting"
     | Plan.Expect _ -> "expect"
     | Plan.Call _ -> "call"
     | Plan.Pratt _ -> "pratt"
@@ -253,8 +266,8 @@ let rec remains
   | Child :: rest, Plan.Commit c ->
     entered plan null ~inclusive ~gate:(Array.to_list c.first) c.body rest
   | Loop state :: [], Plan.Loop l ->
-    let state = l.states.(within "loop state" (Array.length l.states) state) in
-    accepts state, ends state
+    let i = within "loop state" (Array.length l.states) state in
+    accepts l.states i, ends l.states.(i)
   (* A loop state is where a path ends. What the loop runs is reached through
      [Emits], which names the state it goes on to. *)
   | Loop _ :: _ :: _, Plan.Loop _ ->
@@ -266,9 +279,7 @@ let rec remains
     let first, nullable =
       entered plan null ~inclusive ~gate:(taken state ~goto) state.emits rest
     in
-    if nullable
-    then first @ accepts l.states.(goto), ends l.states.(goto)
-    else first, false
+    if nullable then first @ accepts l.states goto, ends l.states.(goto) else first, false
   | ((Operand _ | Climbing _ | Postfix _) :: _ as steps), Plan.Pratt p ->
     expression plan null ~inclusive plan.blocks.(p.block) steps
   | step :: _, instr -> mismatch step instr
@@ -391,7 +402,7 @@ module Table = struct
     : Kind.t list
     =
     match instr with
-    | Plan.Bump -> gate
+    | Plan.Bump | Plan.Bump_reporting _ -> gate
     | Plan.Expect e ->
       e.tok
       ::

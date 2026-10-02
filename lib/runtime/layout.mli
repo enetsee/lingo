@@ -53,9 +53,9 @@
     but trivia whose token is [Reformat] and whose text is nothing but
     whitespace, because the boundaries write that spacing back.
 
-    One thing is added, and only one: the separator a body's policy puts after
-    its last element, and only into a frame the parse closed. See
-    {!Ir.Layout.type-trailing}. *)
+    One thing is added, and only one: the separator a body's policy puts in
+    front of its first element or after its last, and only into a frame the
+    parse closed. See {!Ir.Layout.type-optional_sep}. *)
 
 (** {1 The table}
 
@@ -67,15 +67,21 @@ type break = Ir.Layout.break =
   | Fit
   | Hard of int
 
-type trailing = Ir.Layout.trailing =
+type optional_sep = Ir.Layout.optional_sep =
   | Never
   | On_break
   | Always
 
+type position = Ir.Layout.position =
+  | Ends_line
+  | Starts_line
+
 type sep = Ir.Layout.sep =
   { sep_kind : Ir.Kind.t
   ; text : string
-  ; trailing : trailing
+  ; leading : optional_sep
+  ; trailing : optional_sep
+  ; position : position
   }
 
 type frame = Ir.Layout.frame =
@@ -85,6 +91,7 @@ type frame = Ir.Layout.frame =
       ; close : Ir.Kind.t
       ; sep : sep option
       ; open_space : bool
+      ; pad : bool
       }
   | Separated of sep
 
@@ -110,9 +117,14 @@ type trivia = Ir.Layout.trivia =
   | Reformat
   | Preserve
 
+type side = Ir.Layout.side =
+  | Hug
+  | Free
+  | Space
+
 type token = Ir.Layout.token =
-  { space_before : bool
-  ; space_after : bool
+  { space_before : side
+  ; space_after : side
   ; trivia : trivia option
   }
 

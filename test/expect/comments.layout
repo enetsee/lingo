@@ -37,7 +37,7 @@
     (slot (kinds 1) (before flat) (between flat))
   )
   (rule 1 List 1
-    (frame delimited 4 5 (sep 6 on-break))
+    (frame delimited 4 5 (sep 6 never on-break))
     (body fit) (inner fit) (indent 2)
     (slot (kinds 2) repeats (before flat) (between fit))
   )

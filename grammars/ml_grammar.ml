@@ -79,18 +79,18 @@ let grammar : t =
     ; kw "if"
     ; kw "then"
     ; kw "else"
-    ; punct ~space_after:false ~name:"lbrace" "{"
-    ; punct ~space_before:false ~name:"rbrace" "}"
-    ; punct ~space_after:false ~name:"lparen" "("
-    ; punct ~space_before:false ~name:"rparen" ")"
-    ; punct ~space_after:false ~name:"lbracket" "["
-    ; punct ~space_before:false ~name:"rbracket" "]"
+    ; punct ~space_before:Space ~name:"lbrace" "{"
+    ; punct ~name:"rbrace" "}"
+    ; punct ~space_after:Hug ~name:"lparen" "("
+    ; punct ~space_before:Hug ~name:"rparen" ")"
+    ; punct ~space_after:Hug ~name:"lbracket" "["
+    ; punct ~space_before:Hug ~name:"rbracket" "]"
     ; punct_tight ~name:"dot" "."
-    ; punct ~space_after:false ~name:"tilde" "~"
-    ; punct ~space_after:false ~name:"bang" "!"
-    ; punct ~space_before:false ~name:"comma" ","
-    ; punct ~space_before:false ~name:"semi" ";"
-    ; punct ~space_before:false ~name:"colon" ":"
+    ; punct ~space_after:Hug ~name:"tilde" "~"
+    ; punct ~space_after:Hug ~name:"bang" "!"
+    ; punct ~space_before:Hug ~name:"comma" ","
+    ; punct ~space_before:Hug ~name:"semi" ";"
+    ; punct ~space_before:Hug ~name:"colon" ":"
     ; punct ~name:"arrow" "->"
     ; punct ~name:"eq" "="
     ; punct ~name:"bar" "|"
@@ -211,8 +211,9 @@ let grammar : t =
   in
   (* -- data --
 
-     A constructor leads with [|] and ends where the next one starts, so the
-     body takes no separator. *)
+     Constructors are separated by [|], and one may stand in front of the first
+     as well. A declaration that fits on a line has none there, and one that
+     breaks starts every line with one. *)
   let ctor_payload =
     prod "CtorPayload" [ child_rep "ty" (Rule "Type") ]
     |> with_delimited_sep ~open_tok:"lparen" ~close_tok:"rparen" ~sep:"comma"
@@ -220,17 +221,20 @@ let grammar : t =
   let ctor =
     prod
       "Ctor"
-      [ child_req "bar" (Token "bar")
-      ; child_req ~break:Never "name" (Token "ident")
+      [ child_req "name" (Token "ident")
       ; child_opt ~break:Never ~space:false "payload" (Rule "CtorPayload")
       ]
     |> with_binder "name"
   in
   let data_body =
-    prod
-      "DataBody"
-      [ child_rep ~break:(always 1) ~between:(always 1) "ctor" (Rule "Ctor") ]
-    |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+    prod "DataBody" [ child_rep "ctor" (Rule "Ctor") ]
+    |> with_delimited_sep
+         ~pad:true
+         ~open_tok:"lbrace"
+         ~close_tok:"rbrace"
+         ~sep:"bar"
+         ~leading_sep:On_break
+         ~sep_position:Op_before
   in
   let data_decl =
     (* No boundary here breaks, so an indent of its own would only push the
@@ -390,6 +394,7 @@ let grammar : t =
              loop takes no separator. *)
         ; postfix_call
             ~kind_suffix:"block"
+            ~pad:true
             ~open_tok:"lbrace"
             ~close_tok:"rbrace"
             ~elem:(Rule "Stmt")

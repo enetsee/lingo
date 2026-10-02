@@ -37,7 +37,11 @@ type child =
   ; c_parse : child_parse
   }
 
-type trailing_sep =
+type operator_position =
+  | Op_before
+  | Op_after
+
+type optional_sep =
   | Never
   | On_break
   | Always
@@ -46,7 +50,9 @@ type sep_policy =
   | No_sep
   | With_sep of
       { sep : Name.Token.t
-      ; trailing : trailing_sep
+      ; leading : optional_sep
+      ; trailing : optional_sep
+      ; position : operator_position
       }
 
 type lookahead_n = int
@@ -62,11 +68,14 @@ type framing =
       { open_tok : Name.Token.t
       ; close_tok : Name.Token.t
       ; sep_policy : sep_policy
+      ; pad : bool
       ; boundary : bool
       }
   | Separated of
       { sep : Name.Token.t
-      ; trailing : trailing_sep
+      ; leading : optional_sep
+      ; trailing : optional_sep
+      ; position : operator_position
       ; boundary : bool
       }
 
@@ -118,11 +127,8 @@ and postfix_op =
   ; body : postfix_body
   ; kind_suffix : string
   ; space : bool
+  ; pad : bool
   }
-
-type operator_position =
-  | Op_before
-  | Op_after
 
 type expr_format =
   { operator_position : operator_position
@@ -154,9 +160,14 @@ type token_class =
   | Punctuation of string
   | Pattern of pattern_spec
 
+type side =
+  | Hug
+  | Free
+  | Space
+
 type token_format =
-  { space_before : bool
-  ; space_after : bool
+  { space_before : side
+  ; space_after : side
   }
 
 type token_def =
@@ -229,8 +240,10 @@ let expr_block
   }
 ;;
 
-let with_sep ?(trailing = Never) (sep : string) : sep_policy =
-  With_sep { sep = Name.Token.of_string sep; trailing }
+let with_sep ?(leading = Never) ?(trailing = Never) ?(position = Op_after) (sep : string)
+  : sep_policy
+  =
+  With_sep { sep = Name.Token.of_string sep; leading; trailing; position }
 ;;
 
 (* -- postfix operators ----------------------------------------------------- *)
@@ -238,7 +251,13 @@ let with_sep ?(trailing = Never) (sep : string) : sep_policy =
 let postfix_simple ?(kind_suffix = "") ?(space = false) ~(token : string) ~(bp : int) ()
   : postfix_op
   =
-  { bp; lead = Name.Token.of_string token; body = Nothing; kind_suffix; space }
+  { bp
+  ; lead = Name.Token.of_string token
+  ; body = Nothing
+  ; kind_suffix
+  ; space
+  ; pad = false
+  }
 ;;
 
 let postfix_access
@@ -250,12 +269,19 @@ let postfix_access
       ()
   : postfix_op
   =
-  { bp; lead = Name.Token.of_string token; body = Then rhs; kind_suffix; space }
+  { bp
+  ; lead = Name.Token.of_string token
+  ; body = Then rhs
+  ; kind_suffix
+  ; space
+  ; pad = false
+  }
 ;;
 
 let postfix_index
       ?(kind_suffix = "")
       ?(space = false)
+      ?(pad = false)
       ~(open_tok : string)
       ~(close_tok : string)
       ~(index : symbol)
@@ -268,12 +294,14 @@ let postfix_index
   ; body = Enclosed { close = Name.Token.of_string close_tok; content = One index }
   ; kind_suffix
   ; space
+  ; pad
   }
 ;;
 
 let postfix_brace
       ?(kind_suffix = "")
       ?(space = false)
+      ?(pad = false)
       ~(open_tok : string)
       ~(close_tok : string)
       ~(body : symbol)
@@ -286,12 +314,14 @@ let postfix_brace
   ; body = Enclosed { close = Name.Token.of_string close_tok; content = One body }
   ; kind_suffix
   ; space
+  ; pad
   }
 ;;
 
 let postfix_call
       ?(kind_suffix = "")
       ?(space = false)
+      ?(pad = false)
       ~open_tok
       ~close_tok
       ~elem
@@ -308,6 +338,7 @@ let postfix_call
         }
   ; kind_suffix
   ; space
+  ; pad
   }
 ;;
 
@@ -419,14 +450,14 @@ let kw ?name ?trivia (literal : string) : token_def =
   in
   { token_name = Name.Token.of_string token_name
   ; token_class = Keyword literal
-  ; t_format = { space_before = true; space_after = true }
+  ; t_format = { space_before = Free; space_after = Free }
   ; trivia
   }
 ;;
 
 let punct
-      ?(space_before = true)
-      ?(space_after = true)
+      ?(space_before = Free)
+      ?(space_after = Free)
       ?trivia
       ~(name : string)
       (literal : string)
@@ -440,13 +471,13 @@ let punct
 ;;
 
 let punct_tight ?trivia ~(name : string) (literal : string) : token_def =
-  punct ~space_before:false ~space_after:false ?trivia ~name literal
+  punct ~space_before:Hug ~space_after:Hug ?trivia ~name literal
 ;;
 
 let pat ?textmate ?treesitter ?trivia (n : string) (lexer : Redfa.Regex.t) : token_def =
   { token_name = Name.Token.of_string n
   ; token_class = Pattern { lexer; textmate; treesitter }
-  ; t_format = { space_before = true; space_after = true }
+  ; t_format = { space_before = Free; space_after = Free }
   ; trivia
   }
 ;;
@@ -491,6 +522,7 @@ let with_delimited_internal
       ~(open_tok : Name.Token.t)
       ~(close_tok : Name.Token.t)
       ~(sep_policy : sep_policy)
+      ~(pad : bool)
       ?boundary
       (p : production)
   : production
@@ -500,16 +532,22 @@ let with_delimited_internal
     | Some b -> b
     | None -> framing_boundary p.framing
   in
-  { p with framing = Delimited { open_tok; close_tok; sep_policy; boundary } }
+  { p with framing = Delimited { open_tok; close_tok; sep_policy; pad; boundary } }
 ;;
 
-let with_delimited ~(open_tok : string) ~(close_tok : string) ?boundary (p : production)
+let with_delimited
+      ~(open_tok : string)
+      ~(close_tok : string)
+      ?(pad = false)
+      ?boundary
+      (p : production)
   : production
   =
   with_delimited_internal
     ~open_tok:(Name.Token.of_string open_tok)
     ~close_tok:(Name.Token.of_string close_tok)
     ~sep_policy:No_sep
+    ~pad
     ?boundary
     p
 ;;
@@ -518,7 +556,10 @@ let with_delimited_sep
       ~(open_tok : string)
       ~(close_tok : string)
       ~(sep : string)
+      ?(leading_sep = Never)
       ?(trailing_sep = Never)
+      ?(sep_position = Op_after)
+      ?(pad = false)
       ?boundary
       (p : production)
   : production
@@ -526,12 +567,25 @@ let with_delimited_sep
   with_delimited_internal
     ~open_tok:(Name.Token.of_string open_tok)
     ~close_tok:(Name.Token.of_string close_tok)
-    ~sep_policy:(With_sep { sep = Name.Token.of_string sep; trailing = trailing_sep })
+    ~sep_policy:
+      (With_sep
+         { sep = Name.Token.of_string sep
+         ; leading = leading_sep
+         ; trailing = trailing_sep
+         ; position = sep_position
+         })
+    ~pad
     ?boundary
     p
 ;;
 
-let with_separator ~(sep : string) ?(trailing_sep = Never) ?boundary (p : production)
+let with_separator
+      ~(sep : string)
+      ?(leading_sep = Never)
+      ?(trailing_sep = Never)
+      ?(sep_position = Op_after)
+      ?boundary
+      (p : production)
   : production
   =
   let boundary =
@@ -541,7 +595,13 @@ let with_separator ~(sep : string) ?(trailing_sep = Never) ?boundary (p : produc
   in
   { p with
     framing =
-      Separated { sep = Name.Token.of_string sep; trailing = trailing_sep; boundary }
+      Separated
+        { sep = Name.Token.of_string sep
+        ; leading = leading_sep
+        ; trailing = trailing_sep
+        ; position = sep_position
+        ; boundary
+        }
   }
 ;;
 

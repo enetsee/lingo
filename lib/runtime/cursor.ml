@@ -121,6 +121,12 @@ let report_at (c : t) (range : int * int) (kind : Diagnostic.kind) =
   Dynarray.add_last c.diags { Diagnostic.range; kind }
 ;;
 
+let bump_reporting (c : t) (id : Ir.Message.id) =
+  let from = fst (range c) in
+  bump c;
+  report_at c (from, offset c) (Diagnostic.Extra id)
+;;
+
 let report_id (c : t) (kind : Diagnostic.kind) =
   c.reports <- c.reports + 1;
   let r = range c in
