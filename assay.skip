@@ -7,7 +7,6 @@
 950752167485317532	doesn't type-check: This expression has type Core.Block.def list -> Core.Block.def option
 1144381515379838292	doesn't type-check: This expression has type int list -> string list
 1636793085686556145	doesn't type-check: This expression has type Core.Token.def list -> problem list
-1833728917647121812	doesn't type-check: This expression has type
 1901607133656883712	doesn't type-check: This expression has type Core.Token.def list -> string list
 2130535775971385419	doesn't type-check: This expression has type Core.Kind.t list -> (string * string) list
 2151401862733310537	doesn't type-check: This expression has type klass list -> string list
@@ -21,7 +20,6 @@
 209339624908487443	doesn't type-check: This expression has type Core.Rule.def list -> (string * string) list
 1005126189426432502	doesn't type-check: This expression has type Core.Block.def list -> (string * string) list
 1200697621715933163	doesn't type-check: This expression has type Plan.rule list -> (int * point array) list
-1351281275804385558	doesn't type-check: This expression has type
 1476718404638423540	doesn't type-check: This expression has type Grammar.Name.Child.t list -> int list
 1756144539916201265	doesn't type-check: This expression has type Core.Rule.def list -> (string * string) list
 2085037826115481238	doesn't type-check: This expression has type Core.Rule.def list -> string list
@@ -29,7 +27,6 @@
 3331847149688477022	doesn't type-check: This expression has type Core.Kind.t list -> Js.t list
 4132374976753343124	doesn't type-check: The value String.of_seq has type char Seq.t -> string
 195863381999374463	doesn't type-check: This expression has type Core.Token.def list -> (string * string) list
-357585022119053240	doesn't type-check: This expression has type
 1444462137160649815	doesn't type-check: The value String.to_seq has type string -> char Seq.t
 1542263586922492078	doesn't type-check: This expression has type Core.Rule.def list -> string list
 2116072771611540529	doesn't type-check: This expression has type Core.Rule.def list -> string list
@@ -43,10 +40,13 @@
 1709326469139412012	doesn't type-check: This expression has type Core.Rule.def list -> (string * Js.t) list
 3506969472990048357	doesn't type-check: This expression has type Core.Block.def list -> problem list
 3787649537548311600	doesn't type-check: This expression has type string list -> string
-4157080761376040533	doesn't type-check: This expression has type
 135868559959855862	doesn't type-check: This expression has type Core.Rule.def list -> problem list
-1682286850331892843	doesn't type-check: This expression has type
 1882267031189650918	doesn't type-check: This expression has type Core.Rule.def list -> string list
 386101293276136205	doesn't type-check: This expression has type int list -> string list
 4144066219441276628	doesn't type-check: This expression has type Core.Rule.def list -> string list
 1511708223216655015	doesn't type-check: This expression has type Core.Rule.def list -> string list
+357585022119053240	doesn't type-check: This expression has type Core.Rule.def list -> (string * Yojson.Basic.t) list
+1351281275804385558	doesn't type-check: This expression has type (int * (string * string) list) list -> string list
+1833728917647121812	doesn't type-check: This expression has type Lingo_runtime.Token.t list -> (int * string) list
+4157080761376040533	doesn't type-check: This expression has type Core.Block.postfix list -> Yojson.Basic.t list
+1682286850331892843	doesn't type-check: This expression has type Core.Token.def list -> [> `Assoc of (string * Yojson.Basic.t) list ] list

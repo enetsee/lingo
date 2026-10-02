@@ -199,7 +199,7 @@ let start =
 
 let stronger (a : Ir.Layout.break) (b : Ir.Layout.break) : Ir.Layout.break =
   match a, b with
-  | Hard m, Hard n -> Hard (if m > n then m else n)
+  | Hard m, Hard n -> Hard (Int.max m n)
   | (Hard _ as h), _ | _, (Hard _ as h) -> h
   | Fit, _ | _, Fit -> Fit
   | Flat, Flat -> Flat
@@ -299,7 +299,11 @@ let glue (e : env) (st : state) (w : Written.t) : Ir.Kind.t Handsome.Utf8.t * st
     ; brk = Flat
     ; gap = None
     ; held = st.held
-    ; written = st.written + 1
+    ; written =
+        (st.written + 1)
+        [@assay.skip
+          "only compared with the count at a node's entry, so any step that is not zero \
+           reads the same"]
     ; hard =
         (st.hard + (if broke then 1 else 0) + if String.contains text '\n' then 1 else 0)
     ; first =
@@ -450,6 +454,22 @@ let delimiters (r : Ir.Layout.rule) (cs : Siesta.Green.child array) =
 
    One thing comes out: whitespace whose trivia is [Reformat], because the
    boundaries write the spacing back. Nothing else leaves. *)
+(* A child with no bytes: a hole, a delimiter the parse looked for and did not
+   find, a token recovery inserted. {!node} writes nothing for one and puts its
+   boundary back, so it is the same test spelled in both places. *)
+let silent (it : entry) : bool =
+  match it.child with
+  | Siesta.Green.Node n -> Array.length (Siesta.Green.children_array n) = 0
+  | Siesta.Green.Token t -> Siesta.Green.Token.text t = ""
+;;
+
+(* The break between two elements of a body. A rule with a separator holds its
+   elements in its last slot: the only one of a production, and the one after
+   the operand of an enclosed postfix. *)
+let between_elements (r : Ir.Layout.rule) : Ir.Layout.break =
+  r.slots.(Array.length r.slots - 1).between
+;;
+
 let entries
       (e : env)
       (r : Ir.Layout.rule)
@@ -472,68 +492,14 @@ let entries
     | Some { position = Starts_line; _ } -> true
     | Some { position = Ends_line; _ } | None -> false
   in
-  (* The leading separator the policy owns, and the first element it goes in
-     front of, as indices into [cs].
-
-     The policy owns it under [On_break] and [Always] and writes it itself, so a
-     lone one the source has is left out here, as dropped whitespace is. Only a
-     lone one, straight after the opener and straight before an element: two
-     of them, or a comment or a stray beside one, are bytes the policy does not
-     cover, and they are written as they stand. *)
-  let n_cs = Array.length cs in
+  (* Whitespace whose trivia is [Reformat]. The boundaries write that spacing
+     back, so it is the one thing that leaves. *)
   let dropped (ch : Siesta.Green.child) : bool =
     match ch with
     | Siesta.Green.Token t ->
       (token lay (Siesta.Green.Token.kind t)).trivia = Some Reformat
       && all_space (Siesta.Green.Token.text t)
     | Siesta.Green.Node _ -> false
-  in
-  let rec next_kept (j : int) : int =
-    if j < n_cs && dropped cs.(j) then next_kept (j + 1) else j
-  in
-  let element (ch : Siesta.Green.child) : bool =
-    let k = kind_of ch in
-    let in_slot =
-      Array.exists r.slots ~f:(fun (sl : Ir.Layout.slot) ->
-        Array.exists sl.kinds ~f:(fun x -> x = k))
-    in
-    in_slot
-    &&
-    match ch with
-    | Siesta.Green.Node n -> lay.of_kind.(k) >= 0 && Siesta.Green.num_children n > 0
-    | Siesta.Green.Token t ->
-      Siesta.Green.Token.text t <> "" && (token lay k).trivia = None && Some k <> sep_kind
-  in
-  let owned, head_at, head =
-    let policy =
-      match sep_of r with
-      | Some s when s.text <> "" ->
-        (match s.leading with
-         | Never -> None
-         | On_break -> Some (s, false)
-         | Always -> Some (s, true))
-      | Some _ | None -> None
-    in
-    match policy with
-    | None -> -1, -1, None
-    | Some (s, always) ->
-      let after =
-        match s.position with
-        | Starts_line -> Ir.Layout.Flat
-        | Ends_line -> r.slots.(Array.length r.slots - 1).between
-      in
-      let h = Some { sep = s; always; after } in
-      let inside (j : int) = j < n_cs && (c < 0 || j < c) in
-      let start = next_kept (o + 1) in
-      if not (inside start)
-      then -1, -1, None
-      else if Some (kind_of cs.(start)) = sep_kind
-      then (
-        let j = next_kept (start + 1) in
-        if inside j && element cs.(j) then start, j, h else -1, -1, None)
-      else if element cs.(start)
-      then -1, start, h
-      else -1, -1, None
   in
   let kept = ref [] in
   (* How many line breaks the whitespace dropped in front of a child held. *)
@@ -545,17 +511,16 @@ let entries
   Array.iteri cs ~f:(fun i ch ->
     let k = kind_of ch in
     let tok = token lay k in
-    let spacing =
-      match tok.trivia, ch with
-      | Some Reformat, Siesta.Green.Token t -> Some (Siesta.Green.Token.text t)
-      | _ -> None
-    in
-    match spacing with
-    | Some s when all_space s ->
+    if dropped ch
+    then (
+      let s =
+        match ch with
+        | Siesta.Green.Token t -> Siesta.Green.Token.text t
+        | Siesta.Green.Node _ -> ""
+      in
       nls
-      := !nls + String.fold_left s ~init:0 ~f:(fun n c -> if c = '\n' then n + 1 else n)
-    | (Some _ | None) when i = owned -> say e "lead-sep-owned"
-    | Some _ | None ->
+      := !nls + String.fold_left s ~init:0 ~f:(fun n c -> if c = '\n' then n + 1 else n))
+    else (
       let recovered =
         match ch with
         | Siesta.Green.Node n -> lay.of_kind.(k) < 0 && Siesta.Green.num_children n > 0
@@ -604,8 +569,43 @@ let entries
         match b with
         | Hard n when !nls >= 2 && inside ->
           say e "blank-kept";
-          Hard (if n > 2 then n else 2)
+          Hard (Int.max n 2)
         | Flat | Fit | Hard _ -> b
+      in
+      (* The break the rule declares here, whatever the source had. *)
+      let declared : Ir.Layout.break =
+        match role with
+        | Opener -> Flat
+        | Separator ->
+          if not sep_starts_line
+          then Flat
+          else if not !body_started
+          then if !seen_open then r.inner else Flat
+          else between_elements r
+        | Closer ->
+          (match !kept, ch with
+           (* A frame with nothing in it has nothing to break around. *)
+           | { role = Opener; _ } :: _, _ -> Flat
+           (* A closer the parse never found writes nothing, so there is
+                nothing to break in front of. Leaving the rule's break there
+                cuts the run, and the group that settles the line then stops
+                short of the tokens the caller writes on it. *)
+           | _, Siesta.Green.Node n when Siesta.Green.num_children n = 0 -> Flat
+           | _, _ -> r.inner)
+        | Stray -> r.body
+        | Filled ->
+          let after_sep =
+            match !kept with
+            | { role = Separator; _ } :: _ -> true
+            | _ -> false
+          in
+          if sep_starts_line && after_sep
+          then Flat
+          else if !seen_open && not !body_started
+          then r.inner
+          else if !again
+          then r.slots.(!prev_slot).between
+          else r.slots.(!prev_slot).before
       in
       let before : Ir.Layout.break =
         keep_blank
@@ -614,39 +614,7 @@ let entries
         then (
           say e (if !nls > 0 then "held-line" else "held-same");
           if !nls > 0 then Hard 1 else Flat)
-        else (
-          match role with
-          | Opener -> Flat
-          | Separator ->
-            if not sep_starts_line
-            then Flat
-            else if not !body_started
-            then if !seen_open then r.inner else Flat
-            else r.slots.(!prev_slot).between
-          | Closer ->
-            (match !kept, ch with
-             (* A frame with nothing in it has nothing to break around. *)
-             | { role = Opener; _ } :: _, _ -> Flat
-             (* A closer the parse never found writes nothing, so there is
-                nothing to break in front of. Leaving the rule's break there
-                cuts the run, and the group that settles the line then stops
-                short of the tokens the caller writes on it. *)
-             | _, Siesta.Green.Node n when Siesta.Green.num_children n = 0 -> Flat
-             | _, _ -> r.inner)
-          | Stray -> r.body
-          | Filled ->
-            let after_sep =
-              match !kept with
-              | { role = Separator; _ } :: _ -> true
-              | _ -> false
-            in
-            if sep_starts_line && after_sep
-            then Flat
-            else if !seen_open && not !body_started
-            then r.inner
-            else if !again
-            then r.slots.(!prev_slot).between
-            else r.slots.(!prev_slot).before)
+        else declared
       in
       (* The rule's slots set the gap between two of its children, and its
          frame sets the gaps just inside the delimiters, whatever sits there:
@@ -676,34 +644,87 @@ let entries
        | Opener | Closer | Separator | Stray -> ());
       nls := 0;
       let starts_line =
-        (not (held || was_held))
+        (not held)
         && role = Filled
         &&
-        match before with
+        match declared with
         | Hard _ -> true
         | Flat | Fit -> false
       in
-      let head = if i = head_at then head else None in
-      kept := { child = ch; role; held; before; gap; starts_line; head } :: !kept);
+      kept := { child = ch; role; held; before; gap; starts_line; head = None } :: !kept));
   let es = Array.of_list (List.rev !kept) in
   let n = Array.length es in
-  let index role =
+  (* A comment on a line of its own belongs with the line after it: a new line
+     where the next child starts one, a continuation where it continues the
+     rule. With nothing after it in the rule, it starts a line at the rule's
+     own indentation rather than continuing the one before it. *)
+  let follows = ref true in
+  for i = n - 1 downto 0 do
+    let it = es.(i) in
+    if not it.held
+    then follows := it.starts_line
+    else (
+      match it.before with
+      | Hard _ -> es.(i) <- { it with starts_line = !follows }
+      | Flat | Fit -> ())
+  done;
+  let index (es : entry array) role =
+    let n = Array.length es in
     let rec go i = if i >= n then -1 else if es.(i).role = role then i else go (i + 1) in
     go 0
   in
-  es, index Opener, index Closer
+  (* The leading separator the policy owns, under [On_break] and [Always]. The
+     policy writes it itself, so a lone one the source has leaves here, as
+     dropped whitespace does, and the first element carries the policy instead.
+
+     Only a lone one, with nothing but the opener in front of it and an element
+     with bytes straight after it. Two of them, or a comment or a stray beside
+     one, are bytes the policy does not cover, and they are written as they
+     stand. The element takes the separator's place at the opener: the break
+     there, and the gap. *)
+  let es =
+    let policy =
+      match sep_of r with
+      | Some s when s.text <> "" ->
+        (match s.leading with
+         | Never -> None
+         | On_break -> Some (s, false)
+         | Always -> Some (s, true))
+      | Some _ | None -> None
+    in
+    let o = index es Opener in
+    let rec first i = if i >= n || es.(i).role = Filled then i else first (i + 1) in
+    let f = first (o + 1) in
+    match policy with
+    | Some (s, always) when f < n && not (silent es.(f)) ->
+      let after =
+        match s.position with
+        | Starts_line -> Ir.Layout.Flat
+        | Ends_line -> between_elements r
+      in
+      let head = Some { sep = s; always; after } in
+      if f = o + 1
+      then (
+        es.(f) <- { (es.(f)) with head };
+        es)
+      else if f = o + 2 && es.(o + 1).role = Separator
+      then (
+        say e "lead-sep-owned";
+        let sep = es.(o + 1) in
+        es.(f)
+        <- { (es.(f)) with
+             before = stronger sep.before es.(f).before
+           ; gap = sep.gap
+           ; head
+           };
+        Array.append (Array.sub es ~pos:0 ~len:(o + 1)) (Array.sub es ~pos:f ~len:(n - f)))
+      else es
+    | Some _ | None -> es
+  in
+  es, index es Opener, index es Closer
 ;;
 
 (* -- the walk ------------------------------------------------------------ *)
-
-(* A child with no bytes: a hole, a delimiter the parse looked for and did not
-   find, a token recovery inserted. {!node} writes nothing for one and puts its
-   boundary back, so it is the same test spelled in both places. *)
-let silent (it : entry) : bool =
-  match it.child with
-  | Siesta.Green.Node n -> Array.length (Siesta.Green.children_array n) = 0
-  | Siesta.Green.Token t -> Siesta.Green.Token.text t = ""
-;;
 
 (* Where the run of children sharing one line ends. A boundary that cannot end
    the line reads [Flat], and the layout settles that on its own, so a run's
@@ -724,11 +745,9 @@ let rec flat_end (es : entry array) (i : int) (stop : int) : int =
 ;;
 
 (* [indent] is what a boundary of this rule does to the lines after it. A rule
-   with one child has no boundary, so nesting there would add its indent to
-   every rule that wraps a single child on the way down. *)
-let nest_of (r : Ir.Layout.rule) (children : int) =
-  if children > 1 then Handsome.Utf8.nest r.indent else Fun.id
-;;
+   with one child has none, and nesting it changes nothing: each child of a plain
+   rule is indented from the line it starts on. *)
+let nest_of (r : Ir.Layout.rule) = Handsome.Utf8.nest r.indent
 
 (* [walk env es i stop] is the children in [i, stop), one after another.
 
@@ -1140,7 +1159,7 @@ and node
          truncate every run that crosses it. *)
       | `Plain ->
         (match r.frame with
-         | Plain -> split e es first stop ~nest:(nest_of r last) st
+         | Plain -> split e es first stop ~nest:(nest_of r) st
          | Delimited _ | Separated _ -> walk e es first stop st)
       (* The separator is a child here, so the broken branch walks it and the
          flat branch steps over it. Nothing is written that the tree does not
@@ -1185,8 +1204,7 @@ and node
                 let brk =
                   match s.position with
                   | Ends_line -> st.brk
-                  | Starts_line ->
-                    stronger st.brk r.slots.(Array.length r.slots - 1).between
+                  | Starts_line -> stronger st.brk (between_elements r)
                 in
                 let lead, st = glue e { st with gap = Some true; brk } written in
                 lead ^^ Written.doc written, st)
@@ -1218,7 +1236,7 @@ and node
         let d =
           match r.frame with
           | Plain -> d
-          | Delimited _ | Separated _ -> nest_of r last d
+          | Delimited _ | Separated _ -> nest_of r d
         in
         lead, d, st)
       else (

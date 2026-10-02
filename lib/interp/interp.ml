@@ -307,7 +307,12 @@ and loop
       then running := false
       else (
         incr stalled;
-        if !stalled > Array.length states then running := false)
+        if
+          (!stalled > Array.length states)
+          [@assay.skip
+            "any bound at least the number of states stops the loop, and which one is \
+             not something a caller can see"]
+        then running := false)
   done;
   match states.(!state).exit, !last_taken with
   | Ir.Plan.May_exit_reporting id, Some range ->
@@ -487,8 +492,25 @@ let rec opens (i : Ir.Plan.instr) : bool =
   | Ir.Plan.Drain _ -> false
 ;;
 
+(* Why {!run} turns that entry down, or [None] where it takes it. {!run} and
+   {!may_enter} both read this, so the two cannot disagree about an entry. *)
+let refusal (plan : Ir.Plan.t) (entry : int) : string option =
+  if entry < 0 || entry >= Array.length plan.rules
+  then
+    Some (Printf.sprintf "no rule %d; the plan holds %d" entry (Array.length plan.rules))
+  else if not (opens plan.rules.(entry).body)
+  then
+    Some
+      (Printf.sprintf
+         "rule %d (%s) opens no node of its own, so a parse entering there has nothing \
+          to build into"
+         entry
+         plan.rules.(entry).name)
+  else None
+;;
+
 let may_enter (plan : Ir.Plan.t) (entry : int) : bool =
-  entry >= 0 && entry < Array.length plan.rules && opens plan.rules.(entry).body
+  Option.is_none (refusal plan entry)
 ;;
 
 let run
@@ -498,21 +520,9 @@ let run
       (entry : int)
       (tokens : Lingo_runtime.Token.t array)
   =
-  if entry < 0 || entry >= Array.length plan.rules
-  then
-    invalid_arg
-      (Printf.sprintf
-         "Interp.run: no rule %d; the plan holds %d"
-         entry
-         (Array.length plan.rules));
-  if not (opens plan.rules.(entry).body)
-  then
-    invalid_arg
-      (Printf.sprintf
-         "Interp.run: rule %d (%s) opens no node of its own, so a parse entering there \
-          has nothing to build into"
-         entry
-         plan.rules.(entry).name);
+  (match refusal plan entry with
+   | Some why -> invalid_arg ("Interp.run: " ^ why)
+   | None -> ());
   let cursor =
     Cursor.create
       ~cache:(Siesta.Cache.create_plain ())

@@ -6,7 +6,7 @@
       (d) Every instruction the corpus plans hold is one a corpus parse runs.
       (e) No node but the root begins with trivia.
       (f) [run] refuses an entry that names no rule, and one that names a rule
-          opening no node of its own.
+          opening no node of its own, and takes every entry [may_enter] admits.
 
       Mechanism. Thirteen grammars, and for each of them a list of inputs
       written here. Every input goes through part (a) and part (b). The ones marked
@@ -353,7 +353,78 @@ let () =
      with
      | None -> Law.fail "(f) calc holds no block rule, so this reads nothing"
      | Some (i, _) -> refuses "an entry naming a rule that opens no node" i);
+    (* The other side: every rule [Interp.may_enter] admits is one [run]
+       takes. Rule 0 is calc's file and opens a node, so the bottom of the
+       range is read; the top is read by the refusal one past the end above. *)
+    Array.iteri
+      (fun i (_ : Ir.Plan.rule) ->
+         if Interp.may_enter plan i
+         then (
+           match Interp.run plan i tokens with
+           | exception e ->
+             Law.fail "(f) rule %d is admitted and run raised %s" i (Printexc.to_string e)
+           | _ -> ()))
+      plan.rules;
+    if not (Interp.may_enter plan 0)
+    then
+      Law.fail
+        "(f) calc's rule 0 is not admitted, so the bottom of the range reads nothing";
     if Law.failures () = 0 then Law.pass "run refuses an entry it cannot parse with"
+;;
+
+(* -- (b) a loop no lowering builds --------------------------------------- *)
+
+(* A loop stops even where its states hand each other a missing token for
+   ever. No plan the lowering builds has two steps in a row that take no
+   token, so no input reaches the interpreter's guard against it, and this
+   builds the loop by hand: two states that each want a [(] and send the other
+   on when it is missing, and a third that takes the [1] under the cursor, which
+   is what makes the missing token a gap rather than junk. *)
+let () =
+  match Core.Facts.of_grammar Lingo_grammars.Calc_grammar.grammar with
+  | Error _ -> Law.fail "(b) calc does not check"
+  | Ok f ->
+    let plan, _ = Plan.Lower.of_facts f in
+    let tokens = Lex.run f "1" in
+    let one = tokens.(0).Lingo_runtime.Token.kind
+    and lparen = (Lex.run f "(").(0).Lingo_runtime.Token.kind in
+    let state accepts when_missing =
+      { Ir.Plan.accepts; exit = Ir.Plan.May_exit; when_missing; emits = Ir.Plan.Bump }
+    in
+    let missing goto =
+      Some { Ir.Plan.tok = lparen; message = Ir.Message.of_int 0; goto }
+    in
+    let loop =
+      Ir.Plan.Loop
+        { entry = 0
+        ; ends_on = Some [||]
+        ; states =
+            [| state [| [| lparen |], 0 |] (missing 1)
+             ; state [| [| lparen |], 1 |] (missing 0)
+             ; state [| [| one |], 2 |] None
+            |]
+        }
+    in
+    let entry = plan.Ir.Plan.roots.(0) in
+    let rule = plan.rules.(entry) in
+    let body = Ir.Plan.Seq [| Ir.Plan.Open rule.kind; loop; Ir.Plan.Close |] in
+    let plan =
+      { plan with
+        rules =
+          Array.mapi
+            (fun i r -> if i = entry then { r with Ir.Plan.body } else r)
+            plan.rules
+      }
+    in
+    let steps = ref 0 in
+    let trace (_ : string) =
+      incr steps;
+      if !steps > ceiling then raise Runaway
+    in
+    (match Interp.run ~trace plan entry tokens with
+     | exception Runaway ->
+       Law.fail "(b) a loop of steps that take no token ran past %d instructions" ceiling
+     | _ -> Law.pass "(b) a loop of steps that take no token stops")
 ;;
 
 let () =

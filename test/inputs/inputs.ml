@@ -187,6 +187,9 @@ let comments : t =
         (* A comment on a line of its own keeps the blank line in front of
            it. *)
       ; "[a,\n\n  // c\n  b]"
+        (* A comment holding a line break does not break the line it sits on
+           any more than its own lines do: [.b.c.d.e.f] stays together. *)
+      ; "[a /* x\n y */ .b .c .d .e .f]"
       ]
       (* ["\[1 .5\]"] is the max-munch case: three tokens the source had apart,
          no two of which join, that are one number together. *)
@@ -304,6 +307,9 @@ let effekt : t =
       ; "// line\nval a = 1;"
       ; "module m;\n\nval a = 1;" (* A blank line between two statements is kept. *)
       ; "def f() = {\n  val a = 1;\n\n  val b = 2;\n  val c = 3;\n};"
+        (* A comment on a line of its own after the doc lines starts a line,
+           as the definition after it does. *)
+      ; "/// doc\n// c\ndef f() = 1;"
       ]
   ; broken =
       [ "module"
@@ -341,6 +347,12 @@ let ml : t =
       ; "type P = int * string -> int;"
       ; "type G = (int -> int) * int;"
       ; "data C { | Red | Rgb(int, int, int) }"
+        (* A comment beside the leading separator leaves it the source's. *)
+      ; "data C { | (* c *) Red | Blue }"
+        (* None in front of the first, so the policy adds one where the body
+           breaks. And a comment where one would go is the source's to keep. *)
+      ; "data C { Red | Rgb(int, int, int) }"
+      ; "data C { (* c *) Red | Blue }"
       ; "let x : int = 1;"
       ; "let f (a : int) (b : int) : int = a + b;"
       ; "let f ~a : int = a;"
@@ -374,6 +386,8 @@ let ml : t =
       ; "import ;"
       ; "let x : int = 1"
       ; "data C {"
+      ; "data C { | 1 }"
+      ; "data C { | | Red }"
       ; "let x : int = a +;"
       ; "(* unterminated"
       ]
