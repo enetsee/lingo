@@ -30,6 +30,7 @@ type child_parse =
 type child =
   { name : Name.Child.t
   ; c_break : break_style
+  ; c_space : bool
   ; head : symbol
   ; rest : symbol list
   ; modifier : modifier
@@ -83,8 +84,6 @@ type production =
   ; error_messages : string Name.Child.Map.t
   ; format : production_format
   ; has_hole : bool
-  ; edge_space_before : bool option
-  ; edge_space_after : bool option
   ; resync_anchors : Name.Token.Set.t
   }
 
@@ -118,6 +117,7 @@ and postfix_op =
   ; lead : Name.Token.t
   ; body : postfix_body
   ; kind_suffix : string
+  ; space : bool
   }
 
 type operator_position =
@@ -235,18 +235,27 @@ let with_sep ?(trailing = Never) (sep : string) : sep_policy =
 
 (* -- postfix operators ----------------------------------------------------- *)
 
-let postfix_simple ?(kind_suffix = "") ~(token : string) ~(bp : int) () : postfix_op =
-  { bp; lead = Name.Token.of_string token; body = Nothing; kind_suffix }
-;;
-
-let postfix_access ?(kind_suffix = "") ~(token : string) ~(rhs : symbol) ~(bp : int) ()
+let postfix_simple ?(kind_suffix = "") ?(space = false) ~(token : string) ~(bp : int) ()
   : postfix_op
   =
-  { bp; lead = Name.Token.of_string token; body = Then rhs; kind_suffix }
+  { bp; lead = Name.Token.of_string token; body = Nothing; kind_suffix; space }
+;;
+
+let postfix_access
+      ?(kind_suffix = "")
+      ?(space = false)
+      ~(token : string)
+      ~(rhs : symbol)
+      ~(bp : int)
+      ()
+  : postfix_op
+  =
+  { bp; lead = Name.Token.of_string token; body = Then rhs; kind_suffix; space }
 ;;
 
 let postfix_index
       ?(kind_suffix = "")
+      ?(space = false)
       ~(open_tok : string)
       ~(close_tok : string)
       ~(index : symbol)
@@ -258,11 +267,13 @@ let postfix_index
   ; lead = Name.Token.of_string open_tok
   ; body = Enclosed { close = Name.Token.of_string close_tok; content = One index }
   ; kind_suffix
+  ; space
   }
 ;;
 
 let postfix_brace
       ?(kind_suffix = "")
+      ?(space = false)
       ~(open_tok : string)
       ~(close_tok : string)
       ~(body : symbol)
@@ -274,11 +285,13 @@ let postfix_brace
   ; lead = Name.Token.of_string open_tok
   ; body = Enclosed { close = Name.Token.of_string close_tok; content = One body }
   ; kind_suffix
+  ; space
   }
 ;;
 
 let postfix_call
       ?(kind_suffix = "")
+      ?(space = false)
       ~open_tok
       ~close_tok
       ~elem
@@ -294,6 +307,7 @@ let postfix_call
         ; content = Many { elem; sep = sep_policy }
         }
   ; kind_suffix
+  ; space
   }
 ;;
 
@@ -305,6 +319,7 @@ let child
       ?recover_to
       ?(greedy = false)
       ?(break = Fit)
+      ?(space = true)
       ~(modifier : modifier)
       (name : string)
       (sym : symbol)
@@ -312,6 +327,7 @@ let child
   =
   { name = Name.Child.of_string name
   ; c_break = break
+  ; c_space = space
   ; head = sym
   ; rest = []
   ; modifier
@@ -319,29 +335,44 @@ let child
   }
 ;;
 
-let child_req ?recover_to ?break name sym =
-  child ?recover_to ?break ~modifier:Exactly_one name sym
+let child_req ?recover_to ?break ?space name sym =
+  child ?recover_to ?break ?space ~modifier:Exactly_one name sym
 ;;
 
-let child_opt ?recover_to ?greedy ?break (name : string) (sym : symbol) : child =
-  child ?recover_to ?greedy ?break ~modifier:Zero_or_one name sym
+let child_opt ?recover_to ?greedy ?break ?space (name : string) (sym : symbol) : child =
+  child ?recover_to ?greedy ?break ?space ~modifier:Zero_or_one name sym
 ;;
 
-let child_rep ?recover_to ?greedy ?break ?(between = Fit) (name : string) (sym : symbol)
+let child_rep
+      ?recover_to
+      ?greedy
+      ?break
+      ?space
+      ?(between = Fit)
+      (name : string)
+      (sym : symbol)
   : child
   =
-  child ?recover_to ?greedy ?break ~modifier:(Zero_or_more between) name sym
+  child ?recover_to ?greedy ?break ?space ~modifier:(Zero_or_more between) name sym
 ;;
 
-let child_rep1 ?recover_to ?greedy ?break ?(between = Fit) (name : string) (sym : symbol)
+let child_rep1
+      ?recover_to
+      ?greedy
+      ?break
+      ?space
+      ?(between = Fit)
+      (name : string)
+      (sym : symbol)
   : child
   =
-  child ?recover_to ?greedy ?break ~modifier:(One_or_more between) name sym
+  child ?recover_to ?greedy ?break ?space ~modifier:(One_or_more between) name sym
 ;;
 
 let child_alt
       ?recover_to
       ?(break = Fit)
+      ?(space = true)
       ~(modifier : modifier)
       (name : string)
       (syms : symbol list)
@@ -352,6 +383,7 @@ let child_alt
   | head :: rest ->
     { name = Name.Child.of_string name
     ; c_break = break
+    ; c_space = space
     ; head
     ; rest
     ; modifier
@@ -362,12 +394,19 @@ let child_alt
 let child_alt_rules
       ?recover_to
       ?break
+      ?space
       ~(modifier : modifier)
       (name : string)
       (rule_names : string list)
   : child
   =
-  child_alt ?recover_to ?break ~modifier name (List.map (fun r -> Rule r) rule_names)
+  child_alt
+    ?recover_to
+    ?break
+    ?space
+    ~modifier
+    name
+    (List.map (fun r -> Rule r) rule_names)
 ;;
 
 (* -- tokens ---------------------------------------------------------------- *)
@@ -425,8 +464,6 @@ let prod ?(indent_width = 2) (name : string) (children : child list) : productio
   ; error_messages = Name.Child.Map.empty
   ; format = { indent_width }
   ; has_hole = true
-  ; edge_space_before = None
-  ; edge_space_after = None
   ; resync_anchors = Name.Token.Set.empty
   }
 ;;
@@ -534,8 +571,6 @@ let with_binder (child_name : string) (p : production) : production =
 ;;
 
 let with_no_hole p = { p with has_hole = false }
-let with_leading_space b p = { p with edge_space_before = Some b }
-let with_trailing_space b p = { p with edge_space_after = Some b }
 
 let with_resync_to toks p =
   { p with resync_anchors = Name.Token.Set.of_list (List.map Name.Token.of_string toks) }

@@ -30,12 +30,12 @@ let grammar : t =
   let digit = Redfa.Regex.range_char ~lo:'0' ~hi:'9' in
   let letter = Redfa.Regex.range_char ~lo:'a' ~hi:'z' in
   let tokens =
-    [ punct_tight ~name:"lparen" "("
-    ; punct_tight ~name:"rparen" ")"
-    ; punct_tight ~name:"lbracket" "["
-    ; punct_tight ~name:"rbracket" "]"
-    ; punct_tight ~name:"lbrace" "{"
-    ; punct_tight ~name:"rbrace" "}"
+    [ punct ~space_after:false ~name:"lparen" "("
+    ; punct ~space_before:false ~name:"rparen" ")"
+    ; punct ~space_after:false ~name:"lbracket" "["
+    ; punct ~space_before:false ~name:"rbracket" "]"
+    ; punct ~space_after:false ~name:"lbrace" "{"
+    ; punct ~space_before:false ~name:"rbrace" "}"
     ; punct_tight ~name:"dot" "."
     ; punct_tight ~name:"comma" ","
     ; punct_tight ~name:"question" "?"

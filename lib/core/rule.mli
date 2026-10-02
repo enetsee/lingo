@@ -64,6 +64,7 @@ type child =
   ; c_break : Grammar.break_style
     (** The boundary in front of this child. On the first child it is the
           boundary against whatever encloses the children. *)
+  ; c_space : bool (** Whether a space goes in front of this child. *)
   ; greedy : bool
   ; recover_to : Kind.Set.t option
     (** Replaces the recovery set computed at this position. [None] leaves
@@ -93,10 +94,6 @@ type def =
           {!Grammar.with_resync_to} sets it, and says what it is for. The
           parser reads it, and nothing in this library does. *)
   ; format : Grammar.production_format
-  ; edge_space_before : bool option
-    (** Overrides the leading spacing flag the formatter would take from
-          the rule's first token. *)
-  ; edge_space_after : bool option (** The same on the trailing edge. *)
   ; identity : int option
     (** An index into {!children}, naming the child whose text names the
           rule in a diagnostic. *)

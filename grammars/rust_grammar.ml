@@ -54,12 +54,12 @@ let grammar : t =
     ; kw "fn"
     ; kw "let"
     ; kw "match"
-    ; punct_tight ~name:"lbrace" "{"
-    ; punct_tight ~name:"rbrace" "}"
-    ; punct_tight ~name:"lparen" "("
-    ; punct_tight ~name:"rparen" ")"
-    ; punct_tight ~name:"lbracket" "["
-    ; punct_tight ~name:"rbracket" "]"
+    ; punct ~space_after:false ~name:"lbrace" "{"
+    ; punct ~space_before:false ~name:"rbrace" "}"
+    ; punct ~space_after:false ~name:"lparen" "("
+    ; punct ~space_before:false ~name:"rparen" ")"
+    ; punct ~space_after:false ~name:"lbracket" "["
+    ; punct ~space_before:false ~name:"rbracket" "]"
     ; punct ~space_before:false ~name:"comma" ","
     ; punct ~space_before:false ~name:"semi" ";"
     ; punct ~space_before:false ~name:"colon" ":"
@@ -110,7 +110,6 @@ let grammar : t =
   in
   let struct_body =
     prod "StructBody" [ child_rep "field" (Rule "Field") ]
-    |> with_leading_space true
     |> with_delimited_sep
          ~open_tok:"lbrace"
          ~close_tok:"rbrace"
@@ -156,11 +155,12 @@ let grammar : t =
   let variant =
     prod
       "Variant"
-      [ child_req "name" (Token "ident"); child_opt "payload" (Rule "VariantPayload") ]
+      [ child_req "name" (Token "ident")
+      ; child_opt ~space:false "payload" (Rule "VariantPayload")
+      ]
   in
   let enum_body =
     prod "EnumBody" [ child_rep "variant" (Rule "Variant") ]
-    |> with_leading_space true
     |> with_delimited_sep
          ~open_tok:"lbrace"
          ~close_tok:"rbrace"
@@ -191,7 +191,6 @@ let grammar : t =
   in
   let param_list =
     prod "ParamList" [ child_rep "param" (Rule "Param") ]
-    |> with_trailing_space true
     |> with_delimited_sep
          ~open_tok:"lparen"
          ~close_tok:"rparen"
@@ -204,7 +203,7 @@ let grammar : t =
       "MethodSig"
       [ child_req "kw" (Token "fn")
       ; child_req ~break:Never "name" (Token "ident")
-      ; child_req ~break:Never "params" (Rule "ParamList")
+      ; child_req ~break:Never ~space:false "params" (Rule "ParamList")
       ; child_req ~break:Never "arrow" (Token "arrow")
       ; child_req ~break:Never "ret_ty" (Rule "Type")
       ; child_req ~break:Never "semi" (Token "semi")
@@ -219,7 +218,6 @@ let grammar : t =
       "TraitBody"
       [ child_rep ~break:(always 1) ~between:(always 1) "method_" (Rule "MethodSig") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
-    |> with_leading_space true
   in
   let trait =
     prod
@@ -249,7 +247,7 @@ let grammar : t =
          opens: [fn], the name and the parameter list each take a line. *)
       [ child_req "kw" (Token "fn")
       ; child_req ~break:Never "name" (Token "ident")
-      ; child_req ~break:Never "params" (Rule "ParamList")
+      ; child_req ~break:Never ~space:false "params" (Rule "ParamList")
       ; child_req ~break:Never "arrow" (Token "arrow")
       ; child_req ~break:Never "ret_ty" (Rule "Type")
       ; child_req ~break:Never "body" (Rule "Block")
@@ -294,7 +292,6 @@ let grammar : t =
       "Block"
       [ child_rep ~break:(always 1) ~between:(always 1) "stmt" (Rule "Stmt") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
-    |> with_leading_space true
     |> with_scope
     |> with_recovery_strategy (Lookahead (lookahead_n 3))
   in

@@ -48,8 +48,8 @@ let grammar : t =
         ])
   in
   let tokens =
-    [ punct_tight ~name:"lbrack" "["
-    ; punct_tight ~name:"rbrack" "]"
+    [ punct ~space_after:false ~name:"lbrack" "["
+    ; punct ~space_before:false ~name:"rbrack" "]"
     ; punct ~space_before:false ~name:"comma" ","
     ; punct_tight ~name:"dot" "."
     ; pat "name" name

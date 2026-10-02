@@ -29,8 +29,8 @@ let grammar : t =
         (alt (range ~lo:0x00C0 ~hi:0x00FF) (range ~lo:0x0391 ~hi:0x03C9)))
   in
   let tokens =
-    [ punct_tight ~name:"laquo" "\xc2\xab"
-    ; punct_tight ~name:"raquo" "\xc2\xbb"
+    [ punct ~space_after:false ~name:"laquo" "\xc2\xab"
+    ; punct ~space_before:false ~name:"raquo" "\xc2\xbb"
     ; punct ~name:"arrow" "\xe2\x86\x92"
     ; pat "word" (Redfa.Regex.plus letter)
     ; pat

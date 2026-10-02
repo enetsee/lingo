@@ -223,6 +223,7 @@ let shape (names : names) : shape =
         ?(modifier = Grammar.Exactly_one)
         ?(greedy = false)
         ?(break = Grammar.Fit)
+        ?(space = true)
         ?recover_to
         name
         alts
@@ -233,6 +234,7 @@ let shape (names : names) : shape =
     ; kinds = Kind.Set.of_list (Array.to_list alts)
     ; modifier
     ; c_break = break
+    ; c_space = space
     ; greedy
     ; recover_to
     }
@@ -242,6 +244,7 @@ let shape (names : names) : shape =
     mk_child
       ~modifier:c.modifier
       ~break:c.c_break
+      ~space:c.c_space
       ~greedy:c.c_parse.greedy
       ?recover_to:
         (Option.map
@@ -290,8 +293,6 @@ let shape (names : names) : shape =
           Kind.Set.of_list
             (List.map ~f:res_tok (Grammar.Name.Token.Set.elements p.resync_anchors))
       ; format = p.format
-      ; edge_space_before = p.edge_space_before
-      ; edge_space_after = p.edge_space_after
       ; identity = Option.bind p.identity_child (child_index p.children)
       ; binders = binder_indices p.children p.binders
       ; opens_scope = p.opens_scope
@@ -322,16 +323,16 @@ let shape (names : names) : shape =
       ; messages = [||]
       ; resync = Kind.Set.empty
       ; format = default_format
-      ; edge_space_before = None
-      ; edge_space_after = None
       ; identity = None
       ; binders = [||]
       ; opens_scope = false
       }
     | Role { block_rule; block; role } ->
       let bk = names.rule_kind.(block_rule) in
-      let operand nm =
-        mk_child ~modifier:Exactly_one (Grammar.Name.Child.of_string nm) [| bk |]
+      (* A prefix or postfix operator is written against its operand, and an
+         infix one has a space on each side. *)
+      let operand ?space nm =
+        mk_child ?space ~modifier:Exactly_one (Grammar.Name.Child.of_string nm) [| bk |]
       in
       let ops toks = Array.of_list (List.map ~f:res_tok toks) in
       let children, frame, body_from =
@@ -358,7 +359,7 @@ let shape (names : names) : shape =
                     (List.map
                        ~f:(fun (o : Grammar.operator) -> o.op_token)
                        block.prefix_ops))
-             ; operand "operand"
+             ; operand ~space:false "operand"
             |]
           , Rule.Plain
           , 0 )
@@ -368,6 +369,7 @@ let shape (names : names) : shape =
            | Nothing ->
              ( [| operand "operand"
                 ; mk_child
+                    ~space:p.space
                     ~modifier:Exactly_one
                     (Grammar.Name.Child.of_string "op")
                     [| res_tok p.lead |]
@@ -377,10 +379,12 @@ let shape (names : names) : shape =
            | Then sym ->
              ( [| operand "operand"
                 ; mk_child
+                    ~space:p.space
                     ~modifier:Exactly_one
                     (Grammar.Name.Child.of_string "op")
                     [| res_tok p.lead |]
                 ; mk_child
+                    ~space:false
                     ~modifier:Exactly_one
                     (Grammar.Name.Child.of_string "rhs")
                     [| res sym |]
@@ -422,8 +426,6 @@ let shape (names : names) : shape =
       ; messages = [||]
       ; resync = Kind.Set.empty
       ; format = default_format
-      ; edge_space_before = None
-      ; edge_space_after = None
       ; identity = None
       ; binders = [||]
       ; opens_scope = false
@@ -480,6 +482,7 @@ let shape (names : names) : shape =
                            with
                            | Some r -> r
                            | None -> block_rule)
+                      ; p_space = p.space
                       })
                     b.postfix)
            ; infix_recovery = b.infix_recovery

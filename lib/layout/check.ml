@@ -82,7 +82,7 @@ let run (l : Ir.Layout.t) =
     brk ~at r.inner;
     (match r.frame with
      | Plain -> ()
-     | Delimited { open_; close; sep } ->
+     | Delimited { open_; close; sep; open_space = _ } ->
        in_range ~at:(at ^ " open") open_;
        in_range ~at:(at ^ " close") close;
        (match sep with

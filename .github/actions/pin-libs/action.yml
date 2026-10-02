@@ -24,6 +24,6 @@ runs:
         opam pin add -y -n siesta.dev \
           git+https://github.com/enetsee/siesta.git#53f8fe491376f31e71983da9788c207ff9374776
         opam pin add -y -n handsome.dev \
-          git+https://github.com/enetsee/handsome.git#8dfc58ecf53ce81b6756ee43759546a52de2b12b
+          git+https://github.com/enetsee/handsome.git#9e9e350ad0bb1e30e0c07eb3caa444b0af10859c
         opam pin add -y -n bolts.dev \
           git+https://github.com/enetsee/bolts.git#23a8183e577f855dce7af2dbafb2bb6630b07f40

@@ -84,6 +84,7 @@ type frame = Ir.Layout.frame =
       { open_ : Ir.Kind.t
       ; close : Ir.Kind.t
       ; sep : sep option
+      ; open_space : bool
       }
   | Separated of sep
 
@@ -92,6 +93,7 @@ type slot = Ir.Layout.slot =
   ; repeats : bool
   ; before : break
   ; between : break
+  ; space : bool
   }
 
 type rule = Ir.Layout.rule =
@@ -102,8 +104,6 @@ type rule = Ir.Layout.rule =
   ; body : break
   ; inner : break
   ; indent : int
-  ; edge_before : bool option
-  ; edge_after : bool option
   }
 
 type trivia = Ir.Layout.trivia =

@@ -12,8 +12,8 @@
 ; 11 N_MISSING
 ; 12 T_UNTERMINATED
 (layout
-  (token 2)
-  (token 3)
+  (token 2 before)
+  (token 3 after)
   (token 4 before after)
   (token 5 before after)
   (token 6 before after reformat)

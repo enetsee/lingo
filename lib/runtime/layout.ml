@@ -25,6 +25,7 @@ type frame = Ir.Layout.frame =
       { open_ : Ir.Kind.t
       ; close : Ir.Kind.t
       ; sep : sep option
+      ; open_space : bool
       }
   | Separated of sep
 
@@ -33,6 +34,7 @@ type slot = Ir.Layout.slot =
   ; repeats : bool
   ; before : break
   ; between : break
+  ; space : bool
   }
 
 type rule = Ir.Layout.rule =
@@ -43,8 +45,6 @@ type rule = Ir.Layout.rule =
   ; body : break
   ; inner : break
   ; indent : int
-  ; edge_before : bool option
-  ; edge_after : bool option
   }
 
 type trivia = Ir.Layout.trivia =
@@ -76,9 +76,7 @@ let boundary ~(lex : string -> Token.t array) (s : string) (i : int) : bool =
     !hit)
 ;;
 
-(* The last token written, and whether a space may follow it. A rule's
-   [edge_after] replaces that flag, so it sits on the edge rather than being
-   looked up again at the boundary. *)
+(* The last token written, and whether a space may follow it. *)
 type edge =
   { kind : Ir.Kind.t
   ; space_after : bool
@@ -88,26 +86,32 @@ type edge =
    of the max-munch test.
 
    [brk] holds the strongest break any boundary crossed since the last token,
-   and [space_before] an override of the next token's leading flag. Both are
-   requests, and a token discharges them. A child that writes nothing discharges
-   nothing, so {!node} puts them back rather than letting them reach a token in
-   the frame above. *)
+   and [gap] whether a space goes at the boundary in front of the next one. The
+   rule holding that boundary sets [gap], and a node's first child leaves it
+   alone, because nothing of that node precedes it. Both are requests, and a
+   token discharges them. A child that writes nothing discharges nothing, so
+   {!node} puts them back rather than letting them reach a token in the frame
+   above. *)
 type state =
   { last : edge option
   ; run : string
   ; brk : Ir.Layout.break
-  ; space_before : bool option
+  ; gap : bool option
   ; held : bool (* The last token written keeps the line the source gave it. *)
   ; written : int (* How many tokens have gone into the document. *)
+  ; hard : int
+    (* How many line breaks the document holds whatever the ruler: one at a
+       boundary that broke hard, and each newline inside a token. *)
   }
 
 let start =
   { last = None
   ; run = ""
   ; brk = Ir.Layout.Flat
-  ; space_before = None
+  ; gap = None
   ; held = false
   ; written = 0
+  ; hard = 0
   }
 ;;
 
@@ -254,13 +258,14 @@ end
 
    Three things meet at a boundary, and they rank. A join the lexer will not
    close outranks the production's break style, because no break style is a
-   solution where the bytes fuse. The spacing preference settles the rest, and it
-   only ever adds a blank the join had not already required. *)
+   solution where the bytes fuse. The gap settles the rest, and it only ever adds
+   a blank the join had not already required. A token whose side is [false]
+   removes the gap's space. *)
 let glue (e : env) (st : state) (w : Written.t) : Ir.Kind.t Handsome.Utf8.t * state =
   let kind = Written.kind w
   and text = Written.text w in
   let lay = e.lay in
-  let leaving ~clears =
+  let leaving ~clears ~(broke : bool) =
     { last =
         Some { kind; space_after = (token lay kind).space_after }
         (* A newline inside a token is not a blank this printed, and the lexer
@@ -268,20 +273,20 @@ let glue (e : env) (st : state) (w : Written.t) : Ir.Kind.t Handsome.Utf8.t * st
            what an unterminated block comment is, so the run carries on. *)
     ; run = (if clears then "" else st.run) ^ text
     ; brk = Flat
-    ; space_before = None
+    ; gap = None
     ; held = st.held
     ; written = st.written + 1
+    ; hard =
+        (st.hard + (if broke then 1 else 0) + if String.contains text '\n' then 1 else 0)
     }
   in
   match st.last with
-  | None -> empty, leaving ~clears:false
+  | None -> empty, leaving ~clears:false ~broke:false
   | Some prev ->
     let spaced =
-      prev.space_after
-      &&
-      match st.space_before with
-      | Some b -> b
-      | None -> (token lay kind).space_before
+      Option.value st.gap ~default:true
+      && prev.space_after
+      && (token lay kind).space_before
     in
     let j = joins e st ~next:text in
     let blank = spaced || j = Blank in
@@ -290,19 +295,19 @@ let glue (e : env) (st : state) (w : Written.t) : Ir.Kind.t Handsome.Utf8.t * st
       | Newline | None_at_all -> stronger st.brk (Hard 1)
       | Touching | Blank -> st.brk
     in
-    let d, clears =
+    let d, clears, broke =
       match brk with
       | Hard n ->
         say e "break-hard";
-        breaks n, true
+        breaks n, true, true
       | Fit ->
         say e "break-fit";
-        (if blank then Handsome.Utf8.line else Handsome.Utf8.softline), blank
+        (if blank then Handsome.Utf8.line else Handsome.Utf8.softline), blank, false
       | Flat ->
         say e "break-flat";
-        (if blank then Handsome.Utf8.text " " else empty), blank
+        (if blank then Handsome.Utf8.text " " else empty), blank, false
     in
-    d, leaving ~clears
+    d, leaving ~clears ~broke
 ;;
 
 (* -- what each child is -------------------------------------------------- *)
@@ -319,6 +324,10 @@ type entry =
   ; role : role
   ; held : bool
   ; before : Ir.Layout.break
+  ; gap : bool option (* [None] on the first child, which has no gap in this rule. *)
+  ; starts_line : bool
+    (* The grammar breaks hard in front of this child, so its line is a new one
+       rather than a continuation of the rule. *)
   }
 
 (* The rule for a kind that has none: a sequence, on the lines the source had.
@@ -333,8 +342,6 @@ let unruled : Ir.Layout.rule =
   ; body = Flat
   ; inner = Flat
   ; indent = 0
-  ; edge_before = None
-  ; edge_after = None
   }
 ;;
 
@@ -417,7 +424,8 @@ let entries
     | None -> None
   in
   let kept = ref [] in
-  let nl = ref false in
+  (* How many line breaks the whitespace dropped in front of a child held. *)
+  let nls = ref 0 in
   let prev_slot = ref (-1) in
   let body_started = ref false in
   let seen_open = ref false in
@@ -431,7 +439,9 @@ let entries
       | _ -> None
     in
     match spacing with
-    | Some s when all_space s -> if String.contains s '\n' then nl := true
+    | Some s when all_space s ->
+      nls
+      := !nls + String.fold_left s ~init:0 ~f:(fun n c -> if c = '\n' then n + 1 else n)
     | Some _ | None ->
       let recovered =
         match ch with
@@ -466,11 +476,31 @@ let entries
         | e :: _ -> e.held
         | [] -> prev_held
       in
+      (* A blank line the source has is kept, one at most, where the boundary
+         breaks hard anyway: between two statements, two members, or in front
+         of a comment on a line of its own. A blank line straight inside a
+         delimiter goes. The output then has a blank line where the source did,
+         so the next format keeps it too. *)
+      let keep_blank (b : Ir.Layout.break) : Ir.Layout.break =
+        let inside =
+          match !kept with
+          | [] -> false
+          | { role = Opener; _ } :: _ -> false
+          | _ :: _ -> role <> Closer
+        in
+        match b with
+        | Hard n when !nls >= 2 && inside ->
+          say e "blank-kept";
+          Hard (if n > 2 then n else 2)
+        | Flat | Fit | Hard _ -> b
+      in
       let before : Ir.Layout.break =
+        keep_blank
+        @@
         if held || was_held
         then (
-          say e (if !nl then "held-line" else "held-same");
-          if !nl then Hard 1 else Flat)
+          say e (if !nls > 0 then "held-line" else "held-same");
+          if !nls > 0 then Hard 1 else Flat)
         else (
           match role with
           | Opener | Separator -> Flat
@@ -492,11 +522,37 @@ let entries
             then r.slots.(!prev_slot).between
             else r.slots.(!prev_slot).before)
       in
+      (* The rule's slots set the gap between two of its children, and its
+         frame sets the gaps just inside the delimiters, whatever sits there.
+         A separator takes a space on both sides, and [,] removes the one in
+         front of it with its own flag. [→] keeps both. *)
+      let gap =
+        match !kept with
+        | [] -> None
+        | prev :: _ ->
+          Some
+            (match prev.role, role with
+             | _, Opener ->
+               (match r.frame with
+                | Delimited { open_space; _ } -> open_space
+                | Plain | Separated _ -> true)
+             | Opener, _ | _, Closer -> false
+             | _, (Separator | Stray) | Separator, Filled -> true
+             | (Closer | Filled | Stray), Filled -> r.slots.(!prev_slot).space)
+      in
       (match role with
        | Filled -> body_started := true
        | Opener | Closer | Separator | Stray -> ());
-      nl := false;
-      kept := { child = ch; role; held; before } :: !kept);
+      nls := 0;
+      let starts_line =
+        (not (held || was_held))
+        && role = Filled
+        &&
+        match before with
+        | Hard _ -> true
+        | Flat | Fit -> false
+      in
+      kept := { child = ch; role; held; before; gap; starts_line } :: !kept);
   let es = Array.of_list (List.rev !kept) in
   let n = Array.length es in
   let index role =
@@ -535,6 +591,13 @@ let rec flat_end (es : entry array) (i : int) (stop : int) : int =
   else flat_end es (i + 1) stop
 ;;
 
+(* [indent] is what a boundary of this rule does to the lines after it. A rule
+   with one child has no boundary, so nesting there would add its indent to
+   every rule that wraps a single child on the way down. *)
+let nest_of (r : Ir.Layout.rule) (children : int) =
+  if children > 1 then Handsome.Utf8.nest r.indent else Fun.id
+;;
+
 (* [walk env es i stop] is the children in [i, stop), one after another.
 
    Each child hands back the glue in front of it apart from its own document,
@@ -550,30 +613,134 @@ let rec walk (e : env) (es : entry array) (i : int) (stop : int) (st : state) =
        writes nothing had no boundary in front of it, so the request goes back:
        carried on, it would reach a token in some other frame and break a
        boundary outside that frame. *)
-    let stood = st.brk in
+    let stood = st.brk
+    and stood_gap = st.gap in
     let st = { st with brk = stronger st.brk it.before } in
-    let lead, d, st = child e it ~stood st in
+    let st =
+      match it.gap with
+      | Some _ as g -> { st with gap = g }
+      | None -> st
+    in
+    let lead, d, st = child e it ~stood ~stood_gap st in
     let l, rest, st = walk e es (i + 1) stop st in
     lead, d ^^ l ^^ rest, st)
 
-and child (e : env) (it : entry) ~(stood : Ir.Layout.break) (st : state) =
+(* [split env es i stop ~nest] is {!walk} over a plain rule's children.
+
+   A plain sequence breaks from its last gap backwards. A group decides each
+   gap, and it holds everything to the gap's left and nothing to its right, so
+   the outermost decides the last gap and an earlier one breaks only where its
+   own group still does not fit. [def f() = match (x) {] at a narrow ruler
+   breaks in front of [match] and keeps [def f() =] together.
+
+   Each child is indented from the line it starts on, and [nest] goes on the
+   gaps alone, so a line a gap breaks onto is a continuation and steps in.
+   A block that opens on the header's last line is then indented from that
+   line, whether the header broke or not.
+
+   A child that breaks across lines on its own stays out of every group deciding
+   a gap. A group holding a hard line break lays out broken, and the child's own
+   lines would otherwise break the gaps on both sides of it. json's
+   [{"a": {"b": 1}}] put ["a"], [:] and [{] on three lines when they did. So
+   the gap in front of the child closes the groups so far, and the gaps after it
+   are decided from the child's last line on.
+
+   Where the grammar breaks hard in front of a child, the line is a new one
+   rather than a continuation, so that gap takes no [nest]: effekt's
+   definition after its doc comment starts where the comment does.
+
+   A delimited or separated body keeps one group, so a list breaks all its
+   separators or none. *)
+and split
+      (e : env)
+      (es : entry array)
+      (i : int)
+      (stop : int)
+      ~(nest : Ir.Kind.t Handsome.Utf8.t -> Ir.Kind.t Handsome.Utf8.t)
+      (st : state)
+  =
+  let group = Handsome.Utf8.group
+  and from_line = Handsome.Utf8.from_line in
+  let enter (it : entry) (st : state) =
+    let st = { st with brk = stronger st.brk it.before } in
+    match it.gap with
+    | Some _ as g -> { st with gap = g }
+    | None -> st
+  in
+  (* [out] is what is settled: everything up to the last child that broke on
+     its own. [acc] is what follows it, for the next gap's group to hold. *)
+  let rec go
+            (i : int)
+            ~(out : Ir.Kind.t Handsome.Utf8.t)
+            (acc : Ir.Kind.t Handsome.Utf8.t)
+            (st : state)
+    =
+    if i >= stop
+    then out ^^ group acc, st
+    else (
+      let it = es.(i) in
+      let stood = st.brk
+      and stood_gap = st.gap in
+      let st = enter it st in
+      let lead, d, after = child e it ~stood ~stood_gap st in
+      let gap =
+        if it.starts_line
+        then (
+          say e "new-line";
+          lead)
+        else nest lead
+      in
+      if after.hard > st.hard
+      then (
+        say e "split";
+        go (i + 1) ~out:(out ^^ group (group acc ^^ gap) ^^ from_line d) empty after)
+      else go (i + 1) ~out (group acc ^^ gap ^^ from_line d) after)
+  in
+  if i >= stop
+  then empty, empty, st
+  else (
+    (* The first child's glue goes back to the caller, as {!walk}'s does. *)
+    let it = es.(i) in
+    let stood = st.brk
+    and stood_gap = st.gap in
+    let before = st.hard in
+    let lead, d, st = child e it ~stood ~stood_gap (enter it st) in
+    let d, st =
+      if st.hard > before
+      then go (i + 1) ~out:(from_line d) empty st
+      else go (i + 1) ~out:empty (from_line d) st
+    in
+    lead, d, st)
+
+and child
+      (e : env)
+      (it : entry)
+      ~(stood : Ir.Layout.break)
+      ~(stood_gap : bool option)
+      (st : state)
+  =
   match it.child with
   | Siesta.Green.Token t ->
     let w = Written.of_token t in
     let lead, st = glue e st w in
     lead, Written.doc w, { st with held = it.held }
-  | Siesta.Green.Node n -> node e n ~stood st
+  | Siesta.Green.Node n -> node e n ~stood ~stood_gap st
 
-and node (e : env) (n : Siesta.Green.node) ~(stood : Ir.Layout.break) (st : state) =
-  let entry = st.written
-  and stood_space = st.space_before in
+and node
+      (e : env)
+      (n : Siesta.Green.node)
+      ~(stood : Ir.Layout.break)
+      ~(stood_gap : bool option)
+      (st : state)
+  =
+  let entry = st.written in
   (* [undo] belongs to the boundary in front of this node, which is the enclosing
      rule's, so it traces against the [e] this was called with. *)
   let undo st =
     if st.written = entry
     then (
-      if st.brk <> stood || st.space_before <> stood_space then say e "break-back";
-      { st with brk = stood; space_before = stood_space })
+      if st.brk <> stood || st.gap <> stood_gap then say e "break-back";
+      { st with brk = stood; gap = stood_gap })
     else st
   in
   let k = Siesta.Green.kind n in
@@ -746,24 +913,6 @@ and node (e : env) (n : Siesta.Green.node) ~(stood : Ir.Layout.break) (st : stat
           | Always, false -> `Add s
           | On_break, false -> `Maybe s)
     in
-    let st =
-      match r.edge_before with
-      | Some _ as b ->
-        say e "edge-before";
-        { st with space_before = b }
-      | None -> st
-    in
-    (* [edge_after] replaces the flag on the last token this rule wrote, so the
-       boundary after the node reads it rather than that token's own. *)
-    let close (st : state) : state =
-      match r.edge_after, st.last with
-      | Some b, Some edge ->
-        say e "edge-after";
-        { st with last = Some { edge with space_after = b } }
-      (* Nothing was written before this edge, so there is no flag to
-         replace. *)
-      | (Some _ | None), _ -> st
-    in
     (* Where the body segment ends, which is not always where the body does.
        The closer normally starts its own line, so it sits outside the nest. A
        recovery node beside it can hold it to the body's last line instead, and
@@ -811,7 +960,10 @@ and node (e : env) (n : Siesta.Green.node) ~(stood : Ir.Layout.break) (st : stat
       match tail_policy with
       (* No policy, so no split: cutting the walk at the last element would
          truncate every run that crosses it. *)
-      | `Plain -> walk e es first stop st
+      | `Plain ->
+        (match r.frame with
+         | Plain -> split e es first stop ~nest:(nest_of r last) st
+         | Delimited _ | Separated _ -> walk e es first stop st)
       (* The separator is a child here, so the broken branch walks it and the
          flat branch steps over it. Nothing is written that the tree does not
          hold, and one token of it goes unwritten. *)
@@ -850,7 +1002,7 @@ and node (e : env) (n : Siesta.Green.node) ~(stood : Ir.Layout.break) (st : stat
                    | Always -> "sep-always"
                    | On_break -> "sep-on-break"
                    | Never -> "sep-never");
-                let lead, st = glue e st written in
+                let lead, st = glue e { st with gap = Some true } written in
                 lead ^^ Written.doc written, st)
             in
             let l, d, st = walk e es (elt + 1) stop st in
@@ -875,10 +1027,13 @@ and node (e : env) (n : Siesta.Green.node) ~(stood : Ir.Layout.break) (st : stat
       if o < 0
       then (
         let lead, d, st = body ~alt 0 last st in
-        (* [indent] is what a boundary of this rule does to the lines after it.
-           A rule with one child has no boundary, so nesting there would add its
-           indent to every rule that wraps a single child on the way down. *)
-        lead, (if last > 1 then Handsome.Utf8.nest r.indent d else d), close st)
+        (* {!split} nests a plain rule's own pieces. *)
+        let d =
+          match r.frame with
+          | Plain -> d
+          | Delimited _ | Separated _ -> nest_of r last d
+        in
+        lead, d, st)
       else (
         let lead, head, st = walk e es 0 (o + 1) st in
         let opened_lead, opened, st = walk e es (o + 1) body_from st in
@@ -889,7 +1044,7 @@ and node (e : env) (n : Siesta.Green.node) ~(stood : Ir.Layout.break) (st : stat
           ^^ Handsome.Utf8.nest r.indent (opened_lead ^^ opened ^^ inner_lead ^^ inner)
           ^^ close_lead
           ^^ rest
-        , close st ))
+        , st ))
     in
     (* [framed] builds its body inside the callback, because the conditional it
        hands out is only in scope there. The fold's state comes back out beside
@@ -926,7 +1081,9 @@ let doc
       n
   =
   let kind = Siesta.Green.kind n in
-  let lead, d, _ = node { lay; boundary; trace; kind } n ~stood:Ir.Layout.Flat start in
+  let lead, d, _ =
+    node { lay; boundary; trace; kind } n ~stood:Ir.Layout.Flat ~stood_gap:None start
+  in
   lead ^^ d
 ;;
 

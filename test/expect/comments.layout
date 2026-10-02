@@ -20,8 +20,8 @@
 ; 19 N_MISSING
 ; 20 T_UNTERMINATED
 (layout
-  (token 4)
-  (token 5)
+  (token 4 before)
+  (token 5 after)
   (token 6 after)
   (token 7)
   (token 8 before after)

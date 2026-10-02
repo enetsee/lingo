@@ -306,8 +306,9 @@ let steps =
   ; "unruled"
   ; "absent"
   ; "break-back"
-  ; "edge-before"
-  ; "edge-after"
+  ; "split"
+  ; "new-line"
+  ; "blank-kept"
   ]
 ;;
 

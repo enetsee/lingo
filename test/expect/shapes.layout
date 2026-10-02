@@ -26,8 +26,8 @@
 ; 25 T_UNTERMINATED
 (layout
   (token 6 before after)
-  (token 7)
-  (token 8)
+  (token 7 before)
+  (token 8 after)
   (token 9)
   (token 10)
   (token 11 before after)

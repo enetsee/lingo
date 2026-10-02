@@ -36,6 +36,7 @@ type child =
   ; kinds : Kind.Set.t
   ; modifier : Grammar.modifier
   ; c_break : Grammar.break_style
+  ; c_space : bool
   ; greedy : bool
   ; recover_to : Kind.Set.t option
   }
@@ -53,8 +54,6 @@ type def =
   ; messages : (Grammar.Name.Child.t * string) array
   ; resync : Kind.Set.t
   ; format : Grammar.production_format
-  ; edge_space_before : bool option
-  ; edge_space_after : bool option
   ; identity : int option
   ; binders : int array
   ; opens_scope : bool

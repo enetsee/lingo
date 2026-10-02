@@ -34,6 +34,10 @@ let json : t =
       ; "[true, false, null]"
       ; "[{\"a\": [1]}]"
       ; "  [1]  "
+      ; "{\"a\": {\"b\": 1}, \"c\": [2, [3]]}"
+        (* A blank line between two members is kept, one at most. One straight
+           inside the braces goes. *)
+      ; "{\n\n  \"a\": 1,\n\n\n  \"b\": 2\n\n}"
       ]
       (* The last one ends inside a string. The lexer leaves those bytes as one
          unterminated token, so the parse has something to report. *)
@@ -180,6 +184,9 @@ let comments : t =
            broken body. Nothing else in a grammar calls for it directly. *)
       ; "[a, b,]"
       ; "[[a, b,], c]"
+        (* A comment on a line of its own keeps the blank line in front of
+           it. *)
+      ; "[a,\n\n  // c\n  b]"
       ]
       (* ["\[1 .5\]"] is the max-munch case: three tokens the source had apart,
          no two of which join, that are one number together. *)
@@ -295,7 +302,8 @@ let effekt : t =
       ; "/// one\n/// two\nval a = 1;"
       ; "interface E { /// op\n  def emit(x: Int) }"
       ; "// line\nval a = 1;"
-      ; "module m;\n\nval a = 1;"
+      ; "module m;\n\nval a = 1;" (* A blank line between two statements is kept. *)
+      ; "def f() = {\n  val a = 1;\n\n  val b = 2;\n  val c = 3;\n};"
       ]
   ; broken =
       [ "module"

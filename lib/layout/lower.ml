@@ -28,7 +28,11 @@ let sep (f : Core.Facts.t) (s : Core.Rule.sep) : Ir.Layout.sep =
   | None -> { sep_kind = kind s.sep_tok; text = ""; trailing = Never }
 ;;
 
-let frame (facts : Core.Facts.t) (f : Core.Rule.frame) : Ir.Layout.frame =
+(* [open_space] is the gap between an enclosed postfix's operand and its
+   opener. A production's opener is its first child, so nothing precedes it. *)
+let frame (facts : Core.Facts.t) ~(open_space : bool) (f : Core.Rule.frame)
+  : Ir.Layout.frame
+  =
   match f with
   | Plain | Committed _ -> Plain
   | Delimited { open_; close; sep = s; boundary = _ } ->
@@ -39,6 +43,7 @@ let frame (facts : Core.Facts.t) (f : Core.Rule.frame) : Ir.Layout.frame =
           (match s with
            | None -> None
            | Some s -> Some (sep facts s))
+      ; open_space
       }
   | Separated ({ sep_tok = _; trailing = _; boundary = _ } as sp) ->
     Separated (sep facts { Core.Rule.sep_tok = sp.sep_tok; trailing = sp.trailing })
@@ -128,6 +133,7 @@ let slots (expand : (Ir.Kind.t, Ir.Kind.t list) Hashtbl.t) (r : Core.Rule.def)
         (match c.modifier with
          | Grammar.Zero_or_more b | Grammar.One_or_more b -> break b
          | Grammar.Exactly_one | Grammar.Zero_or_one -> before)
+    ; space = c.c_space
     })
 ;;
 
@@ -179,15 +185,18 @@ let rule
       Array.map ss ~f:(fun s -> with_before s Ir.Layout.Flat)
     | None -> ss
   in
+  let open_space =
+    match block_of f r with
+    | Some (b, Core.Role.Postfix i) -> b.postfix.(i).p_space
+    | Some (_, (Core.Role.Base | Core.Role.Bin | Core.Role.Prefix)) | None -> false
+  in
   { name = Grammar.Name.Rule.to_string r.name
   ; kind = kind r.kind
-  ; frame = frame f r.frame
+  ; frame = frame f ~open_space r.frame
   ; slots = ss
   ; body = edge
   ; inner = edge
   ; indent
-  ; edge_before = r.edge_space_before
-  ; edge_after = r.edge_space_after
   }
 ;;
 

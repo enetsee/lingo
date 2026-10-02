@@ -545,3 +545,13 @@
  (alias runtest)
  (action
   (diff comments.format comments.format.actual)))
+
+(rule
+ (with-stdout-to
+  effekt.format.actual
+  (run ./dump_format.exe effekt)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff effekt.format effekt.format.actual)))

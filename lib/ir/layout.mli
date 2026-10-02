@@ -6,17 +6,16 @@
 
     Every set is a [Kind.t array] in ascending order with no repeats.
 
-    {1 Spacing is not here}
+    {1 Spacing}
 
-    A layout never holds "a space goes here". What falls between two tokens is
-    settled at the boundary, from the two tokens' own flags and from what the
-    grammar's lexer makes of the bytes on either side. The fold in
-    [lingo_runtime] settles it once per boundary, and nothing else touches it.
+    Every boundary between two tokens lies between two adjacent children of
+    one node, the lowest that holds both. That node's rule sets whether a space
+    goes there: a slot carries it for the children it takes, and a frame for
+    its delimiters and separator. A token whose side is [false] removes the
+    space, wherever it appears.
 
-    The two live apart because they are settled at different times. Whether the
-    line may end at a boundary follows from the layout alone, so a walk has it
-    before anything is rendered. How many blanks the boundary needs follows from
-    the bytes that reach it, so it is settled as they are written.
+    The grammar's lexer has the last word. Where two tokens would lex as one,
+    the fold writes a space whatever the layout says.
 
     {1 The walk is over the tree}
 
@@ -79,6 +78,9 @@ type frame =
       { open_ : Kind.t
       ; close : Kind.t
       ; sep : sep option
+      ; open_space : bool
+        (** Whether a space goes in front of the opener. Only an enclosed
+              postfix has anything there, its operand. *)
       }
   | Separated of sep
 
@@ -92,6 +94,9 @@ type slot =
   ; repeats : bool (** Whether it takes more than one child. *)
   ; before : break (** At the boundary in front of the slot's first child. *)
   ; between : break (** At the boundary between two children of the slot. *)
+  ; space : bool
+    (** Whether a space goes in front of the slot's children. Just inside a
+          delimiter the frame sets it instead, and no space goes there. *)
   }
 
 type rule =
@@ -104,10 +109,6 @@ type rule =
           in a node that no slot admits, and they are laid out with this. *)
   ; inner : break (** Just inside a frame: after the opener, before the closer. *)
   ; indent : int (** How far the body is nested. *)
-  ; edge_before : bool option
-    (** Replaces the leading spacing flag, which otherwise comes from this
-          rule's first token. *)
-  ; edge_after : bool option (** The same on the trailing edge. *)
   }
 
 (** What the formatter does with a trivia token. *)
@@ -115,7 +116,8 @@ type trivia =
   | Reformat (** Drop it and let the boundary re-emit the spacing. *)
   | Preserve (** Write it as it stands, on the line the source put it on. *)
 
-(** A token's own contribution to a boundary.
+(** A token's own contribution to a boundary. A [false] side removes the space
+    there.
 
     There is no spelling here. The fold writes the tokens the tree holds, and
     their bytes come with them, so a layout that carried a token's text would be

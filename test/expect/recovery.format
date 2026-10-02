@@ -31,7 +31,7 @@
 ----------------------------------------------------------------------
 "let a in end ( let b in end )"
 @80
-  | let a in end(let b in end)
+  | let a in end (let b in end)
 @16
   | let a in end
   |   (let b in end)

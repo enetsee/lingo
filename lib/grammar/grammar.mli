@@ -110,6 +110,10 @@ type child =
           boundary against whatever encloses the children: the opener of a
           frame, and the one a child recovery put where no slot admits it
           takes. *)
+  ; c_space : bool
+    (** Whether a space goes in front of this child, and between two of its
+          elements. On the first child there is nothing of this production in
+          front of it, and the value is unread. *)
   ; head : symbol
   ; rest : symbol list
   ; modifier : modifier
@@ -209,10 +213,6 @@ type production =
   ; error_messages : string Name.Child.Map.t
   ; format : production_format
   ; has_hole : bool (** Whether a paired [<KIND>_HOLE] kind is emitted. *)
-  ; edge_space_before : bool option
-    (** Overrides the leading spacing flag. Left alone, that flag comes from
-          the production's first token. *)
-  ; edge_space_after : bool option (** The same on the trailing edge. *)
   ; resync_anchors : Name.Token.Set.t
   }
 
@@ -273,6 +273,9 @@ and postfix_op =
   ; lead : Name.Token.t (** The token that opens it. *)
   ; body : postfix_body
   ; kind_suffix : string
+  ; space : bool
+    (** Whether a space goes between the operand and the lead token. Every
+          builder defaults it to [false]. *)
   }
 
 (** Where the operator goes when an infix expression breaks across lines. *)
@@ -326,8 +329,12 @@ type token_class =
   | Punctuation of string
   | Pattern of pattern_spec
 
-(** Spacing the formatter puts around a token. Both sides default to [true].
-    Punctuation usually takes [false] on both. *)
+(** Where a token allows a space. Both sides default to [true].
+
+    The production holding a boundary sets whether a space goes there. A
+    [false] side removes it, wherever the token appears. That is for a token
+    written against its neighbour everywhere in a language: [,] and [;] take
+    [false] before, [(] takes [false] after, [.] takes [false] on both. *)
 type token_format =
   { space_before : bool
   ; space_after : bool
@@ -410,12 +417,23 @@ val expr_block
       x[i]      postfix_index    lead = open_tok,  body = Enclosed (One …)
       x { b }   postfix_brace    lead = open_tok,  body = Enclosed (One …)
       x(a, b)   postfix_call     lead = open_tok,  body = Enclosed (Many …)
-    v} *)
+    v}
 
-val postfix_simple : ?kind_suffix:string -> token:string -> bp:int -> unit -> postfix_op
+    A postfix operator is written against its operand, so [space] defaults to
+    [false]. effekt's trailing block, [f(x) { s; }], gives {!postfix_brace}
+    [~space:true]. *)
+
+val postfix_simple
+  :  ?kind_suffix:string
+  -> ?space:bool
+  -> token:string
+  -> bp:int
+  -> unit
+  -> postfix_op
 
 val postfix_access
   :  ?kind_suffix:string
+  -> ?space:bool
   -> token:string
   -> rhs:symbol
   -> bp:int
@@ -424,6 +442,7 @@ val postfix_access
 
 val postfix_index
   :  ?kind_suffix:string
+  -> ?space:bool
   -> open_tok:string
   -> close_tok:string
   -> index:symbol
@@ -433,6 +452,7 @@ val postfix_index
 
 val postfix_brace
   :  ?kind_suffix:string
+  -> ?space:bool
   -> open_tok:string
   -> close_tok:string
   -> body:symbol
@@ -443,6 +463,7 @@ val postfix_brace
 (** [sep_policy] defaults to [No_sep]. *)
 val postfix_call
   :  ?kind_suffix:string
+  -> ?space:bool
   -> open_tok:string
   -> close_tok:string
   -> elem:symbol
@@ -455,22 +476,36 @@ val postfix_call
 
 (** [break] is the boundary in front of the child and defaults to {!Fit}.
     [between], on the repeating builders, is the boundary between two of its
-    elements and defaults to the same. *)
+    elements and defaults to the same.
+
+    [space] is whether a space goes in front of the child and between its
+    elements, and defaults to [true]. Two children of a production are
+    separated by a space unless the grammar says otherwise. effekt's [def f(x)]
+    has a name followed by a parameter list, and gives the list
+    [~space:false]. *)
 val child
   :  ?recover_to:string list
   -> ?greedy:bool
   -> ?break:break_style
+  -> ?space:bool
   -> modifier:modifier
   -> string
   -> symbol
   -> child
 
-val child_req : ?recover_to:string list -> ?break:break_style -> string -> symbol -> child
+val child_req
+  :  ?recover_to:string list
+  -> ?break:break_style
+  -> ?space:bool
+  -> string
+  -> symbol
+  -> child
 
 val child_opt
   :  ?recover_to:string list
   -> ?greedy:bool
   -> ?break:break_style
+  -> ?space:bool
   -> string
   -> symbol
   -> child
@@ -479,6 +514,7 @@ val child_rep
   :  ?recover_to:string list
   -> ?greedy:bool
   -> ?break:break_style
+  -> ?space:bool
   -> ?between:break_style
   -> string
   -> symbol
@@ -490,6 +526,7 @@ val child_rep1
   :  ?recover_to:string list
   -> ?greedy:bool
   -> ?break:break_style
+  -> ?space:bool
   -> ?between:break_style
   -> string
   -> symbol
@@ -500,6 +537,7 @@ val child_rep1
 val child_alt
   :  ?recover_to:string list
   -> ?break:break_style
+  -> ?space:bool
   -> modifier:modifier
   -> string
   -> symbol list
@@ -509,6 +547,7 @@ val child_alt
 val child_alt_rules
   :  ?recover_to:string list
   -> ?break:break_style
+  -> ?space:bool
   -> modifier:modifier
   -> string
   -> string list
@@ -535,7 +574,7 @@ val punct
   -> string
   -> token_def
 
-(** {!punct} with no spacing on either side. For commas, brackets, dots. *)
+(** {!punct} with no space on either side, wherever it appears. For [.] and [::]. *)
 val punct_tight : ?trivia:trivia_class -> name:string -> string -> token_def
 
 (** A token matched by a regex. *)
@@ -618,18 +657,6 @@ val with_identity : string -> production -> production
 val with_binder : string -> production -> production
 
 val with_no_hole : production -> production
-
-(** Replaces the leading spacing flag of this production, which otherwise comes
-    from its first token. {!with_trailing_space} is the same on the trailing
-    edge.
-
-    Both are for spacing that belongs to the production rather than to either
-    token. sexp's [Group] sits between tight parentheses, so [(a (b 12) c)]
-    comes out as [(a(b 12)c)]; loosening the parentheses themselves would put a
-    space between two of them as well. *)
-val with_leading_space : bool -> production -> production
-
-val with_trailing_space : bool -> production -> production
 
 (** Ends this production's body loop when the cursor reaches any of [toks].
     The closer and end of input still end the loop; these are extra exits. An

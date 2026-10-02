@@ -48,6 +48,7 @@ let frame (f : Ir.Layout.frame) : Emit.expr =
           [ "open_", Emit.eint d.open_
           ; "close", Emit.eint d.close
           ; "sep", option sep d.sep
+          ; "open_space", Emit.ebool d.open_space
           ]
       ]
   | Separated s -> ctor "Separated" [ sep s ]
@@ -59,6 +60,7 @@ let slot (s : Ir.Layout.slot) : Emit.expr =
     ; "repeats", Emit.ebool s.repeats
     ; "before", break s.before
     ; "between", break s.between
+    ; "space", Emit.ebool s.space
     ]
 ;;
 
@@ -71,8 +73,6 @@ let rule (r : Ir.Layout.rule) : Emit.expr =
     ; "body", break r.body
     ; "inner", break r.inner
     ; "indent", Emit.eint r.indent
-    ; "edge_before", option Emit.ebool r.edge_before
-    ; "edge_after", option Emit.ebool r.edge_after
     ]
 ;;
 

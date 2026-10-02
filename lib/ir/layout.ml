@@ -20,6 +20,7 @@ type frame =
       { open_ : Kind.t
       ; close : Kind.t
       ; sep : sep option
+      ; open_space : bool
       }
   | Separated of sep
 
@@ -28,6 +29,7 @@ type slot =
   ; repeats : bool
   ; before : break
   ; between : break
+  ; space : bool
   }
 
 type rule =
@@ -38,8 +40,6 @@ type rule =
   ; body : break
   ; inner : break
   ; indent : int
-  ; edge_before : bool option
-  ; edge_after : bool option
   }
 
 type trivia =

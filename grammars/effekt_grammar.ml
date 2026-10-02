@@ -121,17 +121,17 @@ let grammar : t =
     ; kw "resume"
     ; kw "true"
     ; kw "false"
-    ; punct_tight ~name:"lbrace" "{"
-    ; punct_tight ~name:"rbrace" "}"
-    ; punct_tight ~name:"lparen" "("
-    ; punct_tight ~name:"rparen" ")"
-    ; punct_tight ~name:"lbracket" "["
-    ; punct_tight ~name:"rbracket" "]"
+    ; punct ~space_after:false ~name:"lbrace" "{"
+    ; punct ~space_before:false ~name:"rbrace" "}"
+    ; punct ~space_after:false ~name:"lparen" "("
+    ; punct ~space_before:false ~name:"rparen" ")"
+    ; punct ~space_after:false ~name:"lbracket" "["
+    ; punct ~space_before:false ~name:"rbracket" "]"
       (* A matched pair of two-character delimiters. [<{] is also a [<] beside
          a [{], and [}>] a [}] beside a [>], so longest match in the lexer
          settles both edges. *)
-    ; punct_tight ~name:"lhole" "<{"
-    ; punct_tight ~name:"rhole" "}>"
+    ; punct ~space_after:false ~name:"lhole" "<{"
+    ; punct ~space_before:false ~name:"rhole" "}>"
     ; punct ~space_before:false ~name:"comma" ","
     ; punct ~space_before:false ~name:"semi" ";"
     ; punct ~space_before:false ~name:"colon" ":"
@@ -191,10 +191,17 @@ let grammar : t =
   in
   (* A definition may carry doc comment lines in front of it. They sit in
      their own production, so the definition's first child is that whole
-     block. *)
-  let doc_block = prod "DocBlock" [ child_rep1 "line" (Token "doc_comment") ] in
+     block. Each line of it, and the definition after it, starts a line of its
+     own. *)
+  let doc_block =
+    prod "DocBlock" [ child_rep1 ~between:(always 1) "line" (Token "doc_comment") ]
+  in
   let item =
-    prod "Item" [ child_opt "doc" (Rule "DocBlock"); child_req "def" (Rule "Definition") ]
+    prod
+      "Item"
+      [ child_opt "doc" (Rule "DocBlock")
+      ; child_req ~break:(always 1) "def" (Rule "Definition")
+      ]
   in
   let definition =
     prod
@@ -255,7 +262,7 @@ let grammar : t =
       "Def"
       [ child_req "kw" (Token "def")
       ; child_req "name" (Token "ident")
-      ; child_opt "params" (Rule "Params")
+      ; child_opt ~space:false "params" (Rule "Params")
       ; child_opt "ret" (Rule "TypeAnn")
       ; child_req "eq" (Token "eq")
       ; child_req "body" (Rule "Expr")
@@ -313,7 +320,7 @@ let grammar : t =
       "Record"
       [ child_req "kw" (Token "record")
       ; child_req "name" (Token "ident")
-      ; child_req "fields" (Rule "Params")
+      ; child_req ~space:false "fields" (Rule "Params")
       ]
     |> with_committed
     |> with_identity "name"
@@ -327,9 +334,9 @@ let grammar : t =
     prod
       "Operation"
       [ child_opt "doc" (Rule "DocBlock")
-      ; child_req "kw" (Token "def")
+      ; child_req ~break:(always 1) "kw" (Token "def")
       ; child_req "name" (Token "ident")
-      ; child_req "params" (Rule "Params")
+      ; child_req ~space:false "params" (Rule "Params")
       ; child_opt "ret" (Rule "TypeAnn")
       ]
     |> with_committed
@@ -360,7 +367,7 @@ let grammar : t =
       "Effect"
       [ child_req "kw" (Token "effect")
       ; child_req "name" (Token "ident")
-      ; child_req "params" (Rule "Params")
+      ; child_req ~space:false "params" (Rule "Params")
       ; child_opt "ret" (Rule "TypeAnn")
       ; child_req "semi" (Token "semi")
       ]
@@ -419,7 +426,9 @@ let grammar : t =
   let atomic_type =
     prod
       "AtomicType"
-      [ child_req "name" (Token "ident"); child_opt "args" (Rule "TypeArgs") ]
+      [ child_req "name" (Token "ident")
+      ; child_opt ~space:false "args" (Rule "TypeArgs")
+      ]
   in
   let type_args =
     prod "TypeArgs" [ child_rep1 "arg" (Rule "Type") ]
@@ -482,7 +491,7 @@ let grammar : t =
       "Do"
       [ child_req "kw" (Token "do")
       ; child_req "name" (Token "ident")
-      ; child_req "args" (Rule "Args")
+      ; child_req ~space:false "args" (Rule "Args")
       ]
     |> with_committed
     |> with_identity "name"
@@ -500,7 +509,9 @@ let grammar : t =
     |> with_committed
   in
   let resume =
-    prod "Resume" [ child_req "kw" (Token "resume"); child_req "args" (Rule "Args") ]
+    prod
+      "Resume"
+      [ child_req "kw" (Token "resume"); child_req ~space:false "args" (Rule "Args") ]
     |> with_committed
   in
   let box =
@@ -553,7 +564,7 @@ let grammar : t =
       "Clause"
       [ child_req "kw" (Token "def")
       ; child_req "name" (Token "ident")
-      ; child_req "params" (Rule "Params")
+      ; child_req ~space:false "params" (Rule "Params")
       ; child_req "eq" (Token "eq")
       ; child_req "body" (Rule "Expr")
       ]
@@ -603,7 +614,7 @@ let grammar : t =
           ~modifier:Exactly_one
           "head"
           [ Token "ident"; Token "int"; Token "string" ]
-      ; child_opt "args" (Rule "PatternArgs")
+      ; child_opt ~space:false "args" (Rule "PatternArgs")
       ]
   in
   let pattern_args =
@@ -681,6 +692,7 @@ let grammar : t =
             ()
         ; postfix_brace
             ~kind_suffix:"block"
+            ~space:true
             ~open_tok:"lbrace"
             ~close_tok:"rbrace"
             ~body:(Rule "Stmt")

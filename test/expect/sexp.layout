@@ -14,8 +14,8 @@
 ; 13 N_MISSING
 ; 14 T_UNTERMINATED
 (layout
-  (token 3)
-  (token 4)
+  (token 3 before)
+  (token 4 after)
   (token 5 before after)
   (token 6 before after)
   (token 7 before after reformat)
@@ -33,7 +33,7 @@
   )
   (rule 2 Group 2
     (frame delimited 3 4)
-    (body fit) (inner fit) (indent 2) (edge-before true) (edge-after true)
+    (body fit) (inner fit) (indent 2)
     (slot (kinds 1) repeats (before flat) (between fit))
   )
 )

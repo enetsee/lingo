@@ -23,12 +23,6 @@
       suite runs it at 1, which is 370,568 formats over 2,804 fields, and a
       deep run is green: depth 32 is 11,828,168 formats.
 
-      Two fields were dead until 2026-09-20. A rule's [edge_before] and
-      [edge_after] are overrides, and before that date every grammar left both
-      [None], so the emitter could have left them out and moved no byte.
-      sexp's [Group] is still the only production in the corpus that sets
-      either, so the fields are covered by one production and by nothing else.
-
       A rule's name is for a dump and a diagnostic. The fold reads none of it,
       so (a) is the only part that reaches it and (b) cannot.
 
@@ -211,8 +205,6 @@ let check_table (c : case) (lowered : Ir.Layout.t) : unit =
       differs (at "body") e.body l.body;
       differs (at "inner") e.inner l.inner;
       differs (at "indent") e.indent l.indent;
-      differs (at "edge_before") e.edge_before l.edge_before;
-      differs (at "edge_after") e.edge_after l.edge_after;
       if Array.length e.slots <> Array.length l.slots
       then
         say
@@ -227,7 +219,8 @@ let check_table (c : case) (lowered : Ir.Layout.t) : unit =
           differs (at "kinds") es.kinds s.kinds;
           differs (at "repeats") es.repeats s.repeats;
           differs (at "before") es.before s.before;
-          differs (at "between") es.between s.between));
+          differs (at "between") es.between s.between;
+          differs (at "space") es.space s.space));
   differs "of_kind" emitted.of_kind lowered.of_kind;
   if Array.length emitted.tokens <> Array.length lowered.tokens
   then

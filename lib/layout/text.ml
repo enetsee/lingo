@@ -25,8 +25,9 @@ let sep (ppf : Format.formatter) (s : Ir.Layout.sep) : unit =
 let frame (ppf : Format.formatter) (f : Ir.Layout.frame) : unit =
   match f with
   | Plain -> Format.pp_print_string ppf "(frame plain)"
-  | Delimited { open_; close; sep = s } ->
+  | Delimited { open_; close; sep = s; open_space } ->
     Format.fprintf ppf "(frame delimited %d %d" open_ close;
+    if open_space then Format.pp_print_string ppf " open-space";
     (match s with
      | None -> ()
      | Some s -> Format.fprintf ppf " %a" sep s);
@@ -51,7 +52,7 @@ let token (ppf : Format.formatter) (k : int) (t : Ir.Layout.token) : unit =
 let slot (ppf : Format.formatter) (s : Ir.Layout.slot) : unit =
   Format.fprintf
     ppf
-    "    (slot (kinds%a)%s (before %a) (between %a))\n"
+    "    (slot (kinds%a)%s (before %a) (between %a)%s)\n"
     ints
     s.kinds
     (if s.repeats then " repeats" else "")
@@ -59,6 +60,7 @@ let slot (ppf : Format.formatter) (s : Ir.Layout.slot) : unit =
     s.before
     break
     s.between
+    (if s.space then "" else " tight")
 ;;
 
 let rule (ppf : Format.formatter) (i : int) (r : Ir.Layout.rule) : unit =
@@ -72,12 +74,6 @@ let rule (ppf : Format.formatter) (i : int) (r : Ir.Layout.rule) : unit =
     break
     r.inner
     r.indent;
-  (match r.edge_before with
-   | None -> ()
-   | Some b -> Format.fprintf ppf " (edge-before %b)" b);
-  (match r.edge_after with
-   | None -> ()
-   | Some b -> Format.fprintf ppf " (edge-after %b)" b);
   Format.pp_print_string ppf "\n";
   Array.iter r.slots ~f:(slot ppf);
   Format.pp_print_string ppf "  )\n"

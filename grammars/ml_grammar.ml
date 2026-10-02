@@ -21,8 +21,8 @@
 
    It doubles up the settings that had one witness: [greedy] on the dangling
    [else], [recover_to] on a [let] body, [trailing_sep Always] on the list
-   literal, [with_leading_space] on a parenthesised parameter and
-   [with_trailing_space] on a labelled argument, resync anchors on the list.
+   literal, [~space:false] on a labelled argument's value, resync anchors on
+   the list.
 
    Source it parses:
 
@@ -79,14 +79,14 @@ let grammar : t =
     ; kw "if"
     ; kw "then"
     ; kw "else"
-    ; punct_tight ~name:"lbrace" "{"
-    ; punct_tight ~name:"rbrace" "}"
-    ; punct_tight ~name:"lparen" "("
-    ; punct_tight ~name:"rparen" ")"
-    ; punct_tight ~name:"lbracket" "["
-    ; punct_tight ~name:"rbracket" "]"
+    ; punct ~space_after:false ~name:"lbrace" "{"
+    ; punct ~space_before:false ~name:"rbrace" "}"
+    ; punct ~space_after:false ~name:"lparen" "("
+    ; punct ~space_before:false ~name:"rparen" ")"
+    ; punct ~space_after:false ~name:"lbracket" "["
+    ; punct ~space_before:false ~name:"rbracket" "]"
     ; punct_tight ~name:"dot" "."
-    ; punct_tight ~name:"tilde" "~"
+    ; punct ~space_after:false ~name:"tilde" "~"
     ; punct ~space_after:false ~name:"bang" "!"
     ; punct ~space_before:false ~name:"comma" ","
     ; punct ~space_before:false ~name:"semi" ";"
@@ -222,7 +222,7 @@ let grammar : t =
       "Ctor"
       [ child_req "bar" (Token "bar")
       ; child_req ~break:Never "name" (Token "ident")
-      ; child_opt ~break:Never "payload" (Rule "CtorPayload")
+      ; child_opt ~break:Never ~space:false "payload" (Rule "CtorPayload")
       ]
     |> with_binder "name"
   in
@@ -231,7 +231,6 @@ let grammar : t =
       "DataBody"
       [ child_rep ~break:(always 1) ~between:(always 1) "ctor" (Rule "Ctor") ]
     |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
-    |> with_leading_space true
   in
   let data_decl =
     (* No boundary here breaks, so an indent of its own would only push the
@@ -272,19 +271,10 @@ let grammar : t =
       [ child_req "tilde" (Token "tilde"); child_req ~break:Never "name" (Token "ident") ]
     |> with_binder "name"
   in
-  (* [lparen] is tight, so without this a parameter hugs what precedes it and
-     [let f (x : int)] comes out [let f(x : int)]. It sits here rather than on
-     [PlainParam] because the parent sees this production, and a leading flag
-     is read off the production the parent holds. *)
   let param =
     prod
       "Param"
       [ child_alt_rules ~modifier:Exactly_one "kind" [ "PlainParam"; "LabelledParam" ] ]
-    (* Both edges: a tight [)] before the next parameter would swallow the
-       space the leading flag asks for, because a boundary takes one only
-       where the tokens on both sides of it will. *)
-    |> with_leading_space true
-    |> with_trailing_space true
   in
   let let_decl =
     prod
@@ -347,8 +337,6 @@ let grammar : t =
       "Stmt"
       [ child_req "e" (Rule "Expr"); child_req ~break:Never "semi" (Token "semi") ]
   in
-  (* [~x:] hugs the value it labels. [colon] leaves a space after it, which is
-     right everywhere else it appears. *)
   let label =
     prod
       "Label"
@@ -357,10 +345,13 @@ let grammar : t =
       ; child_req ~break:Never "colon" (Token "colon")
       ]
     |> with_no_hole
-    |> with_trailing_space false
   in
+  (* [~x:] hugs the value it labels. [colon] leaves a space after it, which is
+     right everywhere else it appears. *)
   let arg =
-    prod "Arg" [ child_opt "label" (Rule "Label"); child_req "value" (Rule "Expr") ]
+    prod
+      "Arg"
+      [ child_opt "label" (Rule "Label"); child_req ~space:false "value" (Rule "Expr") ]
   in
   let type_expr =
     expr_block
