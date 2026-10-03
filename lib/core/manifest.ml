@@ -11,6 +11,7 @@ module Scope = struct
     | View_module
     | View_type
     | View_accessor of string
+    | View_constructor of string
 
   let name : t -> string = function
     | Kind_enum -> "kind constructor"
@@ -20,6 +21,7 @@ module Scope = struct
     | View_module -> "view module"
     | View_type -> "view type"
     | View_accessor m -> "accessor in view module " ^ m
+    | View_constructor t -> "constructor of view type " ^ t
   ;;
 
   (* A repeat among the parser's separate top-level [let]s shadows, so it
@@ -32,7 +34,8 @@ module Scope = struct
     | Format_cluster
     | View_module
     | View_type
-    | View_accessor _ -> true
+    | View_accessor _
+    | View_constructor _ -> true
   ;;
 
   let rank : t -> int = function
@@ -43,11 +46,13 @@ module Scope = struct
     | View_module -> 4
     | View_type -> 5
     | View_accessor _ -> 6
+    | View_constructor _ -> 7
   ;;
 
   let compare (a : t) (b : t) : int =
     match a, b with
     | View_accessor x, View_accessor y -> String.compare x y
+    | View_constructor x, View_constructor y -> String.compare x y
     | _ -> Int.compare (rank a) (rank b)
   ;;
 end
@@ -99,9 +104,14 @@ let kind_constructor raw = "K_" ^ raw
 let format_fn n = "format_" ^ Mangle.safe_snake n
 let view_module n = Mangle.upper_first n
 let view_accessor n = Mangle.safe_snake n
+let view_type n = Mangle.snake_case n ^ "_view"
+
+(* The arm is a suffix, so a keyword needs no escape: [true] gives
+   [Value_kind_true]. *)
+let view_constructor ~sum ~arm = String.capitalize_ascii sum ^ "_" ^ Mangle.snake_case arm
+let view_support = "Slots"
 let sum_type ~prod ~child = Mangle.safe_snake prod ^ "_" ^ Mangle.safe_snake child
 let block_position_type b = Mangle.safe_snake b ^ "_position"
-let block_entry_type b = Mangle.safe_snake b ^ "_entry"
 
 (* -- the manifest ---------------------------------------------------------- *)
 
@@ -215,23 +225,42 @@ let production_entries (p : Grammar.production) : entry list =
   ; e ~scope:Scope.Parser_toplevel ~base ~derivation:"entry_point_fn" (entry_point_fn n)
   ; e ~scope:Scope.Format_cluster ~base ~derivation:"format_fn" (format_fn n)
   ; e ~scope:Scope.View_module ~base ~derivation:"view_module" mname
+  ; e ~scope:Scope.View_type ~base ~derivation:"view_type" (view_type n)
+    (* Every view module defines both beside the accessors. *)
+  ; e ~scope:(Scope.View_accessor mname) ~base:builtin ~derivation:"view cast" "cast"
+  ; e ~scope:(Scope.View_accessor mname) ~base:builtin ~derivation:"view syntax" "syntax"
   ]
   @ List.concat_map
       (fun (c : Grammar.child) ->
+         let child = Grammar.Name.Child.to_string c.name in
+         let base = n ^ "." ^ child in
+         let sum = sum_type ~prod:n ~child in
          e
            ~scope:(Scope.View_accessor mname)
-           ~base:(Grammar.Name.Child.to_string c.name)
+           ~base:child
            ~derivation:"view_accessor"
-           (view_accessor (Grammar.Name.Child.to_string c.name))
+           (view_accessor child)
          ::
          (if child_emits_sum c
           then
-            [ e
-                ~scope:Scope.View_type
-                ~base:(n ^ "." ^ Grammar.Name.Child.to_string c.name)
-                ~derivation:"sum_type"
-                (sum_type ~prod:n ~child:(Grammar.Name.Child.to_string c.name))
-            ]
+            e ~scope:Scope.View_type ~base ~derivation:"sum_type" sum
+            :: e
+                 ~scope:Scope.View_module
+                 ~base
+                 ~derivation:"variant_module"
+                 (view_module sum)
+            :: List.map
+                 (fun (s : Grammar.symbol) ->
+                    let arm =
+                      match s with
+                      | Grammar.Token t | Rule t -> t
+                    in
+                    e
+                      ~scope:(Scope.View_constructor sum)
+                      ~base
+                      ~derivation:"view_constructor"
+                      (view_constructor ~sum ~arm))
+                 (c.head :: c.rest)
           else []))
       p.children
 ;;
@@ -243,6 +272,7 @@ let format_fn_of_role (e_ : Grammar.expr_def) (role : Role.t) : string =
 let block_entries (e_ : Grammar.expr_def) : entry list =
   let n = Grammar.Name.Rule.to_string e_.rule_name in
   let base = n in
+  let position = block_position_type n in
   [ e ~scope:Scope.Parser_cluster ~base ~derivation:"parse_fn" (parse_fn n)
   ; e ~scope:Scope.Parser_cluster ~base ~derivation:"can_start_fn" (can_start_fn n)
   ; e ~scope:Scope.Parser_cluster ~base ~derivation:"pratt_lhs_fn" (pratt_lhs_fn n)
@@ -258,12 +288,8 @@ let block_entries (e_ : Grammar.expr_def) : entry list =
       ~derivation:"pratt_prefix_bp_fn"
       (pratt_prefix_bp_fn n)
   ; e ~scope:Scope.Parser_toplevel ~base ~derivation:"entry_point_fn" (entry_point_fn n)
-  ; e ~scope:Scope.View_type ~base ~derivation:"block_entry_type" (block_entry_type n)
-  ; e
-      ~scope:Scope.View_type
-      ~base
-      ~derivation:"block_position_type"
-      (block_position_type n)
+  ; e ~scope:Scope.View_type ~base ~derivation:"block_position_type" position
+  ; e ~scope:Scope.View_module ~base ~derivation:"variant_module" (view_module position)
   ]
   @ List.concat_map
       (fun role ->
@@ -275,16 +301,41 @@ let block_entries (e_ : Grammar.expr_def) : entry list =
              (format_fn_of_role e_ role)
          in
          if Role.is_active e_ role
-         then
+         then (
+           let synthetic = Role.synthetic_name e_ role in
            [ fmt
            ; e
                ~scope:Scope.View_module
                ~base
                ~derivation:"role_view_module"
-               (view_module (Role.synthetic_name e_ role))
-           ]
+               (view_module synthetic)
+           ; e
+               ~scope:Scope.View_type
+               ~base
+               ~derivation:"role_view_type"
+               (view_type synthetic)
+           ; e
+               ~scope:(Scope.View_constructor position)
+               ~base
+               ~derivation:"view_constructor"
+               (view_constructor ~sum:position ~arm:synthetic)
+           ])
          else [ fmt ])
       (Role.of_block e_)
+  (* A token atom is wrapped in the base role's node, so only a rule atom is an
+     arm of its own. *)
+  @ List.filter_map
+      (fun (s : Grammar.symbol) ->
+         match s with
+         | Grammar.Token _ -> None
+         | Rule r ->
+           Some
+             (e
+                ~scope:(Scope.View_constructor position)
+                ~base
+                ~derivation:"view_constructor"
+                (view_constructor ~sum:position ~arm:r)))
+      e_.atoms
 ;;
 
 (* The names a backend emits for every grammar. They are entries like any
@@ -305,6 +356,11 @@ let builtin_entries : entry list =
        module. A cluster binding of that name would hide it, so it is listed in
        the scope it can be hidden from. *)
   ; e ~scope:Scope.Parser_cluster ~base:builtin ~derivation:"entry alias" "parse_tokens"
+    (* The views module holds its helpers in a module of its own, and every
+       view module writes its types against siesta's. A production with either
+       name would hide the real one from the modules after it. *)
+  ; e ~scope:Scope.View_module ~base:builtin ~derivation:"view support" view_support
+  ; e ~scope:Scope.View_module ~base:builtin ~derivation:"siesta" "Siesta"
   ]
 ;;
 

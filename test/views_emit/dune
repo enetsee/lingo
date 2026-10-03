@@ -1,0 +1,268 @@
+; The emitted views. They are generated here and compiled twice: once with
+; their interface, linking siesta alone, and once without, for the law.
+
+(executable
+ (name gen)
+ (modules gen)
+ (libraries lingo.core lingo.ocaml lingo_grammars nested_grammar))
+
+(rule
+ (with-stdout-to
+  sexp_views.ml
+  (run ./gen.exe sexp views)))
+
+(rule
+ (with-stdout-to
+  sexp_views.mli
+  (run ./gen.exe sexp mli)))
+
+(rule
+ (copy sexp_views.ml sexp_slots.ml))
+
+(rule
+ (with-stdout-to
+  json_views.ml
+  (run ./gen.exe json views)))
+
+(rule
+ (with-stdout-to
+  json_views.mli
+  (run ./gen.exe json mli)))
+
+(rule
+ (copy json_views.ml json_slots.ml))
+
+(rule
+ (with-stdout-to
+  calc_views.ml
+  (run ./gen.exe calc views)))
+
+(rule
+ (with-stdout-to
+  calc_views.mli
+  (run ./gen.exe calc mli)))
+
+(rule
+ (copy calc_views.ml calc_slots.ml))
+
+(rule
+ (with-stdout-to
+  rassoc_views.ml
+  (run ./gen.exe rassoc views)))
+
+(rule
+ (with-stdout-to
+  rassoc_views.mli
+  (run ./gen.exe rassoc mli)))
+
+(rule
+ (copy rassoc_views.ml rassoc_slots.ml))
+
+(rule
+ (with-stdout-to
+  postfix_views.ml
+  (run ./gen.exe postfix views)))
+
+(rule
+ (with-stdout-to
+  postfix_views.mli
+  (run ./gen.exe postfix mli)))
+
+(rule
+ (copy postfix_views.ml postfix_slots.ml))
+
+(rule
+ (with-stdout-to
+  shapes_views.ml
+  (run ./gen.exe shapes views)))
+
+(rule
+ (with-stdout-to
+  shapes_views.mli
+  (run ./gen.exe shapes mli)))
+
+(rule
+ (copy shapes_views.ml shapes_slots.ml))
+
+(rule
+ (with-stdout-to
+  unicode_views.ml
+  (run ./gen.exe unicode views)))
+
+(rule
+ (with-stdout-to
+  unicode_views.mli
+  (run ./gen.exe unicode mli)))
+
+(rule
+ (copy unicode_views.ml unicode_slots.ml))
+
+(rule
+ (with-stdout-to
+  recovery_views.ml
+  (run ./gen.exe recovery views)))
+
+(rule
+ (with-stdout-to
+  recovery_views.mli
+  (run ./gen.exe recovery mli)))
+
+(rule
+ (copy recovery_views.ml recovery_slots.ml))
+
+(rule
+ (with-stdout-to
+  comments_views.ml
+  (run ./gen.exe comments views)))
+
+(rule
+ (with-stdout-to
+  comments_views.mli
+  (run ./gen.exe comments mli)))
+
+(rule
+ (copy comments_views.ml comments_slots.ml))
+
+(rule
+ (with-stdout-to
+  rust_views.ml
+  (run ./gen.exe rust views)))
+
+(rule
+ (with-stdout-to
+  rust_views.mli
+  (run ./gen.exe rust mli)))
+
+(rule
+ (copy rust_views.ml rust_slots.ml))
+
+(rule
+ (with-stdout-to
+  effekt_views.ml
+  (run ./gen.exe effekt views)))
+
+(rule
+ (with-stdout-to
+  effekt_views.mli
+  (run ./gen.exe effekt mli)))
+
+(rule
+ (copy effekt_views.ml effekt_slots.ml))
+
+(rule
+ (with-stdout-to
+  wide_views.ml
+  (run ./gen.exe wide views)))
+
+(rule
+ (with-stdout-to
+  wide_views.mli
+  (run ./gen.exe wide mli)))
+
+(rule
+ (copy wide_views.ml wide_slots.ml))
+
+(rule
+ (with-stdout-to
+  ml_views.ml
+  (run ./gen.exe ml views)))
+
+(rule
+ (with-stdout-to
+  ml_views.mli
+  (run ./gen.exe ml mli)))
+
+(rule
+ (copy ml_views.ml ml_slots.ml))
+
+(rule
+ (with-stdout-to
+  nested_views.ml
+  (run ./gen.exe nested views)))
+
+(rule
+ (with-stdout-to
+  nested_views.mli
+  (run ./gen.exe nested mli)))
+
+(rule
+ (copy nested_views.ml nested_slots.ml))
+
+(library
+ (name emitted_views)
+ (modules
+  sexp_views
+  json_views
+  calc_views
+  rassoc_views
+  postfix_views
+  shapes_views
+  unicode_views
+  recovery_views
+  comments_views
+  rust_views
+  effekt_views
+  wide_views
+  ml_views
+  nested_views)
+ (libraries siesta))
+
+(library
+ (name emitted_slots)
+ (modules
+  sexp_slots
+  json_slots
+  calc_slots
+  rassoc_slots
+  postfix_slots
+  shapes_slots
+  unicode_slots
+  recovery_slots
+  comments_slots
+  rust_slots
+  effekt_slots
+  wide_slots
+  ml_slots
+  nested_slots)
+ (libraries siesta))
+
+; law_views part (c) reads the emitted modules as files and asks [lingo.ocaml]
+; for them again, so the generator is covered at run time as well.
+
+(tests
+ (names law_views)
+ (modules law_views)
+ (deps
+  (glob_files *_views.ml)
+  (glob_files *_views.mli))
+ (libraries
+  law
+  emitted_slots
+  nested_grammar
+  ppxlib
+  lingo.fuzz
+  inputs
+  lex
+  lingo.core
+  lingo.interp
+  lingo.ocaml
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  siesta
+  sweep))
+
+(test
+ (name test_views)
+ (modules test_views)
+ (libraries
+  law
+  emitted_parsers
+  emitted_views
+  nested_grammar
+  lingo.interp
+  lingo.plan
+  lex
+  lingo.core
+  lingo_grammars
+  siesta))

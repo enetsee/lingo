@@ -4,14 +4,15 @@
 
     {2 The namespaces}
 
-    There are six, listed at {!Scope.t}:
+    There are seven, listed at {!Scope.t}:
 
     - the kind constructors;
     - the parser's [let rec] cluster;
     - the parser's top-level bindings;
     - the formatter's cluster;
     - the view modules;
-    - the types and accessors those modules declare.
+    - the types and accessors those modules declare;
+    - the constructors of each view variant.
 
     A backend emits a handful of names for every grammar: [format_node],
     [format_generic], [parse_tokens] and the four built-in kinds. Each is an
@@ -46,6 +47,7 @@ module Scope : sig
     | View_module (** Module names in the shared module. *)
     | View_type (** Types at the shared module's top level. *)
     | View_accessor of string (** Accessors inside one named view module. *)
+    | View_constructor of string (** Constructors of one named view variant. *)
 
   val name : t -> string
 
@@ -137,6 +139,16 @@ val kind_constructor : string -> string
 val format_fn : string -> string
 val view_module : string -> string
 val view_accessor : string -> string
+
+(** ["Member"] gives ["member_view"]. The suffix keeps a production called
+    [List] or [Option] off the type of that name. *)
+val view_type : string -> string
+
+(** ["value_kind"] and ["Object"] give ["Value_kind_object"]. *)
+val view_constructor : sum:string -> arm:string -> string
+
+(** The module in the views module that holds its helpers. *)
+val view_support : string
+
 val sum_type : prod:string -> child:string -> string
 val block_position_type : string -> string
-val block_entry_type : string -> string

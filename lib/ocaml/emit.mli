@@ -174,6 +174,11 @@ val sval : string -> ty -> sig_item
 val stype_variant : string -> (string * ty list) list -> sig_item
 val stype_alias : string -> ty -> sig_item
 val stype_record : string -> (string * ty) list -> sig_item
+
+(** [type name = private manifest]. A caller can coerce out of it with [:>]
+    and cannot build one. *)
+val stype_private : string -> ty -> sig_item
+
 val stype_abstract : string -> sig_item
 val smodule : string -> sig_item list -> sig_item
 

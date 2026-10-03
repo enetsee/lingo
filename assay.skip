@@ -50,3 +50,11 @@
 1833728917647121812	doesn't type-check: This expression has type Lingo_runtime.Token.t list -> (int * string) list
 4157080761376040533	doesn't type-check: This expression has type Core.Block.postfix list -> Yojson.Basic.t list
 1682286850331892843	doesn't type-check: This expression has type Core.Token.def list -> [> `Assoc of (string * Yojson.Basic.t) list ] list
+4163331212046268786	doesn't type-check: This expression has type Core.Rule.def list -> (int * string) list
+2980766327567196831	doesn't type-check: This expression has type Core.Kind.t list -> (int * string) list
+269335476215583247	doesn't type-check: The value Option.get has type 'a option -> 'a
+907697993788917310	doesn't type-check: The value Option.get has type 'a option -> 'a
+1394025732050910753	doesn't type-check: This expression has type Core.Kind.t list -> int list
+2405409640929218875	doesn't type-check: This expression has type Core.Rule.def list -> view list
+3726653015125637195	doesn't type-check: This expression has type Core.Block.def list -> (string * arm list) list
+685787400222754773	doesn't type-check: This expression has type Core.Rule.child list -> (string * arm list) list

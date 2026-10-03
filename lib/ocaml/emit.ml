@@ -256,7 +256,12 @@ let record (fields : (Ppxlib.label * ty) list) : Ppxlib.label_declaration list =
     fields
 ;;
 
-let declaration ~(name : Ppxlib.label) ~(kind : Ppxlib.type_kind) ~(manifest : ty option)
+let declaration
+      ?(private_ : Ppxlib.private_flag = Public)
+      ~(name : Ppxlib.label)
+      ~(kind : Ppxlib.type_kind)
+      ~(manifest : ty option)
+      ()
   : Ppxlib.type_declaration
   =
   Ast.type_declaration
@@ -264,7 +269,7 @@ let declaration ~(name : Ppxlib.label) ~(kind : Ppxlib.type_kind) ~(manifest : t
     ~params:[]
     ~cstrs:[]
     ~kind
-    ~private_:Public
+    ~private_
     ~manifest
 ;;
 
@@ -273,19 +278,19 @@ let itype_variant (name : Ppxlib.label) (constructors : (Ppxlib.label * ty list)
   =
   Ast.pstr_type
     Recursive
-    [ declaration ~name ~kind:(Ptype_variant (variant constructors)) ~manifest:None ]
+    [ declaration ~name ~kind:(Ptype_variant (variant constructors)) ~manifest:None () ]
 ;;
 
 let itype_alias (name : Ppxlib.label) (manifest : ty) : item =
   Ast.pstr_type
     Nonrecursive
-    [ declaration ~name ~kind:Ptype_abstract ~manifest:(Some manifest) ]
+    [ declaration ~name ~kind:Ptype_abstract ~manifest:(Some manifest) () ]
 ;;
 
 let itype_record (name : Ppxlib.label) (fields : (Ppxlib.label * ty) list) : item =
   Ast.pstr_type
     Recursive
-    [ declaration ~name ~kind:(Ptype_record (record fields)) ~manifest:None ]
+    [ declaration ~name ~kind:(Ptype_record (record fields)) ~manifest:None () ]
 ;;
 
 (* -- types ----------------------------------------------------------------- *)
@@ -317,23 +322,35 @@ let stype_variant (name : Ppxlib.label) (constructors : (Ppxlib.label * ty list)
   =
   Ast.psig_type
     Recursive
-    [ declaration ~name ~kind:(Ptype_variant (variant constructors)) ~manifest:None ]
+    [ declaration ~name ~kind:(Ptype_variant (variant constructors)) ~manifest:None () ]
 ;;
 
 let stype_alias (name : Ppxlib.label) (manifest : ty) : sig_item =
   Ast.psig_type
     Nonrecursive
-    [ declaration ~name ~kind:Ptype_abstract ~manifest:(Some manifest) ]
+    [ declaration ~name ~kind:Ptype_abstract ~manifest:(Some manifest) () ]
 ;;
 
 let stype_record (name : Ppxlib.label) (fields : (Ppxlib.label * ty) list) : sig_item =
   Ast.psig_type
     Recursive
-    [ declaration ~name ~kind:(Ptype_record (record fields)) ~manifest:None ]
+    [ declaration ~name ~kind:(Ptype_record (record fields)) ~manifest:None () ]
+;;
+
+let stype_private (name : Ppxlib.label) (manifest : ty) : sig_item =
+  Ast.psig_type
+    Nonrecursive
+    [ declaration
+        ~private_:Private
+        ~name
+        ~kind:Ptype_abstract
+        ~manifest:(Some manifest)
+        ()
+    ]
 ;;
 
 let stype_abstract (name : Ppxlib.label) : sig_item =
-  Ast.psig_type Nonrecursive [ declaration ~name ~kind:Ptype_abstract ~manifest:None ]
+  Ast.psig_type Nonrecursive [ declaration ~name ~kind:Ptype_abstract ~manifest:None () ]
 ;;
 
 let smodule (name : Ppxlib.label) (items : sig_item list) : sig_item =

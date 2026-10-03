@@ -592,28 +592,26 @@ editors/textmate/textmate.ml:267   sbr      drop 1 of 1
 editors/textmate/textmate.ml:267   uoi      c -> not c
 editors/textmate/textmate.ml:286   sbr      drop 1 of 1
 
-## lib/core/manifest.ml  (21)
-lib/core/manifest.ml:210   sbr      drop 1 of 6
-lib/core/manifest.ml:211   sbr      drop 2 of 6
-lib/core/manifest.ml:214   sbr      drop 3 of 6
-lib/core/manifest.ml:215   sbr      drop 4 of 6
-lib/core/manifest.ml:217   sbr      drop 6 of 6
-lib/core/manifest.ml:229   sbr      drop 1 of 1
-lib/core/manifest.ml:243   extreme  block_entries -> []
-lib/core/manifest.ml:246   sbr      drop 1 of 9
-lib/core/manifest.ml:247   sbr      drop 2 of 9
-lib/core/manifest.ml:248   sbr      drop 3 of 9
-lib/core/manifest.ml:249   sbr      drop 4 of 9
-lib/core/manifest.ml:250   sbr      drop 5 of 9
-lib/core/manifest.ml:255   sbr      drop 6 of 9
-lib/core/manifest.ml:260   sbr      drop 7 of 9
-lib/core/manifest.ml:261   sbr      drop 8 of 9
-lib/core/manifest.ml:262   sbr      drop 9 of 9
-lib/core/manifest.ml:277   uoi      c -> not c
-lib/core/manifest.ml:279   sbr      drop 1 of 2
-lib/core/manifest.ml:280   sbr      drop 2 of 2
-lib/core/manifest.ml:286   sbr      drop 1 of 1
-lib/core/manifest.ml:365   sbr      e |> f -> e
+## lib/core/manifest.ml  (14)
+lib/core/manifest.ml:220   sbr      drop 1 of 9
+lib/core/manifest.ml:221   sbr      drop 2 of 9
+lib/core/manifest.ml:224   sbr      drop 3 of 9
+lib/core/manifest.ml:225   sbr      drop 4 of 9
+lib/core/manifest.ml:276   sbr      drop 1 of 9
+lib/core/manifest.ml:277   sbr      drop 2 of 9
+lib/core/manifest.ml:278   sbr      drop 3 of 9
+lib/core/manifest.ml:279   sbr      drop 4 of 9
+lib/core/manifest.ml:280   sbr      drop 5 of 9
+lib/core/manifest.ml:285   sbr      drop 6 of 9
+lib/core/manifest.ml:290   sbr      drop 7 of 9
+lib/core/manifest.ml:306   sbr      drop 1 of 4
+lib/core/manifest.ml:323   sbr      drop 1 of 1
+lib/core/manifest.ml:421   sbr      e |> f -> e
+
+# Every one is a name the parser or the formatter emits, and :421 is the order
+# collisions come back in. test/views_emit/law_views.ml (e) reads the views
+# module back and kills a dropped view entry. Nothing reads the parser or the
+# formatter back yet.
 
 ## lib/ocaml/parser.ml  (5)
 lib/ocaml/parser.ml:51     sbr      drop 1 of 1
