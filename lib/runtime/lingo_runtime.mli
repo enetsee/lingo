@@ -45,3 +45,4 @@ module Build = Build
 module Recover = Recover
 module Ahead = Ahead
 module Layout = Layout
+module Rewrite = Rewrite
