@@ -20,7 +20,10 @@ type instr =
       { block : int
       ; min_bp : int
       }
-  | Alt of { arms : (Kind.t array * instr) array }
+  | Alt of
+      { arms : (Kind.t array * instr) array
+      ; otherwise : instr
+      }
   | Commit of
       { first : Kind.t array
       ; recover : Kind.t array

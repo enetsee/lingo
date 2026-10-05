@@ -124,7 +124,9 @@ let ids_in (p : Ir.Plan.t) =
     | Drain id -> note id
     | Expect e -> note e.message
     | Seq xs -> Array.iter instr xs
-    | Alt a -> Array.iter (fun (_, body) -> instr body) a.arms
+    | Alt a ->
+      Array.iter (fun (_, body) -> instr body) a.arms;
+      instr a.otherwise
     | Commit c ->
       note c.message;
       instr c.body
@@ -201,7 +203,8 @@ let rec tally (i : Ir.Plan.instr) =
     Array.iter tally xs
   | Alt a ->
     saw "alt";
-    Array.iter (fun (_, body) -> tally body) a.arms
+    Array.iter (fun (_, body) -> tally body) a.arms;
+    tally a.otherwise
   | Commit c ->
     saw "commit";
     saw (if c.resume = None then "no-resume" else "resume");
@@ -372,6 +375,7 @@ let negate ~(target : int) (p : Ir.Plan.t) : Ir.Plan.t * int * string =
                  let on = kinds at on in
                  on, instr at body)
               a.arms
+        ; otherwise = instr (at ^ "/otherwise") a.otherwise
         }
     | Ir.Plan.Commit c ->
       let first = kinds (at ^ "/first") c.first in

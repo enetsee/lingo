@@ -11,6 +11,7 @@ type step =
   | Enter of int
   | Item of int
   | Arm of int
+  | Otherwise
   | Child
   | Loop of int
   | Emits of
@@ -34,6 +35,7 @@ module State = struct
   let call (t : t) (rule : int) : t = Enter rule :: t
   let item (t : t) (index : int) : t = Item index :: t
   let arm (t : t) (index : int) : t = Arm index :: t
+  let otherwise (t : t) : t = Otherwise :: t
   let child (t : t) : t = Child :: t
   let loop (t : t) (state : int) : t = Loop state :: t
   let emits (t : t) ~(state : int) ~(goto : int) : t = Emits { state; goto } :: t
@@ -71,6 +73,7 @@ module State = struct
     | Enter rule -> Format.fprintf ppf "rule %d" rule
     | Item index -> Format.fprintf ppf "item %d" index
     | Arm index -> Format.fprintf ppf "arm %d" index
+    | Otherwise -> Format.pp_print_string ppf "otherwise"
     | Child -> Format.pp_print_string ppf "child"
     | Loop state -> Format.fprintf ppf "loop %d" state
     | Emits e -> Format.fprintf ppf "emits %d goto %d" e.state e.goto
@@ -163,8 +166,11 @@ let rec whole (plan : Plan.t) (null : bool array) (instr : Plan.instr)
   | Plan.Expect e -> [ e.tok ], false
   | Plan.Call rule -> Array.to_list plan.rules.(rule).first, null.(rule)
   | Plan.Pratt p -> head_set plan.blocks.(p.block), false
-  (* An alt that finds no arm runs nothing, so it can always be left out. *)
-  | Plan.Alt a -> arms_gate a.arms, true
+  (* An alt that finds no arm runs [otherwise]. It can be left out where
+     that can. *)
+  | Plan.Alt a ->
+    let first, nullable = whole plan null a.otherwise in
+    arms_gate a.arms @ first, nullable
   | Plan.Commit c -> Array.to_list c.first, false
   (* [ends_on] is missing from this on purpose. It holds the closer, which the
      instruction after the loop takes anyway, and the resync anchors, which
@@ -263,6 +269,8 @@ let rec remains
   | Arm index :: rest, Plan.Alt a ->
     let on, body = a.arms.(within "arm" (Array.length a.arms) index) in
     entered plan null ~inclusive ~gate:(Array.to_list on) body rest
+  (* No dispatch chose [otherwise], so it is read as it stands. *)
+  | Otherwise :: rest, Plan.Alt a -> remains plan null ~inclusive a.otherwise rest
   | Child :: rest, Plan.Commit c ->
     entered plan null ~inclusive ~gate:(Array.to_list c.first) c.body rest
   | Loop state :: [], Plan.Loop l ->
@@ -334,7 +342,7 @@ and expression
       block.postfix.(within "postfix operator" (Array.length block.postfix) index)
     in
     remains plan null ~inclusive q.body rest
-  | (Enter _ | Item _ | Arm _ | Child | Loop _ | Emits _) :: _ | [] ->
+  | (Enter _ | Item _ | Arm _ | Otherwise | Child | Loop _ | Emits _) :: _ | [] ->
     invalid_arg "Residual.at: an expression takes an operand, a climb or a postfix"
 ;;
 
@@ -413,8 +421,10 @@ module Table = struct
     | Plan.Commit c -> c.placeholder :: children plan ~gate:(Array.to_list c.first) c.body
     | Plan.Pratt p -> expression_kinds plan plan.blocks.(p.block)
     | Plan.Alt a ->
-      Array.fold_left a.arms ~init:[] ~f:(fun acc (on, body) ->
-        children plan ~gate:(Array.to_list on) body @ acc)
+      Array.fold_left
+        a.arms
+        ~init:(children plan ~gate:[] a.otherwise)
+        ~f:(fun acc (on, body) -> children plan ~gate:(Array.to_list on) body @ acc)
     | Plan.Seq _ | Plan.Open _ | Plan.Close | Plan.Trivia | Plan.Drain _ | Plan.Loop _ ->
       []
   ;;

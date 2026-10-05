@@ -54,11 +54,17 @@ type instr =
       }
   (** Parse an expression from the block at that index, taking
           operators that bind at least as tightly as [min_bp]. *)
-  | Alt of { arms : (Kind.t array * instr) array }
-  (** Take the first arm whose set holds the kind under the cursor. A
-          kind in no arm takes none of them. The order settles an overlap,
-          so the checker rejects a grammar where a later arm is
-          unreachable rather than leaving it to be discovered here. *)
+  | Alt of
+      { arms : (Kind.t array * instr) array
+      ; otherwise : instr
+        (** What runs where no arm holds the kind under the cursor. It is
+              [Seq \[||\]] where that takes nothing, or a [Call] to a rule
+              that can match nothing, which then builds an empty node. *)
+      }
+  (** Take the first arm whose set holds the kind under the cursor, and
+          [otherwise] where none does. The order settles an overlap, so the
+          checker rejects a grammar where a later arm is unreachable rather
+          than leaving it to be discovered here. *)
   | Commit of
       { first : Kind.t array
         (** What can start the child, and what the diagnostic reports as

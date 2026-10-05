@@ -46,11 +46,11 @@
       rejected, so (a) still passes: the grammar is refused, just not where the
       code says it is refused. (c) is the part that reads the stage.
 
-      Coverage. The 54 witness grammars and the 10 accepted ones: at least
+      Coverage. The 58 witness grammars and the 11 accepted ones: at least
       one grammar per rejection and a handful of near misses, together with
       the six cycles part (f) builds for itself. It says nothing about whether
       a check's reason is right, only that it fires on one shape and stays
-      quiet on ten others. Ten accepted grammars is a statement about ten
+      quiet on eleven others. Eleven accepted grammars is a statement about eleven
       grammars; a generated corpus is what would make it a statement about
       the checker.
    -------------------------------------------------------------------------- *)

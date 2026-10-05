@@ -43,6 +43,11 @@ type token_unreachable_reason =
   | Empty_language
   | Subsumed_by of Grammar.Name.Token.t
 
+type ambiguous_empty =
+  | Another_alternative
+  | Absent
+  | No_elements
+
 type detail =
   (* -- declarations and the kind table ------------------------------------- *)
   | Empty_grammar
@@ -125,6 +130,10 @@ type detail =
   | First_follow_conflict of { common : kind_ref list }
   | Left_recursion of { members : Grammar.Name.Rule.t list }
   | Nullable_repeated of { rule : Grammar.Name.Rule.t }
+  | Ambiguous_empty of
+      { rules : Grammar.Name.Rule.t list
+      ; how : ambiguous_empty
+      }
   | Nullable_pratt_atom of { atom : string }
   | Nullable_separated_element of { element : string }
   | Empty_first_set of { referenced_from : string list }
@@ -186,6 +195,7 @@ let code (e : t) : string =
   | First_follow_conflict _ -> "first-follow-conflict"
   | Left_recursion _ -> "left-recursion"
   | Nullable_repeated _ -> "nullable-repeated"
+  | Ambiguous_empty _ -> "ambiguous-empty"
   | Nullable_pratt_atom _ -> "nullable-pratt-atom"
   | Nullable_separated_element _ -> "nullable-separated-element"
   | Empty_first_set _ -> "empty-first-set"
@@ -246,6 +256,7 @@ let full_stage_codes =
   ; "first-follow-conflict"
   ; "left-recursion"
   ; "nullable-repeated"
+  ; "ambiguous-empty"
   ; "nullable-pratt-atom"
   ; "nullable-separated-element"
   ; "empty-first-set"
@@ -320,6 +331,12 @@ let hint (e : t) : string option =
     Some
       "mark the child greedy if the parser's natural resolution is what the language \
        means"
+  | Ambiguous_empty { how = Another_alternative; _ } ->
+    Some "make all but one of them take at least one token"
+  | Ambiguous_empty { how = Absent; _ } ->
+    Some "make the child required, since the rule already matches nothing"
+  | Ambiguous_empty { how = No_elements; _ } ->
+    Some "make the rule take at least one token"
   | Metavariable_clash _ ->
     Some "a metavariable wants a sigil no token of the language uses"
   | _ -> None
@@ -490,6 +507,20 @@ let message (e : t) : string =
       "every alternative of this repeated child is nullable (%s derives empty), so the \
        loop cannot make progress"
       (Grammar.Name.Rule.to_string rule)
+  | Ambiguous_empty { rules; how = Another_alternative } ->
+    Printf.sprintf
+      "%s can each match nothing, so an empty child parses as any one of them"
+      (plain (List.map ~f:Grammar.Name.Rule.to_string rules))
+  | Ambiguous_empty { rules; how = Absent } ->
+    Printf.sprintf
+      "this child is optional and %s can match nothing, so an empty child parses two \
+       ways: left out, or present and empty"
+      (plain (List.map ~f:Grammar.Name.Rule.to_string rules))
+  | Ambiguous_empty { rules; how = No_elements } ->
+    Printf.sprintf
+      "this child repeats and %s can match nothing, so a run of it can hold any number \
+       of empty matches"
+      (plain (List.map ~f:Grammar.Name.Rule.to_string rules))
   | Nullable_pratt_atom { atom } ->
     Printf.sprintf "the atom %s is nullable; an atom must consume at least one token" atom
   | Nullable_separated_element { element } ->

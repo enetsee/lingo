@@ -81,6 +81,15 @@ let resumes_on (first : Core.Kind.Set.t) (resume : Ir.Kind.t array option)
 
 (* -- a child's body -------------------------------------------------------- *)
 
+let matches_nothing (facts : Core.Facts.t) (kind : Core.Kind.t) : bool =
+  let r = facts.kind_rule.(Core.Kind.to_int kind) in
+  r >= 0 && facts.nullable.(r)
+;;
+
+(* An alternative that can match nothing is also the [otherwise]. Where no arm
+   holds the kind under the cursor, its rule runs and builds an empty node.
+   The checker lets at most one alternative match nothing, and only in a
+   required child. *)
 let rec body_of_alts (facts : Core.Facts.t) (alts : Core.Kind.t array) : Ir.Plan.instr =
   match alts with
   | [| kind |] -> body_of_alt facts kind
@@ -97,6 +106,10 @@ let rec body_of_alts (facts : Core.Facts.t) (alts : Core.Kind.t array) : Ir.Plan
                  if Core.Kind.Set.is_empty first
                  then None
                  else Some (kset first, body_of_alt facts kind)))
+      ; otherwise =
+          (match Array.find_opt alts ~f:(matches_nothing facts) with
+           | Some kind -> body_of_alt facts kind
+           | None -> Ir.Plan.Seq [||])
       }
 
 and body_of_alt (facts : Core.Facts.t) (kind : Core.Kind.t) : Ir.Plan.instr =
@@ -146,7 +159,10 @@ let rec instr_of_child
   (* Neither of these reports, so neither takes a message. One here would put
      wording in the catalogue that no instruction ever names. *)
   | Core.Grammar.Zero_or_one ->
-    Ir.Plan.Alt { arms = [| kset first, body_of_alts facts child.alts |] }
+    Ir.Plan.Alt
+      { arms = [| kset first, body_of_alts facts child.alts |]
+      ; otherwise = Ir.Plan.Seq [||]
+      }
   (* A repeated child outside a frame ends where no element can start. Only a
      frame's own body recovers, because only a frame has a closer to stop at.
      See [body_instrs]. *)
@@ -174,16 +190,20 @@ and required
   : Ir.Plan.instr
   =
   let at_child = Core.Grammar.Name.Child.to_string child.child_name in
-  let id = message facts msgs rule_def child first in
   match child.alts with
   | [| kind |] when facts.kind_rule.(Core.Kind.to_int kind) < 0 ->
     Ir.Plan.Expect
       { tok = Core.Kind.to_int kind
-      ; message = id
+      ; message = message facts msgs rule_def child first
       ; at_child = Some at_child
       ; hole = Option.map Core.Kind.to_int rule_def.hole
       ; placeholder = None
       }
+  (* A child that can match nothing is never missing, so it has no commit.
+     Where nothing it can start with is under the cursor, it matches nothing.
+     [Check_full] keeps what it can start with apart from what may follow it,
+     so the empty match is the only parse there. *)
+  | alts when Array.exists alts ~f:(matches_nothing facts) -> body_of_alts facts alts
   | alts ->
     let recover =
       match child.recover_to with
@@ -194,7 +214,7 @@ and required
       { first = kset first
       ; recover = kset recover
       ; at_child
-      ; message = id
+      ; message = message facts msgs rule_def child first
       ; hole = Option.map Core.Kind.to_int rule_def.hole
       ; placeholder =
           (match rule_def.hole with

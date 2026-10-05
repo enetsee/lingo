@@ -299,6 +299,50 @@ let nullable_repeated (ctx : ctx) (acc : Error.t list) : Error.t list =
           :: acc)))
 ;;
 
+(* A child may match nothing in one way at most. A second way gives an empty
+   child two trees, and the parser builds one of them without saying so. The
+   second way is another alternative that can match nothing, or the child
+   being optional, or the child repeating.
+
+   Two cases have a check of their own. [nullable_repeated] reports a
+   repeated child whose every alternative can match nothing.
+   [nullable_pratt_and_separated] reports a separated element that can. This
+   check skips both, so each shape gets one finding. *)
+let ambiguous_empty (ctx : ctx) (acc : Error.t list) : Error.t list =
+  List.fold_left (user_rules ctx) ~init:acc ~f:(fun acc (d : Rule.def) ->
+    match d.frame with
+    | Rule.Separated _ -> acc
+    | Rule.Plain | Rule.Committed _ | Rule.Delimited _ ->
+      Array.fold_left d.children ~init:acc ~f:(fun acc (ch : Rule.child) ->
+        let nullable =
+          List.filter
+            (Array.to_list ch.alts)
+            ~f:(Fixpoint.Reader.kind_nullable ctx.fixpoint_reader)
+        in
+        let every = List.length nullable = Array.length ch.alts in
+        let how : Error.ambiguous_empty option =
+          match ch.modifier, nullable with
+          | _, [] -> None
+          | Grammar.Exactly_one, [ _ ] -> None
+          | Grammar.Exactly_one, _ -> Some Error.Another_alternative
+          | Grammar.Zero_or_one, _ -> Some Error.Absent
+          | Grammar.Zero_or_more _, _ when every -> None
+          | (Grammar.Zero_or_more _ | Grammar.One_or_more _), _ -> Some Error.No_elements
+        in
+        match how with
+        | None -> acc
+        | Some how ->
+          let rules =
+            List.map nullable ~f:(fun k ->
+              ctx.shape.rules.(Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k)
+                .Rule.name)
+          in
+          Error.make
+            ~detail:(Error.Ambiguous_empty { rules; how })
+            (Error.At_child { production = d.name; child = ch.child_name })
+          :: acc))
+;;
+
 (* [Fixpoint] works out nullability from a rule's children. It does not do
    that for an expression block or a separated production. Those two come out
    false whatever their children look like.
@@ -609,6 +653,7 @@ let run (shape : Stage.shape) (fixpoint_tables : Fixpoint.tables) (dfa : Redfa.D
   |> first_follow ctx
   |> left_recursion ctx
   |> nullable_repeated ctx
+  |> ambiguous_empty ctx
   |> nullable_pratt_and_separated ctx
   |> empty_first_sets ctx
   |> resync_anchor_conflict ctx

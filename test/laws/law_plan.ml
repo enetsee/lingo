@@ -21,7 +21,7 @@
       reader defaults would have to be dropped and defaulted to the same
       value to stay hidden.
 
-      Coverage. One plan, and twenty-one broken ones. The plan's loop reaches
+      Coverage. One plan, and twenty-two broken ones. The plan's loop reaches
       both exit policies: it may end after an element, and ending after a
       separator reports the separator as extra. The round-trip says
       nothing about a plan no [of_facts] would build, and [of_facts] does not
@@ -239,6 +239,7 @@ let item : Ir.Plan.rule =
                         |] )
                   ; [| k_word |], Ir.Plan.Seq [| Ir.Plan.Trivia; Ir.Plan.Bump |]
                  |]
+             ; otherwise = Ir.Plan.Call 3
              }
          ; Ir.Plan.Close
         |]
@@ -388,12 +389,14 @@ let broken =
       | Plan.Check.Negative_kind _ -> true
       | _ -> false )
   ; ( "an alt with no arms"
-    , with_body (open_ (Ir.Plan.Alt { arms = [||] }))
+    , with_body (open_ (Ir.Plan.Alt { arms = [||]; otherwise = Ir.Plan.Seq [||] }))
     , function
       | Plan.Check.Empty_alt _ -> true
       | _ -> false )
   ; ( "an arm no kind can take"
-    , with_body (open_ (Ir.Plan.Alt { arms = [| [||], Ir.Plan.Bump |] }))
+    , with_body
+        (open_
+           (Ir.Plan.Alt { arms = [| [||], Ir.Plan.Bump |]; otherwise = Ir.Plan.Seq [||] }))
     , function
       | Plan.Check.Empty_arm _ -> true
       | _ -> false )
@@ -401,7 +404,9 @@ let broken =
     , with_body
         (open_
            (Ir.Plan.Alt
-              { arms = [| [| k_word |], Ir.Plan.Bump; [| k_word |], Ir.Plan.Bump |] }))
+              { arms = [| [| k_word |], Ir.Plan.Bump; [| k_word |], Ir.Plan.Bump |]
+              ; otherwise = Ir.Plan.Seq [||]
+              }))
     , function
       | Plan.Check.Kind_taken_twice _ -> true
       | _ -> false )
@@ -495,6 +500,14 @@ let broken =
       | _ -> false )
   ; ( "a node opened and not closed"
     , with_body (Ir.Plan.Seq [| Ir.Plan.Open n_file; Ir.Plan.Bump |])
+    , function
+      | Plan.Check.Unbalanced _ -> true
+      | _ -> false )
+  ; ( "an alt's otherwise that opens a node and leaves it open"
+    , with_body
+        (open_
+           (Ir.Plan.Alt
+              { arms = [| [| k_word |], Ir.Plan.Bump |]; otherwise = Ir.Plan.Open n_file }))
     , function
       | Plan.Check.Unbalanced _ -> true
       | _ -> false )

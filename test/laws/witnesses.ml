@@ -443,6 +443,34 @@ let nullable_separated_element =
     ]
 ;;
 
+(* An empty [e] is an empty [Opt] or an empty [Other]. *)
+let ambiguous_empty_alternatives =
+  only
+    [ prod "Root" [ child_alt_rules ~modifier:Exactly_one "e" [ "Opt"; "Other" ] ]
+    ; prod "Opt" [ child_opt ~greedy:true "x" (Token "ta") ]
+    ; prod "Other" [ child_opt ~greedy:true "x" (Token "tb") ]
+    ]
+;;
+
+(* An empty [e] is left out, or an empty [Opt]. *)
+let ambiguous_empty_optional =
+  only
+    [ prod "Root" [ child_opt "e" (Rule "Opt") ]
+    ; prod "Opt" [ child_opt ~greedy:true "x" (Token "ta") ]
+    ]
+;;
+
+(* Only one alternative can match nothing, so [nullable-repeated] stays quiet,
+   and a run of [e] can hold any number of empty [Opt]s. *)
+let ambiguous_empty_repeated =
+  only
+    [ prod
+        "Root"
+        [ child_alt ~modifier:(Zero_or_more Fit) "e" [ Rule "Opt"; Token "tb" ] ]
+    ; prod "Opt" [ child_opt ~greedy:true "x" (Token "ta") ]
+    ]
+;;
+
 let empty_first_set =
   only
     [ prod "Root" [ child_req "e" (Rule "Empty"); child_req "t" (Token "ta") ]
@@ -558,6 +586,9 @@ let all : (string * Grammar.t) list =
   ; "left-recursion", left_recursion
   ; "left-recursion", left_recursion_pair
   ; "nullable-repeated", nullable_repeated
+  ; "ambiguous-empty", ambiguous_empty_alternatives
+  ; "ambiguous-empty", ambiguous_empty_optional
+  ; "ambiguous-empty", ambiguous_empty_repeated
   ; "nullable-pratt-atom", nullable_pratt_atom
   ; "nullable-separated-element", nullable_separated_element
   ; "empty-first-set", empty_first_set
@@ -610,6 +641,26 @@ let accepted : (string * Grammar.t) list =
         [ prod "Root" [ child_req "e" (Rule "E") ]
         ; prod "Paren" [ child_req "inner" (Rule "E") ]
           |> with_delimited ~open_tok:"lp" ~close_tok:"rp"
+        ] )
+  ; ( "required-empty"
+    , (* Three required children whose rules can match nothing: one in front of
+         a token, one beside a token alternative, and one at the end. Each
+         matches nothing where nothing it starts with is under the cursor.
+         [Root] repeats [Item] so the sampler draws items of every size. A
+         language this small and finite is drawn at its largest, where every
+         optional token is there and nothing is empty. *)
+      only
+        [ prod "Root" [ child_rep "item" (Rule "Item") ]
+        ; prod
+            "Item"
+            [ child_req "lead" (Rule "Lead")
+            ; child_alt ~modifier:Exactly_one "mixed" [ Rule "Mixed"; Token "t" ]
+            ; child_req "x" (Token "tb")
+            ; child_req "trail" (Rule "Trail")
+            ]
+        ; prod "Lead" [ child_opt "x" (Token "ta") ]
+        ; prod "Mixed" [ child_opt "x" (Token "lp") ]
+        ; prod "Trail" [ child_opt "x" (Token "m") ]
         ] )
   ; ( "pratt-postfix"
     , (* One block with three postfix shapes, each with its own kind_suffix,

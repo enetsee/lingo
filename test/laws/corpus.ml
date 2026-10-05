@@ -1,9 +1,9 @@
 (** The grammars every law is quantified over.
 
-    Ten, chosen to cover the shapes the checks separate. A law reading
+    Eleven, chosen to cover the shapes the checks separate. A law reading
     zero here says nothing about a grammar whose shape is not among them.
 
-    Five are built in {!Lingo_witness.Witnesses}, each taking the shape
+    Six are built in {!Lingo_witness.Witnesses}, each taking the shape
     nearest to one rejection and stopping short of it. The other five come
     from grammars/: sexp, calc, rassoc, json and ml. They carry a
     right-associative operator table, a committed production, and two

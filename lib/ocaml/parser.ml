@@ -88,7 +88,7 @@ let rec instr_kinds (instruction : Ir.Plan.instr) (acc : int) : int =
   | Ir.Plan.Call _ -> acc
   | Ir.Plan.Pratt _ -> acc
   | Ir.Plan.Alt a ->
-    Array.fold_left a.arms ~init:acc ~f:(fun acc (on, body) ->
+    Array.fold_left a.arms ~init:(instr_kinds a.otherwise acc) ~f:(fun acc (on, body) ->
       instr_kinds body (many on acc))
   | Ir.Plan.Commit c ->
     let acc = many c.first (many c.recover (max acc c.placeholder)) in
@@ -307,7 +307,7 @@ let rec instr (plan : Ir.Plan.t) (instruction : Ir.Plan.instr) : Emit.expr * nee
     , needs_nothing )
   | Call rule -> parse_call plan rule, needs_passed_down
   | Pratt { block; min_bp } -> enter_block plan block ~min_bp, needs_both
-  | Alt { arms } ->
+  | Alt { arms; otherwise } ->
     let each =
       List.map
         (Array.to_list arms)
@@ -315,7 +315,9 @@ let rec instr (plan : Ir.Plan.t) (instruction : Ir.Plan.instr) : Emit.expr * nee
           let body, needed = instr plan body in
           (Array.to_list on, body), needed)
     in
-    dispatch (List.map each ~f:fst) ~default:Emit.eunit, all_of (List.map each ~f:snd)
+    let default, default_needs = instr plan otherwise in
+    ( dispatch (List.map each ~f:fst) ~default
+    , all_of (default_needs :: List.map each ~f:snd) )
   | Commit { first; recover; at_child; message; hole; placeholder; resume; body } ->
     let first = Array.to_list first in
     commit

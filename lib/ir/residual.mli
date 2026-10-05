@@ -40,6 +40,9 @@ module State : sig
   (** Into the arm at that index of a [Plan.Alt]. *)
   val arm : t -> int -> t
 
+  (** Into a [Plan.Alt]'s [otherwise]. *)
+  val otherwise : t -> t
+
   (** Into a [Plan.Commit]'s body. *)
   val child : t -> t
 

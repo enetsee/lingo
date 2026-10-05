@@ -35,7 +35,9 @@ type break_style =
     with a blank between them takes [Always (lines 1)] in front of the list
     and [Always (lines 2)] between its elements. *)
 type modifier =
-  | Exactly_one (** Absence emits a diagnostic and a hole. *)
+  | Exactly_one
+  (** Absence emits a diagnostic and a hole. A child whose rule can match
+      nothing is never absent: it matches nothing instead. *)
   | Zero_or_one (** Absence is silent. *)
   | Zero_or_more of break_style
   (** Absence is silent, and the loop ends where no element starts. *)

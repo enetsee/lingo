@@ -172,7 +172,8 @@ let rec exec
          ~passed_down
          ~where:(Ir.Residual.State.arm where index)
          (snd a.arms.(index))
-     | None -> ())
+     | None ->
+       exec t ~recover ~passed_down ~where:(Ir.Residual.State.otherwise where) a.otherwise)
   | Commit cm ->
     t.trace "commit";
     reached t where;

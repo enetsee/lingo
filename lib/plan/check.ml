@@ -142,6 +142,7 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
         kinds at on;
         takes at on;
         balanced at body);
+      balanced (sub at "otherwise") a.otherwise;
       0, 0
     | Commit c ->
       kinds (sub at "first") c.first;

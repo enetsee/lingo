@@ -43,10 +43,17 @@ let rec sexp_of_instr (i : Ir.Plan.instr) : Sexp.t =
       ; kopt "placeholder" e.placeholder
       ]
   | Alt a ->
+    let arms =
+      List.map (Array.to_list a.arms) ~f:(fun (on, body) ->
+        Sexp.List [ ints "on" on; sexp_of_instr body ])
+    in
+    (* An [otherwise] that takes nothing is left out, and the reader puts it
+       back. *)
     keyed
       "alt"
-      (List.map (Array.to_list a.arms) ~f:(fun (on, body) ->
-         Sexp.List [ ints "on" on; sexp_of_instr body ]))
+      (match a.otherwise with
+       | Seq [||] -> arms
+       | otherwise -> arms @ [ keyed "otherwise" [ sexp_of_instr otherwise ] ])
   | Commit c ->
     keyed
       "commit"
@@ -227,6 +234,12 @@ let rec instr_of_sexp (s : Sexp.t) : Ir.Plan.instr =
       ; placeholder = kopt_of "placeholder" ph
       }
   | Sexp.List (Sexp.Atom "alt" :: arms) ->
+    let arms, otherwise =
+      match List.rev arms with
+      | Sexp.List [ Sexp.Atom "otherwise"; body ] :: rest ->
+        List.rev rest, instr_of_sexp body
+      | _ -> arms, Ir.Plan.Seq [||]
+    in
     Alt
       { arms =
           Array.of_list
@@ -234,6 +247,7 @@ let rec instr_of_sexp (s : Sexp.t) : Ir.Plan.instr =
                match arm with
                | Sexp.List [ on; body ] -> ints_of "on" on, instr_of_sexp body
                | _ -> bad "an alt arm is (on body): %s" (show arm)))
+      ; otherwise
       }
   | Sexp.List [ Sexp.Atom "commit"; first; recover; ac; m; hole; ph; resume; body ] ->
     Commit

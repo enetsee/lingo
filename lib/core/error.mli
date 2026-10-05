@@ -63,6 +63,12 @@ type token_unreachable_reason =
   | Empty_language
   | Subsumed_by of Grammar.Name.Token.t
 
+(** The second way a child can match nothing, beside a rule that can. *)
+type ambiguous_empty =
+  | Another_alternative (** A second alternative can match nothing too. *)
+  | Absent (** The child is optional, so it can be left out. *)
+  | No_elements (** The child repeats, so it can hold any number of empty matches. *)
+
 type detail =
   (* -- declarations and the kind table ------------------------------------- *)
   | Empty_grammar
@@ -145,6 +151,10 @@ type detail =
   | First_follow_conflict of { common : kind_ref list }
   | Left_recursion of { members : Grammar.Name.Rule.t list }
   | Nullable_repeated of { rule : Grammar.Name.Rule.t }
+  | Ambiguous_empty of
+      { rules : Grammar.Name.Rule.t list (** The alternatives that can match nothing. *)
+      ; how : ambiguous_empty
+      }
   | Nullable_pratt_atom of { atom : string }
   | Nullable_separated_element of { element : string }
   | Empty_first_set of { referenced_from : string list }

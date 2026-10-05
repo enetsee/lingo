@@ -180,7 +180,7 @@
       draws comments and once from one that does not, so Law B is asked of
       comment placement as well as of spacing.
 
-      Five witness grammars are left out and the run names them. They declare
+      Six witness grammars are left out and the run names them. They declare
       no whitespace token, so the lexer has nothing to read a joiner as: every
       space the formatter writes comes back an error token and every law below
       it reports on the grammar rather than on the fold. That is by design --
