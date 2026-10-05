@@ -6,10 +6,12 @@
  (modules gen)
  (libraries
   lingo.core
+  lingo.plan
   lingo.ocaml
   lingo_grammars
   nested_grammar
-  ties_grammar))
+  ties_grammar
+  redfa))
 
 (rule
  (with-stdout-to
@@ -218,6 +220,344 @@
 
 (rule
  (copy ties_rewrite.ml ties_probe.ml))
+
+(rule
+ (with-stdout-to
+  sexp_template_lexer.ml
+  (run ./gen.exe sexp template-lexer)))
+
+(rule
+ (with-stdout-to
+  sexp_template_lexer.mli
+  (run ./gen.exe sexp template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  sexp_template_parser.ml
+  (run ./gen.exe sexp template-parser)))
+
+(rule
+ (with-stdout-to
+  sexp_template_parser.mli
+  (run ./gen.exe sexp template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  json_template_lexer.ml
+  (run ./gen.exe json template-lexer)))
+
+(rule
+ (with-stdout-to
+  json_template_lexer.mli
+  (run ./gen.exe json template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  json_template_parser.ml
+  (run ./gen.exe json template-parser)))
+
+(rule
+ (with-stdout-to
+  json_template_parser.mli
+  (run ./gen.exe json template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  calc_template_lexer.ml
+  (run ./gen.exe calc template-lexer)))
+
+(rule
+ (with-stdout-to
+  calc_template_lexer.mli
+  (run ./gen.exe calc template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  calc_template_parser.ml
+  (run ./gen.exe calc template-parser)))
+
+(rule
+ (with-stdout-to
+  calc_template_parser.mli
+  (run ./gen.exe calc template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  rassoc_template_lexer.ml
+  (run ./gen.exe rassoc template-lexer)))
+
+(rule
+ (with-stdout-to
+  rassoc_template_lexer.mli
+  (run ./gen.exe rassoc template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  rassoc_template_parser.ml
+  (run ./gen.exe rassoc template-parser)))
+
+(rule
+ (with-stdout-to
+  rassoc_template_parser.mli
+  (run ./gen.exe rassoc template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  postfix_template_lexer.ml
+  (run ./gen.exe postfix template-lexer)))
+
+(rule
+ (with-stdout-to
+  postfix_template_lexer.mli
+  (run ./gen.exe postfix template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  postfix_template_parser.ml
+  (run ./gen.exe postfix template-parser)))
+
+(rule
+ (with-stdout-to
+  postfix_template_parser.mli
+  (run ./gen.exe postfix template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  shapes_template_lexer.ml
+  (run ./gen.exe shapes template-lexer)))
+
+(rule
+ (with-stdout-to
+  shapes_template_lexer.mli
+  (run ./gen.exe shapes template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  shapes_template_parser.ml
+  (run ./gen.exe shapes template-parser)))
+
+(rule
+ (with-stdout-to
+  shapes_template_parser.mli
+  (run ./gen.exe shapes template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  unicode_template_lexer.ml
+  (run ./gen.exe unicode template-lexer)))
+
+(rule
+ (with-stdout-to
+  unicode_template_lexer.mli
+  (run ./gen.exe unicode template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  unicode_template_parser.ml
+  (run ./gen.exe unicode template-parser)))
+
+(rule
+ (with-stdout-to
+  unicode_template_parser.mli
+  (run ./gen.exe unicode template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  recovery_template_lexer.ml
+  (run ./gen.exe recovery template-lexer)))
+
+(rule
+ (with-stdout-to
+  recovery_template_lexer.mli
+  (run ./gen.exe recovery template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  recovery_template_parser.ml
+  (run ./gen.exe recovery template-parser)))
+
+(rule
+ (with-stdout-to
+  recovery_template_parser.mli
+  (run ./gen.exe recovery template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  comments_template_lexer.ml
+  (run ./gen.exe comments template-lexer)))
+
+(rule
+ (with-stdout-to
+  comments_template_lexer.mli
+  (run ./gen.exe comments template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  comments_template_parser.ml
+  (run ./gen.exe comments template-parser)))
+
+(rule
+ (with-stdout-to
+  comments_template_parser.mli
+  (run ./gen.exe comments template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  rust_template_lexer.ml
+  (run ./gen.exe rust template-lexer)))
+
+(rule
+ (with-stdout-to
+  rust_template_lexer.mli
+  (run ./gen.exe rust template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  rust_template_parser.ml
+  (run ./gen.exe rust template-parser)))
+
+(rule
+ (with-stdout-to
+  rust_template_parser.mli
+  (run ./gen.exe rust template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  effekt_template_lexer.ml
+  (run ./gen.exe effekt template-lexer)))
+
+(rule
+ (with-stdout-to
+  effekt_template_lexer.mli
+  (run ./gen.exe effekt template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  effekt_template_parser.ml
+  (run ./gen.exe effekt template-parser)))
+
+(rule
+ (with-stdout-to
+  effekt_template_parser.mli
+  (run ./gen.exe effekt template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  wide_template_lexer.ml
+  (run ./gen.exe wide template-lexer)))
+
+(rule
+ (with-stdout-to
+  wide_template_lexer.mli
+  (run ./gen.exe wide template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  wide_template_parser.ml
+  (run ./gen.exe wide template-parser)))
+
+(rule
+ (with-stdout-to
+  wide_template_parser.mli
+  (run ./gen.exe wide template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  ml_template_lexer.ml
+  (run ./gen.exe ml template-lexer)))
+
+(rule
+ (with-stdout-to
+  ml_template_lexer.mli
+  (run ./gen.exe ml template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  ml_template_parser.ml
+  (run ./gen.exe ml template-parser)))
+
+(rule
+ (with-stdout-to
+  ml_template_parser.mli
+  (run ./gen.exe ml template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  nested_template_lexer.ml
+  (run ./gen.exe nested template-lexer)))
+
+(rule
+ (with-stdout-to
+  nested_template_lexer.mli
+  (run ./gen.exe nested template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  nested_template_parser.ml
+  (run ./gen.exe nested template-parser)))
+
+(rule
+ (with-stdout-to
+  nested_template_parser.mli
+  (run ./gen.exe nested template-parser-mli)))
+
+(rule
+ (with-stdout-to
+  ties_template_lexer.ml
+  (run ./gen.exe ties template-lexer)))
+
+(rule
+ (with-stdout-to
+  ties_template_lexer.mli
+  (run ./gen.exe ties template-lexer-mli)))
+
+(rule
+ (with-stdout-to
+  ties_template_parser.ml
+  (run ./gen.exe ties template-parser)))
+
+(rule
+ (with-stdout-to
+  ties_template_parser.mli
+  (run ./gen.exe ties template-parser-mli)))
+
+; The lexer and parser each grammar's templates are read with, generated
+; from its template facts.
+
+(library
+ (name emitted_template)
+ (modules
+  sexp_template_lexer
+  sexp_template_parser
+  json_template_lexer
+  json_template_parser
+  calc_template_lexer
+  calc_template_parser
+  rassoc_template_lexer
+  rassoc_template_parser
+  postfix_template_lexer
+  postfix_template_parser
+  shapes_template_lexer
+  shapes_template_parser
+  unicode_template_lexer
+  unicode_template_parser
+  recovery_template_lexer
+  recovery_template_parser
+  comments_template_lexer
+  comments_template_parser
+  rust_template_lexer
+  rust_template_parser
+  effekt_template_lexer
+  effekt_template_parser
+  wide_template_lexer
+  wide_template_parser
+  ml_template_lexer
+  ml_template_parser
+  nested_template_lexer
+  nested_template_parser
+  ties_template_lexer
+  ties_template_parser)
+ (libraries lingo_runtime siesta))
 
 (library
  (name emitted_views)
@@ -462,7 +802,7 @@
   ml_rewrite
   nested_rewrite
   ties_rewrite)
- (libraries emitted_views lingo_runtime siesta))
+ (libraries emitted_template emitted_views lingo_runtime siesta))
 
 (library
  (name emitted_probe)
@@ -482,7 +822,7 @@
   ml_probe
   nested_probe
   ties_probe)
- (libraries emitted_views lingo_runtime siesta))
+ (libraries emitted_template emitted_views lingo_runtime siesta))
 
 ; law_views part (c) reads the emitted modules as files and asks [lingo.ocaml]
 ; for them again, so the generator is covered at run time as well.
@@ -644,4 +984,26 @@
   lingo_grammars
   lingo_runtime
   lingo_runtime.ir
+  siesta))
+
+; law_template derives each corpus grammar's template grammar, writes a
+; metavariable in place of each child of each input, and matches the parse
+; against the input.
+
+(tests
+ (names law_template)
+ (modules law_template)
+ (libraries
+  law
+  emitted_rewrite
+  emitted_views
+  inputs
+  lex
+  lingo.core
+  lingo.interp
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  lingo_runtime.ir
+  redfa
   siesta))

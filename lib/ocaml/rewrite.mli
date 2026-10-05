@@ -20,6 +20,26 @@
 
     Takes the facts of a grammar the checks accepted. *)
 
+(** {1 Templates}
+
+    Where the grammar has metavariables, the module also holds two functions
+    for templates, given the template lexer and parser generated from
+    {!Core.Facts.of_template}.
+
+    - [template ~rule text] parses [text] as a template of the rule named
+      [rule], a production or a block, and gives it with the language's
+      kinds.
+    - [template_rule ~rule ~lhs ~rhs] parses both, and gives a rule that
+      matches [lhs] at a node and builds [rhs] from what the match bound. *)
+
+(** [grammar] is the language's grammar, with its metavariables. [lexer]
+    and [parser] name the modules generated from its template facts. *)
+type template =
+  { grammar : Core.Grammar.t
+  ; lexer : string
+  ; parser : string
+  }
+
 (** {1 Constructors}
 
     Each view's module also holds [make]. It takes a
@@ -113,6 +133,6 @@
       edits of slot [slot] of kind [k], taking the element as a green child,
       or [None] where that slot does not repeat. It gives [None] for a node of any other
       kind. *)
-val generate : views:string -> Core.Facts.t -> Emit.item list
+val generate : views:string -> ?template:template -> Core.Facts.t -> Emit.item list
 
-val signature : views:string -> Core.Facts.t -> Emit.sig_item list
+val signature : views:string -> ?template:template -> Core.Facts.t -> Emit.sig_item list

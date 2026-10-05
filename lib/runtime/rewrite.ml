@@ -1202,3 +1202,230 @@ let apply
         compare a.range b.range)
     | Some _, Some _ | None, _ | _, None -> whole ())
 ;;
+
+(* {1 Templates} *)
+
+module Template = struct
+  type binding =
+    | One of Siesta.Green.child
+    | Run of Siesta.Green.child list
+
+  type kinds =
+    { trivia : Ir.Kind.t -> bool
+    ; single : Ir.Kind.t -> bool
+    ; sequence : Ir.Kind.t -> bool
+    ; base : Ir.Kind.t -> bool
+    }
+
+  let rec relabel
+            (cache : Siesta.Cache.t)
+            (map : Ir.Kind.t -> Ir.Kind.t)
+            (tree : Siesta.Green.node)
+    : Siesta.Green.node
+    =
+    let children =
+      Array.map (Siesta.Green.children_array tree) ~f:(fun (child : Siesta.Green.child) ->
+        match child with
+        | Siesta.Green.Node node -> Siesta.Green.Node (relabel cache map node)
+        | Siesta.Green.Token token ->
+          Siesta.Green.Token
+            (Siesta.Green.mk_token
+               cache
+               ~kind:(map (Siesta.Green.Token.kind token))
+               ~text:(Siesta.Green.Token.text token)))
+    in
+    Siesta.Green.mk_node
+      cache
+      ~kind:(map (Siesta.Green.kind tree))
+      ~payload:(Siesta.Green.payload tree)
+      ~children
+      ()
+  ;;
+
+  let name (text : string) : string =
+    match String.index_opt text ':' with
+    | Some i -> String.sub text ~pos:0 ~len:i
+    | None -> text
+  ;;
+
+  let meaningful (kinds : kinds) (node : Siesta.Green.node) : Siesta.Green.child list =
+    List.filter
+      (Array.to_list (Siesta.Green.children_array node))
+      ~f:(fun child ->
+        match child with
+        | Siesta.Green.Token token -> not (kinds.trivia (Siesta.Green.Token.kind token))
+        | Siesta.Green.Node _ -> true)
+  ;;
+
+  (* The metavariable a template child is, by its kind. A node holding only
+     a single metavariable is one too. A node holding only a sequence one is
+     a list, unless it is a block's base node, which is how [f($$xs)] reads. *)
+  let rec metavariable (kinds : kinds) (child : Siesta.Green.child)
+    : (string * bool) option
+    =
+    match child with
+    | Siesta.Green.Token token ->
+      let k = Siesta.Green.Token.kind token in
+      if kinds.single k
+      then Some (name (Siesta.Green.Token.text token), false)
+      else if kinds.sequence k
+      then Some (name (Siesta.Green.Token.text token), true)
+      else None
+    | Siesta.Green.Node node ->
+      (match meaningful kinds node with
+       | [ (Siesta.Green.Token _ as only) ] ->
+         (match metavariable kinds only with
+          | Some (_, false) as single -> single
+          | Some (_, true) as run when kinds.base (Siesta.Green.kind node) -> run
+          | Some (_, true) | None -> None)
+       | _ -> None)
+  ;;
+
+  (* Two children are the same text, trivia left out. *)
+  let rec same (kinds : kinds) (a : Siesta.Green.child) (b : Siesta.Green.child) : bool =
+    match a, b with
+    | Siesta.Green.Token x, Siesta.Green.Token y ->
+      Siesta.Green.Token.kind x = Siesta.Green.Token.kind y
+      && String.equal (Siesta.Green.Token.text x) (Siesta.Green.Token.text y)
+    | Siesta.Green.Node x, Siesta.Green.Node y ->
+      Siesta.Green.kind x = Siesta.Green.kind y
+      &&
+      let xs = meaningful kinds x in
+      let ys = meaningful kinds y in
+      List.length xs = List.length ys && List.for_all2 xs ys ~f:(same kinds)
+    | Siesta.Green.Token _, Siesta.Green.Node _
+    | Siesta.Green.Node _, Siesta.Green.Token _ -> false
+  ;;
+
+  let consistent (kinds : kinds) (a : binding) (b : binding) : bool =
+    match a, b with
+    | One x, One y -> same kinds x y
+    | Run xs, Run ys ->
+      List.length xs = List.length ys && List.for_all2 xs ys ~f:(same kinds)
+    | One _, Run _ | Run _, One _ -> false
+  ;;
+
+  let bind (kinds : kinds) (bound : (string * binding) list) (name : string) (b : binding)
+    : (string * binding) list option
+    =
+    match List.assoc_opt name bound with
+    | Some earlier -> if consistent kinds earlier b then Some bound else None
+    | None -> Some ((name, b) :: bound)
+  ;;
+
+  (* Matching is a walk over the two lists of children. A sequence
+     metavariable tries every run, shortest first. *)
+  let rec children
+            (kinds : kinds)
+            (bound : (string * binding) list)
+            (template : Siesta.Green.child list)
+            (input : Siesta.Green.child list)
+    : (string * binding) list option
+    =
+    match template, input with
+    | [], [] -> Some bound
+    | [], _ :: _ -> None
+    | t :: template_rest, _ ->
+      (match metavariable kinds t, input with
+       | Some (name, true), _ ->
+         let rec runs (taken : Siesta.Green.child list) (rest : Siesta.Green.child list) =
+           match
+             Option.bind
+               (bind kinds bound name (Run (List.rev taken)))
+               (fun bound -> children kinds bound template_rest rest)
+           with
+           | Some _ as found -> found
+           | None ->
+             (match rest with
+              | [] -> None
+              | next :: rest -> runs (next :: taken) rest)
+         in
+         runs [] input
+       | Some (name, false), i :: input_rest ->
+         Option.bind (bind kinds bound name (One i)) (fun bound ->
+           children kinds bound template_rest input_rest)
+       | None, i :: input_rest ->
+         Option.bind (child kinds bound t i) (fun bound ->
+           children kinds bound template_rest input_rest)
+       | _, [] -> None)
+
+  and child
+        (kinds : kinds)
+        (bound : (string * binding) list)
+        (t : Siesta.Green.child)
+        (i : Siesta.Green.child)
+    : (string * binding) list option
+    =
+    match t, i with
+    | Siesta.Green.Token x, Siesta.Green.Token y ->
+      if
+        Siesta.Green.Token.kind x = Siesta.Green.Token.kind y
+        && String.equal (Siesta.Green.Token.text x) (Siesta.Green.Token.text y)
+      then Some bound
+      else None
+    | Siesta.Green.Node x, Siesta.Green.Node y
+      when Siesta.Green.kind x = Siesta.Green.kind y ->
+      children kinds bound (meaningful kinds x) (meaningful kinds y)
+    | Siesta.Green.Node _, _ | Siesta.Green.Token _, Siesta.Green.Node _ -> None
+  ;;
+
+  let fragment (kinds : kinds) (root : Siesta.Green.node) : Siesta.Green.node option =
+    match meaningful kinds root with
+    | [ Siesta.Green.Node node ] -> Some node
+    | _ -> None
+  ;;
+
+  let matches (kinds : kinds) (template : Siesta.Green.node) (node : Siesta.Syntax.t)
+    : (string * binding) list option
+    =
+    let input = Siesta.Green.Node (Siesta.Syntax.green node) in
+    match metavariable kinds (Siesta.Green.Node template) with
+    | Some (name, false) -> bind kinds [] name (One input)
+    | Some (name, true) -> bind kinds [] name (Run [ input ])
+    | None -> Option.map List.rev (child kinds [] (Siesta.Green.Node template) input)
+  ;;
+
+  let instantiate
+        (cache : Siesta.Cache.t)
+        (kinds : kinds)
+        (template : Siesta.Green.node)
+        (bound : (string * binding) list)
+    : (Siesta.Green.node, string) result
+    =
+    let exception Unbound of string in
+    let rec build (node : Siesta.Green.node) : Siesta.Green.node =
+      let children =
+        List.concat_map
+          (Array.to_list (Siesta.Green.children_array node))
+          ~f:(fun child ->
+            match metavariable kinds child with
+            | None ->
+              (match child with
+               | Siesta.Green.Node inner -> [ Siesta.Green.Node (build inner) ]
+               | Siesta.Green.Token _ -> [ child ])
+            | Some (name, _) ->
+              (match List.assoc_opt name bound with
+               | Some (One bound) -> [ bound ]
+               | Some (Run run) -> run
+               | None -> raise_notrace (Unbound name)))
+      in
+      Siesta.Green.mk_node
+        cache
+        ~kind:(Siesta.Green.kind node)
+        ~payload:(Siesta.Green.payload node)
+        ~children:(Array.of_list children)
+        ()
+    in
+    match metavariable kinds (Siesta.Green.Node template) with
+    | Some (name, false) ->
+      (match List.assoc_opt name bound with
+       | Some (One (Siesta.Green.Node node)) -> Ok node
+       | Some (One (Siesta.Green.Token _)) ->
+         Error (name ^ " is a token, and a template is a node")
+       | Some (Run _) -> Error (name ^ " is a run, where one child goes")
+       | None -> Error (name ^ " is not bound"))
+    | Some (_, true) | None ->
+      (try Ok (build template) with
+       | Unbound name -> Error (name ^ " is not bound"))
+  ;;
+end

@@ -556,6 +556,44 @@ let resync_anchor_conflict (ctx : ctx) (acc : Error.t list) : Error.t list =
     | _, _, _ -> acc)
 ;;
 
+(* A metavariable stands where real text goes. A token that matches a string
+   beginning with one would take it, at least in part, and the template would
+   lex as something else. So every other token's language meets [m . any*]
+   nowhere, for each metavariable [m], and the two metavariables meet each
+   other nowhere either. *)
+let metavariable_clash (ctx : ctx) (acc : Error.t list) : Error.t list =
+  match ctx.shape.names.grammar.metavariables with
+  | None -> acc
+  | Some m ->
+    let lowered (t : Grammar.token_def) : Redfa.Regex.t option =
+      Result.to_option (Token.lower t.token_class)
+    in
+    let others =
+      List.map (Array.to_list ctx.shape.names.tokens) ~f:(fun (t : Token.def) ->
+        t.name, Some t.regex)
+    in
+    List.fold_left
+      [ m.single, m.sequence; m.sequence, m.single ]
+      ~init:acc
+      ~f:(fun acc ((meta : Grammar.token_def), (other : Grammar.token_def)) ->
+        match lowered meta with
+        | None -> acc
+        | Some regex ->
+          let begins = Redfa.Regex.seq regex (Redfa.Regex.star Redfa.Regex.any) in
+          List.fold_left
+            ((other.token_name, lowered other) :: others)
+            ~init:acc
+            ~f:(fun acc ((name : Grammar.Name.Token.t), (r : Redfa.Regex.t option)) ->
+              match r with
+              | Some r
+                when not (Redfa.Regex.is_empty_language (Redfa.Regex.inter r begins)) ->
+                Error.make
+                  ~detail:(Error.Metavariable_clash { token = name })
+                  (Error.At_token meta.token_name)
+                :: acc
+              | Some _ | None -> acc))
+;;
+
 let run (shape : Stage.shape) (fixpoint_tables : Fixpoint.tables) (dfa : Redfa.Dfa.t)
   : Error.t list
   =
@@ -577,4 +615,5 @@ let run (shape : Stage.shape) (fixpoint_tables : Fixpoint.tables) (dfa : Redfa.D
   |> pratt_atom_first_first ctx
   |> prefix_atom_conflict ctx
   |> token_reachability ctx dfa
+  |> metavariable_clash ctx
 ;;

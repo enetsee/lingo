@@ -61,6 +61,25 @@ type t = private
     Findings come back sorted. *)
 val of_grammar : Grammar.t -> (t, Error.t list) result
 
+(** [of_template g] is the facts of {!Template.grammar}[ g], for parsing
+    templates, or [None] where [g] has no metavariables. [g] itself has to
+    check first, which is where its metavariables are checked against its
+    tokens.
+
+    It runs the same checks, except the ones about the typed views, which a
+    template grammar never gets. Three keep the views' slot walk
+    unambiguous: [overlapping-single-kinds], [repeated-vs-single-kinds] and
+    [binder-not-pattern-token]. And a name may collide in the views' scopes,
+    where a child's alternatives make a sum type. A template grammar puts a
+    metavariable in nearly every slot, so it fails these, and its parser is
+    no less sound for that. 
+
+    It also lets two alternatives, or two atoms, start with the same
+    metavariable: [first-first-conflict] and [pratt-atom-conflict]. A
+    template fills the first that takes it, which is what the parser's
+    dispatch does. *)
+val of_template : Grammar.t -> (t, Error.t list) result option
+
 (** {1 Reading the facts} *)
 
 val kind_name : t -> Kind.t -> Kind.Name.t

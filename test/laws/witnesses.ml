@@ -498,6 +498,17 @@ let token_unreachable =
   only ~tokens:(kw "if" :: kw ~name:"if2" "if" :: base_tokens) [ clean_root ]
 ;;
 
+let metavariable_clash =
+  (* The metavariable is spelled [!], which is the token [m] as well, so a
+     template could not tell the two apart. *)
+  create
+    ~metavariables:
+      { single = punct_tight ~name:"meta" "!"; sequence = punct_tight ~name:"metas" "$$" }
+    ~tokens:base_tokens
+    ~roots:[ "Root" ]
+    [ clean_root ]
+;;
+
 (* -- the table ------------------------------------------------------------- *)
 
 let all : (string * Grammar.t) list =
@@ -555,6 +566,7 @@ let all : (string * Grammar.t) list =
   ; "prefix-atom-conflict", prefix_is_atom
   ; "resync-anchor-conflict", resync_anchor_conflict
   ; "token-unreachable", token_unreachable
+  ; "metavariable-clash", metavariable_clash
   ]
 ;;
 

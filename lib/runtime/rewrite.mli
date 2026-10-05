@@ -464,3 +464,70 @@ val apply
 
 (** [splice text splices] makes the edits. *)
 val splice : string -> splice list -> string
+
+(** {1 Templates}
+
+    A template is a tree parsed from text in the language's own syntax, with
+    metavariables where children go. A generated module parses it and gives
+    it the language's kinds. These match one against a tree and build one
+    from what a match bound.
+
+    A metavariable is a token. The single one stands for one child: a node
+    or a token. The sequence one stands for a run of children of a repeated
+    child, separators included, from none upwards.
+
+    A node that holds only a single metavariable stands for whatever is in
+    its place, so the base node an expression's metavariable is wrapped in
+    stands for any expression. A node that holds only a sequence metavariable
+    is a list whose elements are the run. A block's base node is the one
+    exception, since that is how [f($$xs)] reads: an argument list names an
+    expression, and the run stands for its arguments.
+
+    A metavariable is named by its text up to any [:], so [$x] and [$x:expr]
+    are one. A name that occurs twice must bind the same text, trivia left
+    out. *)
+module Template : sig
+  type binding =
+    | One of Siesta.Green.child
+    | Run of Siesta.Green.child list
+
+  (** What a template needs to know of the language's kinds. *)
+  type kinds =
+    { trivia : Ir.Kind.t -> bool
+    ; single : Ir.Kind.t -> bool (** The plain metavariable and every typed one. *)
+    ; sequence : Ir.Kind.t -> bool
+    ; base : Ir.Kind.t -> bool (** A block's base node. *)
+    }
+
+  (** [relabel cache map tree] gives every node and token of [tree] the kind
+      [map] gives for its own. *)
+  val relabel
+    :  Siesta.Cache.t
+    -> (Ir.Kind.t -> Ir.Kind.t)
+    -> Siesta.Green.node
+    -> Siesta.Green.node
+
+  (** The one node a template's root holds. A template is parsed at a root
+      made for the rule it is written in, which holds one of that rule. *)
+  val fragment : kinds -> Siesta.Green.node -> Siesta.Green.node option
+
+  (** [matches kinds template node] gives what each metavariable bound, or
+      [None] where [template] does not match [node]. Tokens match by kind and
+      text, and trivia is left out on both sides. *)
+  val matches
+    :  kinds
+    -> Siesta.Green.node
+    -> Siesta.Syntax.t
+    -> (string * binding) list option
+
+  (** [instantiate cache kinds template bindings] is [template] with every
+      metavariable replaced by what it bound. It fails for a metavariable
+      with no binding, and where a sequence metavariable's run stands where a
+      single one goes. *)
+  val instantiate
+    :  Siesta.Cache.t
+    -> kinds
+    -> Siesta.Green.node
+    -> (string * binding) list
+    -> (Siesta.Green.node, string) result
+end

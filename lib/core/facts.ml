@@ -24,20 +24,22 @@ type t =
 
 let sorted es = List.sort_uniq ~cmp:Error.compare es
 
-let of_grammar (g : Grammar.t) : (t, Error.t list) result =
+(* [keep] says which findings stop the derivation. *)
+let derive ~(keep : Error.t -> bool) (g : Grammar.t) : (t, Error.t list) result =
+  let stop (es : Error.t list) : Error.t list = List.filter es ~f:keep in
   let n = Stage.names g in
-  match Check_names.run n with
+  match stop (Check_names.run n) with
   | _ :: _ as es -> Error (sorted es)
   | [] ->
     let s = Stage.shape n in
-    (match Check_shape.run s with
+    (match stop (Check_shape.run s) with
      | _ :: _ as es -> Error (sorted es)
      | [] ->
        let tables =
          Fixpoint.compute ~rules:s.rules ~blocks:s.blocks ~kind_rule:s.names.kind_rule
        in
        let dfa = Stage.lexer n in
-       (match Check_full.run s tables dfa with
+       (match stop (Check_full.run s tables dfa) with
         | _ :: _ as es -> Error (sorted es)
         | [] ->
           let kind_of name =
@@ -76,6 +78,55 @@ let of_grammar (g : Grammar.t) : (t, Error.t list) result =
             ; unterminated_kind = kind_of Kind.Name.unterminated
             ; error_token_kind = kind_of Kind.Name.error_token
             }))
+;;
+
+let of_grammar (g : Grammar.t) : (t, Error.t list) result = derive ~keep:(fun _ -> true) g
+
+(* The three checks a template grammar fails by design. Each one keeps the
+   typed views' slot walk unambiguous, and a template grammar gets no views:
+   its metavariable is in every slot. *)
+let view_codes =
+  [ "overlapping-single-kinds"; "repeated-vs-single-kinds"; "binder-not-pattern-token" ]
+;;
+
+(* Two alternatives, or two atoms, that a metavariable can both start. A
+   template takes the first, as the dispatch cascade does anyway. *)
+let first_codes = [ "first-first-conflict"; "pratt-atom-conflict" ]
+
+(* A name that collides only in the views. A child with alternatives has a
+   sum type there, and a template grammar gives most children some. *)
+let view_collision (e : Error.t) : bool =
+  match e.detail with
+  | Error.Name_collision { scope; _ } ->
+    (match scope with
+     | Manifest.Scope.View_module
+     | Manifest.Scope.View_type
+     | Manifest.Scope.View_accessor _
+     | Manifest.Scope.View_constructor _ -> true
+     | Manifest.Scope.Kind_enum
+     | Manifest.Scope.Parser_cluster
+     | Manifest.Scope.Parser_toplevel
+     | Manifest.Scope.Format_cluster -> false)
+  | _ -> false
+;;
+
+(* The language's own grammar is checked first. That is where its
+   metavariables are checked against its tokens, since the derived grammar
+   carries them as tokens of its own. *)
+let of_template (g : Grammar.t) : (t, Error.t list) result option =
+  Option.map
+    (fun (template : Grammar.t) ->
+       match of_grammar g with
+       | Error _ as failed -> failed
+       | Ok _ ->
+         derive
+           ~keep:(fun (e : Error.t) ->
+             not
+               (List.mem (Error.code e) ~set:view_codes
+                || List.mem (Error.code e) ~set:first_codes
+                || view_collision e))
+           template)
+    (Template.grammar g)
 ;;
 
 (* -- reading --------------------------------------------------------------- *)

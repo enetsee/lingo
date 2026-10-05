@@ -1584,10 +1584,242 @@ let takes_next ~(views : string) (f : Core.Facts.t) : Emit.item list =
   ]
 ;;
 
+(* -- templates ------------------------------------------------------------------- *)
+
+type template =
+  { grammar : Core.Grammar.t
+  ; lexer : string
+  ; parser : string
+  }
+
+(* What the template code needs: the template facts, and the kinds in the
+   language's numbering. A kind the language does not have, a metavariable or
+   a root made for a rule, is numbered after the language's own. *)
+type template_facts =
+  { facts : Core.Facts.t
+  ; map : int array
+  ; metavariables : Core.Grammar.metavariables
+  }
+
+let template_facts (f : Core.Facts.t) (t : template) : template_facts =
+  match Core.Facts.of_template t.grammar, t.grammar.metavariables with
+  | Some (Ok facts), Some metavariables ->
+    let count = Core.Facts.kind_count f in
+    let map = Array.make (Core.Facts.kind_count facts) 0 in
+    List.iter (Core.Kind.Table.kinds facts.kinds) ~f:(fun (k : Core.Kind.t) ->
+      let i = Core.Kind.to_int k in
+      map.(i)
+      <- (match Core.Kind.Table.find f.kinds (Core.Kind.Table.name facts.kinds k) with
+          | Some language -> Core.Kind.to_int language
+          | None -> count + i));
+    { facts; map; metavariables }
+  | (None | Some (Error _)), _ | _, None ->
+    invalid_arg "Rewrite.template_facts: the grammar has no template grammar that checks"
+;;
+
+let token_kinds (t : template_facts) (wanted : string -> bool) : int list =
+  Array.to_list t.facts.tokens
+  |> List.filter_map ~f:(fun (d : Core.Token.def) ->
+    if wanted (Core.Grammar.Name.Token.to_string d.name)
+    then Some t.map.(Core.Kind.to_int d.kind)
+    else None)
+;;
+
+let template_items (f : Core.Facts.t) (t : template) : Emit.item list =
+  let tf = template_facts f t in
+  let m = tf.metavariables in
+  let single_name = Core.Grammar.Name.Token.to_string m.single.token_name in
+  let sequence_name = Core.Grammar.Name.Token.to_string m.sequence.token_name in
+  let rules =
+    List.map t.grammar.productions ~f:(fun (p : Core.Grammar.production) ->
+      Core.Grammar.Name.Rule.to_string p.kind_name)
+    @ List.map t.grammar.expr ~f:(fun (e : Core.Grammar.expr_def) ->
+      Core.Grammar.Name.Rule.to_string e.rule_name)
+  in
+  let singles =
+    token_kinds tf (fun name ->
+      String.equal name single_name
+      || List.exists rules ~f:(fun r -> String.equal name (Core.Template.typed_name m r)))
+  in
+  let sequence = token_kinds tf (String.equal sequence_name) in
+  let bases =
+    List.map (Array.to_list f.blocks) ~f:(fun (b : Core.Block.def) ->
+      Core.Kind.to_int b.kind)
+  in
+  let kinds =
+    Emit.erecord
+      [ runtime "Template.trivia", kind_test (trivia_kinds f ~comments_only:false)
+      ; runtime "Template.single", kind_test singles
+      ; runtime "Template.sequence", kind_test sequence
+      ; runtime "Template.base", kind_test bases
+      ]
+  in
+  let parse =
+    Emit.ematch
+      (Emit.evar "rule")
+      (List.map rules ~f:(fun (rule : string) ->
+         Emit.ecase
+           (Emit.pstr rule)
+           (Emit.econstruct
+              "Some"
+              [ Emit.ecall
+                  (t.parser
+                   ^ "."
+                   ^ Core.Manifest.entry_point_fn (Core.Template.entry t.grammar rule))
+                  [ Emit.evar "tokens" ]
+              ]))
+       @ [ Emit.ecase Emit.pany (Emit.econstruct "None" []) ])
+  in
+  let template =
+    Emit.ilet
+      "template"
+      ~args:[ Emit.Named "rule"; Emit.arg_typed ~arg_name:"text" ~type_path:"string" ]
+      (Emit.econstraint
+         (Emit.elet
+            "tokens"
+            ~body:(Emit.ecall (t.lexer ^ ".lex") [ Emit.evar "text" ])
+            ~rest:
+              (Emit.ematch
+                 parse
+                 [ Emit.ecase
+                     (Emit.pconstruct "None" [])
+                     (Emit.econstruct "Error" [ Emit.estr "no such rule" ])
+                 ; Emit.ecase
+                     (Emit.pconstruct
+                        "Some"
+                        [ Emit.ptuple
+                            [ Emit.pany; Emit.pconstruct "::" [ Emit.pany; Emit.pany ] ]
+                        ])
+                     (Emit.econstruct "Error" [ Emit.estr "the template does not parse" ])
+                 ; Emit.ecase
+                     (Emit.pconstruct
+                        "Some"
+                        [ Emit.ptuple [ Emit.pvar "tree"; Emit.pconstruct "[]" [] ] ])
+                     (Emit.ematch
+                        (Emit.ecall
+                           (runtime "Template.fragment")
+                           [ Emit.evar "template_kinds"
+                           ; Emit.ecall
+                               (runtime "Template.relabel")
+                               [ Emit.ecall "Siesta.Cache.create" [ Emit.eunit ]
+                               ; Emit.elambda
+                                   [ Emit.arg_var "kind" ]
+                                   (Emit.ecall
+                                      "Stdlib.Array.get"
+                                      [ Emit.evar "template_map"; Emit.evar "kind" ])
+                               ; Emit.evar "tree"
+                               ]
+                           ])
+                        [ Emit.ecase
+                            (Emit.pconstruct "Some" [ Emit.pvar "fragment" ])
+                            (Emit.econstruct "Ok" [ Emit.evar "fragment" ])
+                        ; Emit.ecase
+                            (Emit.pconstruct "None" [])
+                            (Emit.econstruct
+                               "Error"
+                               [ Emit.estr "the template is not one node" ])
+                        ])
+                 ]))
+         (Emit.tcon "result" [ Emit.tcon "Siesta.Green.node" []; Emit.tcon "string" [] ]))
+  in
+  let rule =
+    Emit.ilet
+      "template_rule"
+      ~args:[ Emit.Named "rule"; Emit.Named "lhs"; Emit.Named "rhs" ]
+      (Emit.ematch
+         (Emit.etuple
+            [ Emit.eapply_labelled
+                (Emit.evar "template")
+                [ Labelled "rule", Emit.evar "rule"; Nolabel, Emit.evar "lhs" ]
+            ; Emit.eapply_labelled
+                (Emit.evar "template")
+                [ Labelled "rule", Emit.evar "rule"; Nolabel, Emit.evar "rhs" ]
+            ])
+         [ Emit.ecase
+             (Emit.ptuple
+                [ Emit.pconstruct "Ok" [ Emit.pvar "lhs" ]
+                ; Emit.pconstruct "Ok" [ Emit.pvar "rhs" ]
+                ])
+             (Emit.econstruct
+                "Ok"
+                [ Emit.elambda
+                    [ Emit.arg_var "ctx"; Emit.arg_var "node" ]
+                    (Emit.ematch
+                       (Emit.ecall
+                          (runtime "Template.matches")
+                          [ Emit.evar "template_kinds"
+                          ; Emit.evar "lhs"
+                          ; Emit.evar "node"
+                          ])
+                       [ Emit.ecase
+                           (Emit.pconstruct "None" [])
+                           (Emit.econstruct
+                              "Error"
+                              [ Emit.estr "the template does not match" ])
+                       ; Emit.ecase
+                           (Emit.pconstruct "Some" [ Emit.pvar "bound" ])
+                           (Emit.ecall
+                              (runtime "Template.instantiate")
+                              [ Emit.ecall (runtime "Ctx.cache") [ Emit.evar "ctx" ]
+                              ; Emit.evar "template_kinds"
+                              ; Emit.evar "rhs"
+                              ; Emit.evar "bound"
+                              ])
+                       ])
+                ])
+         ; Emit.ecase
+             (Emit.por
+                (Emit.ptuple
+                   [ Emit.pconstruct "Error" [ Emit.pvar "reason" ]; Emit.pany ])
+                [ Emit.ptuple
+                    [ Emit.pany; Emit.pconstruct "Error" [ Emit.pvar "reason" ] ]
+                ])
+             (Emit.econstruct "Error" [ Emit.evar "reason" ])
+         ])
+  in
+  [ Emit.ilet "template_map" (Emit.earray (List.map (Array.to_list tf.map) ~f:Emit.eint))
+  ; Emit.ilet
+      "template_kinds"
+      (Emit.econstraint kinds (Emit.tcon (runtime "Template.kinds") []))
+  ; template
+  ; rule
+  ]
+;;
+
+let template_signature : Emit.sig_item list =
+  let result (ty : Emit.ty) = Emit.tcon "result" [ ty; Emit.tcon "string" [] ] in
+  [ Emit.sval
+      "template"
+      (Emit.tarrow_labelled
+         "rule"
+         ~domain:(Emit.tcon "string" [])
+         ~codomain:
+           (Emit.tarrow
+              ~domain:(Emit.tcon "string" [])
+              ~codomain:(result (Emit.tcon "Siesta.Green.node" []))))
+  ; Emit.sval
+      "template_rule"
+      (Emit.tarrow_labelled
+         "rule"
+         ~domain:(Emit.tcon "string" [])
+         ~codomain:
+           (Emit.tarrow_labelled
+              "lhs"
+              ~domain:(Emit.tcon "string" [])
+              ~codomain:
+                (Emit.tarrow_labelled
+                   "rhs"
+                   ~domain:(Emit.tcon "string" [])
+                   ~codomain:(result rule_t))))
+  ]
+;;
+
 (* Productions and a block's base first, since a block's module calls its
    bracketing atom's [make]. Then each block's module, then the roles, whose
    [make] calls it. *)
-let generate ~(views : string) (f : Core.Facts.t) : Emit.item list =
+let generate ~(views : string) ?(template : template option) (f : Core.Facts.t)
+  : Emit.item list
+  =
   let modules = Views.modules f in
   let is_role ((_ : string), (d : Core.Rule.def)) : bool =
     match d.origin with
@@ -1621,9 +1853,15 @@ let generate ~(views : string) (f : Core.Facts.t) : Emit.item list =
                   [ Labelled "at", Emit.evar "at"; Nolabel, Emit.evar "node" ])
              ~right:rest))
     ]
+  @
+  match template with
+  | Some t -> template_items f t
+  | None -> []
 ;;
 
-let signature ~(views : string) (f : Core.Facts.t) : Emit.sig_item list =
+let signature ~(views : string) ?(template : template option) (f : Core.Facts.t)
+  : Emit.sig_item list
+  =
   List.map (Views.modules f) ~f:(fun ((module_name : string), (d : Core.Rule.def)) ->
     Emit.smodule
       module_name
@@ -1633,4 +1871,8 @@ let signature ~(views : string) (f : Core.Facts.t) : Emit.sig_item list =
        @ edit_sigs ~views f d))
   @ List.map (blocks f) ~f:(block_signature ~views)
   @ [ apply_signature ]
+  @
+  match template with
+  | Some _ -> template_signature
+  | None -> []
 ;;

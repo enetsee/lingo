@@ -63,6 +63,7 @@ module Block = Block
 module Manifest = Manifest
 module Facts = Facts
 module Lexer = Lexer
+module Template = Template
 
 (** The staged derivation and the checks over it.
 

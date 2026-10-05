@@ -1,0 +1,719 @@
+(* -- templates ------------------------------------------------------------------
+
+      A template is the language's own text with metavariables where children
+      go. Every corpus grammar is given [$x] and [$$xs], and then:
+
+      (a) the template grammar derived from it passes the checks;
+      (b) every clean input, with any one child of a slot written as a
+          metavariable,
+          parses as a template, and matching that template against the
+          input binds [$x] to that child;
+      (c) every clean input, with all the elements of a repeated child
+          written as [$$xs], parses as a template, and the match binds [$$xs]
+          to those elements and the separators between them;
+      (d) in both, building the template from what the match bound gives the
+          input back, trivia left out;
+      (e) the generated [template] reads each template as the interpreter
+          does over the template plan, and the generated [template_rule], with
+          the template on both sides, rebuilds the input at its root;
+      (f) a template that matches another input of the grammar rebuilds that
+          input exactly, so a match reads the tokens it does not bind;
+      (g) one metavariable written in place of two elements of a list matches
+          exactly where the two are the same text, trivia left out.
+
+      A run that starts where an enclosing element of another list starts
+      could be a run of either list. The outer one takes
+      it, as the parser's dispatch does, and a sequence metavariable has no
+      typed form to say otherwise. Those runs are counted and left out.
+
+      Mechanism. The template is the input's own text with the child's bytes
+      replaced, so a template that parses is one an author could write. It
+      is parsed by the interpreter over a plan from the derived grammar, and
+      relabelled to the language's kinds by name.
+
+      A child of a slot is what the views read: a node or a token that some
+      slot of its parent takes. Delimiters and separators belong to no slot,
+      and a metavariable does not stand for one. Nor does a token with fixed
+      text, such as an operator or a keyword: it is the grammar's own
+      structure.
+
+      A node in a slot that names a production is written as that
+      production's typed metavariable, [$x:Member]. An expression and a token
+      are written as the plain one, [$x]. A node that holds only a
+      metavariable stands for the node in its place, so where the child is
+      its parent's only one, the match binds the parent.
+
+      A postfix body names one symbol and takes no alternatives. A token in
+      one, such as a field name, or a production in one, such as a named
+      argument, takes no metavariable of its own, and is not written as one
+      here.
+   -------------------------------------------------------------------------- *)
+
+(* No mutation record has been generated for lib/core/template.ml or for the
+   runtime's [Template] yet. Generate them with
+
+     assay -config assay.conf -only core
+     assay -config assay.conf -only lingo_runtime *)
+
+open StdLabels
+
+type case =
+  { name : string
+  ; grammar : Core.Grammar.t
+  ; inputs : Inputs.t
+  ; slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option
+  ; generated : rule:string -> string -> (Siesta.Green.node, string) result
+  ; generated_rule :
+      rule:string
+      -> lhs:string
+      -> rhs:string
+      -> (unit Lingo_runtime.Rewrite.t, string) result
+  }
+
+let corpus : case list =
+  [ { name = "sexp"
+    ; grammar = Lingo_grammars.Sexp_grammar.grammar
+    ; inputs = Inputs.sexp
+    ; slots = Emitted_views.Sexp_views.Slots.slots
+    ; generated = Emitted_rewrite.Sexp_rewrite.template
+    ; generated_rule = Emitted_rewrite.Sexp_rewrite.template_rule
+    }
+  ; { name = "json"
+    ; grammar = Lingo_grammars.Json_grammar.grammar
+    ; inputs = Inputs.json
+    ; slots = Emitted_views.Json_views.Slots.slots
+    ; generated = Emitted_rewrite.Json_rewrite.template
+    ; generated_rule = Emitted_rewrite.Json_rewrite.template_rule
+    }
+  ; { name = "calc"
+    ; grammar = Lingo_grammars.Calc_grammar.grammar
+    ; inputs = Inputs.calc
+    ; slots = Emitted_views.Calc_views.Slots.slots
+    ; generated = Emitted_rewrite.Calc_rewrite.template
+    ; generated_rule = Emitted_rewrite.Calc_rewrite.template_rule
+    }
+  ; { name = "rassoc"
+    ; grammar = Lingo_grammars.Rassoc_grammar.grammar
+    ; inputs = Inputs.rassoc
+    ; slots = Emitted_views.Rassoc_views.Slots.slots
+    ; generated = Emitted_rewrite.Rassoc_rewrite.template
+    ; generated_rule = Emitted_rewrite.Rassoc_rewrite.template_rule
+    }
+  ; { name = "postfix"
+    ; grammar = Lingo_grammars.Postfix_grammar.grammar
+    ; inputs = Inputs.postfix
+    ; slots = Emitted_views.Postfix_views.Slots.slots
+    ; generated = Emitted_rewrite.Postfix_rewrite.template
+    ; generated_rule = Emitted_rewrite.Postfix_rewrite.template_rule
+    }
+  ; { name = "shapes"
+    ; grammar = Lingo_grammars.Shapes_grammar.grammar
+    ; inputs = Inputs.shapes
+    ; slots = Emitted_views.Shapes_views.Slots.slots
+    ; generated = Emitted_rewrite.Shapes_rewrite.template
+    ; generated_rule = Emitted_rewrite.Shapes_rewrite.template_rule
+    }
+  ; { name = "unicode"
+    ; grammar = Lingo_grammars.Unicode_grammar.grammar
+    ; inputs = Inputs.unicode
+    ; slots = Emitted_views.Unicode_views.Slots.slots
+    ; generated = Emitted_rewrite.Unicode_rewrite.template
+    ; generated_rule = Emitted_rewrite.Unicode_rewrite.template_rule
+    }
+  ; { name = "recovery"
+    ; grammar = Lingo_grammars.Recovery_grammar.grammar
+    ; inputs = Inputs.recovery
+    ; slots = Emitted_views.Recovery_views.Slots.slots
+    ; generated = Emitted_rewrite.Recovery_rewrite.template
+    ; generated_rule = Emitted_rewrite.Recovery_rewrite.template_rule
+    }
+  ; { name = "comments"
+    ; grammar = Lingo_grammars.Comments_grammar.grammar
+    ; inputs = Inputs.comments
+    ; slots = Emitted_views.Comments_views.Slots.slots
+    ; generated = Emitted_rewrite.Comments_rewrite.template
+    ; generated_rule = Emitted_rewrite.Comments_rewrite.template_rule
+    }
+  ; { name = "rust"
+    ; grammar = Lingo_grammars.Rust_grammar.grammar
+    ; inputs = Inputs.rust
+    ; slots = Emitted_views.Rust_views.Slots.slots
+    ; generated = Emitted_rewrite.Rust_rewrite.template
+    ; generated_rule = Emitted_rewrite.Rust_rewrite.template_rule
+    }
+  ; { name = "effekt"
+    ; grammar = Lingo_grammars.Effekt_grammar.grammar
+    ; inputs = Inputs.effekt
+    ; slots = Emitted_views.Effekt_views.Slots.slots
+    ; generated = Emitted_rewrite.Effekt_rewrite.template
+    ; generated_rule = Emitted_rewrite.Effekt_rewrite.template_rule
+    }
+  ; { name = "wide"
+    ; grammar = Lingo_grammars.Wide_grammar.grammar
+    ; inputs = Inputs.wide
+    ; slots = Emitted_views.Wide_views.Slots.slots
+    ; generated = Emitted_rewrite.Wide_rewrite.template
+    ; generated_rule = Emitted_rewrite.Wide_rewrite.template_rule
+    }
+  ; { name = "ml"
+    ; grammar = Lingo_grammars.Ml_grammar.grammar
+    ; inputs = Inputs.ml
+    ; slots = Emitted_views.Ml_views.Slots.slots
+    ; generated = Emitted_rewrite.Ml_rewrite.template
+    ; generated_rule = Emitted_rewrite.Ml_rewrite.template_rule
+    }
+  ]
+;;
+
+let letters = Redfa.Regex.plus (Redfa.Regex.range_char ~lo:'a' ~hi:'z')
+
+let metavariables : Core.Grammar.metavariables =
+  { single = Core.Grammar.pat "lingo_metavariable" Redfa.Regex.(seq (str "$") letters)
+  ; sequence = Core.Grammar.pat "lingo_metavariables" Redfa.Regex.(seq (str "$$") letters)
+  }
+;;
+
+(* Two trees with the same kinds and the same tokens, trivia left out. *)
+let rec equal_tree
+          (kinds : Lingo_runtime.Rewrite.Template.kinds)
+          (a : Siesta.Green.node)
+          (b : Siesta.Green.node)
+  : bool
+  =
+  let meaningful (node : Siesta.Green.node) =
+    List.filter
+      (Array.to_list (Siesta.Green.children_array node))
+      ~f:(fun child ->
+        match child with
+        | Siesta.Green.Token t -> not (kinds.trivia (Siesta.Green.Token.kind t))
+        | Siesta.Green.Node _ -> true)
+  in
+  Siesta.Green.kind a = Siesta.Green.kind b
+  &&
+  let xs = meaningful a in
+  let ys = meaningful b in
+  List.length xs = List.length ys
+  && List.for_all2 xs ys ~f:(fun x y ->
+    match x, y with
+    | Siesta.Green.Node x, Siesta.Green.Node y -> equal_tree kinds x y
+    | Siesta.Green.Token x, Siesta.Green.Token y ->
+      Siesta.Green.Token.kind x = Siesta.Green.Token.kind y
+      && String.equal (Siesta.Green.Token.text x) (Siesta.Green.Token.text y)
+    | _ -> false)
+;;
+
+let () =
+  let before = Law.failures () in
+  let grammars = ref 0 in
+  let singles = ref 0 in
+  let runs = ref 0 in
+  let skipped = ref 0 in
+  let generated = ref 0 in
+  let elsewhere = ref 0 in
+  let pairs = ref 0 in
+  List.iter corpus ~f:(fun (c : case) ->
+    match Core.Facts.of_grammar c.grammar with
+    | Error _ -> Law.fail "%s: the grammar does not check" c.name
+    | Ok f ->
+      let with_metavariables = { c.grammar with metavariables = Some metavariables } in
+      (match Core.Facts.of_template with_metavariables with
+       | None -> Law.fail "(a) %s: no template grammar" c.name
+       | Some (Error errors) ->
+         List.iter errors ~f:(fun (e : Core.Error.t) ->
+           Law.fail
+             "(a) %s: the template grammar does not check: %a"
+             c.name
+             Core.Error.pp
+             e)
+       | Some (Ok tf) ->
+         incr grammars;
+         let plan, _ = Plan.Lower.of_facts f in
+         let entry = plan.Ir.Plan.roots.(0) in
+         let root_name = plan.Ir.Plan.rules.(entry).name in
+         let template_plan, _ = Plan.Lower.of_facts tf in
+         let template_entry =
+           let found = ref (-1) in
+           Array.iteri template_plan.Ir.Plan.rules ~f:(fun (i : int) (r : Ir.Plan.rule) ->
+             if String.equal r.name root_name && Interp.may_enter template_plan i
+             then found := i);
+           !found
+         in
+         let count = Core.Facts.kind_count f in
+         let map = Array.make (Core.Facts.kind_count tf) (-1) in
+         List.iter (Core.Kind.Table.kinds tf.kinds) ~f:(fun (k : Core.Kind.t) ->
+           let name = Core.Kind.Table.name tf.kinds k in
+           map.(Core.Kind.to_int k)
+           <- (match Core.Kind.Table.find f.kinds name with
+               | Some k -> Core.Kind.to_int k
+               | None -> count + Core.Kind.to_int k));
+         (* The plain metavariable's kind and every typed one's, in the
+            language's numbering. *)
+         let single_name =
+           Core.Grammar.Name.Token.to_string metavariables.single.token_name
+         in
+         let sequence_name =
+           Core.Grammar.Name.Token.to_string metavariables.sequence.token_name
+         in
+         let singles_kinds, sequence_kind =
+           Array.fold_left
+             tf.tokens
+             ~init:([], -1)
+             ~f:(fun (singles, sequence) (d : Core.Token.def) ->
+               let name = Core.Grammar.Name.Token.to_string d.name in
+               let k = map.(Core.Kind.to_int d.kind) in
+               if String.equal name sequence_name
+               then singles, k
+               else if
+                 String.equal name single_name
+                 || String.starts_with ~prefix:(single_name ^ "_") name
+               then k :: singles, sequence
+               else singles, sequence)
+         in
+         let bases =
+           List.map (Array.to_list f.blocks) ~f:(fun (b : Core.Block.def) ->
+             Core.Kind.to_int b.kind)
+         in
+         (* Every kind an expression can have: a block's roles, its base and
+            its rule atoms. *)
+         let positions =
+           List.concat_map (Array.to_list f.blocks) ~f:(fun (b : Core.Block.def) ->
+             Core.Kind.to_int b.kind
+             :: List.map (Array.to_list b.atoms) ~f:Core.Kind.to_int)
+           @ List.filter_map (Array.to_list f.rules) ~f:(fun (d : Core.Rule.def) ->
+             match d.origin with
+             | Core.Rule.Pratt_role _ -> Some (Core.Kind.to_int d.kind)
+             | Core.Rule.User | Core.Rule.Pratt_block -> None)
+         in
+         let roles =
+           List.filter_map (Array.to_list f.rules) ~f:(fun (d : Core.Rule.def) ->
+             match d.origin with
+             | Core.Rule.Pratt_role _ -> Some (Core.Kind.to_int d.kind)
+             | Core.Rule.User | Core.Rule.Pratt_block -> None)
+         in
+         let rule_of (k : int) : Core.Rule.def option =
+           Array.find_opt f.rules ~f:(fun (d : Core.Rule.def) ->
+             Core.Kind.to_int d.kind = k)
+         in
+         let block_kinds =
+           List.map (Array.to_list f.blocks) ~f:(fun (b : Core.Block.def) -> b.kind)
+         in
+         let kinds : Lingo_runtime.Rewrite.Template.kinds =
+           { trivia =
+               (fun k ->
+                 Array.exists f.tokens ~f:(fun (t : Core.Token.def) ->
+                   Core.Kind.to_int t.kind = k && Core.Token.is_trivia t))
+           ; single = (fun k -> List.mem k ~set:singles_kinds)
+           ; sequence = (fun k -> k = sequence_kind)
+           ; base = (fun k -> List.mem k ~set:bases)
+           }
+         in
+         let parse (src : string) = Interp.run plan entry (Lex.run f src) in
+         let template (text : string) : (Siesta.Green.node, string) result =
+           match Interp.run template_plan template_entry (Lex.run tf text) with
+           | tree, [] ->
+             Ok
+               (Lingo_runtime.Rewrite.Template.relabel
+                  (Siesta.Cache.create_plain ())
+                  (fun k -> if k >= 0 && k < Array.length map then map.(k) else k)
+                  tree)
+           | _, (_ :: _ as diagnostics) ->
+             Error
+               (Format.asprintf
+                  "it does not parse: %a"
+                  Lingo_runtime.Diagnostic.pp_list
+                  diagnostics)
+         in
+         let replace (src : string) ((a, b) : int * int) (text : string) : string =
+           String.sub src ~pos:0 ~len:a
+           ^ text
+           ^ String.sub src ~pos:b ~len:(String.length src - b)
+         in
+         let clean =
+           List.filter_map (Inputs.all c.inputs) ~f:(fun (src : string) ->
+             match parse src with
+             | tree, [] -> Some tree
+             | _, _ :: _ -> None)
+         in
+         List.iter (Inputs.all c.inputs) ~f:(fun (src : string) ->
+           match parse src with
+           | _, _ :: _ -> ()
+           | tree, [] ->
+             let root = Siesta.Syntax.of_root tree in
+             (* The template from [text], matched against the input and built
+                back from what it bound. [check] reads the bindings. *)
+             let run
+                   (part : string)
+                   (what : string)
+                   (text : string)
+                   (check :
+                     (string * Lingo_runtime.Rewrite.Template.binding) list -> bool)
+               =
+               match template text with
+               | Error reason -> Law.fail "%s %s: %S, %s, %s" part c.name text what reason
+               | Ok t ->
+                 (* (f) a match against another input rebuilds that input. *)
+                 List.iter clean ~f:(fun (other : Siesta.Green.node) ->
+                   if other != tree
+                   then (
+                     match
+                       Lingo_runtime.Rewrite.Template.matches
+                         kinds
+                         t
+                         (Siesta.Syntax.of_root other)
+                     with
+                     | None -> ()
+                     | Some bound ->
+                       incr elsewhere;
+                       (match
+                          Lingo_runtime.Rewrite.Template.instantiate
+                            (Siesta.Cache.create_plain ())
+                            kinds
+                            t
+                            bound
+                        with
+                        | Ok built when equal_tree kinds built other -> ()
+                        | Ok _ | Error _ ->
+                          Law.fail
+                            "(f) %s: %S matches %S and does not rebuild it"
+                            c.name
+                            text
+                            (Siesta.Green.to_source other))));
+                 (* (e) the generated code reads the template as the plan does,
+                    and its rule rebuilds the input. *)
+                 incr generated;
+                 (match c.generated ~rule:root_name text with
+                  | Error reason -> Law.fail "(e) %s: generated, %S %s" c.name text reason
+                  | Ok g ->
+                    if not (equal_tree kinds g t)
+                    then
+                      Law.fail "(e) %s: generated, %S parses as another tree" c.name text);
+                 (match c.generated_rule ~rule:root_name ~lhs:text ~rhs:text with
+                  | Error reason ->
+                    Law.fail "(e) %s: no rule from %S: %s" c.name text reason
+                  | Ok rule ->
+                    let ctx =
+                      Lingo_runtime.Rewrite.Ctx.create
+                        (Siesta.Cache.create_plain ())
+                        root
+                        ()
+                    in
+                    (match rule ctx root with
+                     | Error reason ->
+                       Law.fail "(e) %s: the rule from %S fails: %s" c.name text reason
+                     | Ok built ->
+                       if not (equal_tree kinds built tree)
+                       then
+                         Law.fail
+                           "(e) %s: the rule from %S builds another tree"
+                           c.name
+                           text));
+                 (match Lingo_runtime.Rewrite.Template.matches kinds t root with
+                  | None -> Law.fail "%s %s: %S does not match %S" part c.name text src
+                  | Some bound when not (check bound) ->
+                    Law.fail "%s %s: %S binds the wrong thing in %S" part c.name text src
+                  | Some bound ->
+                    (match
+                       Lingo_runtime.Rewrite.Template.instantiate
+                         (Siesta.Cache.create_plain ())
+                         kinds
+                         t
+                         bound
+                     with
+                     | Error reason ->
+                       Law.fail "(d) %s: %S does not build: %s" c.name text reason
+                     | Ok built ->
+                       (match Lingo_runtime.Rewrite.Template.matches kinds built root with
+                        | Some _ ->
+                          (match
+                             Lingo_runtime.Rewrite.Template.matches
+                               kinds
+                               tree
+                               (Siesta.Syntax.of_root built)
+                           with
+                           | Some _ -> ()
+                           | None -> Law.fail "(d) %s: %S builds another tree" c.name text)
+                        | None -> Law.fail "(d) %s: %S builds another tree" c.name text)))
+             in
+             Seq.iter
+               (fun (node : Siesta.Syntax.t) ->
+                  match c.slots node with
+                  | None -> ()
+                  | Some filled ->
+                    let kind = Siesta.Syntax.kind node in
+                    let role = List.mem kind ~set:roles in
+                    let parent_rule = rule_of kind in
+                    Array.iteri
+                      filled
+                      ~f:(fun (slot : int) (elems : Siesta.Syntax.elem list) ->
+                        (* A slot that names a block holds expressions, and a
+                         plain metavariable stands for one. A slot that names
+                         a production takes that production's typed one. *)
+                        let expression =
+                          role
+                          ||
+                          match parent_rule with
+                          | Some d when slot < Array.length d.children ->
+                            Array.exists
+                              d.children.(slot).alts
+                              ~f:(fun (k : Core.Kind.t) ->
+                                List.exists block_kinds ~f:(Core.Kind.equal k))
+                          | Some _ | None -> false
+                        in
+                        List.iter elems ~f:(fun (elem : Siesta.Syntax.elem) ->
+                          let range = Siesta.Syntax.elem_text_range elem in
+                          let child =
+                            match elem with
+                            | Siesta.Syntax.Node n ->
+                              Siesta.Green.Node (Siesta.Syntax.green n)
+                            | Siesta.Syntax.Token t ->
+                              Siesta.Green.Token (Siesta.Syntax.Token.green t)
+                          in
+                          (* A role's own token is its operator, which no
+                           production names, so no metavariable stands for
+                           it. The token of a block's base node is an
+                           expression, and [$x] there binds the node. *)
+                          (* A token with fixed text, an operator or a
+                             keyword, is the grammar's own structure, and no
+                             metavariable stands for one. *)
+                          let fixed =
+                            match elem with
+                            | Siesta.Syntax.Token t ->
+                              Array.exists f.tokens ~f:(fun (d : Core.Token.def) ->
+                                Core.Kind.to_int d.kind = Siesta.Syntax.Token.kind t
+                                && Core.Token.text d <> None)
+                            | Siesta.Syntax.Node _ -> false
+                          in
+                          (* A node that holds only the metavariable stands
+                             for the node in its place, so the match binds
+                             the parent where the child is its only one. *)
+                          let alone =
+                            List.length
+                              (List.filter
+                                 (Array.to_list (Siesta.Syntax.children_array node))
+                                 ~f:(fun (e : Siesta.Syntax.elem) ->
+                                   not (kinds.trivia (Siesta.Syntax.elem_kind e))))
+                            = 1
+                          in
+                          (* The metavariable sits in the parent as itself,
+                             unless it stands for an expression, which a base
+                             node wraps. *)
+                          let direct =
+                            match elem with
+                            | Siesta.Syntax.Token _ -> true
+                            | Siesta.Syntax.Node _ -> not expression
+                          in
+                          (* A postfix body names one symbol and takes no
+                             alternatives, so a token or a production in one
+                             takes no metavariable of its own. *)
+                          let in_body =
+                            role
+                            &&
+                            match elem with
+                            | Siesta.Syntax.Token _ -> true
+                            | Siesta.Syntax.Node n ->
+                              not (List.mem (Siesta.Syntax.kind n) ~set:positions)
+                          in
+                          let wanted =
+                            if alone && direct
+                            then Siesta.Green.Node (Siesta.Syntax.green node)
+                            else child
+                          in
+                          let text =
+                            match elem, expression with
+                            | Siesta.Syntax.Node n, false ->
+                              (match rule_of (Siesta.Syntax.kind n) with
+                               | Some d -> "$x:" ^ Core.Grammar.Name.Rule.to_string d.name
+                               | None -> "$x")
+                            | Siesta.Syntax.Node _, true | Siesta.Syntax.Token _, _ ->
+                              "$x"
+                          in
+                          if fst range < snd range && (not fixed) && not in_body
+                          then (
+                            incr singles;
+                            run
+                              "(b)"
+                              ("one child as " ^ text)
+                              (replace src range text)
+                              (fun bound ->
+                                 match List.assoc_opt "$x" bound with
+                                 | Some (Lingo_runtime.Rewrite.Template.One got) ->
+                                   (match got, wanted with
+                                    | Siesta.Green.Node a, Siesta.Green.Node b ->
+                                      Siesta.Green.equal a b
+                                    | Siesta.Green.Token a, Siesta.Green.Token b ->
+                                      Siesta.Green.Token.equal a b
+                                    | _ -> false)
+                                 | Some (Lingo_runtime.Rewrite.Template.Run _) | None ->
+                                   false)));
+                        (* (g) one metavariable for two elements of a list
+                           matches where the two are the same text. *)
+                        let pattern_or_node (e : Siesta.Syntax.elem) : string option =
+                          match e with
+                          | Siesta.Syntax.Token t ->
+                            if
+                              role
+                              || Array.exists f.tokens ~f:(fun (d : Core.Token.def) ->
+                                Core.Kind.to_int d.kind = Siesta.Syntax.Token.kind t
+                                && Core.Token.text d <> None)
+                            then None
+                            else Some "$x"
+                          | Siesta.Syntax.Node n ->
+                            if
+                              role && not (List.mem (Siesta.Syntax.kind n) ~set:positions)
+                            then None
+                            else if expression
+                            then Some "$x"
+                            else
+                              Option.map
+                                (fun (d : Core.Rule.def) ->
+                                   "$x:" ^ Core.Grammar.Name.Rule.to_string d.name)
+                                (rule_of (Siesta.Syntax.kind n))
+                        in
+                        let green (e : Siesta.Syntax.elem) : Siesta.Green.child =
+                          match e with
+                          | Siesta.Syntax.Node n ->
+                            Siesta.Green.Node (Siesta.Syntax.green n)
+                          | Siesta.Syntax.Token t ->
+                            Siesta.Green.Token (Siesta.Syntax.Token.green t)
+                        in
+                        let same_text (a : Siesta.Green.child) (b : Siesta.Green.child)
+                          : bool
+                          =
+                          match a, b with
+                          | Siesta.Green.Node x, Siesta.Green.Node y ->
+                            equal_tree kinds x y
+                          | Siesta.Green.Token x, Siesta.Green.Token y ->
+                            Siesta.Green.Token.kind x = Siesta.Green.Token.kind y
+                            && String.equal
+                                 (Siesta.Green.Token.text x)
+                                 (Siesta.Green.Token.text y)
+                          | _ -> false
+                        in
+                        List.iteri elems ~f:(fun (i : int) (a : Siesta.Syntax.elem) ->
+                          List.iteri elems ~f:(fun (j : int) (b : Siesta.Syntax.elem) ->
+                            match pattern_or_node a, pattern_or_node b with
+                            | Some ta, Some tb when i < j && String.equal ta tb ->
+                              let ra = Siesta.Syntax.elem_text_range a in
+                              let rb = Siesta.Syntax.elem_text_range b in
+                              if fst ra < snd ra && fst rb < snd rb
+                              then (
+                                let text = replace (replace src rb tb) ra ta in
+                                match template text with
+                                | Error reason ->
+                                  Law.fail "(g) %s: %S %s" c.name text reason
+                                | Ok t ->
+                                  incr pairs;
+                                  let matched =
+                                    Option.is_some
+                                      (Lingo_runtime.Rewrite.Template.matches
+                                         kinds
+                                         t
+                                         root)
+                                  in
+                                  if matched <> same_text (green a) (green b)
+                                  then
+                                    Law.fail
+                                      "(g) %s: %S %s %S"
+                                      c.name
+                                      text
+                                      (if matched
+                                       then "matches, with two texts for one name, in"
+                                       else "does not match")
+                                      src)
+                            | _ -> ()));
+                        (* (c) the whole run of a repeated slot. *)
+                        match elems with
+                        | first :: _ :: _ ->
+                          let last = List.nth elems (List.length elems - 1) in
+                          let a = fst (Siesta.Syntax.elem_text_range first) in
+                          let b = snd (Siesta.Syntax.elem_text_range last) in
+                          (* A run in a postfix body of productions takes no
+                             metavariable, for the reason a single one does
+                             not. *)
+                          let in_body =
+                            role
+                            && List.exists elems ~f:(fun (e : Siesta.Syntax.elem) ->
+                              match e with
+                              | Siesta.Syntax.Token _ -> true
+                              | Siesta.Syntax.Node n ->
+                                not (List.mem (Siesta.Syntax.kind n) ~set:positions))
+                          in
+                          (* A run that starts where its node starts, in a
+                             node that is itself an element of a repeated
+                             child, could be a run of either list. The outer
+                             one takes it, and no typed form says otherwise. *)
+                          (* Whether [inner] is an element of a repeated
+                             child of its parent. *)
+                          let listed (inner : Siesta.Syntax.t) : bool =
+                            match Siesta.Syntax.parent inner with
+                            | None -> false
+                            | Some outer ->
+                              (match
+                                 c.slots outer, rule_of (Siesta.Syntax.kind outer)
+                               with
+                               | Some outer_slots, Some d ->
+                                 Array.exists
+                                   (Array.mapi outer_slots ~f:(fun i es -> i, es))
+                                   ~f:(fun ((i : int), (es : Siesta.Syntax.elem list)) ->
+                                     i < Array.length d.children
+                                     && (match d.children.(i).modifier with
+                                         | Core.Grammar.Zero_or_more _
+                                         | Core.Grammar.One_or_more _ -> true
+                                         | Core.Grammar.Exactly_one
+                                         | Core.Grammar.Zero_or_one -> false)
+                                     && List.exists es ~f:(fun (e : Siesta.Syntax.elem) ->
+                                       match e with
+                                       | Siesta.Syntax.Node n ->
+                                         Siesta.Syntax.equal n inner
+                                       | Siesta.Syntax.Token _ -> false))
+                               | _ -> false)
+                          in
+                          (* The run starts where some enclosing element of
+                             a list starts. *)
+                          let ambiguous =
+                            Seq.exists
+                              (fun (inner : Siesta.Syntax.t) ->
+                                 fst (Siesta.Syntax.text_range inner) = a && listed inner)
+                              (Seq.take_while
+                                 (fun (inner : Siesta.Syntax.t) ->
+                                    fst (Siesta.Syntax.text_range inner) = a)
+                                 (Siesta.Syntax.ancestors node))
+                          in
+                          if ambiguous then incr skipped;
+                          if a < b && (not in_body) && not ambiguous
+                          then (
+                            incr runs;
+                            run
+                              "(c)"
+                              "a run as $$xs"
+                              (replace src (a, b) "$$xs")
+                              (fun bound ->
+                                 match List.assoc_opt "$$xs" bound with
+                                 | Some (Lingo_runtime.Rewrite.Template.Run got) ->
+                                   List.length
+                                     (List.filter got ~f:(fun (g : Siesta.Green.child) ->
+                                        match g with
+                                        | Siesta.Green.Token t ->
+                                          not (kinds.trivia (Siesta.Green.Token.kind t))
+                                        | Siesta.Green.Node _ -> true))
+                                   >= List.length elems
+                                 | Some (Lingo_runtime.Rewrite.Template.One _) | None ->
+                                   false))
+                        | _ -> ()))
+               (Siesta.Syntax.descendants root))));
+  if Law.failures () = before
+  then
+    Law.pass
+      "templates parse and match: %d grammars, %d children as $x, %d runs as $$xs, %d \
+       runs left out as ambiguous, %d read by the generated code, %d matched elsewhere, \
+       %d with one name twice"
+      !grammars
+      !singles
+      !runs
+      !skipped
+      !generated
+      !elsewhere
+      !pairs
+;;
+
+let () = Law.summarise "law_template"

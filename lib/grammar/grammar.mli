@@ -387,19 +387,34 @@ type token_def =
   ; trivia : trivia_class option
   }
 
+(** The two tokens a template writes where a child goes, such as [$x] and
+    [$$xs]. [single] stands for one child. [sequence] stands for a run of the
+    elements of a repeated child, from none upwards.
+
+    They are not tokens of the language. The language's lexer leaves them out,
+    and only the template lexer reads them. Neither may match or start any
+    string another token matches, so a template lexes the way the same text
+    with real children in it would. *)
+type metavariables =
+  { single : token_def
+  ; sequence : token_def
+  }
+
 (** A grammar. [roots] are the entry productions. The list must be
     non-empty, must hold no duplicates, and every name in it must be a
-    production. *)
+    production. A grammar with no [metavariables] has no templates. *)
 type t =
   { productions : production list
   ; expr : expr_def list
   ; tokens : token_def list
   ; roots : Name.Rule.t list
+  ; metavariables : metavariables option
   }
 
 (** [?expr] defaults to the empty list. *)
 val create
   :  ?expr:expr_def list
+  -> ?metavariables:metavariables
   -> tokens:token_def list
   -> roots:string list
   -> production list

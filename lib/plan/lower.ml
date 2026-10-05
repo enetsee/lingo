@@ -7,6 +7,20 @@ let kset (s : Core.Kind.Set.t) : Ir.Kind.t array =
   Array.of_list (List.map (Core.Kind.Set.elements s) ~f:Core.Kind.to_int)
 ;;
 
+(* Each arm's FIRST set less every earlier arm's. Dispatch takes the first arm
+   that holds the kind, so this changes nothing about which arm runs. It
+   keeps the arms apart for an emitter, whose match would otherwise hold a
+   case it can never reach. A grammar the checks accept has none to take
+   away. A template grammar has some, since a metavariable can begin two
+   alternatives. *)
+let cascade (firsts : Core.Kind.Set.t list) : Core.Kind.Set.t list =
+  let _, sets =
+    List.fold_left firsts ~init:(Core.Kind.Set.empty, []) ~f:(fun (seen, acc) first ->
+      Core.Kind.Set.union seen first, Core.Kind.Set.diff first seen :: acc)
+  in
+  List.rev sets
+;;
+
 (* Names a kind for a diagnostic. A keyword or a punctuation literal is
    printed as its own text. Everything else is printed as the name the author
    wrote. *)
@@ -71,10 +85,18 @@ let rec body_of_alts (facts : Core.Facts.t) (alts : Core.Kind.t array) : Ir.Plan
   match alts with
   | [| kind |] -> body_of_alt facts kind
   | _ ->
+    let firsts =
+      cascade (List.map (Array.to_list alts) ~f:(Core.Facts.first_of_kind facts))
+    in
     Ir.Plan.Alt
       { arms =
-          Array.map alts ~f:(fun kind ->
-            kset (Core.Facts.first_of_kind facts kind), body_of_alt facts kind)
+          Array.of_list
+            (List.filter_map
+               (List.combine (Array.to_list alts) firsts)
+               ~f:(fun ((kind : Core.Kind.t), (first : Core.Kind.Set.t)) ->
+                 if Core.Kind.Set.is_empty first
+                 then None
+                 else Some (kset first, body_of_alt facts kind)))
       }
 
 and body_of_alt (facts : Core.Facts.t) (kind : Core.Kind.t) : Ir.Plan.instr =
@@ -622,10 +644,18 @@ let block_of (f : Core.Facts.t) (msgs : Messages.Builder.t) (b : Core.Block.def)
         Core.Kind.to_int o.op_kind, snd (Core.Block.op_bps o))
   ; postfix = Array.map b.postfix ~f:(postfix_of f msgs)
   ; atoms =
-      Array.map b.atoms ~f:(fun a ->
-        let r = f.kind_rule.(Core.Kind.to_int a) in
-        ( kset (Core.Facts.first_of_kind f a)
-        , if r >= 0 then Ir.Plan.Atom_rule r else Ir.Plan.Atom_token ))
+      Array.of_list
+        (List.filter_map
+           (List.combine
+              (Array.to_list b.atoms)
+              (cascade (List.map (Array.to_list b.atoms) ~f:(Core.Facts.first_of_kind f))))
+           ~f:(fun ((a : Core.Kind.t), (first : Core.Kind.Set.t)) ->
+             let r = f.kind_rule.(Core.Kind.to_int a) in
+             if Core.Kind.Set.is_empty first
+             then None
+             else
+               Some
+                 (kset first, if r >= 0 then Ir.Plan.Atom_rule r else Ir.Plan.Atom_token)))
   ; base_kind =
       (match role_kind f b.rule_id Core.Role.Base with
        | Some x -> x

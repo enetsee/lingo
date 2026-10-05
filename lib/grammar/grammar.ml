@@ -177,21 +177,28 @@ type token_def =
   ; trivia : trivia_class option
   }
 
+type metavariables =
+  { single : token_def
+  ; sequence : token_def
+  }
+
 type t =
   { productions : production list
   ; expr : expr_def list
   ; tokens : token_def list
   ; roots : Name.Rule.t list
+  ; metavariables : metavariables option
   }
 
 let create
       ?(expr = [])
+      ?(metavariables : metavariables option)
       ~(tokens : token_def list)
       ~(roots : string list)
       (productions : production list)
   : t
   =
-  { productions; expr; tokens; roots = List.map Name.Rule.of_string roots }
+  { productions; expr; tokens; roots = List.map Name.Rule.of_string roots; metavariables }
 ;;
 
 (* -- predicates ------------------------------------------------------------ *)

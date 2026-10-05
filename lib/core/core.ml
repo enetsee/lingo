@@ -9,6 +9,7 @@ module Block = Block
 module Manifest = Manifest
 module Facts = Facts
 module Lexer = Lexer
+module Template = Template
 
 module Internal = struct
   module Stage = Stage

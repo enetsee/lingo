@@ -132,6 +132,7 @@ type detail =
   | Prefix_atom_conflict of { how : prefix_atom }
   | Resync_anchor_conflict of { anchor : Grammar.Name.Token.t }
   | Token_unreachable of { reason : token_unreachable_reason }
+  | Metavariable_clash of { token : Grammar.Name.Token.t }
 
 type t =
   { detail : detail
@@ -192,6 +193,7 @@ let code (e : t) : string =
   | Prefix_atom_conflict _ -> "prefix-atom-conflict"
   | Resync_anchor_conflict _ -> "resync-anchor-conflict"
   | Token_unreachable _ -> "token-unreachable"
+  | Metavariable_clash _ -> "metavariable-clash"
 ;;
 
 let names_stage_codes =
@@ -251,6 +253,7 @@ let full_stage_codes =
   ; "prefix-atom-conflict"
   ; "resync-anchor-conflict"
   ; "token-unreachable"
+  ; "metavariable-clash"
   ]
 ;;
 
@@ -317,6 +320,8 @@ let hint (e : t) : string option =
     Some
       "mark the child greedy if the parser's natural resolution is what the language \
        means"
+  | Metavariable_clash _ ->
+    Some "a metavariable wants a sigil no token of the language uses"
   | _ -> None
 ;;
 
@@ -519,6 +524,11 @@ let message (e : t) : string =
        Printf.sprintf
          "the lexer can never emit this token: %s wins wherever it could match"
          (Grammar.Name.Token.to_string other))
+  | Metavariable_clash { token } ->
+    Printf.sprintf
+      "%s matches a string that begins with this metavariable, so a template would not \
+       lex as the text it stands for"
+      (Grammar.Name.Token.to_string token)
 ;;
 
 let pp_where (fmt : Format.formatter) (w : where) : unit =
