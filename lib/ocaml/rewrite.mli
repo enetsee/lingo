@@ -20,6 +20,13 @@
 
     Takes the facts of a grammar the checks accepted. *)
 
+(** {1 Binders}
+
+    The module holds [visible], [fresh], [resolve], [rename] and
+    [substitute]: {!Lingo_runtime.Rewrite.Binders} with the grammar's
+    binders and scopes. A grammar with neither has no binders, and its
+    [visible] is always empty. *)
+
 (** {1 Templates}
 
     Where the grammar has metavariables, the module also holds two functions

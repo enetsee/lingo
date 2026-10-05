@@ -531,3 +531,62 @@ module Template : sig
     -> (string * binding) list
     -> (Siesta.Green.node, string) result
 end
+
+(** {1 Binders}
+
+    Names, read the way a grammar declares them: a binder child holds a
+    token whose text introduces a name, and a production that opens a scope
+    keeps the names introduced inside it, its own binders included. The root
+    is a scope too. A reference is any token of a binder's kind that is not
+    a binder itself.
+
+    A reference resolves the way tree-sitter's locals do: to the nearest
+    binder of the same text whose scope holds the reference and which comes
+    before it. *)
+module Binders : sig
+  type 's rule := 's t
+
+  (** What a grammar says about its names. A generated module gives one. *)
+  type t =
+    { slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option
+    ; trivia : Ir.Kind.t -> bool
+    ; scope : Ir.Kind.t -> bool
+    ; binders : Ir.Kind.t -> int list (** The slots of a kind that hold binders. *)
+    ; reference : Ir.Kind.t -> bool (** A token kind a binder can have. *)
+    ; base : Ir.Kind.t -> bool (** A block's base node. *)
+    }
+
+  (** Every binder whose scope holds [at] and which comes before it, with
+      its name, nearest first. A shadowed binder is in the list, after the
+      one that shadows it. *)
+  val visible : t -> Siesta.Syntax.t -> (string * Siesta.Syntax.token_cursor) list
+
+  (** [fresh t at ~base] is [base], or [base] followed by the smallest
+      number, that no binder visible at [at] has. *)
+  val fresh : t -> Siesta.Syntax.t -> base:string -> string
+
+  (** The binder a reference resolves to, or [None] for a name nothing in
+      the tree binds. A binder resolves to itself. *)
+  val resolve : t -> Siesta.Syntax.token_cursor -> Siesta.Syntax.token_cursor option
+
+  (** [rename t root binder ~to_] gives [root]'s tree with [binder] and every
+      reference that resolves to it spelled [to_]. It fails where a binder
+      named [to_] would take one of those references, or where [to_] is
+      visible at [binder] already. *)
+  val rename
+    :  t
+    -> Siesta.Cache.t
+    -> Siesta.Syntax.token_cursor
+    -> to_:string
+    -> (Siesta.Green.node, string) result
+
+  (** [substitute t ~name ~by] is a rule that replaces every free use of
+      [name] in a node with [by]. A use is free where it resolves to nothing
+      inside the node. A use is replaced where it stands as an expression:
+      the only token of a block's base node.
+
+      It avoids capture. A binder inside the node that would take a name
+      [by] uses, at a place [by] goes, is renamed with {!fresh} first, with
+      its references. *)
+  val substitute : t -> name:string -> by:Siesta.Green.node -> 's rule
+end

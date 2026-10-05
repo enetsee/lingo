@@ -1429,3 +1429,335 @@ module Template = struct
        | Unbound name -> Error (name ^ " is not bound"))
   ;;
 end
+
+(* {1 Binders} *)
+
+module Binders = struct
+  type 's rule = 's t
+
+  type t =
+    { slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option
+    ; trivia : Ir.Kind.t -> bool
+    ; scope : Ir.Kind.t -> bool
+    ; binders : Ir.Kind.t -> int list
+    ; reference : Ir.Kind.t -> bool
+    ; base : Ir.Kind.t -> bool
+    }
+
+  let start_of (token : Siesta.Syntax.token_cursor) : int =
+    fst (Siesta.Syntax.Token.text_range token)
+  ;;
+
+  (* The binder tokens a node holds itself. *)
+  let own (t : t) (node : Siesta.Syntax.t) : Siesta.Syntax.token_cursor list =
+    match t.binders (Siesta.Syntax.kind node) with
+    | [] -> []
+    | indices ->
+      (match t.slots node with
+       | None -> []
+       | Some filled ->
+         List.concat_map indices ~f:(fun (i : int) ->
+           if i >= Array.length filled
+           then []
+           else
+             List.filter_map filled.(i) ~f:(fun (elem : Siesta.Syntax.elem) ->
+               match elem with
+               | Siesta.Syntax.Token token -> Some token
+               | Siesta.Syntax.Node _ -> None)))
+  ;;
+
+  let is_binder (t : t) (token : Siesta.Syntax.token_cursor) : bool =
+    List.exists
+      (own t (Siesta.Syntax.Token.parent token))
+      ~f:(Siesta.Syntax.Token.equal token)
+  ;;
+
+  (* Whether [outer] is [inner] or one of its ancestors. *)
+  let holds (outer : Siesta.Syntax.t) (inner : Siesta.Syntax.t) : bool =
+    Seq.exists
+      (fun (a : Siesta.Syntax.t) -> Siesta.Syntax.equal a outer)
+      (Siesta.Syntax.ancestors inner)
+  ;;
+
+  (* The scope a binder belongs to: the nearest scope at or above the node
+     that holds it, or the root. *)
+  let scope_of (t : t) (token : Siesta.Syntax.token_cursor) : Siesta.Syntax.t =
+    let rec up (node : Siesta.Syntax.t) =
+      if t.scope (Siesta.Syntax.kind node)
+      then node
+      else (
+        match Siesta.Syntax.parent node with
+        | Some parent -> up parent
+        | None -> node)
+    in
+    up (Siesta.Syntax.Token.parent token)
+  ;;
+
+  let root_of (node : Siesta.Syntax.t) : Siesta.Syntax.t =
+    Seq.fold_left
+      (fun (_ : Siesta.Syntax.t) (a : Siesta.Syntax.t) -> a)
+      node
+      (Siesta.Syntax.ancestors node)
+  ;;
+
+  (* The binders visible inside [at] at offset [position]. A scope that does
+     not hold [at] is not walked, and nor is anything that starts at or after
+     [position]. *)
+  let visible_at (t : t) (at : Siesta.Syntax.t) (position : int)
+    : (string * Siesta.Syntax.token_cursor) list
+    =
+    let found = ref [] in
+    Siesta.Syntax.preorder (root_of at) ~f:(fun (node : Siesta.Syntax.t) ->
+      if fst (Siesta.Syntax.text_range node) >= position && not (holds node at)
+      then Siesta.Syntax.Skip
+      else if t.scope (Siesta.Syntax.kind node) && not (holds node at)
+      then Siesta.Syntax.Skip
+      else (
+        List.iter (own t node) ~f:(fun (binder : Siesta.Syntax.token_cursor) ->
+          if start_of binder < position
+          then (
+            let scope = scope_of t binder in
+            if holds scope at
+            then found := (Seq.length (Siesta.Syntax.ancestors scope), binder) :: !found));
+        Siesta.Syntax.Descend));
+    List.stable_sort !found ~cmp:(fun ((d1 : int), b1) ((d2 : int), b2) ->
+      match compare d2 d1 with
+      | 0 -> compare (start_of b2) (start_of b1)
+      | c -> c)
+    |> List.map ~f:(fun ((_ : int), (binder : Siesta.Syntax.token_cursor)) ->
+      Siesta.Syntax.Token.text binder, binder)
+  ;;
+
+  let visible (t : t) (at : Siesta.Syntax.t) : (string * Siesta.Syntax.token_cursor) list =
+    visible_at t at (fst (Siesta.Syntax.text_range at))
+  ;;
+
+  let fresh_avoiding (taken : string list) ~(base : string) : string =
+    if not (List.mem base ~set:taken)
+    then base
+    else (
+      let rec go (i : int) =
+        let name = base ^ string_of_int i in
+        if List.mem name ~set:taken then go (i + 1) else name
+      in
+      go 1)
+  ;;
+
+  let fresh (t : t) (at : Siesta.Syntax.t) ~(base : string) : string =
+    fresh_avoiding (List.map (visible t at) ~f:fst) ~base
+  ;;
+
+  let resolve (t : t) (token : Siesta.Syntax.token_cursor)
+    : Siesta.Syntax.token_cursor option
+    =
+    if is_binder t token
+    then Some token
+    else
+      List.assoc_opt
+        (Siesta.Syntax.Token.text token)
+        (visible_at t (Siesta.Syntax.Token.parent token) (start_of token))
+  ;;
+
+  (* Every token of a reference kind under [node], in order. *)
+  let tokens (t : t) (node : Siesta.Syntax.t) : Siesta.Syntax.token_cursor list =
+    let found = ref [] in
+    Siesta.Syntax.preorder node ~f:(fun (n : Siesta.Syntax.t) ->
+      Array.iter (Siesta.Syntax.children_array n) ~f:(fun (elem : Siesta.Syntax.elem) ->
+        match elem with
+        | Siesta.Syntax.Token token when t.reference (Siesta.Syntax.Token.kind token) ->
+          found := token :: !found
+        | Siesta.Syntax.Token _ | Siesta.Syntax.Node _ -> ());
+      Siesta.Syntax.Descend);
+    List.rev !found
+  ;;
+
+  type edit =
+    | Spell of string
+    | Put of Siesta.Green.node
+
+  (* [node]'s tree with the tokens and nodes [edits] names, by their range,
+     edited. A node with no edit inside it is kept as it is. *)
+  let rec rebuild
+            (cache : Siesta.Cache.t)
+            (edits : (int * int * Ir.Kind.t, edit) Hashtbl.t)
+            (node : Siesta.Syntax.t)
+    : Siesta.Green.node
+    =
+    let green = Siesta.Syntax.green node in
+    let a, b = Siesta.Syntax.text_range node in
+    let inside =
+      Hashtbl.fold
+        (fun ((x : int), (y : int), _) _ found -> found || (a <= x && y <= b))
+        edits
+        false
+    in
+    if not inside
+    then green
+    else (
+      let children =
+        Array.map
+          (Siesta.Syntax.children_array node)
+          ~f:(fun (elem : Siesta.Syntax.elem) ->
+            let x, y = Siesta.Syntax.elem_text_range elem in
+            match elem with
+            | Siesta.Syntax.Token token ->
+              (match Hashtbl.find_opt edits (x, y, Siesta.Syntax.Token.kind token) with
+               | Some (Spell text) ->
+                 Siesta.Green.Token
+                   (Siesta.Green.mk_token
+                      cache
+                      ~kind:(Siesta.Syntax.Token.kind token)
+                      ~text)
+               | Some (Put _) | None ->
+                 Siesta.Green.Token (Siesta.Syntax.Token.green token))
+            | Siesta.Syntax.Node child ->
+              (match Hashtbl.find_opt edits (x, y, Siesta.Syntax.kind child) with
+               | Some (Put replacement) -> Siesta.Green.Node replacement
+               | Some (Spell _) | None -> Siesta.Green.Node (rebuild cache edits child)))
+      in
+      Siesta.Green.mk_node
+        cache
+        ~kind:(Siesta.Green.kind green)
+        ~payload:(Siesta.Green.payload green)
+        ~children
+        ())
+  ;;
+
+  let spell
+        (edits : (int * int * Ir.Kind.t, edit) Hashtbl.t)
+        (token : Siesta.Syntax.token_cursor)
+        (text : string)
+    : unit
+    =
+    let x, y = Siesta.Syntax.Token.text_range token in
+    Hashtbl.replace edits (x, y, Siesta.Syntax.Token.kind token) (Spell text)
+  ;;
+
+  (* The references under [within] that resolve to [binder]. *)
+  let uses (t : t) (within : Siesta.Syntax.t) (binder : Siesta.Syntax.token_cursor)
+    : Siesta.Syntax.token_cursor list
+    =
+    List.filter (tokens t within) ~f:(fun (token : Siesta.Syntax.token_cursor) ->
+      (not (Siesta.Syntax.Token.equal token binder))
+      &&
+      match resolve t token with
+      | Some found -> Siesta.Syntax.Token.equal found binder
+      | None -> false)
+  ;;
+
+  (* Whether [to_] would take [use] from [binder]: a binder of that name is
+     visible at [use] and nearer than [binder]. *)
+  let taken
+        (t : t)
+        (use : Siesta.Syntax.token_cursor)
+        (binder : Siesta.Syntax.token_cursor)
+        ~(to_ : string)
+    : bool
+    =
+    let rec nearer (l : (string * Siesta.Syntax.token_cursor) list) =
+      match l with
+      | [] -> false
+      | (_, b) :: _ when Siesta.Syntax.Token.equal b binder -> false
+      | (name, _) :: rest -> String.equal name to_ || nearer rest
+    in
+    nearer (visible_at t (Siesta.Syntax.Token.parent use) (start_of use))
+  ;;
+
+  let rename
+        (t : t)
+        (cache : Siesta.Cache.t)
+        (binder : Siesta.Syntax.token_cursor)
+        ~(to_ : string)
+    : (Siesta.Green.node, string) result
+    =
+    let root = root_of (Siesta.Syntax.Token.parent binder) in
+    let refs = uses t root binder in
+    if
+      List.mem_assoc
+        to_
+        ~map:(visible_at t (Siesta.Syntax.Token.parent binder) (start_of binder))
+    then Error "the new name is visible where the binder is"
+    else if List.exists refs ~f:(fun use -> taken t use binder ~to_)
+    then Error "a binder of the new name would take a use"
+    else (
+      let edits = Hashtbl.create 8 in
+      List.iter (binder :: refs) ~f:(fun token -> spell edits token to_);
+      Ok (rebuild cache edits root))
+  ;;
+
+  (* The names a detached tree uses: its tokens of a reference kind. *)
+  let rec names_in (t : t) (green : Siesta.Green.node) : string list =
+    List.concat_map
+      (Array.to_list (Siesta.Green.children_array green))
+      ~f:(fun child ->
+        match child with
+        | Siesta.Green.Token token when t.reference (Siesta.Green.Token.kind token) ->
+          [ Siesta.Green.Token.text token ]
+        | Siesta.Green.Token _ -> []
+        | Siesta.Green.Node node -> names_in t node)
+  ;;
+
+  let substitute (t : t) ~(name : string) ~(by : Siesta.Green.node) : 's rule =
+    fun ctx node ->
+    let inside (token : Siesta.Syntax.token_cursor) =
+      holds node (Siesta.Syntax.Token.parent token)
+    in
+    let all = tokens t node in
+    (* A free use standing as an expression, as its base node. *)
+    let sites =
+      List.filter_map all ~f:(fun (token : Siesta.Syntax.token_cursor) ->
+        let parent = Siesta.Syntax.Token.parent token in
+        let alone =
+          List.length
+            (List.filter
+               (Array.to_list (Siesta.Syntax.children_array parent))
+               ~f:(fun e -> not (t.trivia (Siesta.Syntax.elem_kind e))))
+          = 1
+        in
+        let free =
+          match resolve t token with
+          | None -> true
+          | Some binder -> not (inside binder)
+        in
+        if
+          String.equal (Siesta.Syntax.Token.text token) name
+          && (not (is_binder t token))
+          && free
+          && alone
+          && t.base (Siesta.Syntax.kind parent)
+          && holds node parent
+        then Some (token, parent)
+        else None)
+    in
+    let wanted = names_in t by in
+    (* A binder inside the node that [by] would be taken by at some site. *)
+    let capturing =
+      List.filter
+        (List.filter all ~f:(fun token -> is_binder t token && inside token))
+        ~f:(fun (binder : Siesta.Syntax.token_cursor) ->
+          List.mem (Siesta.Syntax.Token.text binder) ~set:wanted
+          && List.exists sites ~f:(fun ((site : Siesta.Syntax.token_cursor), _) ->
+            List.exists
+              (visible_at t (Siesta.Syntax.Token.parent site) (start_of site))
+              ~f:(fun ((_ : string), b) -> Siesta.Syntax.Token.equal b binder)))
+    in
+    let edits = Hashtbl.create 8 in
+    let used = List.map all ~f:Siesta.Syntax.Token.text @ wanted in
+    List.iter capturing ~f:(fun (binder : Siesta.Syntax.token_cursor) ->
+      let to_ =
+        fresh_avoiding
+          (used
+           @ List.map
+               (visible_at t (Siesta.Syntax.Token.parent binder) (start_of binder))
+               ~f:fst)
+          ~base:(Siesta.Syntax.Token.text binder)
+      in
+      List.iter (binder :: uses t node binder) ~f:(fun token -> spell edits token to_));
+    List.iter
+      sites
+      ~f:(fun ((_ : Siesta.Syntax.token_cursor), (parent : Siesta.Syntax.t)) ->
+        let x, y = Siesta.Syntax.text_range parent in
+        Hashtbl.replace edits (x, y, Siesta.Syntax.kind parent) (Put by));
+    Ok (rebuild (Ctx.cache ctx) edits node)
+  ;;
+end

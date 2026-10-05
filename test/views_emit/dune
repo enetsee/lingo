@@ -1007,3 +1007,23 @@
   lingo_runtime.ir
   redfa
   siesta))
+
+; law_binders reads names in every grammar with binders, against an oracle
+; that walks the tree the way tree-sitter's locals do.
+
+(tests
+ (names law_binders)
+ (modules law_binders)
+ (libraries
+  law
+  emitted_rewrite
+  emitted_views
+  inputs
+  lex
+  lingo.core
+  lingo.interp
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  lingo_runtime.ir
+  siesta))

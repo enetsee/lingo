@@ -1814,6 +1814,129 @@ let template_signature : Emit.sig_item list =
   ]
 ;;
 
+(* -- binders --------------------------------------------------------------------- *)
+
+let binder_items ~(views : string) (f : Core.Facts.t) : Emit.item list =
+  let rules = Array.to_list f.rules in
+  let scopes =
+    List.filter_map rules ~f:(fun (d : Core.Rule.def) ->
+      if d.opens_scope then Some (kind d) else None)
+  in
+  let with_binders =
+    List.filter rules ~f:(fun (d : Core.Rule.def) -> Array.length d.binders > 0)
+  in
+  let references =
+    List.concat_map with_binders ~f:(fun (d : Core.Rule.def) ->
+      List.concat_map (Array.to_list d.binders) ~f:(fun (i : int) ->
+        List.map (Array.to_list d.children.(i).alts) ~f:Core.Kind.to_int))
+    |> List.sort_uniq ~cmp:Int.compare
+  in
+  let bases =
+    List.map (Array.to_list f.blocks) ~f:(fun (b : Core.Block.def) ->
+      Core.Kind.to_int b.kind)
+  in
+  let binder_slots =
+    Emit.elambda
+      [ Emit.arg_var "kind" ]
+      (Emit.ematch
+         (Emit.evar "kind")
+         (List.map with_binders ~f:(fun (d : Core.Rule.def) ->
+            Emit.ecase
+              (Emit.pint (kind d))
+              (Emit.elist (List.map (Array.to_list d.binders) ~f:Emit.eint)))
+          @ [ Emit.ecase Emit.pany (Emit.elist []) ]))
+  in
+  let call (name : string) (args : (Ppxlib.arg_label * Emit.expr) list) : Emit.expr =
+    Emit.eapply_labelled
+      (Emit.evar (runtime ("Binders." ^ name)))
+      ((Ppxlib.Nolabel, Emit.evar "binders") :: args)
+  in
+  [ Emit.ilet
+      "binders"
+      (Emit.econstraint
+         (Emit.erecord
+            [ ( runtime "Binders.slots"
+              , Emit.evar (views ^ "." ^ Core.Manifest.view_support ^ ".slots") )
+            ; runtime "Binders.trivia", kind_test (trivia_kinds f ~comments_only:false)
+            ; runtime "Binders.scope", kind_test scopes
+            ; runtime "Binders.binders", binder_slots
+            ; runtime "Binders.reference", kind_test references
+            ; runtime "Binders.base", kind_test bases
+            ])
+         (Emit.tcon (runtime "Binders.t") []))
+  ; Emit.ilet
+      "visible"
+      ~args:[ Emit.arg_var "at" ]
+      (call "visible" [ Nolabel, Emit.evar "at" ])
+  ; Emit.ilet
+      "fresh"
+      ~args:[ Emit.arg_var "at"; Emit.Named "base" ]
+      (call "fresh" [ Nolabel, Emit.evar "at"; Labelled "base", Emit.evar "base" ])
+  ; Emit.ilet
+      "resolve"
+      ~args:[ Emit.arg_var "token" ]
+      (call "resolve" [ Nolabel, Emit.evar "token" ])
+  ; Emit.ilet
+      "rename"
+      ~args:[ Emit.arg_var "cache"; Emit.arg_var "binder"; Emit.Named "to_" ]
+      (call
+         "rename"
+         [ Nolabel, Emit.evar "cache"
+         ; Nolabel, Emit.evar "binder"
+         ; Labelled "to_", Emit.evar "to_"
+         ])
+  ; Emit.ilet
+      "substitute"
+      ~args:[ Emit.Named "name"; Emit.Named "by" ]
+      (call
+         "substitute"
+         [ Labelled "name", Emit.evar "name"; Labelled "by", Emit.evar "by" ])
+  ]
+;;
+
+let binder_signature : Emit.sig_item list =
+  let syntax = Emit.tcon "Siesta.Syntax.t" [] in
+  let token = Emit.tcon "Siesta.Syntax.token_cursor" [] in
+  let string = Emit.tcon "string" [] in
+  [ Emit.sval
+      "visible"
+      (Emit.tarrow
+         ~domain:syntax
+         ~codomain:(Emit.tcon "list" [ Emit.ttuple [ string; token ] ]))
+  ; Emit.sval
+      "fresh"
+      (Emit.tarrow
+         ~domain:syntax
+         ~codomain:(Emit.tarrow_labelled "base" ~domain:string ~codomain:string))
+  ; Emit.sval
+      "resolve"
+      (Emit.tarrow ~domain:token ~codomain:(Emit.tcon "option" [ token ]))
+  ; Emit.sval
+      "rename"
+      (Emit.tarrow
+         ~domain:(Emit.tcon "Siesta.Cache.t" [])
+         ~codomain:
+           (Emit.tarrow
+              ~domain:token
+              ~codomain:
+                (Emit.tarrow_labelled
+                   "to_"
+                   ~domain:string
+                   ~codomain:
+                     (Emit.tcon "result" [ Emit.tcon "Siesta.Green.node" []; string ]))))
+  ; Emit.sval
+      "substitute"
+      (Emit.tarrow_labelled
+         "name"
+         ~domain:string
+         ~codomain:
+           (Emit.tarrow_labelled
+              "by"
+              ~domain:(Emit.tcon "Siesta.Green.node" [])
+              ~codomain:rule_t))
+  ]
+;;
+
 (* Productions and a block's base first, since a block's module calls its
    bracketing atom's [make]. Then each block's module, then the roles, whose
    [make] calls it. *)
@@ -1836,6 +1959,7 @@ let generate ~(views : string) ?(template : template option) (f : Core.Facts.t)
   @ List.map (blocks f) ~f:(block_module ~views f)
   @ List.map (List.filter modules ~f:is_role) ~f:view_module
   @ edit_probes ~views f modules
+  @ binder_items ~views f
   @ [ apply_item ~views f
     ; probe f modules
     ; rebuild ~views f modules
@@ -1871,6 +1995,7 @@ let signature ~(views : string) ?(template : template option) (f : Core.Facts.t)
        @ edit_sigs ~views f d))
   @ List.map (blocks f) ~f:(block_signature ~views)
   @ [ apply_signature ]
+  @ binder_signature
   @
   match template with
   | Some _ -> template_signature
