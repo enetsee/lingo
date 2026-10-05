@@ -532,3 +532,26 @@
   lingo_runtime
   lingo_runtime.ir
   siesta))
+
+; law_parens takes every bracketing atom out and builds every role again,
+; then checks that the constructors put back what the parse needs and
+; nothing more.
+
+(tests
+ (names law_parens)
+ (modules law_parens)
+ (libraries
+  law
+  emitted_probe
+  emitted_rewrite
+  emitted_views
+  inputs
+  lex
+  lingo.core
+  lingo.interp
+  lingo.layout
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  lingo_runtime.ir
+  siesta))

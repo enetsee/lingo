@@ -319,3 +319,26 @@ module Construct : sig
     -> part list
     -> ('view, string) result
 end
+
+(** {1 Parentheses}
+
+    What a generated block module calls to settle whether an operand needs
+    parentheses. The binding powers are the block's, and the generated code
+    holds them. *)
+module Parens : sig
+  (** [ends_open ~trivia ~expression node] holds where the last thing in
+      [node] is an expression. A slot that refers to a block parses its
+      expression from binding power 0, so that expression takes in any
+      operator that follows it. ml's [if c then a else b] is the case: an
+      operator after [b] belongs to [b].
+
+      It reads the last child that is not trivia. A token ends the node. A
+      node whose kind [expression] holds is an expression. Any other node is
+      read the same way, so a production that ends in another production
+      ends however that one does. *)
+  val ends_open
+    :  trivia:(Ir.Kind.t -> bool)
+    -> expression:(Ir.Kind.t -> bool)
+    -> Siesta.Syntax.t
+    -> bool
+end

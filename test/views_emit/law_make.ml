@@ -1,7 +1,7 @@
 (* -- the generated constructors -------------------------------------------------
 
-      Every production's [make] builds the node it is given the children of.
-      For every node of a production in a clean parse, the node is rebuilt
+      Every view's [make] builds the node it is given the children of.
+      For every node with a view in a clean parse, the node is rebuilt
       with [make] from its own children and put back in the tree. The tree is
       formatted and parsed again. The original tree is formatted and parsed
       the same way. Then:
@@ -34,7 +34,9 @@
       comments that sat around that element have nowhere to go back to, and
       they go after the last element that is left.
 
-      Only productions are rebuilt. A block's roles have no [make] yet.
+      Roles are rebuilt as well. A role's operands come from a valid parse,
+      so its [make] never needs parentheses here. test/views_emit/law_parens.ml
+      is about the ones it adds.
    -------------------------------------------------------------------------- *)
 
 (* No mutation record has been generated for lib/ocaml/rewrite.ml yet.

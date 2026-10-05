@@ -650,3 +650,23 @@ module Construct = struct
     | None -> Error "the view does not take its own kind"
   ;;
 end
+
+(* {1 Parentheses} *)
+
+module Parens = struct
+  let rec ends_open
+            ~(trivia : Ir.Kind.t -> bool)
+            ~(expression : Ir.Kind.t -> bool)
+            (node : Siesta.Syntax.t)
+    : bool
+    =
+    let last =
+      Array.fold_left (Siesta.Syntax.children_array node) ~init:None ~f:(fun last elem ->
+        if trivia (Siesta.Syntax.elem_kind elem) then last else Some elem)
+    in
+    match last with
+    | None | Some (Siesta.Syntax.Token _) -> false
+    | Some (Siesta.Syntax.Node child) ->
+      expression (Siesta.Syntax.kind child) || ends_open ~trivia ~expression child
+  ;;
+end

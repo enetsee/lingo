@@ -355,27 +355,32 @@ let frame
   let delimiter (k : Core.Kind.t) (text : string) : Emit.expr =
     Emit.ecall (construct "frame") [ token k text ]
   in
-  match d.frame, children with
-  | (Core.Rule.Plain | Core.Rule.Committed _), children -> Ok (List.mapi children ~f:slot)
+  (* A postfix role's operand comes before its frame, and [body_from] says
+     where the frame starts. A production's frame starts at its first child. *)
+  let before = List.filteri children ~f:(fun i _ -> i < d.body_from) in
+  let framed = List.filteri children ~f:(fun i _ -> i >= d.body_from) in
+  match d.frame, framed with
+  | (Core.Rule.Plain | Core.Rule.Committed _), _ -> Ok (List.mapi children ~f:slot)
   | Core.Rule.Delimited { open_; close; sep; _ }, [ body ] ->
     (match fixed_text f open_, fixed_text f close with
      | Some opener, Some closer ->
        let body =
          match sep with
-         | None -> Ok (slot 0 body)
-         | Some sep -> separated 0 sep body
+         | None -> Ok (slot d.body_from body)
+         | Some sep -> separated d.body_from sep body
        in
        Result.map
          (fun (body : Emit.expr) ->
-            [ delimiter open_ opener; body; delimiter close closer ])
+            List.mapi before ~f:slot
+            @ [ delimiter open_ opener; body; delimiter close closer ])
          body
      | None, _ | _, None -> Error "a delimiter has no fixed text")
   | Core.Rule.Separated { sep_tok; leading; trailing; position; _ }, [ body ] ->
     Result.map
-      (fun (body : Emit.expr) -> [ body ])
-      (separated 0 { Core.Rule.sep_tok; leading; trailing; position } body)
+      (fun (body : Emit.expr) -> List.mapi before ~f:slot @ [ body ])
+      (separated d.body_from { Core.Rule.sep_tok; leading; trailing; position } body)
   | (Core.Rule.Delimited _ | Core.Rule.Separated _), _ ->
-    invalid_arg "Rewrite.frame: a framed production with other than one child"
+    invalid_arg "Rewrite.frame: a framed rule with other than one child in its frame"
 ;;
 
 let cache_var (d : Core.Rule.def) : string =
@@ -421,6 +426,503 @@ let trivia_kinds (f : Core.Facts.t) ~(comments_only : bool) : int list =
     | Some Core.Grammar.Reformat | None -> None)
 ;;
 
+(* -- parentheses ----------------------------------------------------------------- *)
+
+(* What the parentheses code reads of one block. *)
+type block =
+  { def : Core.Block.def
+  ; position : string
+    (** The views' type for the block's nodes, such as [expr_position]. *)
+  ; position_module : string
+  ; paren : (string * string) option
+    (** The bracketing atom's module, and its arm in the position type. *)
+  }
+
+let rule_name (d : Core.Rule.def) : string = Core.Grammar.Name.Rule.to_string d.name
+
+(* A bracketing atom is a delimited production with one required child, and
+   that child is the block. Writing an expression inside it gives the same
+   expression back as one atom. A list that takes one element brackets the
+   same way, and means something else, so it does not count. *)
+let paren_atom (f : Core.Facts.t) (b : Core.Block.def) : Core.Rule.def option =
+  Array.find_map b.atoms ~f:(fun (k : Core.Kind.t) ->
+    match Core.Facts.rule_of_kind f k with
+    | Some
+        ({ origin = Core.Rule.User; frame = Core.Rule.Delimited { open_; close; _ }; _ }
+         as d) ->
+      (match d.children, fixed_text f open_, fixed_text f close with
+       | ( [| { modifier = Core.Grammar.Exactly_one; alts = [| child |]; _ } |]
+         , Some _
+         , Some _ )
+         when Core.Kind.equal child b.kind -> Some d
+       | _ -> None)
+    | Some _ | None -> None)
+;;
+
+let blocks (f : Core.Facts.t) : block list =
+  Array.to_list f.blocks
+  |> List.map ~f:(fun (b : Core.Block.def) ->
+    let name = Core.Grammar.Name.Rule.to_string b.name in
+    let position = Core.Manifest.block_position_type name in
+    { def = b
+    ; position
+    ; position_module = Core.Manifest.view_module position
+    ; paren =
+        Option.map
+          (fun (d : Core.Rule.def) ->
+             ( Core.Manifest.view_module (rule_name d)
+             , Core.Manifest.view_constructor ~sum:position ~arm:(rule_name d) ))
+          (paren_atom f b)
+    })
+;;
+
+let block_of_role (f : Core.Facts.t) (d : Core.Rule.def) : (block * Core.Role.t) option =
+  match d.origin with
+  | Core.Rule.Pratt_role { block; role } ->
+    List.find_map (blocks f) ~f:(fun (b : block) ->
+      if b.def.rule_id = block then Some (b, role) else None)
+  | Core.Rule.User | Core.Rule.Pratt_block -> None
+;;
+
+(* Every kind a block reference can hold, in any block: its roles, its base,
+   its rule atoms and its hole. *)
+let expression_kinds (f : Core.Facts.t) : int list =
+  List.concat_map (Array.to_list f.blocks) ~f:(fun (b : Core.Block.def) ->
+    (Core.Kind.to_int b.kind
+     :: Core.Kind.to_int b.hole_kind
+     :: List.filter_map (Array.to_list b.atoms) ~f:(fun (k : Core.Kind.t) ->
+       if Core.Facts.is_token_kind f k then None else Some (Core.Kind.to_int k)))
+    @ List.filter_map (Array.to_list f.rules) ~f:(fun (d : Core.Rule.def) ->
+      match d.origin with
+      | Core.Rule.Pratt_role { block; _ } when block = b.rule_id -> Some (kind d)
+      | Core.Rule.Pratt_role _ | Core.Rule.User | Core.Rule.Pratt_block -> None))
+  |> List.sort_uniq ~cmp:Int.compare
+;;
+
+(* A role's rule, with the module its view is in. *)
+let roles (f : Core.Facts.t) (b : block) : (Core.Role.t * string * Core.Rule.def) list =
+  List.filter_map
+    (Views.modules f)
+    ~f:(fun ((module_name : string), (d : Core.Rule.def)) ->
+      match d.origin with
+      | Core.Rule.Pratt_role { block; role } when block = b.def.rule_id ->
+        Some (role, module_name, d)
+      | Core.Rule.Pratt_role _ | Core.Rule.User | Core.Rule.Pratt_block -> None)
+;;
+
+let table (name : string) (rows : (Core.Kind.t * int) list) : Emit.item =
+  Emit.ilet
+    name
+    ~args:[ Emit.arg_typed ~arg_name:"kind" ~type_path:"int" ]
+    (Emit.econstraint
+       (Emit.ematch
+          (Emit.evar "kind")
+          (List.map rows ~f:(fun ((k : Core.Kind.t), (bp : int)) ->
+             Emit.ecase (Emit.pint (Core.Kind.to_int k)) (Emit.eint bp))
+           @ [ Emit.ecase Emit.pany (Emit.evar "Stdlib.max_int") ]))
+       (Emit.tcon "int" []))
+;;
+
+(* [read view k] reads a role node through its view: [k] gets the view, and
+   the node of any other shape gives [default]. *)
+let through
+      ~(views : string)
+      (module_name : string)
+      (node : Emit.expr)
+      ~(default : Emit.expr)
+      (k : Emit.expr -> Emit.expr)
+  : Emit.expr
+  =
+  Emit.ematch
+    (Emit.ecall (views ^ "." ^ module_name ^ ".cast") [ node ])
+    [ Emit.ecase (Emit.pconstruct "Some" [ Emit.pvar "view" ]) (k (Emit.evar "view"))
+    ; Emit.ecase (Emit.pconstruct "None" []) default
+    ]
+;;
+
+(* [both a b k] runs [k] on two optional reads, and gives [default] where
+   either is missing. *)
+let both
+      (a : Emit.expr)
+      (b : Emit.expr)
+      ~(default : Emit.expr)
+      (k : Emit.expr -> Emit.expr -> Emit.expr)
+  : Emit.expr
+  =
+  Emit.ematch
+    (Emit.etuple [ a; b ])
+    [ Emit.ecase
+        (Emit.ptuple
+           [ Emit.pconstruct "Some" [ Emit.pvar "a" ]
+           ; Emit.pconstruct "Some" [ Emit.pvar "b" ]
+           ])
+        (k (Emit.evar "a") (Emit.evar "b"))
+    ; Emit.ecase Emit.pany default
+    ]
+;;
+
+let block_module ~(views : string) (f : Core.Facts.t) (b : block) : Emit.item =
+  let accessor (module_name : string) (d : Core.Rule.def) (i : int) (view : Emit.expr) =
+    Emit.ecall (views ^ "." ^ module_name ^ "." ^ label d.children.(i)) [ view ]
+  in
+  let syntax (position : Emit.expr) : Emit.expr =
+    Emit.ecall (views ^ "." ^ b.position_module ^ ".syntax") [ position ]
+  in
+  let token_kind (token : Emit.expr) = Emit.ecall "Siesta.Syntax.Token.kind" [ token ] in
+  let max_int = Emit.evar "Stdlib.max_int" in
+  let min (a : Emit.expr) (b : Emit.expr) = Emit.ecall "Stdlib.min" [ a; b ] in
+  let roles = roles f b in
+  let infix = Array.to_list b.def.infix in
+  let left_cases =
+    List.filter_map
+      roles
+      ~f:(fun ((role : Core.Role.t), (module_name : string), (d : Core.Rule.def)) ->
+        let node = Emit.evar "node" in
+        match role with
+        | Core.Role.Bin ->
+          Some
+            (Emit.ecase
+               (Emit.pint (kind d))
+               (through ~views module_name node ~default:max_int (fun view ->
+                  both
+                    (accessor module_name d 1 view)
+                    (accessor module_name d 0 view)
+                    ~default:max_int
+                    (fun op lhs ->
+                       min
+                         (Emit.ecall "infix_left" [ token_kind op ])
+                         (Emit.ecall "left" [ syntax lhs ])))))
+        | Core.Role.Postfix i ->
+          Some
+            (Emit.ecase
+               (Emit.pint (kind d))
+               (through ~views module_name node ~default:max_int (fun view ->
+                  Emit.ematch
+                    (accessor module_name d 0 view)
+                    [ Emit.ecase
+                        (Emit.pconstruct "Some" [ Emit.pvar "operand" ])
+                        (min
+                           (Emit.eint b.def.postfix.(i).p_bp)
+                           (Emit.ecall "left" [ syntax (Emit.evar "operand") ]))
+                    ; Emit.ecase (Emit.pconstruct "None" []) max_int
+                    ])))
+        | Core.Role.Base | Core.Role.Prefix -> None)
+  in
+  let right_cases =
+    List.filter_map
+      roles
+      ~f:(fun ((role : Core.Role.t), (module_name : string), (d : Core.Rule.def)) ->
+        let node = Emit.evar "node" in
+        let open_right (table : string) (op : int) (operand : int) =
+          Emit.ecase
+            (Emit.pint (kind d))
+            (through ~views module_name node ~default:max_int (fun view ->
+               both
+                 (accessor module_name d op view)
+                 (accessor module_name d operand view)
+                 ~default:max_int
+                 (fun op operand ->
+                    min
+                      (Emit.ecall table [ token_kind op ])
+                      (Emit.ecall "right" [ syntax operand ]))))
+        in
+        match role with
+        | Core.Role.Bin -> Some (open_right "infix_right" 1 2)
+        | Core.Role.Prefix -> Some (open_right "prefix_right" 0 1)
+        | Core.Role.Base | Core.Role.Postfix _ -> None)
+  in
+  let ends_open =
+    Emit.eif
+      ~condition:
+        (Emit.eapply_labelled
+           (Emit.evar (runtime "Parens.ends_open"))
+           [ Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
+           ; Labelled "expression", kind_test (expression_kinds f)
+           ; Nolabel, Emit.evar "node"
+           ])
+      ~then_:(Emit.eint 0)
+      ~else_:max_int
+  in
+  let edges =
+    Emit.ilet_rec
+      [ ( "left"
+        , [ Emit.arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t" ]
+        , Emit.econstraint
+            (Emit.ematch
+               (Emit.ecall "Siesta.Syntax.kind" [ Emit.evar "node" ])
+               (left_cases @ [ Emit.ecase Emit.pany max_int ]))
+            (Emit.tcon "int" []) )
+      ; ( "right"
+        , [ Emit.arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t" ]
+        , Emit.econstraint
+            (Emit.ematch
+               (Emit.ecall "Siesta.Syntax.kind" [ Emit.evar "node" ])
+               (right_cases @ [ Emit.ecase Emit.pany ends_open ]))
+            (Emit.tcon "int" []) )
+      ]
+  in
+  let position_t = Emit.tcon (views ^ "." ^ b.position) [] in
+  let parens =
+    Emit.ilet
+      "parens"
+      ~args:
+        [ Emit.arg_typed ~arg_name:"cache" ~type_path:"Siesta.Cache.t"
+        ; Emit.arg_typed ~arg_name:"inner" ~type_path:(views ^ "." ^ b.position)
+        ]
+      (Emit.econstraint
+         (match b.paren with
+          | None ->
+            Emit.econstruct
+              "Error"
+              [ Emit.estr
+                  (Core.Grammar.Name.Rule.to_string b.def.name ^ " has no bracketing atom")
+              ]
+          | Some (module_name, arm) ->
+            Emit.ecall
+              "Stdlib.Result.map"
+              [ Emit.elambda
+                  [ Emit.arg_var "atom" ]
+                  (Emit.econstruct (views ^ "." ^ arm) [ Emit.evar "atom" ])
+              ; Emit.ecall
+                  (module_name ^ ".make")
+                  [ Emit.evar "cache"; Emit.evar "inner" ]
+              ])
+         (Emit.tcon "result" [ position_t; Emit.tcon "string" [] ]))
+  in
+  let wrap =
+    Emit.ilet
+      "wrap"
+      ~args:
+        [ Emit.arg_typed ~arg_name:"cache" ~type_path:"Siesta.Cache.t"
+        ; Emit.arg_typed ~arg_name:"needed" ~type_path:"bool"
+        ; Emit.arg_typed ~arg_name:"inner" ~type_path:(views ^ "." ^ b.position)
+        ]
+      (Emit.eif
+         ~condition:(Emit.evar "needed")
+         ~then_:(Emit.ecall "parens" [ Emit.evar "cache"; Emit.evar "inner" ])
+         ~else_:(Emit.econstruct "Ok" [ Emit.evar "inner" ]))
+  in
+  (* Whether [node] needs parentheses to sit where [at] sits. *)
+  let needs_parens =
+    let here (read : Emit.expr) : Emit.expr =
+      Emit.ematch
+        read
+        [ Emit.ecase
+            (Emit.pconstruct "Some" [ Emit.pvar "x" ])
+            (Emit.ecall "Siesta.Syntax.equal" [ syntax (Emit.evar "x"); Emit.evar "at" ])
+        ; Emit.ecase (Emit.pconstruct "None" []) (Emit.ebool false)
+        ]
+    in
+    let no = Emit.ebool false in
+    let operand_case (role : Core.Role.t) (module_name : string) (d : Core.Rule.def) =
+      let parent = Emit.evar "parent" in
+      let node = Emit.evar "node" in
+      let op_kind (view : Emit.expr) (k : Emit.expr -> Emit.expr) : Emit.expr =
+        Emit.ematch
+          (accessor
+             module_name
+             d
+             (match role with
+              | Core.Role.Prefix -> 0
+              | _ -> 1)
+             view)
+          [ Emit.ecase
+              (Emit.pconstruct "Some" [ Emit.pvar "op" ])
+              (k (token_kind (Emit.evar "op")))
+          ; Emit.ecase (Emit.pconstruct "None" []) no
+          ]
+      in
+      match role with
+      | Core.Role.Bin ->
+        Some
+          (Emit.ecase
+             (Emit.pint (kind d))
+             (through ~views module_name parent ~default:no (fun view ->
+                op_kind view (fun k ->
+                  Emit.eif
+                    ~condition:(here (accessor module_name d 0 view))
+                    ~then_:
+                      (Emit.egreater_equal
+                         ~left:(Emit.ecall "infix_left" [ k ])
+                         ~right:(Emit.ecall "right" [ node ]))
+                    ~else_:
+                      (Emit.eand
+                         ~left:(here (accessor module_name d 2 view))
+                         ~right:
+                           (Emit.eless
+                              ~left:(Emit.ecall "left" [ node ])
+                              ~right:(Emit.ecall "infix_right" [ k ])))))))
+      | Core.Role.Prefix ->
+        Some
+          (Emit.ecase
+             (Emit.pint (kind d))
+             (through ~views module_name parent ~default:no (fun view ->
+                op_kind view (fun k ->
+                  Emit.eand
+                    ~left:(here (accessor module_name d 1 view))
+                    ~right:
+                      (Emit.eless
+                         ~left:(Emit.ecall "left" [ node ])
+                         ~right:(Emit.ecall "prefix_right" [ k ]))))))
+      | Core.Role.Postfix i ->
+        Some
+          (Emit.ecase
+             (Emit.pint (kind d))
+             (through ~views module_name parent ~default:no (fun view ->
+                Emit.eand
+                  ~left:(here (accessor module_name d 0 view))
+                  ~right:
+                    (Emit.egreater_equal
+                       ~left:(Emit.eint b.def.postfix.(i).p_bp)
+                       ~right:(Emit.ecall "right" [ node ])))))
+      | Core.Role.Base -> None
+    in
+    Emit.ilet
+      "needs_parens"
+      ~args:
+        [ Emit.Named_pat ("at", Emit.pvar "at")
+        ; Emit.arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t"
+        ]
+      (Emit.econstraint
+         (Emit.ematch
+            (Emit.ecall "Siesta.Syntax.parent" [ Emit.evar "at" ])
+            [ Emit.ecase (Emit.pconstruct "None" []) no
+            ; Emit.ecase
+                (Emit.pconstruct "Some" [ Emit.pvar "parent" ])
+                (Emit.ematch
+                   (Emit.ecall "Siesta.Syntax.kind" [ Emit.evar "parent" ])
+                   (List.filter_map roles ~f:(fun (role, module_name, d) ->
+                      operand_case role module_name d)
+                    @ [ Emit.ecase Emit.pany no ]))
+            ])
+         (Emit.tcon "bool" []))
+  in
+  Emit.imodule
+    b.position_module
+    [ table
+        "infix_left"
+        (List.map infix ~f:(fun (o : Core.Block.op) ->
+           o.op_kind, fst (Core.Block.op_bps o)))
+    ; table
+        "infix_right"
+        (List.map infix ~f:(fun (o : Core.Block.op) ->
+           o.op_kind, snd (Core.Block.op_bps o)))
+    ; table
+        "prefix_right"
+        (List.map (Array.to_list b.def.prefix) ~f:(fun (o : Core.Block.op) ->
+           o.op_kind, snd (Core.Block.op_bps o)))
+    ; edges
+    ; parens
+    ; wrap
+    ; needs_parens
+    ]
+;;
+
+let block_signature ~(views : string) (b : block) : Emit.sig_item =
+  let position_t = Emit.tcon (views ^ "." ^ b.position) [] in
+  let syntax_t = Emit.tcon "Siesta.Syntax.t" [] in
+  Emit.smodule
+    b.position_module
+    [ Emit.sval
+        "parens"
+        (Emit.tarrow
+           ~domain:(Emit.tcon "Siesta.Cache.t" [])
+           ~codomain:
+             (Emit.tarrow
+                ~domain:position_t
+                ~codomain:(Emit.tcon "result" [ position_t; Emit.tcon "string" [] ])))
+    ; Emit.sval
+        "needs_parens"
+        (Emit.tarrow_labelled
+           "at"
+           ~domain:syntax_t
+           ~codomain:(Emit.tarrow ~domain:syntax_t ~codomain:(Emit.tcon "bool" [])))
+    ]
+;;
+
+(* What a role's [make] does before it builds: settle the operator's kind,
+   then wrap each operand that would not keep its place without
+   parentheses. *)
+let role_guard ~(views : string) (f : Core.Facts.t) (cache : string) (d : Core.Rule.def)
+  : (Emit.expr -> Emit.expr) option
+  =
+  match block_of_role f d with
+  | None -> None
+  | Some (b, role) ->
+    let m (name : string) : string = b.position_module ^ "." ^ name in
+    let syntax (position : Emit.expr) : Emit.expr =
+      Emit.ecall (views ^ "." ^ b.position_module ^ ".syntax") [ position ]
+    in
+    (* The operator's kind, from the tag [make] was given for it, or the one
+       kind a lone operator has. *)
+    let op_kind (i : int) : Emit.expr =
+      let c = d.children.(i) in
+      match arms ~views f c with
+      | [ { symbol = Fixed { kind; _ }; _ } ] -> Emit.eint kind
+      | arms ->
+        Emit.ematch
+          (Emit.evar (label c))
+          (List.filter_map arms ~f:(fun (a : arm) ->
+             match a.symbol with
+             | Fixed { kind; _ } ->
+               Some (Emit.ecase (Emit.pvariant a.tag None) (Emit.eint kind))
+             | Pattern _ | View _ | Position _ -> None))
+    in
+    let wrap (i : int) (needed : Emit.expr) (rest : Emit.expr) : Emit.expr =
+      let name = label d.children.(i) in
+      Emit.ematch
+        (Emit.ecall (m "wrap") [ Emit.evar cache; needed; Emit.evar name ])
+        [ Emit.ecase
+            (Emit.pconstruct "Error" [ Emit.pvar "reason" ])
+            (Emit.econstruct "Error" [ Emit.evar "reason" ])
+        ; Emit.ecase (Emit.pconstruct "Ok" [ Emit.pvar name ]) rest
+        ]
+    in
+    let operand (i : int) : Emit.expr = syntax (Emit.evar (label d.children.(i))) in
+    (match role with
+     | Core.Role.Bin ->
+       Some
+         (fun body ->
+           Emit.elet
+             "op_kind"
+             ~body:(op_kind 1)
+             ~rest:
+               (wrap
+                  0
+                  (Emit.egreater_equal
+                     ~left:(Emit.ecall (m "infix_left") [ Emit.evar "op_kind" ])
+                     ~right:(Emit.ecall (m "right") [ operand 0 ]))
+                  (wrap
+                     2
+                     (Emit.eless
+                        ~left:(Emit.ecall (m "left") [ operand 2 ])
+                        ~right:(Emit.ecall (m "infix_right") [ Emit.evar "op_kind" ]))
+                     body)))
+     | Core.Role.Prefix ->
+       Some
+         (fun body ->
+           Emit.elet
+             "op_kind"
+             ~body:(op_kind 0)
+             ~rest:
+               (wrap
+                  1
+                  (Emit.eless
+                     ~left:(Emit.ecall (m "left") [ operand 1 ])
+                     ~right:(Emit.ecall (m "prefix_right") [ Emit.evar "op_kind" ]))
+                  body))
+     | Core.Role.Postfix p ->
+       Some
+         (fun body ->
+           wrap
+             0
+             (Emit.egreater_equal
+                ~left:(Emit.eint b.def.postfix.(p).p_bp)
+                ~right:(Emit.ecall (m "right") [ operand 0 ]))
+             body)
+     | Core.Role.Base -> None)
+;;
+
 let make ~(views : string) (f : Core.Facts.t) (module_name : string) (d : Core.Rule.def)
   : Emit.item
   =
@@ -455,6 +957,11 @@ let make ~(views : string) (f : Core.Facts.t) (module_name : string) (d : Core.R
           ; Nolabel, Emit.evar (views ^ "." ^ module_name ^ ".cast")
           ; Nolabel, Emit.elist parts
           ]
+      in
+      let built =
+        match role_guard ~views f cache d with
+        | Some guard -> guard built
+        | None -> built
       in
       Array.fold_right
         d.children
@@ -647,37 +1154,46 @@ let rebuild
         @ [ Emit.ecase Emit.pany (Emit.econstruct "None" []) ]))
 ;;
 
-let productions (f : Core.Facts.t) : (string * Core.Rule.def) list =
-  List.filter (Views.modules f) ~f:(fun ((_ : string), (d : Core.Rule.def)) ->
-    match d.origin with
-    | Core.Rule.User -> true
-    | Core.Rule.Pratt_block | Core.Rule.Pratt_role _ -> false)
-;;
-
-(* -- generation -------------------------------------------------------------- *)
-
+(* Productions and a block's base first, since a block's module calls its
+   bracketing atom's [make]. Then each block's module, then the roles, whose
+   [make] calls it. *)
 let generate ~(views : string) (f : Core.Facts.t) : Emit.item list =
   let modules = Views.modules f in
-  let productions = productions f in
-  List.map modules ~f:(fun ((module_name : string), (d : Core.Rule.def)) ->
-    Emit.imodule
-      module_name
-      (congr ~views f d
-       ::
-       (if List.mem_assoc module_name ~map:productions
-        then [ make ~views f module_name d ]
-        else [])))
-  @ [ probe f modules; rebuild ~views f productions ]
+  let is_role ((_ : string), (d : Core.Rule.def)) : bool =
+    match d.origin with
+    | Core.Rule.Pratt_role _ -> true
+    | Core.Rule.User | Core.Rule.Pratt_block -> false
+  in
+  let view_module ((module_name : string), (d : Core.Rule.def)) : Emit.item =
+    Emit.imodule module_name [ congr ~views f d; make ~views f module_name d ]
+  in
+  List.map (List.filter modules ~f:(fun m -> not (is_role m))) ~f:view_module
+  @ List.map (blocks f) ~f:(block_module ~views f)
+  @ List.map (List.filter modules ~f:is_role) ~f:view_module
+  @ [ probe f modules
+    ; rebuild ~views f modules
+    ; Emit.ilet
+        "needs_parens"
+        ~args:
+          [ Emit.Named_pat ("at", Emit.pvar "at")
+          ; Emit.arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t"
+          ]
+        (List.fold_right (blocks f) ~init:(Emit.ebool false) ~f:(fun (b : block) rest ->
+           Emit.eor
+             ~left:
+               (Emit.eapply_labelled
+                  (Emit.evar (b.position_module ^ ".needs_parens"))
+                  [ Labelled "at", Emit.evar "at"; Nolabel, Emit.evar "node" ])
+             ~right:rest))
+    ]
 ;;
 
 let signature ~(views : string) (f : Core.Facts.t) : Emit.sig_item list =
-  let productions = productions f in
   List.map (Views.modules f) ~f:(fun ((module_name : string), (d : Core.Rule.def)) ->
     Emit.smodule
       module_name
-      (Emit.sval "congr" (congr_t f d)
-       ::
-       (if List.mem_assoc module_name ~map:productions
-        then [ Emit.sval "make" (make_t ~views f module_name d) ]
-        else [])))
+      [ Emit.sval "congr" (congr_t f d)
+      ; Emit.sval "make" (make_t ~views f module_name d)
+      ])
+  @ List.map (blocks f) ~f:(block_signature ~views)
 ;;
