@@ -254,3 +254,68 @@ val congruence
   -> (Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
   -> 's Slot.t option array
   -> 's t
+
+(** {1 Constructors}
+
+    What a generated [make] calls. A [make] lists a node's parts in order:
+    the frame's delimiters, and the elements of each of the production's
+    children. These build the pieces and the node. They write no whitespace.
+    The formatter writes all of it.
+
+    {2 Comments}
+
+    Given the node a [make] replaces, {!finish} keeps the comments that sit
+    directly between that node's children. Comments inside a child go with
+    the child. Each comment goes back in front of what it was in front of:
+
+    - an element of a child, by its child and its place among that child's
+      elements;
+    - the separator after an element, which puts it straight after that
+      element;
+    - the closer, or the end of the node.
+
+    Where the new node has no such element, because a list got shorter, the
+    comment goes after the last element of the same child. Whitespace is
+    left out, since the formatter writes all of it. *)
+module Construct : sig
+  type part
+
+  val token : Siesta.Cache.t -> Ir.Kind.t -> string -> Siesta.Green.child
+
+  (** The green node under a view. *)
+  val node : Siesta.Syntax.t -> Siesta.Green.child
+
+  (** A delimiter. *)
+  val frame : Siesta.Green.child -> part
+
+  (** [slot i elements] is the production's child [i]. Each element is one
+      green child. *)
+  val slot : int -> Siesta.Green.child list -> part
+
+  (** [separated i ~leading ~trailing sep elements] is child [i] with [sep]
+      between its elements. [leading] and [trailing] add one in front of the
+      first and after the last, where there is an element at all. *)
+  val separated
+    :  int
+    -> leading:bool
+    -> trailing:bool
+    -> Siesta.Green.child
+    -> Siesta.Green.child list
+    -> part
+
+  (** [finish ?replacing ~slots ~trivia ~comment cache k cast parts] builds a
+      node of kind [k] from the parts, and gives it as a view over a cursor of
+      its own. [cast] is the view module's. [slots] is the views module's slot
+      walk, and [trivia] and [comment] say which kinds are trivia and which
+      of those are comments. They are read only where [replacing] is given. *)
+  val finish
+    :  ?replacing:Siesta.Syntax.t
+    -> slots:(Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+    -> trivia:(Ir.Kind.t -> bool)
+    -> comment:(Ir.Kind.t -> bool)
+    -> Siesta.Cache.t
+    -> Ir.Kind.t
+    -> (Siesta.Syntax.t -> 'view option)
+    -> part list
+    -> ('view, string) result
+end

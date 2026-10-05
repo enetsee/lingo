@@ -104,6 +104,7 @@ let kind_constructor raw = "K_" ^ raw
 let format_fn n = "format_" ^ Mangle.safe_snake n
 let view_module n = Mangle.upper_first n
 let view_accessor n = Mangle.safe_snake n
+let rewrite_replacing = "replacing"
 let view_type n = Mangle.snake_case n ^ "_view"
 
 (* The arm is a suffix, so a keyword needs no escape: [true] gives
@@ -229,6 +230,13 @@ let production_entries (p : Grammar.production) : entry list =
     (* Every view module defines both beside the accessors. *)
   ; e ~scope:(Scope.View_accessor mname) ~base:builtin ~derivation:"view cast" "cast"
   ; e ~scope:(Scope.View_accessor mname) ~base:builtin ~derivation:"view syntax" "syntax"
+    (* A rewrite module's [make] labels its arguments with the child names,
+       and takes the node it replaces under this one. *)
+  ; e
+      ~scope:(Scope.View_accessor mname)
+      ~base:builtin
+      ~derivation:"rewrite replacing"
+      rewrite_replacing
   ]
   @ List.concat_map
       (fun (c : Grammar.child) ->

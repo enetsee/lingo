@@ -66,6 +66,8 @@ let etuple (exprs : expr list) : expr =
   | xs -> Ast.pexp_tuple xs
 ;;
 
+let evariant (tag : Ppxlib.label) (arg : expr option) : expr = Ast.pexp_variant tag arg
+
 let econstruct (ctor : Ppxlib.label) (args : expr list) : expr =
   let payload =
     match args with
@@ -182,6 +184,7 @@ let elet_rec (defs : (Ppxlib.label * arg list * expr) list) (rest : expr) : expr
 
 (* -- patterns -------------------------------------------------------------- *)
 
+let pvariant (tag : Ppxlib.label) (arg : pat option) : pat = Ast.ppat_variant tag arg
 let pvar (var_name : Ppxlib.label) : pat = Ast.ppat_var (name var_name)
 let pany : pat = Ast.ppat_any
 let pint (n : int) : pat = Ast.pint n
@@ -298,6 +301,19 @@ let itype_record (name : Ppxlib.label) (fields : (Ppxlib.label * ty) list) : ite
 let tcon (path : Ppxlib.label) (args : ty list) : ty = Ast.ptyp_constr (lid path) args
 let ttuple (tys : ty list) : ty = Ast.ptyp_tuple tys
 let tvar (name : Ppxlib.label) : ty = Ast.ptyp_var name
+
+let tvariant (tags : (Ppxlib.label * ty option) list) : ty =
+  Ast.ptyp_variant
+    (List.map
+       (fun (tag, arg) ->
+          match arg with
+          | None -> Ast.rtag (Ast.Located.mk tag) true []
+          | Some ty -> Ast.rtag (Ast.Located.mk tag) false [ ty ])
+       tags)
+    Closed
+    None
+;;
+
 let tarrow ~(domain : ty) ~(codomain : ty) : ty = Ast.ptyp_arrow Nolabel domain codomain
 
 let tarrow_labelled (label : Ppxlib.label) ~(domain : ty) ~(codomain : ty) : ty =

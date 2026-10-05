@@ -475,3 +475,178 @@ let congruence
     go 0
   | Some _ | None -> Error "another kind"
 ;;
+
+(* {1 Constructors} *)
+
+module Construct = struct
+  type part =
+    | Frame of Siesta.Green.child
+    | Slot of int * Siesta.Green.child list
+    | Separated of
+        { slot : int
+        ; leading : bool
+        ; trailing : bool
+        ; sep : Siesta.Green.child
+        ; elements : Siesta.Green.child list
+        }
+
+  let token (cache : Siesta.Cache.t) (k : Ir.Kind.t) (text : string) : Siesta.Green.child =
+    Siesta.Green.Token (Siesta.Green.mk_token cache ~kind:k ~text)
+  ;;
+
+  let node (syntax : Siesta.Syntax.t) : Siesta.Green.child =
+    Siesta.Green.Node (Siesta.Syntax.green syntax)
+  ;;
+
+  let frame (child : Siesta.Green.child) : part = Frame child
+
+  let slot (index : int) (elements : Siesta.Green.child list) : part =
+    Slot (index, elements)
+  ;;
+
+  let separated
+        (index : int)
+        ~(leading : bool)
+        ~(trailing : bool)
+        (sep : Siesta.Green.child)
+        (elements : Siesta.Green.child list)
+    : part
+    =
+    Separated { slot = index; leading; trailing; sep; elements }
+  ;;
+
+  (* Where a comment goes: in front of element [j] of child [i], straight
+     after it, or at the end of the node. *)
+  type anchor =
+    | Before of int * int
+    | After of int * int
+    | End
+
+  (* The comments directly inside [node], each with its anchor, in order. A
+     comment in front of a frame token anchors after the element before it.
+     One with no element before it waits for the next element. *)
+  let comments
+        (node : Siesta.Syntax.t)
+        ~(slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+        ~(trivia : Ir.Kind.t -> bool)
+        ~(comment : Ir.Kind.t -> bool)
+    : (anchor * Siesta.Green.child) list
+    =
+    let places = Hashtbl.create 16 in
+    Array.iteri
+      (Option.value (slots node) ~default:[||])
+      ~f:(fun (i : int) (elems : Siesta.Syntax.elem list) ->
+        List.iteri elems ~f:(fun (j : int) (elem : Siesta.Syntax.elem) ->
+          Hashtbl.replace places (index elem) (i, j)));
+    let found = ref [] in
+    let pending = ref [] in
+    let last = ref None in
+    let flush (anchor : anchor) =
+      List.iter (List.rev !pending) ~f:(fun child -> found := (anchor, child) :: !found);
+      pending := []
+    in
+    Array.iter (Siesta.Syntax.children_array node) ~f:(fun (elem : Siesta.Syntax.elem) ->
+      let k = Siesta.Syntax.elem_kind elem in
+      match Hashtbl.find_opt places (index elem), elem with
+      | Some (i, j), _ ->
+        flush (Before (i, j));
+        last := Some (i, j)
+      | None, Siesta.Syntax.Token token when comment k ->
+        pending := Siesta.Green.Token (Siesta.Syntax.Token.green token) :: !pending
+      | None, Siesta.Syntax.Token _ when trivia k -> ()
+      | None, (Siesta.Syntax.Token _ | Siesta.Syntax.Node _) ->
+        (match !last with
+         | Some (i, j) -> flush (After (i, j))
+         | None -> ()));
+    flush End;
+    List.rev !found
+  ;;
+
+  (* The children in order, with each comment put back by its anchor. *)
+  let place (comments : (anchor * Siesta.Green.child) list) (parts : part list)
+    : Siesta.Green.child list
+    =
+    let taken = Hashtbl.create 16 in
+    let take (wanted : anchor -> bool) : Siesta.Green.child list =
+      List.filteri comments ~f:(fun (n : int) ((anchor : anchor), _) ->
+        if (not (Hashtbl.mem taken n)) && wanted anchor
+        then (
+          Hashtbl.replace taken n ();
+          true)
+        else false)
+      |> List.map ~f:snd
+    in
+    let at (anchor : anchor) : Siesta.Green.child list =
+      take (fun (a : anchor) -> a = anchor)
+    in
+    (* An element the new node no longer has leaves its comments at the end
+       of the child. *)
+    let beyond (slot : int) (count : int) : Siesta.Green.child list =
+      take (fun (a : anchor) ->
+        match a with
+        | Before (i, j) | After (i, j) -> i = slot && j >= count
+        | End -> false)
+    in
+    let elements
+          (slot : int)
+          (sep : Siesta.Green.child option)
+          (elements : Siesta.Green.child list)
+      : Siesta.Green.child list
+      =
+      let count = List.length elements in
+      List.concat
+        (List.mapi elements ~f:(fun (j : int) (element : Siesta.Green.child) ->
+           let after =
+             match sep with
+             | Some sep when j < count - 1 -> [ sep ]
+             | Some _ | None -> []
+           in
+           at (Before (slot, j)) @ (element :: at (After (slot, j))) @ after))
+      @ beyond slot count
+    in
+    let last = List.length parts - 1 in
+    let built =
+      List.concat
+        (List.mapi parts ~f:(fun (n : int) (part : part) ->
+           match part with
+           | Frame child when n = last -> at End @ [ child ]
+           | Frame child -> [ child ]
+           | Slot (slot, children) -> elements slot None children
+           | Separated { slot; leading; trailing; sep; elements = children } ->
+             let body = elements slot (Some sep) children in
+             if children = []
+             then body
+             else
+               (if leading then [ sep ] else []) @ body @ if trailing then [ sep ] else []))
+    in
+    built @ take (fun (_ : anchor) -> true)
+  ;;
+
+  let finish
+        ?(replacing : Siesta.Syntax.t option)
+        ~(slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+        ~(trivia : Ir.Kind.t -> bool)
+        ~(comment : Ir.Kind.t -> bool)
+        (cache : Siesta.Cache.t)
+        (k : Ir.Kind.t)
+        (cast : Siesta.Syntax.t -> 'view option)
+        (parts : part list)
+    : ('view, string) result
+    =
+    let comments =
+      match replacing with
+      | None -> []
+      | Some node -> comments node ~slots ~trivia ~comment
+    in
+    let green =
+      Siesta.Green.mk_node
+        cache
+        ~kind:k
+        ~children:(Array.of_list (place comments parts))
+        ()
+    in
+    match cast (Siesta.Syntax.of_root green) with
+    | Some view -> Ok view
+    | None -> Error "the view does not take its own kind"
+  ;;
+end

@@ -40,14 +40,15 @@ let () =
          errors;
        exit 1
      | Ok facts ->
+       (* The views are compiled into a wrapped library beside this. *)
+       let views = "Emitted_views." ^ String.capitalize_ascii name ^ "_views" in
        (match Sys.argv.(2) with
         | "mli" ->
           print_string (Ocaml.Emit.render_signature (Ocaml.Views.signature facts))
         | "rewrite" ->
-          (* The views are compiled into a wrapped library beside this. *)
-          let views = "Emitted_views." ^ String.capitalize_ascii name ^ "_views" in
           print_string (Ocaml.Emit.render (Ocaml.Rewrite.generate ~views facts))
         | "rewrite-mli" ->
-          print_string (Ocaml.Emit.render_signature (Ocaml.Rewrite.signature facts))
+          print_string
+            (Ocaml.Emit.render_signature (Ocaml.Rewrite.signature ~views facts))
         | _ -> print_string (Ocaml.Emit.render (Ocaml.Views.generate facts))))
 ;;

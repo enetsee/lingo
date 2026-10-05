@@ -353,6 +353,11 @@ let ml : t =
            breaks. And a comment where one would go is the source's to keep. *)
       ; "data C { Red | Rgb(int, int, int) }"
       ; "data C { (* c *) Red | Blue }"
+        (* A comment between an element and the separator after it, and one
+           alone in an empty body. Both sit directly in the body's node, which
+           is where a rebuilt node has to put them back. *)
+      ; "data C { Red (* c *) | Blue }"
+      ; "data C { (* c *) }"
       ; "let x : int = 1;"
       ; "let f (a : int) (b : int) : int = a + b;"
       ; "let f ~a : int = a;"

@@ -509,3 +509,26 @@
   lingo_runtime
   lingo_runtime.ir
   siesta))
+
+; law_make rebuilds every production node with its generated [make], then
+; formats and parses the tree again. It needs the layout and the shape oracle
+; as well as the parse.
+
+(tests
+ (names law_make)
+ (modules law_make)
+ (libraries
+  law
+  emitted_probe
+  emitted_views
+  inputs
+  lex
+  lingo.core
+  lingo.fuzz
+  lingo.interp
+  lingo.layout
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  lingo_runtime.ir
+  siesta))

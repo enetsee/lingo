@@ -150,5 +150,10 @@ val view_constructor : sum:string -> arm:string -> string
 (** The module in the views module that holds its helpers. *)
 val view_support : string
 
+(** The label a rewrite module's [make] takes the node it replaces under.
+    [make] labels its other arguments with the child names, so no child may
+    take this one. *)
+val rewrite_replacing : string
+
 val sum_type : prod:string -> child:string -> string
 val block_position_type : string -> string

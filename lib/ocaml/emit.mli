@@ -58,6 +58,9 @@ val erecord : (string * expr) list -> expr
     none is [()]. *)
 val etuple : expr list -> expr
 
+(** [evariant "A" None] is [`A]. *)
+val evariant : string -> expr option -> expr
+
 (** A constructor and its arguments. Several arguments become a tuple. *)
 val econstruct : string -> expr list -> expr
 
@@ -126,6 +129,7 @@ val ethunk : expr -> expr
 (** {1 Patterns} *)
 
 val pvar : string -> pat
+val pvariant : string -> pat option -> pat
 val pany : pat
 val pint : int -> pat
 val pstr : string -> pat
@@ -167,6 +171,9 @@ val ttuple : ty list -> ty
 
 (** [tvar "a"] is ['a]. *)
 val tvar : string -> ty
+
+(** A closed polymorphic variant: [\[ `A | `B of int \]]. *)
+val tvariant : (string * ty option) list -> ty
 
 val tarrow : domain:ty -> codomain:ty -> ty
 val tarrow_labelled : string -> domain:ty -> codomain:ty -> ty
