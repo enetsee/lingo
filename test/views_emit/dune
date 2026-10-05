@@ -545,6 +545,14 @@
   lingo_runtime.ir
   siesta))
 
+; Tokens as the formatter settles them, for the laws that compare two
+; formatted trees.
+
+(library
+ (name body_tokens)
+ (modules body_tokens)
+ (libraries lingo.core siesta))
+
 ; law_make rebuilds every production node with its generated [make], then
 ; formats and parses the tree again. It needs the layout and the shape oracle
 ; as well as the parse.
@@ -554,6 +562,7 @@
  (modules law_make)
  (libraries
   law
+  body_tokens
   emitted_probe
   emitted_views
   inputs
@@ -605,6 +614,30 @@
   inputs
   lex
   lingo.core
+  lingo.interp
+  lingo.layout
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  lingo_runtime.ir
+  siesta))
+
+; law_apply edits the items of every corpus file, applies the splices to the
+; old text, and parses and formats the result.
+
+(tests
+ (names law_apply)
+ (modules law_apply)
+ (libraries
+  law
+  body_tokens
+  emitted_probe
+  emitted_rewrite
+  emitted_views
+  inputs
+  lex
+  lingo.core
+  lingo.fuzz
   lingo.interp
   lingo.layout
   lingo.plan

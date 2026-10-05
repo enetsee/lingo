@@ -358,6 +358,11 @@ let ml : t =
            is where a rebuilt node has to put them back. *)
       ; "data C { Red (* c *) | Blue }"
       ; "data C { (* c *) }"
+        (* Comments between items. The first sits directly above an item and
+           goes where the item goes. The second is set off by blank lines and
+           stays where it is. *)
+      ; "let x : int = 1;\n\n(* about y *)\nlet y : int = 2;\n\nlet z : int = 3;"
+      ; "let x : int = 1;\n\n(* section *)\n\nlet y : int = 2;"
       ; "let x : int = 1;"
       ; "let f (a : int) (b : int) : int = a + b;"
       ; "let f ~a : int = a;"

@@ -67,6 +67,14 @@
     element and its comments go. A child whose separator has no fixed text
     gets neither. *)
 
+(** {1 Applying a result}
+
+    The module also holds [apply ~format ~before ~after], which is
+    {!Lingo_runtime.Rewrite.apply} with the grammar's items. A root's items
+    are its first repeated child of rules, where its frame puts no separator
+    between them, and the text between two items is that child's [between]
+    break. A root with no such child is one item. *)
+
 (** {1 Parentheses}
 
     Each block has a module named after its position type, such as

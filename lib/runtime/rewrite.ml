@@ -961,3 +961,244 @@ module Edit = struct
              | Some _ | None -> remove start here)))
   ;;
 end
+
+(* {1 Applying a result} *)
+
+type splice =
+  { range : int * int
+  ; text : string
+  }
+
+let splice (text : string) (splices : splice list) : string =
+  let ordered =
+    List.stable_sort splices ~cmp:(fun (a : splice) (b : splice) ->
+      compare a.range b.range)
+  in
+  let buffer = Buffer.create (String.length text) in
+  let pos =
+    List.fold_left ordered ~init:0 ~f:(fun (pos : int) (s : splice) ->
+      let start, stop = s.range in
+      Buffer.add_string buffer (String.sub text ~pos ~len:(start - pos));
+      Buffer.add_string buffer s.text;
+      stop)
+  in
+  Buffer.add_string buffer (String.sub text ~pos ~len:(String.length text - pos));
+  Buffer.contents buffer
+;;
+
+(* The longest common subsequence of two tag arrays, as index pairs in
+   order. *)
+let common (olds : int array) (news : int array) : (int * int) list =
+  let n = Array.length olds in
+  let m = Array.length news in
+  let table = Array.make_matrix ~dimx:(n + 1) ~dimy:(m + 1) 0 in
+  for i = n - 1 downto 0 do
+    for j = m - 1 downto 0 do
+      table.(i).(j)
+      <- (if olds.(i) = news.(j)
+          then table.(i + 1).(j + 1) + 1
+          else max table.(i + 1).(j) table.(i).(j + 1))
+    done
+  done;
+  let rec walk (i : int) (j : int) (acc : (int * int) list) =
+    if i = n || j = m
+    then List.rev acc
+    else if olds.(i) = news.(j)
+    then walk (i + 1) (j + 1) ((i, j) :: acc)
+    else if table.(i + 1).(j) >= table.(i).(j + 1)
+    then walk (i + 1) j acc
+    else walk i (j + 1) acc
+  in
+  walk 0 0 []
+;;
+
+let tag_of (node : Siesta.Syntax.t) : int = Siesta.Green.tag (Siesta.Syntax.green node)
+
+let apply
+      ~(format : Siesta.Green.node -> string)
+      ~(items : Siesta.Syntax.t -> Siesta.Syntax.t list option)
+      ~(between : string)
+      ~(trivia : Ir.Kind.t -> bool)
+      ~(comment : Ir.Kind.t -> bool)
+      ~(before : Siesta.Green.node)
+      ~(after : Siesta.Green.node)
+  : splice list
+  =
+  let old_root = Siesta.Syntax.of_root before in
+  let new_root = Siesta.Syntax.of_root after in
+  let whole () = [ { range = 0, Siesta.Green.text_len before; text = format after } ] in
+  (* The root's children that are neither trivia nor items, by tag. *)
+  let outside (root : Siesta.Syntax.t) (items : Siesta.Syntax.t list) : int list =
+    let inside = List.map items ~f:Siesta.Syntax.index_in_parent in
+    Array.to_list (Siesta.Syntax.children_array root)
+    |> List.filter_map ~f:(fun (elem : Siesta.Syntax.elem) ->
+      match elem with
+      | Siesta.Syntax.Node node
+        when not (List.mem (Siesta.Syntax.index_in_parent node) ~set:inside) ->
+        Some (tag_of node)
+      | Siesta.Syntax.Token token when not (trivia (Siesta.Syntax.Token.kind token)) ->
+        Some (Siesta.Green.Token.tag (Siesta.Syntax.Token.green token))
+      | Siesta.Syntax.Node _ | Siesta.Syntax.Token _ -> None)
+  in
+  if Siesta.Green.equal before after
+  then []
+  else (
+    match items old_root, items new_root with
+    | Some olds, Some news when outside old_root olds = outside new_root news ->
+      let olds = Array.of_list olds in
+      let news = Array.of_list news in
+      let children = Siesta.Syntax.children_array old_root in
+      let source = Siesta.Green.to_source before in
+      let is_space (elem : Siesta.Syntax.elem) : bool =
+        let k = Siesta.Syntax.elem_kind elem in
+        trivia k && not (comment k)
+      in
+      let start_of (elem : Siesta.Syntax.elem) : int =
+        fst (Siesta.Syntax.elem_text_range elem)
+      in
+      (* Where an item's run of comments starts: the comments directly
+         above it, with no blank line between any two of them or between the
+         last and the item. *)
+      let comments_start (item : Siesta.Syntax.t) : int =
+        let rec back (i : int) (start : int) =
+          if i < 0
+          then start
+          else (
+            let elem = children.(i) in
+            let k = Siesta.Syntax.elem_kind elem in
+            if comment k
+            then back (i - 1) (start_of elem)
+            else if is_space elem
+            then (
+              let a, b = Siesta.Syntax.elem_text_range elem in
+              let lines =
+                String.fold_left
+                  (String.sub source ~pos:a ~len:(b - a))
+                  ~init:0
+                  ~f:(fun n ch -> if ch = '\n' then n + 1 else n)
+              in
+              if lines >= 2 then start else back (i - 1) start)
+            else start)
+        in
+        back
+          (Siesta.Syntax.index_in_parent item - 1)
+          (fst (Siesta.Syntax.text_range item))
+      in
+      (* An item with its comments, and the whitespace after it where
+         something follows, or before it where nothing does. *)
+      let deleted (item : Siesta.Syntax.t) : int * int =
+        let start = comments_start item in
+        let stop = snd (Siesta.Syntax.text_range item) in
+        let rec forward (i : int) =
+          if i >= Array.length children
+          then None
+          else if is_space children.(i)
+          then forward (i + 1)
+          else Some (start_of children.(i))
+        in
+        match forward (Siesta.Syntax.index_in_parent item + 1) with
+        | Some next -> start, next
+        | None ->
+          let rec backward (i : int) =
+            if i < 0
+            then 0
+            else if is_space children.(i)
+            then backward (i - 1)
+            else snd (Siesta.Syntax.elem_text_range children.(i))
+          in
+          (* The comments' own index is not tracked, so walk back from the
+             first child that starts at or after [start]. *)
+          let first =
+            let rec find (i : int) =
+              if i >= Array.length children || start_of children.(i) >= start
+              then i
+              else find (i + 1)
+            in
+            find 0
+          in
+          backward (first - 1), stop
+      in
+      let old_tags = Array.map olds ~f:tag_of in
+      let new_tags = Array.map news ~f:tag_of in
+      let pairs = common old_tags new_tags in
+      (* An old item the rewrite took out, by tag, for a new one to move. *)
+      let gone = Hashtbl.create 8 in
+      let replaced = Array.make (Array.length olds) false in
+      let kept = Array.make (Array.length olds) false in
+      List.iter pairs ~f:(fun (i, _) -> kept.(i) <- true);
+      let splices = ref [] in
+      let add (s : splice) = splices := s :: !splices in
+      let inserts = ref [] in
+      (* Walk the gaps between matched items. *)
+      let rec gaps (prev_i : int) (prev_j : int) (pairs : (int * int) list) =
+        let next_i, next_j, rest =
+          match pairs with
+          | (i, j) :: rest -> i, j, Some rest
+          | [] -> Array.length olds, Array.length news, None
+        in
+        let old_gap = List.init ~len:(next_i - prev_i - 1) ~f:(fun t -> prev_i + 1 + t) in
+        let new_gap = List.init ~len:(next_j - prev_j - 1) ~f:(fun t -> prev_j + 1 + t) in
+        let rec pair (olds_left : int list) (news_left : int list) (last : int) =
+          match olds_left, news_left with
+          | i :: olds_rest, j :: news_rest ->
+            replaced.(i) <- true;
+            add
+              { range = Siesta.Syntax.text_range olds.(i)
+              ; text = format (Siesta.Syntax.green news.(j))
+              };
+            pair olds_rest news_rest i
+          | i :: olds_rest, [] ->
+            Hashtbl.add gone old_tags.(i) i;
+            pair olds_rest [] last
+          | [], news_left -> inserts := (last, next_i, news_left) :: !inserts
+        in
+        pair old_gap new_gap prev_i;
+        match rest with
+        | Some rest -> gaps next_i next_j rest
+        | None -> ()
+      in
+      gaps (-1) (-1) pairs;
+      (* A deleted item that a new one carries on as is moves, and keeps its
+         bytes and its comments. *)
+      let text_of (j : int) : string =
+        match Hashtbl.find_opt gone new_tags.(j) with
+        | Some i ->
+          Hashtbl.remove gone new_tags.(j);
+          let a = comments_start olds.(i) in
+          let b = snd (Siesta.Syntax.text_range olds.(i)) in
+          String.sub source ~pos:a ~len:(b - a)
+        | None -> format (Siesta.Syntax.green news.(j))
+      in
+      List.iter
+        (List.rev !inserts)
+        ~f:(fun ((last : int), (next : int), (js : int list)) ->
+          match js with
+          | [] -> ()
+          | js ->
+            let texts = List.map js ~f:text_of in
+            if last >= 0
+            then
+              add
+                { range =
+                    (let e = snd (Siesta.Syntax.text_range olds.(last)) in
+                     e, e)
+                ; text = String.concat ~sep:"" (List.map texts ~f:(fun t -> between ^ t))
+                }
+            else if next < Array.length olds
+            then (
+              let s = comments_start olds.(next) in
+              add
+                { range = s, s
+                ; text = String.concat ~sep:"" (List.map texts ~f:(fun t -> t ^ between))
+                })
+            else (
+              let e = Siesta.Green.text_len before in
+              let lead = if e > 0 && source.[e - 1] <> '\n' then "\n" else "" in
+              add { range = e, e; text = lead ^ String.concat ~sep:between texts }));
+      (* Every old item neither kept nor replaced is deleted. *)
+      Array.iteri olds ~f:(fun (i : int) (item : Siesta.Syntax.t) ->
+        if not (kept.(i) || replaced.(i)) then add { range = deleted item; text = "" });
+      List.stable_sort !splices ~cmp:(fun (a : splice) (b : splice) ->
+        compare a.range b.range)
+    | Some _, Some _ | None, _ | _, None -> whole ())
+;;

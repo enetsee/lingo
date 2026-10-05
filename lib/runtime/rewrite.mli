@@ -416,3 +416,51 @@ module Edit : sig
     -> at:int
     -> 's t
 end
+
+(** {1 Applying a result}
+
+    A rewrite gives a new tree. [apply] turns it into text edits on the old
+    source, one top-level item at a time, so the bytes of every item the
+    rewrite left alone stay as the author wrote them. *)
+
+(** Replace the bytes in [range], half open, with [text]. Ranges are offsets
+    in the source the old tree was parsed from. *)
+type splice =
+  { range : int * int
+  ; text : string
+  }
+
+(** [apply ~format ~items ~between ~trivia ~comment ~before ~after] gives
+    the splices that turn the source of [before] into a text whose parse is
+    [after].
+
+    [items] gives the items of a root: the nodes in its repeated slot, or
+    [None] where it has none. [between] is the text that goes between two
+    items. A generated module gives both from the grammar.
+
+    Old and new items are matched by tag, in order, so an item the rewrite
+    left alone is the same node and keeps its bytes.
+
+    - A changed item is formatted on its own and spliced over its range.
+      Its range is its own text, so the comments above it stay.
+    - A deleted item takes with it the run of comments directly above it,
+      with no blank line in between, and the whitespace after it.
+    - A moved item takes its bytes and that run of comments to its new place.
+    - A new item is formatted and put after the item before it, with
+      [between] in front of it.
+
+    Where [items] gives [None], or where anything in the root outside its
+    items changed, there is one splice, the whole new tree formatted. The
+    splices are in source order and do not overlap. *)
+val apply
+  :  format:(Siesta.Green.node -> string)
+  -> items:(Siesta.Syntax.t -> Siesta.Syntax.t list option)
+  -> between:string
+  -> trivia:(Ir.Kind.t -> bool)
+  -> comment:(Ir.Kind.t -> bool)
+  -> before:Siesta.Green.node
+  -> after:Siesta.Green.node
+  -> splice list
+
+(** [splice text splices] makes the edits. *)
+val splice : string -> splice list -> string

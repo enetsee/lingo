@@ -1364,6 +1364,124 @@ let edit_probes
   ]
 ;;
 
+(* -- applying a result -------------------------------------------------------- *)
+
+(* A root's items: its first repeated child of rules, where its frame puts
+   no separator between them. The text between two items is the child's
+   [between] break, as line breaks. *)
+let root_items (f : Core.Facts.t) : (Core.Rule.def * int * string) list =
+  List.filter_map f.roots ~f:(fun (id : Core.Rule.id) ->
+    let d = f.rules.(id) in
+    let separated =
+      match d.frame with
+      | Core.Rule.Separated _ | Core.Rule.Delimited { sep = Some _; _ } -> true
+      | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Delimited { sep = None; _ } ->
+        false
+    in
+    let found =
+      List.find_map
+        (List.mapi (Array.to_list d.children) ~f:(fun i c -> i, c))
+        ~f:(fun ((i : int), (c : Core.Rule.child)) ->
+          let gap (b : Core.Grammar.break_style) : string =
+            match b with
+            | Core.Grammar.Always lines -> String.make (max 1 (lines :> int)) '\n'
+            | Core.Grammar.Fit -> "\n"
+            | Core.Grammar.Never -> " "
+          in
+          match c.modifier with
+          | (Core.Grammar.Zero_or_more b | Core.Grammar.One_or_more b)
+            when Array.for_all c.alts ~f:(fun k -> not (Core.Facts.is_token_kind f k)) ->
+            Some (i, gap b)
+          | Core.Grammar.Zero_or_more _
+          | Core.Grammar.One_or_more _
+          | Core.Grammar.Exactly_one
+          | Core.Grammar.Zero_or_one -> None)
+    in
+    match found with
+    | Some (i, between) when not separated -> Some (d, i, between)
+    | Some _ | None -> None)
+;;
+
+let apply_item ~(views : string) (f : Core.Facts.t) : Emit.item =
+  let roots = root_items f in
+  let kind_of_root = Emit.ecall "Siesta.Syntax.kind" [ Emit.evar "root" ] in
+  let items =
+    Emit.elambda
+      [ Emit.arg_var "root" ]
+      (Emit.ematch
+         kind_of_root
+         (List.map roots ~f:(fun ((d : Core.Rule.def), (slot : int), _) ->
+            Emit.ecase
+              (Emit.pint (kind d))
+              (Emit.ecall
+                 "Stdlib.Option.map"
+                 [ Emit.elambda
+                     [ Emit.arg_var "slots" ]
+                     (Emit.ecall
+                        "Stdlib.List.filter_map"
+                        [ Emit.elambda
+                            [ Emit.arg_var "elem" ]
+                            (Emit.ematch
+                               (Emit.evar "elem")
+                               [ Emit.ecase
+                                   (Emit.pconstruct
+                                      "Siesta.Syntax.Node"
+                                      [ Emit.pvar "node" ])
+                                   (Emit.econstruct "Some" [ Emit.evar "node" ])
+                               ; Emit.ecase
+                                   (Emit.pconstruct "Siesta.Syntax.Token" [ Emit.pany ])
+                                   (Emit.econstruct "None" [])
+                               ])
+                        ; Emit.ecall
+                            "Stdlib.Array.get"
+                            [ Emit.evar "slots"; Emit.eint slot ]
+                        ])
+                 ; Emit.ecall
+                     (views ^ "." ^ Core.Manifest.view_support ^ ".slots")
+                     [ Emit.evar "root" ]
+                 ]))
+          @ [ Emit.ecase Emit.pany (Emit.econstruct "None" []) ]))
+  in
+  let between =
+    Emit.ematch
+      (Emit.ecall "Siesta.Green.kind" [ Emit.evar "before" ])
+      (List.map roots ~f:(fun ((d : Core.Rule.def), _, (gap : string)) ->
+         Emit.ecase (Emit.pint (kind d)) (Emit.estr gap))
+       @ [ Emit.ecase Emit.pany (Emit.estr "\n") ])
+  in
+  Emit.ilet
+    "apply"
+    ~args:[ Emit.Named "format"; Emit.Named "before"; Emit.Named "after" ]
+    (Emit.eapply_labelled
+       (Emit.evar (runtime "apply"))
+       [ Labelled "format", Emit.evar "format"
+       ; Labelled "items", items
+       ; Labelled "between", between
+       ; Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
+       ; Labelled "comment", kind_test (trivia_kinds f ~comments_only:true)
+       ; Labelled "before", Emit.evar "before"
+       ; Labelled "after", Emit.evar "after"
+       ])
+;;
+
+let apply_signature : Emit.sig_item =
+  let green = Emit.tcon "Siesta.Green.node" [] in
+  Emit.sval
+    "apply"
+    (Emit.tarrow_labelled
+       "format"
+       ~domain:(Emit.tarrow ~domain:green ~codomain:(Emit.tcon "string" []))
+       ~codomain:
+         (Emit.tarrow_labelled
+            "before"
+            ~domain:green
+            ~codomain:
+              (Emit.tarrow_labelled
+                 "after"
+                 ~domain:green
+                 ~codomain:(Emit.tcon "list" [ Emit.tcon (runtime "splice") [] ]))))
+;;
+
 (* -- what a node takes at its end ------------------------------------------- *)
 
 (* The kinds a node of rule [d], whose last filled slot is [j], takes at its
@@ -1486,7 +1604,8 @@ let generate ~(views : string) (f : Core.Facts.t) : Emit.item list =
   @ List.map (blocks f) ~f:(block_module ~views f)
   @ List.map (List.filter modules ~f:is_role) ~f:view_module
   @ edit_probes ~views f modules
-  @ [ probe f modules
+  @ [ apply_item ~views f
+    ; probe f modules
     ; rebuild ~views f modules
     ; Emit.ilet
         "needs_parens"
@@ -1513,4 +1632,5 @@ let signature ~(views : string) (f : Core.Facts.t) : Emit.sig_item list =
        ]
        @ edit_sigs ~views f d))
   @ List.map (blocks f) ~f:(block_signature ~views)
+  @ [ apply_signature ]
 ;;
