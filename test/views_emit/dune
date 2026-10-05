@@ -4,7 +4,12 @@
 (executable
  (name gen)
  (modules gen)
- (libraries lingo.core lingo.ocaml lingo_grammars nested_grammar))
+ (libraries
+  lingo.core
+  lingo.ocaml
+  lingo_grammars
+  nested_grammar
+  ties_grammar))
 
 (rule
  (with-stdout-to
@@ -188,6 +193,32 @@
 (rule
  (copy nested_views.ml nested_slots.ml))
 
+(rule
+ (with-stdout-to
+  ties_views.ml
+  (run ./gen.exe ties views)))
+
+(rule
+ (with-stdout-to
+  ties_views.mli
+  (run ./gen.exe ties mli)))
+
+(rule
+ (copy ties_views.ml ties_slots.ml))
+
+(rule
+ (with-stdout-to
+  ties_rewrite.ml
+  (run ./gen.exe ties rewrite)))
+
+(rule
+ (with-stdout-to
+  ties_rewrite.mli
+  (run ./gen.exe ties rewrite-mli)))
+
+(rule
+ (copy ties_rewrite.ml ties_probe.ml))
+
 (library
  (name emitted_views)
  (modules
@@ -204,7 +235,8 @@
   effekt_views
   wide_views
   ml_views
-  nested_views)
+  nested_views
+  ties_views)
  (libraries siesta))
 
 (library
@@ -223,7 +255,8 @@
   effekt_slots
   wide_slots
   ml_slots
-  nested_slots)
+  nested_slots
+  ties_slots)
  (libraries siesta))
 
 (rule
@@ -427,7 +460,8 @@
   effekt_rewrite
   wide_rewrite
   ml_rewrite
-  nested_rewrite)
+  nested_rewrite
+  ties_rewrite)
  (libraries emitted_views lingo_runtime siesta))
 
 (library
@@ -446,7 +480,8 @@
   effekt_probe
   wide_probe
   ml_probe
-  nested_probe)
+  nested_probe
+  ties_probe)
  (libraries emitted_views lingo_runtime siesta))
 
 ; law_views part (c) reads the emitted modules as files and asks [lingo.ocaml]
@@ -542,8 +577,30 @@
  (modules law_parens)
  (libraries
   law
+  ties_grammar
   emitted_probe
   emitted_rewrite
+  emitted_views
+  inputs
+  lex
+  lingo.core
+  lingo.interp
+  lingo.layout
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  lingo_runtime.ir
+  siesta))
+
+; law_edits deletes and inserts every element of every repeated child in the
+; corpus, and reads the child back from the formatted and parsed tree.
+
+(tests
+ (names law_edits)
+ (modules law_edits)
+ (libraries
+  law
+  emitted_probe
   emitted_views
   inputs
   lex

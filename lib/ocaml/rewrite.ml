@@ -952,6 +952,11 @@ let make ~(views : string) (f : Core.Facts.t) (module_name : string) (d : Core.R
             , Emit.evar (views ^ "." ^ Core.Manifest.view_support ^ ".slots") )
           ; Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
           ; Labelled "comment", kind_test (trivia_kinds f ~comments_only:true)
+          ; ( Labelled "takes"
+            , match d.origin with
+              | Core.Rule.Pratt_role _ ->
+                Emit.elambda [ Emit.arg_any; Emit.arg_any ] (Emit.ebool false)
+              | Core.Rule.User | Core.Rule.Pratt_block -> Emit.evar "takes_next" )
           ; Nolabel, Emit.evar cache
           ; Nolabel, Emit.eint (kind d)
           ; Nolabel, Emit.evar (views ^ "." ^ module_name ^ ".cast")
@@ -1154,6 +1159,313 @@ let rebuild
         @ [ Emit.ecase Emit.pany (Emit.econstruct "None" []) ]))
 ;;
 
+(* -- list edits ------------------------------------------------------------- *)
+
+(* What a repeated child's edits need: its slot, the separator between its
+   elements with its text, the opener before them, and whether one must
+   stay. A child whose separator has no fixed text to write has none. *)
+type edit =
+  { child : Core.Rule.child
+  ; index : int
+  ; sep : (int * string) option
+  ; opener : int option
+  ; must_stay : bool
+  }
+
+let edits_of (f : Core.Facts.t) (d : Core.Rule.def) : edit list =
+  List.filter_map
+    (List.mapi (Array.to_list d.children) ~f:(fun i c -> i, c))
+    ~f:(fun ((i : int), (c : Core.Rule.child)) ->
+      if not (repeats c)
+      then None
+      else (
+        let framed = i = d.body_from in
+        let sep =
+          match d.frame with
+          | Core.Rule.Delimited { sep = Some sep; _ } when framed ->
+            Some (sep.sep_tok, fixed_text f sep.sep_tok)
+          | Core.Rule.Separated { sep_tok; _ } when framed ->
+            Some (sep_tok, fixed_text f sep_tok)
+          | Core.Rule.Delimited _
+          | Core.Rule.Separated _
+          | Core.Rule.Plain
+          | Core.Rule.Committed _ -> None
+        in
+        let opener =
+          match d.frame with
+          | Core.Rule.Delimited { open_; _ } when framed -> Some (Core.Kind.to_int open_)
+          | Core.Rule.Delimited _
+          | Core.Rule.Separated _
+          | Core.Rule.Plain
+          | Core.Rule.Committed _ -> None
+        in
+        let must_stay =
+          match c.modifier with
+          | Core.Grammar.One_or_more _ -> true
+          | Core.Grammar.Zero_or_more _
+          | Core.Grammar.Exactly_one
+          | Core.Grammar.Zero_or_one -> false
+        in
+        match sep with
+        | Some (_, None) -> None
+        | Some (k, Some text) ->
+          Some
+            { child = c
+            ; index = i
+            ; sep = Some (Core.Kind.to_int k, text)
+            ; opener
+            ; must_stay
+            }
+        | None -> Some { child = c; index = i; sep = None; opener; must_stay }))
+;;
+
+let edit_args ~(views : string) (f : Core.Facts.t) (d : Core.Rule.def) (e : edit)
+  : (Ppxlib.arg_label * Emit.expr) list
+  =
+  [ Labelled "kind", Emit.eint (kind d)
+  ; Labelled "slots", Emit.evar (views ^ "." ^ Core.Manifest.view_support ^ ".slots")
+  ; Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
+  ; Labelled "slot", Emit.eint e.index
+  ; ( Labelled "sep"
+    , match e.sep with
+      | Some (k, text) ->
+        Emit.econstruct "Some" [ Emit.etuple [ Emit.eint k; Emit.estr text ] ]
+      | None -> Emit.econstruct "None" [] )
+  ]
+;;
+
+let opener_arg (e : edit) : Ppxlib.arg_label * Emit.expr =
+  ( Labelled "opener"
+  , match e.opener with
+    | Some k -> Emit.econstruct "Some" [ Emit.eint k ]
+    | None -> Emit.econstruct "None" [] )
+;;
+
+let insert_name (e : edit) : string = "insert_" ^ label e.child
+let delete_name (e : edit) : string = "delete_" ^ label e.child
+
+let edit_items ~(views : string) (f : Core.Facts.t) (d : Core.Rule.def) : Emit.item list =
+  List.concat_map (edits_of f d) ~f:(fun (e : edit) ->
+    let arms = arms ~views f e.child in
+    let element =
+      Emit.ecall "Stdlib.List.hd" [ piece "cache" arms (Emit.evar (label e.child)) ]
+    in
+    let args = edit_args ~views f d e in
+    (* The cache is needed only where the element is a token to build. *)
+    let with_cache (body : Emit.expr) : Emit.expr =
+      if
+        List.exists arms ~f:(fun (a : arm) ->
+          match a.symbol with
+          | Fixed _ | Pattern _ -> true
+          | View _ | Position _ -> false)
+      then
+        Emit.elet
+          "cache"
+          ~body:(Emit.ecall (runtime "Ctx.cache") [ Emit.evar "ctx" ])
+          ~rest:body
+      else body
+    in
+    let insert =
+      Emit.ilet
+        (insert_name e)
+        ~args:
+          (Emit.Named "at"
+           ::
+           (match element_t arms with
+            | Some _ -> [ Emit.arg_var (label e.child) ]
+            | None -> []))
+        (Emit.elambda
+           [ Emit.arg_var "ctx"; Emit.arg_var "node" ]
+           (with_cache
+              (Emit.eapply_labelled
+                 (Emit.evar (runtime "Edit.insert"))
+                 (args
+                  @ [ opener_arg e
+                    ; Labelled "at", Emit.evar "at"
+                    ; Nolabel, element
+                    ; Nolabel, Emit.evar "ctx"
+                    ; Nolabel, Emit.evar "node"
+                    ]))))
+    in
+    let delete =
+      Emit.ilet
+        (delete_name e)
+        ~args:[ Emit.Named "at" ]
+        (Emit.eapply_labelled
+           (Emit.evar (runtime "Edit.delete"))
+           (args
+            @ [ Labelled "required", Emit.ebool e.must_stay
+              ; Labelled "at", Emit.evar "at"
+              ]))
+    in
+    [ insert; delete ])
+;;
+
+let edit_sigs ~(views : string) (f : Core.Facts.t) (d : Core.Rule.def)
+  : Emit.sig_item list
+  =
+  List.concat_map (edits_of f d) ~f:(fun (e : edit) ->
+    let inserted =
+      match element_t (arms ~views f e.child) with
+      | Some ty -> Emit.tarrow ~domain:ty ~codomain:rule_t
+      | None -> rule_t
+    in
+    [ Emit.sval
+        (insert_name e)
+        (Emit.tarrow_labelled "at" ~domain:(Emit.tcon "int" []) ~codomain:inserted)
+    ; Emit.sval
+        (delete_name e)
+        (Emit.tarrow_labelled "at" ~domain:(Emit.tcon "int" []) ~codomain:rule_t)
+    ])
+;;
+
+(* [insert_at k slot ~at element] and [delete_at k slot ~at], for a test. They
+   take the element as a green child, so a test needs no view types. *)
+let edit_probes
+      ~(views : string)
+      (f : Core.Facts.t)
+      (modules : (string * Core.Rule.def) list)
+  : Emit.item list
+  =
+  let dispatch
+        (name : string)
+        (extra : Emit.arg list)
+        (body : Core.Rule.def -> edit -> Emit.expr)
+    =
+    Emit.ilet
+      name
+      ~args:([ Emit.arg_var "kind"; Emit.arg_var "slot"; Emit.Named "at" ] @ extra)
+      (Emit.ematch
+         (Emit.etuple [ Emit.evar "kind"; Emit.evar "slot" ])
+         (List.concat_map modules ~f:(fun ((_ : string), (d : Core.Rule.def)) ->
+            List.map (edits_of f d) ~f:(fun (e : edit) ->
+              Emit.ecase
+                (Emit.ptuple [ Emit.pint (kind d); Emit.pint e.index ])
+                (Emit.econstruct "Some" [ body d e ])))
+          @ [ Emit.ecase Emit.pany (Emit.econstruct "None" []) ]))
+  in
+  [ dispatch
+      "insert_at"
+      [ Emit.arg_var "element" ]
+      (fun d e ->
+         Emit.eapply_labelled
+           (Emit.evar (runtime "Edit.insert"))
+           (edit_args ~views f d e
+            @ [ opener_arg e
+              ; Labelled "at", Emit.evar "at"
+              ; Nolabel, Emit.evar "element"
+              ]))
+  ; dispatch "delete_at" [] (fun d e ->
+      Emit.eapply_labelled
+        (Emit.evar (runtime "Edit.delete"))
+        (edit_args ~views f d e
+         @ [ Labelled "required", Emit.ebool e.must_stay; Labelled "at", Emit.evar "at" ]
+        ))
+  ]
+;;
+
+(* -- what a node takes at its end ------------------------------------------- *)
+
+(* The kinds a node of rule [d], whose last filled slot is [j], takes at its
+   end. An optional or repeated child after [j] takes what it begins with,
+   and so does more of [j] where it repeats. A separated list takes its
+   separator. A slot that holds an expression takes any of its block's
+   operators, since a block reference is parsed from binding power 0. A
+   delimited rule ends at its closer and takes nothing. *)
+let open_kinds (f : Core.Facts.t) (d : Core.Rule.def) (j : int) : int list =
+  let first (c : Core.Rule.child) : Core.Kind.Set.t =
+    Core.Kind.Set.unions (List.map (Array.to_list c.alts) ~f:(Core.Facts.first_of_kind f))
+  in
+  let optional (c : Core.Rule.child) : bool = (not (required c)) || repeats c in
+  let operators (c : Core.Rule.child) : Core.Kind.t list =
+    List.concat_map (Array.to_list f.blocks) ~f:(fun (b : Core.Block.def) ->
+      if Array.exists c.alts ~f:(Core.Kind.equal b.kind)
+      then
+        List.map (Array.to_list b.infix) ~f:(fun (o : Core.Block.op) -> o.op_kind)
+        @ List.map (Array.to_list b.postfix) ~f:(fun (p : Core.Block.postfix) -> p.p_lead)
+      else [])
+  in
+  let kinds =
+    match d.frame with
+    | Core.Rule.Delimited _ -> Core.Kind.Set.empty
+    | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Separated _ ->
+      let later =
+        Array.to_list d.children
+        |> List.filteri ~f:(fun (s : int) (c : Core.Rule.child) -> s > j && optional c)
+        |> List.map ~f:first
+      in
+      let here =
+        if j < 0
+        then []
+        else (
+          let c = d.children.(j) in
+          (if repeats c then [ first c ] else [])
+          @ [ Core.Kind.Set.of_list (operators c) ]
+          @
+          match d.frame with
+          | Core.Rule.Separated { sep_tok; _ } -> [ Core.Kind.Set.singleton sep_tok ]
+          | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Delimited _ -> [])
+      in
+      Core.Kind.Set.unions (later @ here)
+  in
+  List.map (Core.Kind.Set.elements kinds) ~f:Core.Kind.to_int
+;;
+
+let takes_next ~(views : string) (f : Core.Facts.t) : Emit.item list =
+  let rule_case (d : Core.Rule.def) : Emit.case option =
+    let rows =
+      List.filter_map
+        (List.init ~len:(Array.length d.children + 1) ~f:(fun i -> i - 1))
+        ~f:(fun (j : int) ->
+          match open_kinds f d j with
+          | [] -> None
+          | kinds ->
+            Some
+              (Emit.ecase
+                 (Emit.pint j)
+                 (Emit.eapply (kind_test kinds) [ Emit.evar "next" ])))
+    in
+    if rows = []
+    then None
+    else
+      Some
+        (Emit.ecase
+           (Emit.pint (kind d))
+           (Emit.ematch
+              (Emit.evar "slot")
+              (rows @ [ Emit.ecase Emit.pany (Emit.ebool false) ])))
+  in
+  [ Emit.ilet
+      "open_after"
+      ~args:
+        [ Emit.arg_typed ~arg_name:"kind" ~type_path:"int"
+        ; Emit.arg_typed ~arg_name:"slot" ~type_path:"int"
+        ; Emit.arg_typed ~arg_name:"next" ~type_path:"int"
+        ]
+      (Emit.econstraint
+         (Emit.ematch
+            (Emit.evar "kind")
+            (List.filter_map (Array.to_list f.rules) ~f:rule_case
+             @ [ Emit.ecase Emit.pany (Emit.ebool false) ]))
+         (Emit.tcon "bool" []))
+  ; Emit.ilet
+      "takes_next"
+      ~args:
+        [ Emit.arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t"
+        ; Emit.arg_typed ~arg_name:"next" ~type_path:"int"
+        ]
+      (Emit.eapply_labelled
+         (Emit.evar (runtime "Construct.takes"))
+         [ ( Labelled "slots"
+           , Emit.evar (views ^ "." ^ Core.Manifest.view_support ^ ".slots") )
+         ; Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
+         ; Labelled "open_after", Emit.evar "open_after"
+         ; Nolabel, Emit.evar "node"
+         ; Nolabel, Emit.evar "next"
+         ])
+  ]
+;;
+
 (* Productions and a block's base first, since a block's module calls its
    bracketing atom's [make]. Then each block's module, then the roles, whose
    [make] calls it. *)
@@ -1165,11 +1477,15 @@ let generate ~(views : string) (f : Core.Facts.t) : Emit.item list =
     | Core.Rule.User | Core.Rule.Pratt_block -> false
   in
   let view_module ((module_name : string), (d : Core.Rule.def)) : Emit.item =
-    Emit.imodule module_name [ congr ~views f d; make ~views f module_name d ]
+    Emit.imodule
+      module_name
+      ([ congr ~views f d; make ~views f module_name d ] @ edit_items ~views f d)
   in
-  List.map (List.filter modules ~f:(fun m -> not (is_role m))) ~f:view_module
+  takes_next ~views f
+  @ List.map (List.filter modules ~f:(fun m -> not (is_role m))) ~f:view_module
   @ List.map (blocks f) ~f:(block_module ~views f)
   @ List.map (List.filter modules ~f:is_role) ~f:view_module
+  @ edit_probes ~views f modules
   @ [ probe f modules
     ; rebuild ~views f modules
     ; Emit.ilet
@@ -1192,8 +1508,9 @@ let signature ~(views : string) (f : Core.Facts.t) : Emit.sig_item list =
   List.map (Views.modules f) ~f:(fun ((module_name : string), (d : Core.Rule.def)) ->
     Emit.smodule
       module_name
-      [ Emit.sval "congr" (congr_t f d)
-      ; Emit.sval "make" (make_t ~views f module_name d)
-      ])
+      ([ Emit.sval "congr" (congr_t f d)
+       ; Emit.sval "make" (make_t ~views f module_name d)
+       ]
+       @ edit_sigs ~views f d))
   @ List.map (blocks f) ~f:(block_signature ~views)
 ;;

@@ -37,6 +37,15 @@
       refused with a reason, and counted. Building it anyway would give text
       that parses as another expression.
 
+      The ties grammar in test/views_emit/ties has a prefix and two postfix
+      operators whose binding powers equal an infix operator's. That is where
+      a comparison that is off by one gives a different answer, and no
+      grammar in grammars/ has one.
+
+      ml is drawn a second time with [if]s that may leave their [else] out.
+      An [if] with no [else] in front of an [else] would take it, so [make]
+      refuses that draw too, and it is counted apart.
+
       rassoc and rust have no bracketing atom. A role constructor there that
       wanted parentheses would fail, so on those two grammars (a) checks that
       none is ever wanted for a tree the parser built. calc carries a prefix
@@ -476,6 +485,55 @@ module Ml_expr = struct
   ;;
 end
 
+module Ties = struct
+  let rec expr (cache : Siesta.Cache.t) (state : Random.State.t) (depth : int)
+    : (Emitted_views.Ties_views.expr_position, string) result
+    =
+    let sub () = expr cache state (depth - 1) in
+    if depth = 0 || Random.State.int state 5 = 0
+    then
+      let* atom =
+        Emitted_rewrite.Ties_rewrite.Expr.make
+          cache
+          (string_of_int (Random.State.int state 10))
+      in
+      Ok (Emitted_views.Ties_views.Expr_position_expr atom)
+    else (
+      match Random.State.int state 6 with
+      | 0 ->
+        let* operand = sub () in
+        let* prefix = Emitted_rewrite.Ties_rewrite.Expr_prefix.make cache operand in
+        Ok (Emitted_views.Ties_views.Expr_position_expr_prefix prefix)
+      | 1 ->
+        let* operand = sub () in
+        let* bang = Emitted_rewrite.Ties_rewrite.Expr_postfix_bang.make cache operand in
+        Ok (Emitted_views.Ties_views.Expr_position_expr_postfix_bang bang)
+      | 2 ->
+        let* operand = sub () in
+        let* question =
+          Emitted_rewrite.Ties_rewrite.Expr_postfix_question.make cache operand
+        in
+        Ok (Emitted_views.Ties_views.Expr_position_expr_postfix_question question)
+      | _ ->
+        let op =
+          match Random.State.int state 3 with
+          | 0 -> `Plus
+          | 1 -> `Star
+          | _ -> `Caret
+        in
+        let* lhs = sub () in
+        let* rhs = sub () in
+        let* bin = Emitted_rewrite.Ties_rewrite.Expr_bin.make cache ~lhs ~op ~rhs () in
+        Ok (Emitted_views.Ties_views.Expr_position_expr_bin bin))
+  ;;
+
+  let build (cache : Siesta.Cache.t) (state : Random.State.t)
+    : (Siesta.Syntax.t, string) result
+    =
+    Result.map Emitted_views.Ties_views.Expr_position.syntax (expr cache state 5)
+  ;;
+end
+
 type drawn =
   { grammar_name : string
   ; draw_grammar : Core.Grammar.t
@@ -502,6 +560,20 @@ let drawn : drawn list =
     }
   ; { grammar_name = "ml"
     ; draw_grammar = Lingo_grammars.Ml_grammar.grammar
+    ; build = Ml_expr.build ~with_else:false
+    ; wrap = (fun text -> "let x : int = " ^ text ^ ";")
+    ; block = "Expr"
+    ; asks = Emitted_probe.Ml_probe.needs_parens
+    }
+  ; { grammar_name = "ties"
+    ; draw_grammar = Ties_grammar.grammar
+    ; build = Ties.build
+    ; wrap = (fun text -> text)
+    ; block = "Expr"
+    ; asks = Emitted_probe.Ties_probe.needs_parens
+    }
+  ; { grammar_name = "ml"
+    ; draw_grammar = Lingo_grammars.Ml_grammar.grammar
     ; build = Ml_type.build
     ; wrap = (fun text -> "type T = " ^ text ^ ";")
     ; block = "Type"
@@ -517,6 +589,7 @@ let () =
   let built = ref 0 in
   let added = ref 0 in
   let refused = ref 0 in
+  let dangling = ref 0 in
   List.iter drawn ~f:(fun (d : drawn) ->
     match Core.Facts.of_grammar d.draw_grammar with
     | Error _ -> Law.fail "%s: the grammar does not check" d.grammar_name
@@ -563,6 +636,7 @@ let () =
         match d.build cache state with
         | Error reason when String.ends_with ~suffix:"has no bracketing atom" reason ->
           incr refused
+        | Error "a child would take the token after it" -> incr dangling
         | Error reason -> Law.fail "(d) %s: building failed with %S" d.grammar_name reason
         | Ok expression ->
           incr built;
@@ -620,14 +694,16 @@ let () =
                        | Some _ | None -> ())))
                (Siesta.Syntax.descendants expression))
       done);
+  if !dangling = 0 then Law.fail "(d) no draw put an if with no else before an else";
   if Law.failures () = before
   then
     Law.pass
       "(d) %d expressions built from the constructors parse back, with %d atoms put in, \
-       and %d refused for want of one"
+       %d refused for want of one, and %d refused where an else would move"
       !built
       !added
       !refused
+      !dangling
 ;;
 
 let () = Law.summarise "law_parens"

@@ -23,6 +23,7 @@ let grammars : (string * Core.Grammar.t) list =
   ; "wide", Lingo_grammars.Wide_grammar.grammar
   ; "ml", Lingo_grammars.Ml_grammar.grammar
   ; "nested", Nested_grammar.grammar
+  ; "ties", Ties_grammar.grammar
   ]
 ;;
 

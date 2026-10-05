@@ -55,6 +55,18 @@
     A block's roles have a [make] too. It puts an operand in the block's
     bracketing atom where the parse would otherwise take it apart. *)
 
+(** {1 List edits}
+
+    Each repeated child gets [insert_<child> ~at element] and
+    [delete_<child> ~at], as rules on the node that holds it. The element
+    takes the type [make] takes for one element of that child. A child of a
+    token with fixed text takes none.
+
+    They put in or take out one element with its separator, and leave the
+    rest of the node as it was. See {!Lingo_runtime.Rewrite.Edit} for where an
+    element and its comments go. A child whose separator has no fixed text
+    gets neither. *)
+
 (** {1 Parentheses}
 
     Each block has a module named after its position type, such as
@@ -88,7 +100,10 @@
     - [rebuild cache node] reads a node through its view and builds it
       again with [make], replacing [node].
     - [needs_parens ~at node] is every block's [needs_parens], so a test
-      need not know which block an operand belongs to. It gives [None] for a node of any other
+      need not know which block an operand belongs to.
+    - [insert_at k slot ~at element] and [delete_at k slot ~at] are the list
+      edits of slot [slot] of kind [k], taking the element as a green child,
+      or [None] where that slot does not repeat. It gives [None] for a node of any other
       kind. *)
 val generate : views:string -> Core.Facts.t -> Emit.item list
 

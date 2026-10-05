@@ -622,11 +622,80 @@ module Construct = struct
     built @ take (fun (_ : anchor) -> true)
   ;;
 
+  (* The last child that is not trivia. *)
+  let last_meaningful ~(trivia : Ir.Kind.t -> bool) (node : Siesta.Syntax.t)
+    : Siesta.Syntax.elem option
+    =
+    Array.fold_left (Siesta.Syntax.children_array node) ~init:None ~f:(fun last elem ->
+      if trivia (Siesta.Syntax.elem_kind elem) then last else Some elem)
+  ;;
+
+  let rec takes
+            ~(slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+            ~(trivia : Ir.Kind.t -> bool)
+            ~(open_after : Ir.Kind.t -> int -> Ir.Kind.t -> bool)
+            (node : Siesta.Syntax.t)
+            (next : Ir.Kind.t)
+    : bool
+    =
+    match slots node with
+    | None -> false
+    | Some filled ->
+      let j = ref (-1) in
+      Array.iteri filled ~f:(fun (i : int) (elems : Siesta.Syntax.elem list) ->
+        if elems <> [] then j := i);
+      open_after (Siesta.Syntax.kind node) !j next
+      ||
+        (match !j, last_meaningful ~trivia node with
+        | -1, _ | _, None -> false
+        | j, Some last ->
+          (match List.rev filled.(j) with
+           | Siesta.Syntax.Node child :: _
+             when Siesta.Syntax.index_in_parent child = index last ->
+             takes ~slots ~trivia ~open_after child next
+           | _ -> false))
+  ;;
+
+  (* The kind of the first token in [child] that is not trivia. *)
+  let rec first_token ~(trivia : Ir.Kind.t -> bool) (child : Siesta.Green.child)
+    : Ir.Kind.t option
+    =
+    match child with
+    | Siesta.Green.Token token ->
+      let k = Siesta.Green.Token.kind token in
+      if trivia k then None else Some k
+    | Siesta.Green.Node node ->
+      Array.fold_left (Siesta.Green.children_array node) ~init:None ~f:(fun found child ->
+        match found with
+        | Some _ -> found
+        | None -> first_token ~trivia child)
+  ;;
+
+  (* Whether some node child would take the first token after it. *)
+  let clashes
+        ~(trivia : Ir.Kind.t -> bool)
+        ~(takes : Siesta.Syntax.t -> Ir.Kind.t -> bool)
+        (children : Siesta.Green.child list)
+    : bool
+    =
+    let rec go (children : Siesta.Green.child list) =
+      match children with
+      | [] -> false
+      | Siesta.Green.Node node :: rest ->
+        (match List.find_map rest ~f:(first_token ~trivia) with
+         | Some next when takes (Siesta.Syntax.of_root node) next -> true
+         | Some _ | None -> go rest)
+      | Siesta.Green.Token _ :: rest -> go rest
+    in
+    go children
+  ;;
+
   let finish
         ?(replacing : Siesta.Syntax.t option)
         ~(slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
         ~(trivia : Ir.Kind.t -> bool)
         ~(comment : Ir.Kind.t -> bool)
+        ~(takes : Siesta.Syntax.t -> Ir.Kind.t -> bool)
         (cache : Siesta.Cache.t)
         (k : Ir.Kind.t)
         (cast : Siesta.Syntax.t -> 'view option)
@@ -638,16 +707,16 @@ module Construct = struct
       | None -> []
       | Some node -> comments node ~slots ~trivia ~comment
     in
-    let green =
-      Siesta.Green.mk_node
-        cache
-        ~kind:k
-        ~children:(Array.of_list (place comments parts))
-        ()
-    in
-    match cast (Siesta.Syntax.of_root green) with
-    | Some view -> Ok view
-    | None -> Error "the view does not take its own kind"
+    let children = place comments parts in
+    if clashes ~trivia ~takes children
+    then Error "a child would take the token after it"
+    else (
+      let green =
+        Siesta.Green.mk_node cache ~kind:k ~children:(Array.of_list children) ()
+      in
+      match cast (Siesta.Syntax.of_root green) with
+      | Some view -> Ok view
+      | None -> Error "the view does not take its own kind")
   ;;
 end
 
@@ -668,5 +737,227 @@ module Parens = struct
     | None | Some (Siesta.Syntax.Token _) -> false
     | Some (Siesta.Syntax.Node child) ->
       expression (Siesta.Syntax.kind child) || ends_open ~trivia ~expression child
+  ;;
+end
+
+(* {1 List edits} *)
+
+module Edit = struct
+  (* The raw index of the first token of kind [k] after [from], or [None]
+     where a meaningful child that is not one comes first. *)
+  let next_of
+        ~(trivia : Ir.Kind.t -> bool)
+        (children : Siesta.Syntax.elem array)
+        (from : int)
+        (k : Ir.Kind.t)
+    : int option
+    =
+    let rec go (i : int) =
+      if i >= Array.length children
+      then None
+      else (
+        let kind = Siesta.Syntax.elem_kind children.(i) in
+        if trivia kind
+        then go (i + 1)
+        else (
+          match children.(i) with
+          | Siesta.Syntax.Token _ when kind = k -> Some i
+          | Siesta.Syntax.Token _ | Siesta.Syntax.Node _ -> None))
+    in
+    go (from + 1)
+  ;;
+
+  (* The same, looking back from [from]. *)
+  let previous_of
+        ~(trivia : Ir.Kind.t -> bool)
+        (children : Siesta.Syntax.elem array)
+        (from : int)
+        (k : Ir.Kind.t)
+    : int option
+    =
+    let rec go (i : int) =
+      if i < 0
+      then None
+      else (
+        let kind = Siesta.Syntax.elem_kind children.(i) in
+        if trivia kind
+        then go (i - 1)
+        else (
+          match children.(i) with
+          | Siesta.Syntax.Token _ when kind = k -> Some i
+          | Siesta.Syntax.Token _ | Siesta.Syntax.Node _ -> None))
+    in
+    go (from - 1)
+  ;;
+
+  (* The first raw index with a token of kind [k]. *)
+  let find (children : Siesta.Syntax.elem array) (k : Ir.Kind.t) : int option =
+    let found = ref None in
+    Array.iteri children ~f:(fun (i : int) (elem : Siesta.Syntax.elem) ->
+      match !found, elem with
+      | None, Siesta.Syntax.Token token when Siesta.Syntax.Token.kind token = k ->
+        found := Some i
+      | _ -> ());
+    !found
+  ;;
+
+  let splice
+        (ctx : 's Ctx.t)
+        (node : Siesta.Syntax.t)
+        ~(from : int)
+        ~(remove : int)
+        (inserts : Siesta.Green.child list)
+    : Siesta.Green.node
+    =
+    let green = Siesta.Syntax.green node in
+    let children = Siesta.Green.children_array green in
+    let kept_before = Array.to_list (Array.sub children ~pos:0 ~len:from) in
+    let kept_after =
+      Array.to_list
+        (Array.sub
+           children
+           ~pos:(from + remove)
+           ~len:(Array.length children - from - remove))
+    in
+    Siesta.Green.mk_node
+      (Ctx.cache ctx)
+      ~kind:(Siesta.Green.kind green)
+      ~payload:(Siesta.Green.payload green)
+      ~children:(Array.of_list (kept_before @ inserts @ kept_after))
+      ()
+  ;;
+
+  (* Where an empty child's first element goes: after the opener, or after
+     the last element of an earlier child, or at the start. *)
+  let empty_place
+        (children : Siesta.Syntax.elem array)
+        (filled : Siesta.Syntax.elem list array)
+        ~(slot : int)
+        ~(opener : Ir.Kind.t option)
+    : int
+    =
+    let earlier =
+      Array.to_list (Array.sub filled ~pos:0 ~len:(min slot (Array.length filled)))
+      |> List.concat
+      |> List.map ~f:index
+      |> List.fold_left ~init:(-1) ~f:max
+    in
+    match Option.bind opener (find children) with
+    | Some o when o > earlier -> o + 1
+    | Some _ | None -> earlier + 1
+  ;;
+
+  let elements
+        ~(kind : Ir.Kind.t)
+        ~(slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+        ~(slot : int)
+        (node : Siesta.Syntax.t)
+    : (Siesta.Syntax.elem list array * Siesta.Syntax.elem array, string) result
+    =
+    match slots node with
+    | Some filled when Siesta.Syntax.kind node = kind && slot < Array.length filled ->
+      Ok (filled, Array.of_list (List.map filled.(slot) ~f:(fun e -> e)))
+    | Some _ | None -> Error "another kind"
+  ;;
+
+  let insert
+        ~(kind : Ir.Kind.t)
+        ~(slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+        ~(trivia : Ir.Kind.t -> bool)
+        ~(slot : int)
+        ~(sep : (Ir.Kind.t * string) option)
+        ~(opener : Ir.Kind.t option)
+        ~(at : int)
+        (element : Siesta.Green.child)
+    : 's t
+    =
+    fun ctx node ->
+    match elements ~kind ~slots ~slot node with
+    | Error _ as failed -> failed
+    | Ok (_, elems) when at < 0 || at > Array.length elems -> Error "no such place"
+    | Ok (filled, elems) ->
+      let children = Siesta.Syntax.children_array node in
+      let n = Array.length elems in
+      let separator () : Siesta.Green.child =
+        match sep with
+        | Some (k, text) -> Construct.token (Ctx.cache ctx) k text
+        | None -> invalid_arg "Edit.insert: no separator"
+      in
+      let put (from : int) (inserts : Siesta.Green.child list) =
+        Ok (splice ctx node ~from ~remove:0 inserts)
+      in
+      (* Straight after the last meaningful child in front of element [at],
+         so the comments in front of it stay its own. That is the separator
+         before it, a leading separator, the opener, or the element before
+         it where the child has no separator. *)
+      let before (at : int) : int =
+        let rec back (i : int) =
+          if i < 0 || not (trivia (Siesta.Syntax.elem_kind children.(i)))
+          then i + 1
+          else back (i - 1)
+        in
+        back (index elems.(at) - 1)
+      in
+      (match sep with
+       | Some (k, _) when n = 0 ->
+         (* A lone separator in an empty body stays in front of the element. *)
+         let place = empty_place children filled ~slot ~opener in
+         (match next_of ~trivia children (place - 1) k with
+          | Some lone -> put (lone + 1) [ element ]
+          | None -> put place [ element ])
+       | None when n = 0 -> put (empty_place children filled ~slot ~opener) [ element ]
+       | None when at < n -> put (before at) [ element ]
+       | None -> put (index elems.(n - 1) + 1) [ element ]
+       | Some (k, _) when at = n ->
+         let last = index elems.(n - 1) in
+         (match next_of ~trivia children last k with
+          | Some trailing -> put (trailing + 1) [ element; separator () ]
+          | None -> put (last + 1) [ separator (); element ])
+       | Some _ -> put (before at) [ element; separator () ])
+  ;;
+
+  let delete
+        ~(kind : Ir.Kind.t)
+        ~(slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+        ~(trivia : Ir.Kind.t -> bool)
+        ~(slot : int)
+        ~(sep : (Ir.Kind.t * string) option)
+        ~(required : bool)
+        ~(at : int)
+    : 's t
+    =
+    fun ctx node ->
+    match elements ~kind ~slots ~slot node with
+    | Error _ as failed -> failed
+    | Ok (_, elems) when at < 0 || at >= Array.length elems -> Error "no such element"
+    | Ok (_, elems) when required && Array.length elems = 1 ->
+      Error "at least one is required"
+    | Ok (_, elems) ->
+      let children = Siesta.Syntax.children_array node in
+      let n = Array.length elems in
+      let here = index elems.(at) in
+      (* Everything after the meaningful child in front of the element, so
+         the comments directly in front of it go with it. *)
+      let start =
+        let rec back (i : int) =
+          if i < 0 || not (trivia (Siesta.Syntax.elem_kind children.(i)))
+          then i + 1
+          else back (i - 1)
+        in
+        back (here - 1)
+      in
+      let remove (from : int) (last : int) =
+        Ok (splice ctx node ~from ~remove:(last - from + 1) [])
+      in
+      (match sep with
+       | None -> remove start here
+       | Some (k, _) ->
+         (match next_of ~trivia children here k with
+          | Some after when at < n - 1 -> remove start after
+          | Some trailing when n = 1 -> remove start trailing
+          | Some _ | None ->
+            (match previous_of ~trivia children here k with
+             | Some before when at > 0 -> remove before here
+             | Some _ | None -> remove start here)))
   ;;
 end

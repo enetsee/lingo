@@ -1,0 +1,3 @@
+(library
+ (name ties_grammar)
+ (libraries lingo.grammar redfa))

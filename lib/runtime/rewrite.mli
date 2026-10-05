@@ -303,16 +303,41 @@ module Construct : sig
     -> Siesta.Green.child list
     -> part
 
-  (** [finish ?replacing ~slots ~trivia ~comment cache k cast parts] builds a
-      node of kind [k] from the parts, and gives it as a view over a cursor of
-      its own. [cast] is the view module's. [slots] is the views module's slot
-      walk, and [trivia] and [comment] say which kinds are trivia and which
-      of those are comments. They are read only where [replacing] is given. *)
+  (** [takes ~slots ~trivia ~open_after node next] holds where [node], put in
+      front of a token of kind [next], would read that token as its own. The
+      parse would then give the token to [node], and the text would not mean
+      the tree. An [if] with no [else], put in front of an [else], is the
+      case.
+
+      [open_after k j next] says whether a node of kind [k], whose last
+      filled slot is [j], takes [next] at its end: an optional or repeated
+      child after [j] that begins with [next], more of [j] where it repeats,
+      a separator, or an operator where [j] holds an expression. [j] is [-1]
+      where no slot is filled. Where nothing in [node] follows the last
+      element of [j], the question goes on to that element. *)
+  val takes
+    :  slots:(Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+    -> trivia:(Ir.Kind.t -> bool)
+    -> open_after:(Ir.Kind.t -> int -> Ir.Kind.t -> bool)
+    -> Siesta.Syntax.t
+    -> Ir.Kind.t
+    -> bool
+
+  (** [finish ?replacing ~slots ~trivia ~comment ~takes cache k cast parts]
+      builds a node of kind [k] from the parts, and gives it as a view over a
+      cursor of its own. [cast] is the view module's. [slots] is the views
+      module's slot walk, and [trivia] and [comment] say which kinds are
+      trivia and which of those are comments.
+
+      It fails where a child would take the token after it, by [takes]. A
+      role gives a [takes] that never holds, since its operands are settled
+      by parentheses. *)
   val finish
     :  ?replacing:Siesta.Syntax.t
     -> slots:(Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
     -> trivia:(Ir.Kind.t -> bool)
     -> comment:(Ir.Kind.t -> bool)
+    -> takes:(Siesta.Syntax.t -> Ir.Kind.t -> bool)
     -> Siesta.Cache.t
     -> Ir.Kind.t
     -> (Siesta.Syntax.t -> 'view option)
@@ -341,4 +366,53 @@ module Parens : sig
     -> expression:(Ir.Kind.t -> bool)
     -> Siesta.Syntax.t
     -> bool
+end
+
+(** {1 List edits}
+
+    What a generated [insert_<child>] and [delete_<child>] call. Both work on
+    one repeated child of a node, by its slot, and splice the node's own
+    children. So whitespace and comments around the other elements stay where
+    they were, and the formatter settles the rest.
+
+    [sep] is the frame's separator, with the text to write, and [opener] the
+    kind of its opening delimiter. Generated code gives both as constants. *)
+module Edit : sig
+  (** [insert ~kind ~slots ~trivia ~slot ~sep ~opener ~at element] puts
+      [element] in front of element [at] of the child, or after the last where
+      [at] is the number of elements.
+
+      With a separator it goes straight after the separator in front of
+      element [at], or after the opener, so the comments in front of element
+      [at] stay with it. A list with a separator after its last element keeps
+      one there. It fails on a node of any other kind and where [at] is past
+      the end. *)
+  val insert
+    :  kind:Ir.Kind.t
+    -> slots:(Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+    -> trivia:(Ir.Kind.t -> bool)
+    -> slot:int
+    -> sep:(Ir.Kind.t * string) option
+    -> opener:Ir.Kind.t option
+    -> at:int
+    -> Siesta.Green.child
+    -> 's t
+
+  (** [delete ~kind ~slots ~trivia ~slot ~sep ~required ~at] takes element
+      [at] out of the child, with the comments directly in front of it.
+
+      With a separator it takes one separator too: the one after the
+      element, or for the last element the one before it. A separator after
+      the last element stays where the list had one. It fails on a node of
+      any other kind, where there is no element [at], and where [required] is
+      set and [at] is the only element. *)
+  val delete
+    :  kind:Ir.Kind.t
+    -> slots:(Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+    -> trivia:(Ir.Kind.t -> bool)
+    -> slot:int
+    -> sep:(Ir.Kind.t * string) option
+    -> required:bool
+    -> at:int
+    -> 's t
 end

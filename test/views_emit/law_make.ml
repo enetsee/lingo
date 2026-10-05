@@ -291,6 +291,7 @@ let () =
                    ~slots:(fun (node : Siesta.Syntax.t) -> Some [| meaningful node |])
                    ~trivia
                    ~comment
+                   ~takes:(fun _ _ -> false)
                    cache
                    (Siesta.Syntax.kind node)
                    (fun (cursor : Siesta.Syntax.t) -> Some cursor)
