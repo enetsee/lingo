@@ -1,6 +1,7 @@
 (* -- the emitted views, as source -----------------------------------------------
 
-      Writes one grammar's views module, or its interface. The dune rules
+      Writes one grammar's views module or its rewrite module, or the
+      interface of either. The dune rules
       beside this compile the module twice. One copy has the interface and
       links [siesta] alone, so a view module that reached for anything else
       would not build. The other has no interface, so the law can reach the
@@ -42,5 +43,11 @@ let () =
        (match Sys.argv.(2) with
         | "mli" ->
           print_string (Ocaml.Emit.render_signature (Ocaml.Views.signature facts))
+        | "rewrite" ->
+          (* The views are compiled into a wrapped library beside this. *)
+          let views = "Emitted_views." ^ String.capitalize_ascii name ^ "_views" in
+          print_string (Ocaml.Emit.render (Ocaml.Rewrite.generate ~views facts))
+        | "rewrite-mli" ->
+          print_string (Ocaml.Emit.render_signature (Ocaml.Rewrite.signature facts))
         | _ -> print_string (Ocaml.Emit.render (Ocaml.Views.generate facts))))
 ;;

@@ -36,9 +36,14 @@
 
     Takes the facts of a grammar the checks accepted. *)
 
+(** Every production and role that gets a view, with the name of its module,
+    in the order the views module declares them. *)
+val modules : Core.Facts.t -> (string * Core.Rule.def) list
+
 (** Every type above, a [Slots] module of helpers, the variant modules, then
     the view modules. *)
 val generate : Core.Facts.t -> Emit.item list
 
-(** The same, without [Slots]. *)
+(** The same, with [Slots.slots] the only helper in it. It sorts a node's
+    children into its slots, by the node's kind. *)
 val signature : Core.Facts.t -> Emit.sig_item list

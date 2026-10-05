@@ -297,6 +297,7 @@ let itype_record (name : Ppxlib.label) (fields : (Ppxlib.label * ty) list) : ite
 
 let tcon (path : Ppxlib.label) (args : ty list) : ty = Ast.ptyp_constr (lid path) args
 let ttuple (tys : ty list) : ty = Ast.ptyp_tuple tys
+let tvar (name : Ppxlib.label) : ty = Ast.ptyp_var name
 let tarrow ~(domain : ty) ~(codomain : ty) : ty = Ast.ptyp_arrow Nolabel domain codomain
 
 let tarrow_labelled (label : Ppxlib.label) ~(domain : ty) ~(codomain : ty) : ty =

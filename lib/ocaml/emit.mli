@@ -164,6 +164,10 @@ val itype_record : string -> (string * ty) list -> item
 
 val tcon : string -> ty list -> ty
 val ttuple : ty list -> ty
+
+(** [tvar "a"] is ['a]. *)
+val tvar : string -> ty
+
 val tarrow : domain:ty -> codomain:ty -> ty
 val tarrow_labelled : string -> domain:ty -> codomain:ty -> ty
 val tarrow_optional : string -> domain:ty -> codomain:ty -> ty

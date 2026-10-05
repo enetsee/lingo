@@ -226,6 +226,229 @@
   nested_slots)
  (libraries siesta))
 
+(rule
+ (with-stdout-to
+  sexp_rewrite.ml
+  (run ./gen.exe sexp rewrite)))
+
+(rule
+ (with-stdout-to
+  sexp_rewrite.mli
+  (run ./gen.exe sexp rewrite-mli)))
+
+(rule
+ (copy sexp_rewrite.ml sexp_probe.ml))
+
+(rule
+ (with-stdout-to
+  json_rewrite.ml
+  (run ./gen.exe json rewrite)))
+
+(rule
+ (with-stdout-to
+  json_rewrite.mli
+  (run ./gen.exe json rewrite-mli)))
+
+(rule
+ (copy json_rewrite.ml json_probe.ml))
+
+(rule
+ (with-stdout-to
+  calc_rewrite.ml
+  (run ./gen.exe calc rewrite)))
+
+(rule
+ (with-stdout-to
+  calc_rewrite.mli
+  (run ./gen.exe calc rewrite-mli)))
+
+(rule
+ (copy calc_rewrite.ml calc_probe.ml))
+
+(rule
+ (with-stdout-to
+  rassoc_rewrite.ml
+  (run ./gen.exe rassoc rewrite)))
+
+(rule
+ (with-stdout-to
+  rassoc_rewrite.mli
+  (run ./gen.exe rassoc rewrite-mli)))
+
+(rule
+ (copy rassoc_rewrite.ml rassoc_probe.ml))
+
+(rule
+ (with-stdout-to
+  postfix_rewrite.ml
+  (run ./gen.exe postfix rewrite)))
+
+(rule
+ (with-stdout-to
+  postfix_rewrite.mli
+  (run ./gen.exe postfix rewrite-mli)))
+
+(rule
+ (copy postfix_rewrite.ml postfix_probe.ml))
+
+(rule
+ (with-stdout-to
+  shapes_rewrite.ml
+  (run ./gen.exe shapes rewrite)))
+
+(rule
+ (with-stdout-to
+  shapes_rewrite.mli
+  (run ./gen.exe shapes rewrite-mli)))
+
+(rule
+ (copy shapes_rewrite.ml shapes_probe.ml))
+
+(rule
+ (with-stdout-to
+  unicode_rewrite.ml
+  (run ./gen.exe unicode rewrite)))
+
+(rule
+ (with-stdout-to
+  unicode_rewrite.mli
+  (run ./gen.exe unicode rewrite-mli)))
+
+(rule
+ (copy unicode_rewrite.ml unicode_probe.ml))
+
+(rule
+ (with-stdout-to
+  recovery_rewrite.ml
+  (run ./gen.exe recovery rewrite)))
+
+(rule
+ (with-stdout-to
+  recovery_rewrite.mli
+  (run ./gen.exe recovery rewrite-mli)))
+
+(rule
+ (copy recovery_rewrite.ml recovery_probe.ml))
+
+(rule
+ (with-stdout-to
+  comments_rewrite.ml
+  (run ./gen.exe comments rewrite)))
+
+(rule
+ (with-stdout-to
+  comments_rewrite.mli
+  (run ./gen.exe comments rewrite-mli)))
+
+(rule
+ (copy comments_rewrite.ml comments_probe.ml))
+
+(rule
+ (with-stdout-to
+  rust_rewrite.ml
+  (run ./gen.exe rust rewrite)))
+
+(rule
+ (with-stdout-to
+  rust_rewrite.mli
+  (run ./gen.exe rust rewrite-mli)))
+
+(rule
+ (copy rust_rewrite.ml rust_probe.ml))
+
+(rule
+ (with-stdout-to
+  effekt_rewrite.ml
+  (run ./gen.exe effekt rewrite)))
+
+(rule
+ (with-stdout-to
+  effekt_rewrite.mli
+  (run ./gen.exe effekt rewrite-mli)))
+
+(rule
+ (copy effekt_rewrite.ml effekt_probe.ml))
+
+(rule
+ (with-stdout-to
+  wide_rewrite.ml
+  (run ./gen.exe wide rewrite)))
+
+(rule
+ (with-stdout-to
+  wide_rewrite.mli
+  (run ./gen.exe wide rewrite-mli)))
+
+(rule
+ (copy wide_rewrite.ml wide_probe.ml))
+
+(rule
+ (with-stdout-to
+  ml_rewrite.ml
+  (run ./gen.exe ml rewrite)))
+
+(rule
+ (with-stdout-to
+  ml_rewrite.mli
+  (run ./gen.exe ml rewrite-mli)))
+
+(rule
+ (copy ml_rewrite.ml ml_probe.ml))
+
+(rule
+ (with-stdout-to
+  nested_rewrite.ml
+  (run ./gen.exe nested rewrite)))
+
+(rule
+ (with-stdout-to
+  nested_rewrite.mli
+  (run ./gen.exe nested rewrite-mli)))
+
+(rule
+ (copy nested_rewrite.ml nested_probe.ml))
+
+; The rewrite modules, compiled the same two ways. The copy without the
+; interface keeps [probe], which law_congr runs every congruence through.
+
+(library
+ (name emitted_rewrite)
+ (modules
+  sexp_rewrite
+  json_rewrite
+  calc_rewrite
+  rassoc_rewrite
+  postfix_rewrite
+  shapes_rewrite
+  unicode_rewrite
+  recovery_rewrite
+  comments_rewrite
+  rust_rewrite
+  effekt_rewrite
+  wide_rewrite
+  ml_rewrite
+  nested_rewrite)
+ (libraries emitted_views lingo_runtime siesta))
+
+(library
+ (name emitted_probe)
+ (modules
+  sexp_probe
+  json_probe
+  calc_probe
+  rassoc_probe
+  postfix_probe
+  shapes_probe
+  unicode_probe
+  recovery_probe
+  comments_probe
+  rust_probe
+  effekt_probe
+  wide_probe
+  ml_probe
+  nested_probe)
+ (libraries emitted_views lingo_runtime siesta))
+
 ; law_views part (c) reads the emitted modules as files and asks [lingo.ocaml]
 ; for them again, so the generator is covered at run time as well.
 
@@ -265,4 +488,24 @@
   lex
   lingo.core
   lingo_grammars
+  siesta))
+
+; law_congr runs every generated congruence over every tree the interpreter
+; parses from test/inputs, and reads the expected node from the facts.
+
+(tests
+ (names law_congr)
+ (modules law_congr)
+ (libraries
+  law
+  emitted_probe
+  emitted_views
+  inputs
+  lex
+  lingo.core
+  lingo.interp
+  lingo.plan
+  lingo_grammars
+  lingo_runtime
+  lingo_runtime.ir
   siesta))

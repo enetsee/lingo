@@ -186,6 +186,10 @@ let views_of (f : Core.Facts.t) : view list =
     | Core.Rule.Pratt_block -> if Array.length d.children > 0 then Some view else None)
 ;;
 
+let modules (f : Core.Facts.t) : (string * Core.Rule.def) list =
+  List.map (views_of f) ~f:(fun (v : view) -> v.module_name, v.def)
+;;
+
 let positions (f : Core.Facts.t) : (string * arm list) list =
   Array.to_list f.blocks
   |> List.map ~f:(fun (b : Core.Block.def) ->
@@ -476,9 +480,9 @@ let slots (f : Core.Facts.t) (v : view) : Emit.item =
        ])
 ;;
 
-(* Every view's walk, by the node's kind. No accessor reads it and the
-   signature leaves it out. It is here so a test can walk any node without
-   knowing which module reads it. *)
+(* Every view's walk, by the node's kind. No accessor reads it. A test walks
+   any node through it, and a generated congruence finds its children with
+   it, so it is the one helper in the signature. *)
 let dispatch (views : view list) : Emit.item =
   Emit.ilet
     "slots"
@@ -625,6 +629,18 @@ let signature (f : Core.Facts.t) : Emit.sig_item list =
   let views = views_of f in
   List.map views ~f:(fun (v : view) -> Emit.stype_private v.view_type syntax_t)
   @ List.map (variants f views) ~f:(fun (name, ctors) -> Emit.stype_variant name ctors)
+  @ [ Emit.smodule
+        Core.Manifest.view_support
+        [ Emit.sval
+            "slots"
+            (Emit.tarrow
+               ~domain:syntax_t
+               ~codomain:
+                 (Emit.tcon
+                    "option"
+                    [ Emit.tcon "array" [ Emit.tcon "list" [ elem_t ] ] ]))
+        ]
+    ]
   @ List.map (positions f @ sums f views) ~f:variant_sig
   @ List.map views ~f:(fun (v : view) ->
     Emit.smodule

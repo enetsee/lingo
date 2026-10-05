@@ -75,6 +75,27 @@ let kind (k : Ir.Kind.t) (s : 's t) : 's t =
 
 (* {1 One level down} *)
 
+let original (elem : Siesta.Syntax.elem) : Siesta.Green.child =
+  match elem with
+  | Siesta.Syntax.Node node -> Siesta.Green.Node (Siesta.Syntax.green node)
+  | Siesta.Syntax.Token token -> Siesta.Green.Token (Siesta.Syntax.Token.green token)
+;;
+
+let same (elem : Siesta.Syntax.elem) (child : Siesta.Green.child) : bool =
+  match elem, child with
+  | Siesta.Syntax.Node node, Siesta.Green.Node green -> unchanged node green
+  | Siesta.Syntax.Token token, Siesta.Green.Token green ->
+    Siesta.Green.Token.equal green (Siesta.Syntax.Token.green token)
+  | Siesta.Syntax.Node _, Siesta.Green.Token _
+  | Siesta.Syntax.Token _, Siesta.Green.Node _ -> false
+;;
+
+let index (elem : Siesta.Syntax.elem) : int =
+  match elem with
+  | Siesta.Syntax.Node node -> Siesta.Syntax.index_in_parent node
+  | Siesta.Syntax.Token token -> Siesta.Syntax.Token.index_in_parent token
+;;
+
 (* A parent's children as [all], [one] and [some] change them. The green
    array is copied at the first child whose tag changed. A parent where
    nothing changed allocates nothing and comes back as the same node, which is
@@ -87,10 +108,8 @@ module Rebuild = struct
 
   let start (parent : Siesta.Syntax.t) : t = { parent; children = None }
 
-  let set (t : t) (index : int) (child : Siesta.Syntax.t) (green : Siesta.Green.node)
-    : unit
-    =
-    if not (unchanged child green)
+  let set (t : t) (elem : Siesta.Syntax.elem) (child : Siesta.Green.child) : unit =
+    if not (same elem child)
     then (
       let children =
         match t.children with
@@ -100,7 +119,7 @@ module Rebuild = struct
           t.children <- Some children;
           children
       in
-      children.(index) <- Siesta.Green.Node green)
+      children.(index elem) <- child)
   ;;
 
   (* The payload is the parent's diagnostic id, and the parent is still the
@@ -135,7 +154,7 @@ let all (s : 's t) : 's t =
         (match s ctx child with
          | Error _ as failed -> failed
          | Ok green ->
-           Rebuild.set rebuild index child green;
+           Rebuild.set rebuild (Siesta.Syntax.Node child) (Siesta.Green.Node green);
            go (index + 1)))
   in
   go 0
@@ -157,7 +176,7 @@ let one (s : 's t) : 's t =
          | Error reason -> go (index + 1) reason
          | Ok green ->
            let rebuild = Rebuild.start node in
-           Rebuild.set rebuild index child green;
+           Rebuild.set rebuild (Siesta.Syntax.Node child) (Siesta.Green.Node green);
            Ok (Rebuild.finish ctx rebuild)))
   in
   go 0 no_child_node
@@ -177,7 +196,7 @@ let some (s : 's t) : 's t =
         (match s ctx child with
          | Error reason -> go (index + 1) succeeded reason
          | Ok green ->
-           Rebuild.set rebuild index child green;
+           Rebuild.set rebuild (Siesta.Syntax.Node child) (Siesta.Green.Node green);
            go (index + 1) true reason))
   in
   go 0 false no_child_node
@@ -252,4 +271,207 @@ let collect (s : 's t) (ctx : 's Ctx.t) (node : Siesta.Syntax.t)
       Siesta.Syntax.Skip
     | Error _ -> Siesta.Syntax.Descend);
   List.rev !found
+;;
+
+(* {1 Congruences} *)
+
+module Token = struct
+  type 's t =
+    's Ctx.t -> Siesta.Syntax.token_cursor -> (Siesta.Green.token, string) result
+
+  let id : 's t = fun _ token -> Ok (Siesta.Syntax.Token.green token)
+
+  let text (text : string) : 's t =
+    fun ctx token ->
+    Ok
+      (Siesta.Green.mk_token (Ctx.cache ctx) ~kind:(Siesta.Syntax.Token.kind token) ~text)
+  ;;
+
+  let make (k : Ir.Kind.t) (text : string) : 's t =
+    fun ctx _ -> Ok (Siesta.Green.mk_token (Ctx.cache ctx) ~kind:k ~text)
+  ;;
+end
+
+(* What a rule gives for one element of a slot. [None] is an element of the
+   other shape, which the rule passes through. [Elems.one] and [Elems.some]
+   do not count it as a success. *)
+type 's element =
+  's Ctx.t -> Siesta.Syntax.elem -> (Siesta.Green.child, string) result option
+
+let node_element (s : 's t) : 's element =
+  fun ctx elem ->
+  match elem with
+  | Siesta.Syntax.Node node ->
+    Some (Result.map (fun green -> Siesta.Green.Node green) (s ctx node))
+  | Siesta.Syntax.Token _ -> None
+;;
+
+let token_element (s : 's Token.t) : 's element =
+  fun ctx elem ->
+  match elem with
+  | Siesta.Syntax.Token token ->
+    Some (Result.map (fun green -> Siesta.Green.Token green) (s ctx token))
+  | Siesta.Syntax.Node _ -> None
+;;
+
+module Elem = struct
+  type 's rule = 's t
+
+  type 's t =
+    { node : 's rule option
+    ; token : 's Token.t option
+    }
+
+  let make ?(node : 's rule option) ?(token : 's Token.t option) () : 's t =
+    { node; token }
+  ;;
+end
+
+(* An omitted rule leaves its element as it was, and that counts as a success. *)
+let elem_element (e : 's Elem.t) : 's element =
+  fun ctx elem ->
+  match elem, e.node, e.token with
+  | Siesta.Syntax.Node _, Some s, _ -> node_element s ctx elem
+  | Siesta.Syntax.Token _, _, Some s -> token_element s ctx elem
+  | Siesta.Syntax.Node _, None, _ | Siesta.Syntax.Token _, _, None ->
+    Some (Ok (original elem))
+;;
+
+module Elems = struct
+  type 'r t =
+    | All of 'r
+    | One of 'r
+    | Some_of of 'r
+    | Nth of int * 'r
+
+  let all (r : 'r) : 'r t = All r
+  let one (r : 'r) : 'r t = One r
+  let some (r : 'r) : 'r t = Some_of r
+  let nth (index : int) (r : 'r) : 'r t = Nth (index, r)
+end
+
+let no_element = "no element"
+
+(* What one slot becomes, element for element. *)
+let run_all (element : 's element) (ctx : 's Ctx.t) (elems : Siesta.Syntax.elem list)
+  : (Siesta.Green.child list, string) result
+  =
+  let rec go (elems : Siesta.Syntax.elem list) (acc : Siesta.Green.child list) =
+    match elems with
+    | [] -> Ok (List.rev acc)
+    | elem :: rest ->
+      (match element ctx elem with
+       | None -> go rest (original elem :: acc)
+       | Some (Error _ as failed) -> failed
+       | Some (Ok child) -> go rest (child :: acc))
+  in
+  go elems []
+;;
+
+let run_one (element : 's element) (ctx : 's Ctx.t) (elems : Siesta.Syntax.elem list)
+  : (Siesta.Green.child list, string) result
+  =
+  let rec go
+            (elems : Siesta.Syntax.elem list)
+            (acc : Siesta.Green.child list)
+            (reason : string)
+    =
+    match elems with
+    | [] -> Error reason
+    | elem :: rest ->
+      (match element ctx elem with
+       | None -> go rest (original elem :: acc) reason
+       | Some (Error reason) -> go rest (original elem :: acc) reason
+       | Some (Ok child) -> Ok (List.rev_append acc (child :: List.map rest ~f:original)))
+  in
+  go elems [] no_element
+;;
+
+let run_some (element : 's element) (ctx : 's Ctx.t) (elems : Siesta.Syntax.elem list)
+  : (Siesta.Green.child list, string) result
+  =
+  let rec go
+            (elems : Siesta.Syntax.elem list)
+            (acc : Siesta.Green.child list)
+            (succeeded : bool)
+            (reason : string)
+    =
+    match elems with
+    | [] -> if succeeded then Ok (List.rev acc) else Error reason
+    | elem :: rest ->
+      (match element ctx elem with
+       | None -> go rest (original elem :: acc) succeeded reason
+       | Some (Error reason) -> go rest (original elem :: acc) succeeded reason
+       | Some (Ok child) -> go rest (child :: acc) true reason)
+  in
+  go elems [] false no_element
+;;
+
+let run_nth
+      (index : int)
+      (element : 's element)
+      (ctx : 's Ctx.t)
+      (elems : Siesta.Syntax.elem list)
+  : (Siesta.Green.child list, string) result
+  =
+  match List.nth_opt elems index with
+  | None -> Error no_element
+  | Some elem ->
+    (match element ctx elem with
+     | None -> Error "another shape"
+     | Some (Error _ as failed) -> failed
+     | Some (Ok child) ->
+       Ok (List.mapi elems ~f:(fun i elem -> if i = index then child else original elem)))
+;;
+
+let run_elems (element : 'r -> 's element) (es : 'r Elems.t)
+  : 's Ctx.t -> Siesta.Syntax.elem list -> (Siesta.Green.child list, string) result
+  =
+  match es with
+  | Elems.All r -> run_all (element r)
+  | Elems.One r -> run_one (element r)
+  | Elems.Some_of r -> run_some (element r)
+  | Elems.Nth (index, r) -> run_nth index (element r)
+;;
+
+module Slot = struct
+  type 's rule = 's t
+
+  type 's t =
+    's Ctx.t -> Siesta.Syntax.elem list -> (Siesta.Green.child list, string) result
+
+  let node (s : 's rule) : 's t = run_all (node_element s)
+  let token (s : 's Token.t) : 's t = run_all (token_element s)
+  let elem (e : 's Elem.t) : 's t = run_all (elem_element e)
+  let nodes (es : 's rule Elems.t) : 's t = run_elems node_element es
+  let tokens (es : 's Token.t Elems.t) : 's t = run_elems token_element es
+  let elems (es : 's Elem.t Elems.t) : 's t = run_elems elem_element es
+end
+
+let congruence
+      (k : Ir.Kind.t)
+      (slots : Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+      (rules : 's Slot.t option array)
+  : 's t
+  =
+  fun ctx node ->
+  match slots node with
+  | Some elems when Siesta.Syntax.kind node = k ->
+    let rebuild = Rebuild.start node in
+    let rec go (slot : int) =
+      if slot = Array.length rules
+      then Ok (Rebuild.finish ctx rebuild)
+      else (
+        match rules.(slot) with
+        | None -> go (slot + 1)
+        | Some rule ->
+          let elems = if slot < Array.length elems then elems.(slot) else [] in
+          (match rule ctx elems with
+           | Error _ as failed -> failed
+           | Ok children ->
+             List.iter2 elems children ~f:(Rebuild.set rebuild);
+             go (slot + 1)))
+    in
+    go 0
+  | Some _ | None -> Error "another kind"
 ;;

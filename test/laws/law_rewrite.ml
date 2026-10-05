@@ -12,6 +12,11 @@
           changed, it is the cursor the first rule had.
       (d) [repeat] stops where its rule fails, and fails where the fuel runs
           out. [collect] finds the nodes [alltd] changes, in source order.
+      (e) [congruence] over one slot holding every child agrees with the
+          one-level traversals. [Elems.all], [Elems.one] and [Elems.some]
+          with a node rule succeed where [all], [one] and [some] do, and give
+          the same node. [Elems.nth i] changes child node [i] alone. A token
+          rule changes the tokens and passes the nodes through.
 
       Mechanism. Every input in test/inputs is parsed by the interpreter, and
       every part runs over every node of every tree, recovered ones included.
@@ -33,6 +38,10 @@
       the tree holds, so a kind nested in itself is reached wherever the corpus
       nests one. A traversal that primes the parent where it should prime the
       last child gives the same text, so the comparison is by structure.
+
+      Part (e) gives [congruence] a slot function of its own, which puts
+      every child in one repeated slot. The generated congruences, with the
+      grammar's real slots, are test/views_emit/law_congr.ml's.
 
       Part (c) reads the ancestors through [Syntax.ancestors] on both cursors
       and compares their kinds.
@@ -532,6 +541,170 @@ let () =
   if Law.failures () = before
   then
     Law.pass "(d) repeat stops and collect finds the outermost nodes, over %d kinds" !runs
+;;
+
+(* -- (e) congruences against the one-level traversals ----------------------- *)
+
+let one_slot (node : Siesta.Syntax.t) : Siesta.Syntax.elem list array option =
+  Some [| Array.to_list (Siesta.Syntax.children_array node) |]
+;;
+
+let succeeds_alike
+      (x : (Siesta.Green.node, string) result)
+      (y : (Siesta.Green.node, string) result)
+  : bool
+  =
+  match x, y with
+  | Ok a, Ok b -> same a b
+  | Error _, Error _ -> true
+  | Ok _, Error _ | Error _, Ok _ -> false
+;;
+
+let prime_token : unit Lingo_runtime.Rewrite.Token.t =
+  fun ctx token ->
+  Ok
+    (Siesta.Green.mk_token
+       (Lingo_runtime.Rewrite.Ctx.cache ctx)
+       ~kind:(Siesta.Syntax.Token.kind token)
+       ~text:(Siesta.Syntax.Token.text token ^ "'"))
+;;
+
+let () =
+  let before = Law.failures () in
+  let nodes = ref 0 in
+  List.iter trees ~f:(fun ((name : string), (tree : Siesta.Green.node)) ->
+    let root = Siesta.Syntax.of_root tree in
+    let ctx = ctx_of root in
+    let cache = Lingo_runtime.Rewrite.Ctx.cache ctx in
+    Seq.iter
+      (fun (node : Siesta.Syntax.t) ->
+         incr nodes;
+         let kind = Siesta.Syntax.kind node in
+         let congr (slot : unit Lingo_runtime.Rewrite.Slot.t)
+           : unit Lingo_runtime.Rewrite.t
+           =
+           Lingo_runtime.Rewrite.congruence kind one_slot [| Some slot |]
+         in
+         List.iter
+           [ "prime", prime; "odd", odd; "fail", Lingo_runtime.Rewrite.fail "f" ]
+           ~f:(fun ((rule : string), (s : unit Lingo_runtime.Rewrite.t)) ->
+             List.iter
+               [ ( "all"
+                 , congr
+                     (Lingo_runtime.Rewrite.Slot.nodes
+                        (Lingo_runtime.Rewrite.Elems.all s))
+                 , Lingo_runtime.Rewrite.all s )
+               ; ( "one"
+                 , congr
+                     (Lingo_runtime.Rewrite.Slot.nodes
+                        (Lingo_runtime.Rewrite.Elems.one s))
+                 , Lingo_runtime.Rewrite.one s )
+               ; ( "some"
+                 , congr
+                     (Lingo_runtime.Rewrite.Slot.nodes
+                        (Lingo_runtime.Rewrite.Elems.some s))
+                 , Lingo_runtime.Rewrite.some s )
+               ]
+               ~f:
+                 (fun
+                   ( (traversal : string)
+                   , (via : unit Lingo_runtime.Rewrite.t)
+                   , (direct : unit Lingo_runtime.Rewrite.t) ) ->
+                 let got = via ctx node in
+                 let want = direct ctx node in
+                 if not (succeeds_alike got want)
+                 then
+                   Law.fail
+                     "(e) %s, kind %d: Elems.%s %s gives %a where %s gives %a"
+                     name
+                     kind
+                     traversal
+                     rule
+                     pp_result
+                     got
+                     traversal
+                     pp_result
+                     want));
+         let elems = Siesta.Syntax.children_array node in
+         Array.iteri elems ~f:(fun (i : int) (elem : Siesta.Syntax.elem) ->
+           let got =
+             congr
+               (Lingo_runtime.Rewrite.Slot.nodes
+                  (Lingo_runtime.Rewrite.Elems.nth i prime))
+               ctx
+               node
+           in
+           match elem, got with
+           | Siesta.Syntax.Node child, Ok got ->
+             let children = Siesta.Green.children_array (Siesta.Syntax.green node) in
+             children.(i)
+             <- Siesta.Green.Node (prime_green cache (Siesta.Syntax.green child));
+             let green = Siesta.Syntax.green node in
+             let want =
+               Siesta.Green.mk_node
+                 cache
+                 ~kind:(Siesta.Green.kind green)
+                 ~payload:(Siesta.Green.payload green)
+                 ~children
+                 ()
+             in
+             if not (same got want)
+             then
+               Law.fail "(e) %s, kind %d: Elems.nth %d changed another child" name kind i
+           | Siesta.Syntax.Token _, Error _ -> ()
+           | Siesta.Syntax.Node _, Error reason ->
+             Law.fail "(e) %s, kind %d: Elems.nth %d failed with %S" name kind i reason
+           | Siesta.Syntax.Token _, Ok _ ->
+             Law.fail
+               "(e) %s, kind %d: Elems.nth %d ran a node rule on a token"
+               name
+               kind
+               i);
+         (match
+            congr
+              (Lingo_runtime.Rewrite.Slot.nodes
+                 (Lingo_runtime.Rewrite.Elems.nth (Array.length elems) prime))
+              ctx
+              node
+          with
+          | Error _ -> ()
+          | Ok _ -> Law.fail "(e) %s, kind %d: Elems.nth past the end succeeded" name kind);
+         let want =
+           Siesta.Green.mk_node
+             cache
+             ~kind
+             ~payload:(Siesta.Green.payload (Siesta.Syntax.green node))
+             ~children:
+               (Array.map elems ~f:(fun (elem : Siesta.Syntax.elem) ->
+                  match elem with
+                  | Siesta.Syntax.Node child ->
+                    Siesta.Green.Node (Siesta.Syntax.green child)
+                  | Siesta.Syntax.Token token ->
+                    Siesta.Green.Token
+                      (Siesta.Green.mk_token
+                         cache
+                         ~kind:(Siesta.Syntax.Token.kind token)
+                         ~text:(Siesta.Syntax.Token.text token ^ "'"))))
+             ()
+         in
+         match
+           congr
+             (Lingo_runtime.Rewrite.Slot.tokens
+                (Lingo_runtime.Rewrite.Elems.all prime_token))
+             ctx
+             node
+         with
+         | Ok got when same got want -> ()
+         | r ->
+           Law.fail
+             "(e) %s, kind %d: a token rule over every child gives %a"
+             name
+             kind
+             pp_result
+             r)
+      (Siesta.Syntax.descendants root));
+  if Law.failures () = before
+  then Law.pass "(e) congruence agrees with all, one and some at %d nodes" !nodes
 ;;
 
 let () = Law.summarise "law_rewrite"

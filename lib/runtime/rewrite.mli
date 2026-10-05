@@ -170,3 +170,87 @@ val collect
   -> 's Ctx.t
   -> Siesta.Syntax.t
   -> (Siesta.Syntax.t * Siesta.Green.node) list
+
+(** {1 Congruences}
+
+    A congruence runs a rule on each named child of a node, and rebuilds the
+    node once. The generated [<lang>_rewrite.ml] has one per production. It
+    finds the children with the views' slot walk and calls {!congruence}.
+
+    A child rule runs on the elements of its slot, on cursors in the original
+    tree. It runs on the elements of its own shape. A token rule passes a node
+    through as it was, and a node rule a token. That is how {!all} treats
+    tokens, and it covers a placeholder that recovery left in a token's
+    slot. *)
+
+(** A rule for a token. *)
+module Token : sig
+  type 's t =
+    's Ctx.t -> Siesta.Syntax.token_cursor -> (Siesta.Green.token, string) result
+
+  val id : 's t
+
+  (** [text s] gives the token the text [s] and keeps its kind. *)
+  val text : string -> 's t
+
+  (** [make k s] gives a token of kind [k] and text [s]. *)
+  val make : Ir.Kind.t -> string -> 's t
+end
+
+(** A rule for a child that holds a token or a node, depending on which of its
+    symbols the parse found. *)
+module Elem : sig
+  type 's rule := 's t
+  type 's t
+
+  (** [make ?node ?token ()] runs [node] on a node and [token] on a token. An
+      omitted rule leaves its element as it was. *)
+  val make : ?node:'s rule -> ?token:'s Token.t -> unit -> 's t
+end
+
+(** A rule for a repeated child. ['r] is the rule each element takes: a {!t},
+    a {!Token.t} or an {!Elem.t}, by what the child holds. These mirror the
+    one-level traversals. *)
+module Elems : sig
+  type 'r t
+
+  (** [all r] runs [r] on every element, and fails where any fails. *)
+  val all : 'r -> 'r t
+
+  (** [one r] runs [r] on the elements in order, and stops at the first where
+      it succeeds. It fails where it succeeds on none. *)
+  val one : 'r -> 'r t
+
+  (** [some r] runs [r] on every element, and keeps what it gave where it
+      succeeded. It fails where it succeeded on none. *)
+  val some : 'r -> 'r t
+
+  (** [nth i r] runs [r] on element [i], counting from 0. It fails where the
+      child has no element [i]. *)
+  val nth : int -> 'r -> 'r t
+end
+
+(** One child's rule, as {!congruence} takes it. Generated code builds these. *)
+module Slot : sig
+  type 's rule := 's t
+  type 's t
+
+  val node : 's rule -> 's t
+  val token : 's Token.t -> 's t
+  val elem : 's Elem.t -> 's t
+  val nodes : 's rule Elems.t -> 's t
+  val tokens : 's Token.t Elems.t -> 's t
+  val elems : 's Elem.t Elems.t -> 's t
+end
+
+(** [congruence k slots rules] runs on a node of kind [k], and fails on any
+    other. [slots] sorts the node's children into its slots. The rule at
+    index [i] of [rules] runs on slot [i], and [None] leaves the slot as it
+    was. A slot with no elements, such as an absent optional child, succeeds.
+
+    The node is rebuilt once, and only where some element's tag changed. *)
+val congruence
+  :  Ir.Kind.t
+  -> (Siesta.Syntax.t -> Siesta.Syntax.elem list array option)
+  -> 's Slot.t option array
+  -> 's t
