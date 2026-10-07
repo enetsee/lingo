@@ -21,7 +21,7 @@
       reader defaults would have to be dropped and defaulted to the same
       value to stay hidden.
 
-      Coverage. One plan, and twenty-two broken ones. The plan's loop reaches
+      Coverage. One plan, and twenty-four broken ones. The plan's loop reaches
       both exit policies: it may end after an element, and ending after a
       separator reports the separator as extra. The round-trip says
       nothing about a plan no [of_facts] would build, and [of_facts] does not
@@ -497,6 +497,56 @@ let broken =
               }))
     , function
       | Plan.Check.Empty_resume _ -> true
+      | _ -> false )
+  ; ( "a commit over a choice whose otherwise takes nothing"
+    , with_body
+        (open_
+           (Ir.Plan.Commit
+              { first = [| k_lparen; k_word |]
+              ; recover = [||]
+              ; at_child = "x"
+              ; message = msg 1
+              ; hole = None
+              ; placeholder = n_hole
+              ; resume = None
+              ; body =
+                  Ir.Plan.Alt
+                    { arms = [| [| k_word |], Ir.Plan.Bump |]
+                    ; otherwise = Ir.Plan.Seq [||]
+                    }
+              }))
+    , function
+      | Plan.Check.Commit_matches_nothing _ -> true
+      | _ -> false )
+  ; ( "a commit over a call to a rule that can match nothing"
+    , { good with
+        rules =
+          [| { file with
+               body =
+                 open_
+                   (Ir.Plan.Commit
+                      { first = [| k_word |]
+                      ; recover = [||]
+                      ; at_child = "x"
+                      ; message = msg 1
+                      ; hole = None
+                      ; placeholder = n_hole
+                      ; resume = None
+                      ; body = Ir.Plan.Call 4
+                      })
+             }
+           ; list_rule
+           ; item
+           ; paren
+           ; { paren with
+               name = "Empty"
+             ; first = [||]
+             ; body = Ir.Plan.Seq [| Ir.Plan.Open n_paren; Ir.Plan.Close |]
+             }
+          |]
+      }
+    , function
+      | Plan.Check.Commit_matches_nothing _ -> true
       | _ -> false )
   ; ( "a node opened and not closed"
     , with_body (Ir.Plan.Seq [| Ir.Plan.Open n_file; Ir.Plan.Bump |])

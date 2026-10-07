@@ -34,6 +34,7 @@ type problem =
       ; depth : int
       }
   | Close_without_open of { at : string }
+  | Commit_matches_nothing of { at : string }
 
 let pp_problem (fmt : Format.formatter) : problem -> unit = function
   | Rule_out_of_range { at; id } -> Format.fprintf fmt "%s: no rule %d" at id
@@ -58,6 +59,8 @@ let pp_problem (fmt : Format.formatter) : problem -> unit = function
   | Unbalanced { at; depth } ->
     Format.fprintf fmt "%s: open and close leave a depth of %d" at depth
   | Close_without_open { at } -> Format.fprintf fmt "%s: a close with nothing open" at
+  | Commit_matches_nothing { at } ->
+    Format.fprintf fmt "%s: a required child that can be empty" at
   | Pairs_unordered { at } ->
     Format.fprintf fmt "%s: the delimiter pairs are not ascending and distinct" at
 ;;
@@ -69,11 +72,88 @@ let pp_problem (fmt : Format.formatter) : problem -> unit = function
    alternatives is four places to look. *)
 let sub at step = at ^ "/" ^ step
 
+(* Whether [i] can finish without taking a token, given which rules can.
+   [under] is what the cursor may be on where [i] starts, and [None] is any
+   kind. A commit enters its body only on a kind in its [first], and the
+   lowering writes a required choice as an [Alt] whose arms take every one of
+   them. That [Alt]'s [otherwise] takes nothing, and it never runs.
+
+   [Ir.Residual] works out nullability too, but it indexes rules, blocks and
+   loop states as it finds them and raises on one that is not there. A plan
+   that reaches here may be that broken, and the other checks report it. So an
+   index out of range reads as taking a token here.
+
+   A commit reads as taking a token. One whose body can take nothing is
+   reported where it sits, and reading it the same way here keeps that to one
+   report. *)
+let rec nullable (null : bool array) (under : Ir.Kind.t list option) (i : Ir.Plan.instr)
+  : bool
+  =
+  (* The part of [under] a dispatch on [on] takes, and the part it leaves. *)
+  let split (on : Ir.Kind.t list) : Ir.Kind.t list option * Ir.Kind.t list option =
+    match under with
+    | None -> Some on, None
+    | Some kinds ->
+      let taken, left = List.partition kinds ~f:(fun k -> List.mem k ~set:on) in
+      Some taken, Some left
+  in
+  let reachable : Ir.Kind.t list option -> bool = function
+    | None -> true
+    | Some kinds -> kinds <> []
+  in
+  match i with
+  | Seq xs -> Array.for_all xs ~f:(nullable null under)
+  | Open _ | Close | Trivia | Drain _ -> true
+  | Bump | Bump_reporting _ | Expect _ | Pratt _ | Commit _ -> false
+  | Call r -> r >= 0 && r < Array.length null && null.(r)
+  | Alt a ->
+    let all_on =
+      List.concat_map (Array.to_list a.arms) ~f:(fun (on, _) -> Array.to_list on)
+    in
+    let _, left = split all_on in
+    Array.exists a.arms ~f:(fun (on, body) ->
+      let taken, _ = split (Array.to_list on) in
+      reachable taken && nullable null taken body)
+    || (reachable left && nullable null left a.otherwise)
+  | Loop l ->
+    l.entry >= 0
+    && l.entry < Array.length l.states
+    &&
+    let state = l.states.(l.entry) in
+    let accepted =
+      List.concat_map (Array.to_list state.accepts) ~f:(fun (on, _) -> Array.to_list on)
+    in
+    let _, left = split accepted in
+    reachable left
+    &&
+      (match state.exit with
+      | May_exit -> true
+      | May_exit_reporting _ -> false)
+;;
+
+(* Reading a [Call] needs the result for the rule it names, and a grammar may
+   be recursive, so this is a fixpoint. A rule only ever goes from false to
+   true, so the loop settles. *)
+let nullable_rules (p : Ir.Plan.t) : bool array =
+  let null = Array.make (Array.length p.rules) false in
+  let settled = ref false in
+  while not !settled do
+    settled := true;
+    Array.iteri p.rules ~f:(fun ri (r : Ir.Plan.rule) ->
+      if (not null.(ri)) && nullable null None r.body
+      then (
+        null.(ri) <- true;
+        settled := false))
+  done;
+  null
+;;
+
 let run (p : Ir.Plan.t) : (unit, problem list) result =
   let found = ref [] in
   let report x = found := x :: !found in
   let n_rules = Array.length p.rules in
   let n_blocks = Array.length p.blocks in
+  let null = nullable_rules p in
   let kinds at (ks : Ir.Kind.t array) =
     Array.iter ks ~f:(fun k -> if k < 0 then report (Negative_kind { at; kind = k }));
     let ordered = ref true in
@@ -153,6 +233,8 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
        | Some r when Array.length r = 0 -> report (Empty_resume { at })
        | Some r -> kinds (sub at "resume") r
        | None -> ());
+      if nullable null (Some (Array.to_list c.first)) c.body
+      then report (Commit_matches_nothing { at });
       balanced (sub at "body") c.body;
       0, 0
     | Loop l ->

@@ -62,7 +62,13 @@
 (tests
  (names law_lower)
  (modules law_lower)
- (libraries law lingo.plan lingo.core lingo_grammars lingo_runtime.ir))
+ (libraries
+  law
+  lingo.plan
+  lingo.core
+  lingo_grammars
+  lingo_witness
+  lingo_runtime.ir))
 
 ; law_interp drives the interpreter over every grammar in the corpus. It lexes
 ; through test/lex, which reads the facts' own automaton, so adding a grammar

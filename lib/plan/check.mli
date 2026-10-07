@@ -56,6 +56,11 @@ type problem =
   (** A branch closes a node it never opened. Its opens and its closes can
       still come to nothing overall, so counting them is not enough. The
       depth has to stay above zero the whole way through. *)
+  | Commit_matches_nothing of { at : string }
+  (** A [Commit] whose body can finish without taking a token. A commit
+      reports its child missing where nothing in [first] is under the cursor.
+      A child that can match nothing is never missing, so that report would
+      be wrong on valid input. *)
 
 val pp_problem : Format.formatter -> problem -> unit
 

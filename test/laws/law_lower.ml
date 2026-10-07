@@ -8,7 +8,7 @@
 
       Mechanism. Part (a) makes every invariant [Check] holds a post-condition
       of the lowering, rather than a fact about the plans that happen to be in
-      test/expect. There are twelve of them and this law restates none.
+      test/expect. There are thirteen of them and this law restates none.
 
       Parts (b) and (c) are one walk over the plan, collecting the ids it
       names, against the catalogue's length. The walk is this law's own: the
@@ -27,9 +27,12 @@
       tally because someone typed it. This one counts over the grammars, so a
       form reads zero until a grammar exists that needs it.
 
-      Coverage. All thirteen grammars in lingo_grammars. A count prints beside the
-      result, part (c) fails on the first entry nothing names, and part (d)
-      names every form that reads zero.
+      Coverage. All thirteen grammars in lingo_grammars, and the six accepted
+      witnesses built in test/laws/witnesses.ml. required-empty is the one that
+      matters to part (a): it has required children that can match nothing,
+      and a lowering that put a commit over one would fail here. A count
+      prints beside the result, part (c) fails on the first entry nothing
+      names, and part (d) names every form that reads zero.
 
       What this says nothing about. Whether the plan describes the grammar.
       That needs something that runs one, and test/laws/law_interp.ml is where
@@ -96,7 +99,7 @@
       survived in Make.pp (extreme)
    ---------------------------------------------------------------------- *)
 
-let corpus =
+let grammars =
   [ "sexp", Lingo_grammars.Sexp_grammar.grammar
   ; "json", Lingo_grammars.Json_grammar.grammar
   ; "calc", Lingo_grammars.Calc_grammar.grammar
@@ -111,6 +114,15 @@ let corpus =
   ; "wide", Lingo_grammars.Wide_grammar.grammar
   ; "ml", Lingo_grammars.Ml_grammar.grammar
   ]
+;;
+
+(* The accepted witnesses carry five of the grammars above, so those are left
+   out here. *)
+let corpus =
+  grammars
+  @ List.filter
+      (fun (name, _) -> not (List.mem_assoc name grammars))
+      Lingo_witness.Witnesses.accepted
 ;;
 
 (* Every message id the plan names, wherever it names one. *)
@@ -312,7 +324,7 @@ let () =
 
 (* -- (e) every kind is checked where it sits ------------------------------- *)
 
-(* [Check.run] looks in forty-two places and names twelve problems, and
+(* [Check.run] looks in forty-two places and names thirteen problems, and
    test/laws/law_plan.ml gives it one broken plan per problem. That is not the
    same claim. A plan carrying a negative kind proves the checker can say
    [Negative_kind]; it says nothing about whether the checker looks for one

@@ -23,6 +23,22 @@ let grammars : (string * Core.Grammar.t) list =
   ]
 ;;
 
+(* A grammar the checker accepts always lowers to a plan [Plan.Check] accepts.
+   A plan it rejects is a fault in lingo, and emitting it would ship a parser
+   that can fail valid input. *)
+let lower (name : string) (facts : Core.Facts.t) : Ir.Plan.t =
+  let plan, _ = Plan.Lower.of_facts facts in
+  match Plan.Check.run plan with
+  | Ok () -> plan
+  | Error problems ->
+    Format.eprintf
+      "@[<v>lingo bug: the plan lowered for %s breaks its own invariants.@,%a@]@."
+      name
+      (Format.pp_print_list Plan.Check.pp_problem)
+      problems;
+    exit 1
+;;
+
 let () =
   let name = Sys.argv.(1) in
   match List.assoc_opt name grammars with
@@ -37,7 +53,7 @@ let () =
          errors;
        exit 1
      | Ok facts ->
-       let plan, _ = Plan.Lower.of_facts facts in
+       let plan = lower name facts in
        (match Sys.argv.(2) with
         | "mli" ->
           print_string (Ocaml.Emit.render_signature (Ocaml.Parser.signature plan))
