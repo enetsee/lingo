@@ -5,6 +5,10 @@
       (c) Every catalogue entry is named by at least one id in the plan.
       (d) Every constructor of [Ir.Plan.instr], and every form beside it, is
           one the corpus lowers to.
+      (e) A negative kind is reported wherever a plan can hold one.
+      (f) An index out of range is reported wherever a plan can hold one, an
+          index in range never is, and an empty dispatch set is reported
+          wherever a plan can hold one.
 
       Mechanism. Part (a) makes every invariant [Check] holds a post-condition
       of the lowering, rather than a fact about the plans that happen to be in
@@ -526,6 +530,259 @@ let () =
     Law.pass "(e) a negative kind is reported wherever one can sit, over %d places" !sites
   | wheres ->
     List.iter (fun w -> Law.fail "(e) a negative kind at %s is not reported" w) wheres
+;;
+
+(* -- (f) every index and every dispatch set is checked where it sits ------- *)
+
+(* Part (e) for the plan's indices and dispatch sets. [Check.run] tests an
+   index against the array it points into in eight places, and reports a
+   dispatch entry with no kinds in three. One broken plan per problem leaves
+   the gap part (e) closes: delete one of those tests and the plan aimed at
+   the problem still produces it from another.
+
+   Each index is tried at four values. At -1 and at the array's length the
+   checker has to report it. At 0 and at the last index it must report
+   nothing about it, and must not raise. A test written one step too tight
+   reports a good index, and one written one step too loose reads past the
+   end of the array. *)
+type index_site =
+  { at : string
+  ; bound : int
+  ; is_it : Plan.Check.problem -> bool
+  }
+
+let rule_out_of_range : Plan.Check.problem -> bool = function
+  | Plan.Check.Rule_out_of_range _ -> true
+  | _ -> false
+;;
+
+let block_out_of_range : Plan.Check.problem -> bool = function
+  | Plan.Check.Block_out_of_range _ -> true
+  | _ -> false
+;;
+
+let state_out_of_range : Plan.Check.problem -> bool = function
+  | Plan.Check.Loop_state_out_of_range _ -> true
+  | _ -> false
+;;
+
+(* The plan with every index passed through [index] and every dispatch set
+   through [dispatch]. *)
+let map_sites
+      ~(index : index_site -> int -> int)
+      ~(dispatch : string -> Ir.Kind.t array -> Ir.Kind.t array)
+      (p : Ir.Plan.t)
+  : Ir.Plan.t
+  =
+  let n_rules = Array.length p.rules in
+  let n_blocks = Array.length p.blocks in
+  let rule_index (at : string) (r : int) : int =
+    index { at; bound = n_rules; is_it = rule_out_of_range } r
+  in
+  let rec instr (at : string) (i : Ir.Plan.instr) : Ir.Plan.instr =
+    match i with
+    | Ir.Plan.Seq xs ->
+      Ir.Plan.Seq (Array.mapi (fun n x -> instr (Printf.sprintf "%s/%d" at n) x) xs)
+    | Ir.Plan.Open _
+    | Ir.Plan.Close
+    | Ir.Plan.Trivia
+    | Ir.Plan.Bump
+    | Ir.Plan.Bump_reporting _
+    | Ir.Plan.Drain _
+    | Ir.Plan.Expect _ -> i
+    | Ir.Plan.Call r -> Ir.Plan.Call (rule_index (at ^ "/call") r)
+    | Ir.Plan.Pratt b ->
+      let block =
+        index { at = at ^ "/pratt"; bound = n_blocks; is_it = block_out_of_range } b.block
+      in
+      Ir.Plan.Pratt { b with block }
+    | Ir.Plan.Alt a ->
+      Ir.Plan.Alt
+        { arms =
+            Array.mapi
+              (fun n (on, body) ->
+                 let at = Printf.sprintf "%s/arm %d" at n in
+                 dispatch at on, instr at body)
+              a.arms
+        ; otherwise = instr (at ^ "/otherwise") a.otherwise
+        }
+    | Ir.Plan.Commit c -> Ir.Plan.Commit { c with body = instr (at ^ "/body") c.body }
+    | Ir.Plan.Loop l ->
+      let n = Array.length l.states in
+      let state_index (at : string) (state : int) : int =
+        index { at; bound = n; is_it = state_out_of_range } state
+      in
+      let entry = state_index (at ^ "/entry") l.entry in
+      let states =
+        Array.mapi
+          (fun si (st : Ir.Plan.loop_state) ->
+             let at = Printf.sprintf "%s/state %d" at si in
+             let accepts =
+               Array.mapi
+                 (fun ai (on, goto) ->
+                    let at = Printf.sprintf "%s/accepts %d" at ai in
+                    dispatch at on, state_index (at ^ "/goto") goto)
+                 st.accepts
+             in
+             let when_missing =
+               Option.map
+                 (fun (m : Ir.Plan.missing) ->
+                    { m with goto = state_index (at ^ "/missing goto") m.goto })
+                 st.when_missing
+             in
+             let emits = instr (at ^ "/emits") st.emits in
+             { st with accepts; when_missing; emits })
+          l.states
+      in
+      Ir.Plan.Loop { l with entry; states }
+  in
+  let rules =
+    Array.mapi
+      (fun ri (r : Ir.Plan.rule) ->
+         { r with body = instr (Printf.sprintf "rule %d %s" ri r.name) r.body })
+      p.rules
+  in
+  let blocks =
+    Array.mapi
+      (fun bi (b : Ir.Plan.block) ->
+         let at = Printf.sprintf "block %d" bi in
+         let atoms =
+           Array.mapi
+             (fun ai (on, atom) ->
+                let at = Printf.sprintf "%s/atom %d" at ai in
+                let atom =
+                  match atom with
+                  | Ir.Plan.Atom_token -> atom
+                  | Ir.Plan.Atom_rule r -> Ir.Plan.Atom_rule (rule_index at r)
+                in
+                dispatch at on, atom)
+             b.atoms
+         in
+         let postfix =
+           Array.mapi
+             (fun pi (q : Ir.Plan.postfix) ->
+                { q with body = instr (Printf.sprintf "%s/postfix %d" at pi) q.body })
+             b.postfix
+         in
+         { b with atoms; postfix })
+      p.blocks
+  in
+  let roots = Array.mapi (fun i r -> rule_index (Printf.sprintf "root %d" i) r) p.roots in
+  { p with rules; blocks; roots }
+;;
+
+(* The plan with the index at [target] set to [value] of its bound, the number
+   of index sites, and the site the index sat at. *)
+let reindex ~(target : int) ~(value : int -> int) (p : Ir.Plan.t)
+  : Ir.Plan.t * int * index_site option
+  =
+  let seen = ref 0 in
+  let hit = ref None in
+  let plan =
+    map_sites
+      p
+      ~dispatch:(fun _ on -> on)
+      ~index:(fun site i ->
+        let n = !seen in
+        incr seen;
+        if n = target
+        then (
+          hit := Some site;
+          value site.bound)
+        else i)
+  in
+  plan, !seen, !hit
+;;
+
+(* The plan with the dispatch set at [target] emptied, the number of
+   dispatch sets, and where the emptied one sat. *)
+let empty_dispatch ~(target : int) (p : Ir.Plan.t) : Ir.Plan.t * int * string =
+  let seen = ref 0 in
+  let hit = ref "" in
+  let plan =
+    map_sites
+      p
+      ~index:(fun _ i -> i)
+      ~dispatch:(fun at on ->
+        let n = !seen in
+        incr seen;
+        if n = target
+        then (
+          hit := at;
+          [||])
+        else on)
+  in
+  plan, !seen, !hit
+;;
+
+let () =
+  let index_sites = ref 0 in
+  let dispatch_sites = ref 0 in
+  let missed = ref [] in
+  let miss (what : string) = missed := what :: !missed in
+  (* The value an index is set to, how it reads in a failure, and whether the
+     checker has to report it. *)
+  let values =
+    [ (fun (_ : int) -> -1), "-1", true
+    ; (fun (bound : int) -> bound), "its length", true
+    ; (fun (_ : int) -> 0), "0", false
+    ; (fun (bound : int) -> bound - 1), "its last index", false
+    ]
+  in
+  List.iter
+    (fun (name, g) ->
+       match Core.Facts.of_grammar g with
+       | Error _ -> ()
+       | Ok f ->
+         let plan, _ = Plan.Lower.of_facts f in
+         let _, total, _ = reindex ~target:(-1) ~value:Fun.id plan in
+         index_sites := !index_sites + total;
+         for i = 0 to total - 1 do
+           List.iter
+             (fun (value, says, reported) ->
+                match reindex ~target:i ~value plan with
+                | _, _, None -> ()
+                | broken, _, Some site ->
+                  let where = Printf.sprintf "%s %s set to %s" name site.at says in
+                  (match Plan.Check.run broken with
+                   | exception e ->
+                     miss (Printf.sprintf "%s raised %s" where (Printexc.to_string e))
+                   | Ok () -> if reported then miss (where ^ " is not reported")
+                   | Error problems ->
+                     let found = List.exists site.is_it problems in
+                     if reported && not found then miss (where ^ " is not reported");
+                     if found && not reported then miss (where ^ " is reported")))
+             values
+         done;
+         let _, total, _ = empty_dispatch ~target:(-1) plan in
+         dispatch_sites := !dispatch_sites + total;
+         for i = 0 to total - 1 do
+           let broken, _, at = empty_dispatch ~target:i plan in
+           let where = Printf.sprintf "%s %s emptied" name at in
+           match Plan.Check.run broken with
+           | exception e ->
+             miss (Printf.sprintf "%s raised %s" where (Printexc.to_string e))
+           | Ok () -> miss (where ^ " is not reported")
+           | Error problems ->
+             if
+               not
+                 (List.exists
+                    (fun (problem : Plan.Check.problem) ->
+                       match problem with
+                       | Plan.Check.Empty_arm _ -> true
+                       | _ -> false)
+                    problems)
+             then miss (where ^ " is not reported")
+         done)
+    corpus;
+  match List.rev !missed with
+  | [] ->
+    Law.pass
+      "(f) every index is checked at both ends over %d places, and every empty dispatch \
+       is reported over %d"
+      !index_sites
+      !dispatch_sites
+  | wheres -> List.iter (fun w -> Law.fail "(f) %s" w) wheres
 ;;
 
 let () = Law.summarise "law_lower"
