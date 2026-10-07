@@ -164,6 +164,7 @@
 
 (tests
  (names law_format)
+ (package lingo)
  (modules law_format)
  (deps
   (glob_files *_layout.ml)

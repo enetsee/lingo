@@ -307,6 +307,7 @@
 
 (tests
  (names law_ahead)
+ (package lingo)
  (modules law_ahead)
  (deps
   (glob_files *_parser.ml)
@@ -332,6 +333,7 @@
 
 (tests
  (names law_parse)
+ (package lingo)
  (modules law_parse)
  (deps
   (glob_files *_parser.ml)

@@ -829,6 +829,7 @@
 
 (tests
  (names law_views)
+ (package lingo)
  (modules law_views)
  (deps
   (glob_files *_views.ml)
@@ -852,6 +853,7 @@
 
 (test
  (name test_views)
+ (package lingo)
  (modules test_views)
  (libraries
   law
@@ -870,6 +872,7 @@
 
 (tests
  (names law_congr)
+ (package lingo)
  (modules law_congr)
  (libraries
   law
@@ -899,6 +902,7 @@
 
 (tests
  (names law_make)
+ (package lingo)
  (modules law_make)
  (libraries
   law
@@ -923,6 +927,7 @@
 
 (tests
  (names law_parens)
+ (package lingo)
  (modules law_parens)
  (libraries
   law
@@ -946,6 +951,7 @@
 
 (tests
  (names law_edits)
+ (package lingo)
  (modules law_edits)
  (libraries
   law
@@ -967,6 +973,7 @@
 
 (tests
  (names law_apply)
+ (package lingo)
  (modules law_apply)
  (libraries
   law
@@ -992,6 +999,7 @@
 
 (tests
  (names law_template)
+ (package lingo)
  (modules law_template)
  (libraries
   law
@@ -1013,6 +1021,7 @@
 
 (tests
  (names law_binders)
+ (package lingo)
  (modules law_binders)
  (libraries
   law

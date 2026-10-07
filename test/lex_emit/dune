@@ -306,6 +306,7 @@
 
 (tests
  (names law_lex)
+ (package lingo)
  (modules law_lex)
  (deps
   (glob_files *_lexer.ml)

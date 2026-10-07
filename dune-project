@@ -42,9 +42,11 @@
  (synopsis "A grammar toolkit: lossless recovering parsers, formatters, editors")
  (description
   "Takes a grammar as a value: tokens, productions with typed children, an optional Pratt expression block. Emits a lossless recovering parser, a pretty-printer, a lexer, typed views, a reference manual, and editor integrations.")
- ; handsome arrives through lingo_runtime as well, and is named here because
- ; lingo.docs links it directly. A reference page lays a listing out and then
- ; marks it up, and a rendered stream lets one document do both.
+ ; handsome and siesta arrive through lingo_runtime as well, and are named
+ ; here because lingo links them directly. lingo.docs uses handsome: a
+ ; reference page lays a listing out and then marks it up, and a rendered
+ ; stream lets one document do both. lingo.interp and lingo.fuzz build and
+ ; read siesta trees.
  (depends
   (ocaml
    (>= 5.0))
@@ -53,6 +55,7 @@
   redfa
   bolts
   handsome
+  siesta
   ppxlib
   ; The mutation tester, and a dev dependency only. It is named here and in no
   ; other package: every library in the tree names it as an instrumentation
@@ -66,10 +69,14 @@
  (synopsis "TextMate and tree-sitter backends for lingo")
  (description
   "Renders a lingo grammar to a .tmLanguage.json TextMate grammar and to a tree-sitter grammar.js. Separate from the lingo package because only these backends need yojson.")
+ ; redfa and ucharset arrive through lingo as well, and are named here
+ ; because both backends translate a token's regex into their own syntax.
  (depends
   (ocaml
    (>= 5.0))
   lingo
+  redfa
+  ucharset
   yojson
   (odoc :with-doc))
  ; yojson belongs to this package alone, so the two backends sit in a package

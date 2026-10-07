@@ -17,6 +17,7 @@ depends: [
   "redfa"
   "bolts"
   "handsome"
+  "siesta"
   "ppxlib"
   "assay" {with-dev-setup}
   "odoc" {with-doc}

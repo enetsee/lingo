@@ -50,7 +50,7 @@ type template =
 (** {1 Constructors}
 
     Each view's module also holds [make]. It takes a
-    {!Siesta.Cache.t}, then the production's children, and gives the node as
+    [Siesta.Cache.t], then the production's children, and gives the node as
     a view over a cursor of its own, or the reason it could not build one.
 
     - A token with fixed text is written by [make]. Where it is optional,

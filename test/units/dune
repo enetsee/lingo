@@ -1,5 +1,6 @@
 (tests
  (names sexp_facts mangle_test pratt_desugar)
+ (package lingo)
  (libraries law lingo.core lingo_grammars))
 
 ; width reads the fold rather than the tables, so it needs the plan, the
@@ -7,6 +8,7 @@
 
 (tests
  (names width)
+ (package lingo)
  (libraries
   law
   lingo.core

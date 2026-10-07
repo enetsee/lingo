@@ -17,7 +17,7 @@
     comes back as the same green node.
 
     {!seq} runs its second rule on a cursor over what the first one gave.
-    Where the first changed the node, {!Siesta.Syntax.replace} puts the result
+    Where the first changed the node, [Siesta.Syntax.replace] puts the result
     in the tree, which rebuilds the spine up to the root. Where it changed
     nothing, the cursor is reused. So a change costs the depth of the tree,
     and a node left alone costs nothing.
@@ -49,7 +49,7 @@ module Ctx : sig
 
   (** The tree the rewrite started from, which is the tree the semantics
       describe. After an edit, a rule's cursor is in a new tree.
-      {!Siesta.Syntax.same_tree} with [root] is false for it, and a query
+      [Siesta.Syntax.same_tree] with [root] is false for it, and a query
       about it has to fail. *)
   val root : 's t -> Siesta.Syntax.t
 
@@ -264,7 +264,7 @@ val congruence
 
     {2 Comments}
 
-    Given the node a [make] replaces, {!finish} keeps the comments that sit
+    Given the node a [make] replaces, {!Construct.finish} keeps the comments that sit
     directly between that node's children. Comments inside a child go with
     the child. Each comment goes back in front of what it was in front of:
 

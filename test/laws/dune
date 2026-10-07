@@ -5,6 +5,7 @@
 
 (tests
  (names law_validate law_first_follow law_manifest law_facts)
+ (package lingo)
  (modules
   law_validate
   law_first_follow
@@ -19,6 +20,7 @@
 
 (tests
  (names law_lexer)
+ (package lingo)
  (modules law_lexer)
  (libraries law lingo.core lingo_grammars redfa ucharset))
 
@@ -27,6 +29,7 @@
 
 (tests
  (names law_runtime)
+ (package lingo)
  (modules law_runtime)
  (libraries law lingo_runtime siesta))
 
@@ -36,6 +39,7 @@
 
 (tests
  (names law_rewrite)
+ (package lingo)
  (modules law_rewrite)
  (libraries
   law
@@ -51,16 +55,19 @@
 
 (tests
  (names law_plan)
+ (package lingo)
  (modules law_plan)
  (libraries law lingo.plan lingo_runtime.ir))
 
 (tests
  (names law_emit)
+ (package lingo)
  (modules law_emit)
  (libraries law lingo.ocaml fixture ppxlib))
 
 (tests
  (names law_lower)
+ (package lingo)
  (modules law_lower)
  (libraries
   law
@@ -76,6 +83,7 @@
 
 (tests
  (names law_interp)
+ (package lingo)
  (modules law_interp)
  (libraries
   law
@@ -93,6 +101,7 @@
 
 (tests
  (names law_residual)
+ (package lingo)
  (modules law_residual)
  (libraries
   law
@@ -112,6 +121,7 @@
 
 (tests
  (names law_layout)
+ (package lingo)
  (modules law_layout)
  (libraries
   law
@@ -144,6 +154,7 @@
 
 (tests
  (names law_sample)
+ (package lingo)
  (modules law_sample)
  (libraries
   law
@@ -166,6 +177,7 @@
 
 (tests
  (names law_fuzz)
+ (package lingo)
  (modules law_fuzz)
  (libraries
   law
@@ -185,6 +197,7 @@
 
 (tests
  (names law_textmate)
+ (package lingo_editors)
  (modules law_textmate)
  (libraries
   law
@@ -203,6 +216,7 @@
 
 (tests
  (names law_treesitter)
+ (package lingo_editors)
  (modules law_treesitter)
  (libraries
   law
@@ -219,6 +233,7 @@
 
 (tests
  (names law_docs)
+ (package lingo)
  (modules law_docs)
  (libraries
   law
