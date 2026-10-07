@@ -101,6 +101,9 @@ let () =
           print_string (Ocaml.Emit.render_signature (Ocaml.Views.signature facts))
         | "rewrite" ->
           print_string (Ocaml.Emit.render (Ocaml.Rewrite.generate ~views ~template facts))
+        | "probe" ->
+          let rewrite = "Emitted_rewrite." ^ capital ^ "_rewrite" in
+          print_string (Ocaml.Emit.render (Ocaml.Rewrite.probes ~views ~rewrite facts))
         | "rewrite-mli" ->
           print_string
             (Ocaml.Emit.render_signature (Ocaml.Rewrite.signature ~views ~template facts))

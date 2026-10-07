@@ -158,6 +158,9 @@ val ilet_rec : (string * arg list * expr) list -> item
 val iopen : string -> item
 val imodule : string -> item list -> item
 
+(** [include Path]. *)
+val iinclude : string -> item
+
 (** Each constructor is a name and its arguments; [[]] for a nullary one. *)
 val itype_variant : string -> (string * ty list) list -> item
 
@@ -192,6 +195,19 @@ val stype_private : string -> ty -> sig_item
 
 val stype_abstract : string -> sig_item
 val smodule : string -> sig_item list -> sig_item
+
+(** {1 Tidying} *)
+
+(** What a grammar leaves unused, taken out.
+
+    An emitter writes the same shape for every grammar, and a grammar may use
+    less of it. A parameter or a pattern variable that nothing reads becomes
+    [_]. A value that nothing reads is dropped, unless [exports] or [keep]
+    names it. [exports] is the interface the module is compiled against.
+
+    So the code compiles clean under the warnings dune turns on for a
+    development build, which a user's project may have. *)
+val tidy : ?keep:string list -> exports:sig_item list -> item list -> item list
 
 (** {1 Rendering}
 

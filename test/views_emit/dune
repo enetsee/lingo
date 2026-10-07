@@ -219,7 +219,9 @@
   (run ./gen.exe ties rewrite-mli)))
 
 (rule
- (copy ties_rewrite.ml ties_probe.ml))
+ (with-stdout-to
+  ties_probe.ml
+  (run ./gen.exe ties probe)))
 
 (rule
  (with-stdout-to
@@ -610,7 +612,9 @@
   (run ./gen.exe sexp rewrite-mli)))
 
 (rule
- (copy sexp_rewrite.ml sexp_probe.ml))
+ (with-stdout-to
+  sexp_probe.ml
+  (run ./gen.exe sexp probe)))
 
 (rule
  (with-stdout-to
@@ -623,7 +627,9 @@
   (run ./gen.exe json rewrite-mli)))
 
 (rule
- (copy json_rewrite.ml json_probe.ml))
+ (with-stdout-to
+  json_probe.ml
+  (run ./gen.exe json probe)))
 
 (rule
  (with-stdout-to
@@ -636,7 +642,9 @@
   (run ./gen.exe calc rewrite-mli)))
 
 (rule
- (copy calc_rewrite.ml calc_probe.ml))
+ (with-stdout-to
+  calc_probe.ml
+  (run ./gen.exe calc probe)))
 
 (rule
  (with-stdout-to
@@ -649,7 +657,9 @@
   (run ./gen.exe rassoc rewrite-mli)))
 
 (rule
- (copy rassoc_rewrite.ml rassoc_probe.ml))
+ (with-stdout-to
+  rassoc_probe.ml
+  (run ./gen.exe rassoc probe)))
 
 (rule
  (with-stdout-to
@@ -662,7 +672,9 @@
   (run ./gen.exe postfix rewrite-mli)))
 
 (rule
- (copy postfix_rewrite.ml postfix_probe.ml))
+ (with-stdout-to
+  postfix_probe.ml
+  (run ./gen.exe postfix probe)))
 
 (rule
  (with-stdout-to
@@ -675,7 +687,9 @@
   (run ./gen.exe shapes rewrite-mli)))
 
 (rule
- (copy shapes_rewrite.ml shapes_probe.ml))
+ (with-stdout-to
+  shapes_probe.ml
+  (run ./gen.exe shapes probe)))
 
 (rule
  (with-stdout-to
@@ -688,7 +702,9 @@
   (run ./gen.exe unicode rewrite-mli)))
 
 (rule
- (copy unicode_rewrite.ml unicode_probe.ml))
+ (with-stdout-to
+  unicode_probe.ml
+  (run ./gen.exe unicode probe)))
 
 (rule
  (with-stdout-to
@@ -701,7 +717,9 @@
   (run ./gen.exe recovery rewrite-mli)))
 
 (rule
- (copy recovery_rewrite.ml recovery_probe.ml))
+ (with-stdout-to
+  recovery_probe.ml
+  (run ./gen.exe recovery probe)))
 
 (rule
  (with-stdout-to
@@ -714,7 +732,9 @@
   (run ./gen.exe comments rewrite-mli)))
 
 (rule
- (copy comments_rewrite.ml comments_probe.ml))
+ (with-stdout-to
+  comments_probe.ml
+  (run ./gen.exe comments probe)))
 
 (rule
  (with-stdout-to
@@ -727,7 +747,9 @@
   (run ./gen.exe rust rewrite-mli)))
 
 (rule
- (copy rust_rewrite.ml rust_probe.ml))
+ (with-stdout-to
+  rust_probe.ml
+  (run ./gen.exe rust probe)))
 
 (rule
  (with-stdout-to
@@ -740,7 +762,9 @@
   (run ./gen.exe effekt rewrite-mli)))
 
 (rule
- (copy effekt_rewrite.ml effekt_probe.ml))
+ (with-stdout-to
+  effekt_probe.ml
+  (run ./gen.exe effekt probe)))
 
 (rule
  (with-stdout-to
@@ -753,7 +777,9 @@
   (run ./gen.exe wide rewrite-mli)))
 
 (rule
- (copy wide_rewrite.ml wide_probe.ml))
+ (with-stdout-to
+  wide_probe.ml
+  (run ./gen.exe wide probe)))
 
 (rule
  (with-stdout-to
@@ -766,7 +792,9 @@
   (run ./gen.exe ml rewrite-mli)))
 
 (rule
- (copy ml_rewrite.ml ml_probe.ml))
+ (with-stdout-to
+  ml_probe.ml
+  (run ./gen.exe ml probe)))
 
 (rule
  (with-stdout-to
@@ -779,10 +807,13 @@
   (run ./gen.exe nested rewrite-mli)))
 
 (rule
- (copy nested_rewrite.ml nested_probe.ml))
+ (with-stdout-to
+  nested_probe.ml
+  (run ./gen.exe nested probe)))
 
-; The rewrite modules, compiled the same two ways. The copy without the
-; interface keeps [probe], which law_congr runs every congruence through.
+; The rewrite modules, and beside each a probe module that includes it and
+; adds what only a test needs: [probe], which law_congr runs every congruence
+; through, and the edits and rebuilds the other laws read by kind.
 
 (library
  (name emitted_rewrite)
@@ -822,7 +853,12 @@
   ml_probe
   nested_probe
   ties_probe)
- (libraries emitted_template emitted_views lingo_runtime siesta))
+ (libraries
+  emitted_rewrite
+  emitted_template
+  emitted_views
+  lingo_runtime
+  siesta))
 
 ; law_views part (c) reads the emitted modules as files and asks [lingo.ocaml]
 ; for them again, so the generator is covered at run time as well.

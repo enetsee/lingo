@@ -81,7 +81,7 @@ let separator (grammar : Core.Grammar.t) (sep : Core.Grammar.sep_policy) : Rende
   =
   match sep with
   | Core.Grammar.No_sep -> Handsome.Utf8.empty
-  | Core.Grammar.With_sep { sep; leading; trailing } ->
+  | Core.Grammar.With_sep { sep; leading; trailing; _ } ->
     let policy (at : string) (p : Core.Grammar.optional_sep) =
       match p with
       | Core.Grammar.Never -> Handsome.Utf8.empty

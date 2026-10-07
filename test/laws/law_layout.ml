@@ -398,31 +398,6 @@ let agree ~(seps : string list) (before : string list) (after : string list) : b
   List.equal String.equal (without before) (without after)
 ;;
 
-(* The tree's shape, with trivia left out. Two strings holding the same
-   meaningful tokens have to give the same shape, or a formatter cannot settle:
-   it writes the same tokens every time and the spacing is all it may change. *)
-let shape (l : Ir.Layout.t) (n : Siesta.Green.node) =
-  let b = Buffer.create 64 in
-  let rec go (n : Siesta.Green.node) =
-    Buffer.add_string b ("(" ^ string_of_int (Siesta.Green.kind n));
-    Array.iter
-      (function
-        | Siesta.Green.Node m -> go m
-        | Siesta.Green.Token t ->
-          let k = Siesta.Green.Token.kind t in
-          let trivia =
-            match l.tokens.(k) with
-            | Some t -> t.trivia <> None
-            | None -> false
-          in
-          if not trivia then Buffer.add_string b (" " ^ Siesta.Green.Token.text t))
-      (Siesta.Green.children_array n);
-    Buffer.add_string b ")"
-  in
-  go n;
-  Buffer.contents b
-;;
-
 (* -- the runs -------------------------------------------------------------- *)
 
 (* How deep the generated half runs. One is what the suite runs, and it is not
@@ -438,9 +413,6 @@ let depth =
      | _ -> 1)
 ;;
 
-(* A format that has not settled after this many passes is one that never
-   will. The predecessor's never did: it added two columns per pass. *)
-let passes_allowed = 8
 let hand_widths = [ 80; 40; 20; 8 ]
 let swept_widths = [ 80; 20 ]
 

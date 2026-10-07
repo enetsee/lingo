@@ -611,7 +611,18 @@ let match_cluster (facts : Core.Facts.t) : (string * Emit.arg list * Emit.expr) 
 
 (* -- the module ------------------------------------------------------------ *)
 
+let signature : Emit.sig_item list =
+  [ Emit.sval
+      "lex"
+      (Emit.tarrow
+         ~domain:(Emit.tcon "string" [])
+         ~codomain:(Emit.tcon "array" [ Emit.tcon "Lingo_runtime.Token.t" [] ]))
+  ]
+;;
+
 let generate ?(shape : shape = Table) (facts : Core.Facts.t) : Emit.item list =
+  Emit.tidy ~exports:signature
+  @@
   match shape with
   | Table ->
     let t = Core.Lexer.of_facts facts in
@@ -621,13 +632,4 @@ let generate ?(shape : shape = Table) (facts : Core.Facts.t) : Emit.item list =
     @ class_items
     @ [ lex_item facts (table_cluster t bits) ]
   | Match -> [ intern_item facts; lex_item facts (match_cluster facts) ]
-;;
-
-let signature : Emit.sig_item list =
-  [ Emit.sval
-      "lex"
-      (Emit.tarrow
-         ~domain:(Emit.tcon "string" [])
-         ~codomain:(Emit.tcon "array" [ Emit.tcon "Lingo_runtime.Token.t" [] ]))
-  ]
 ;;

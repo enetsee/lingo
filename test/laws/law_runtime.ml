@@ -145,7 +145,6 @@
 
 (* Parentheses, brackets, braces, a word, a separator and whitespace. A
    witness reads as source, so every kind has a spelling. *)
-let k_error = 0
 let k_lparen = 1
 let k_rparen = 2
 let k_lbrack = 3

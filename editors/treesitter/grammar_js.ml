@@ -136,7 +136,7 @@ let body (facts : Core.Facts.t) (rule : Core.Rule.def) ~(uses : (string, unit) H
   | Core.Rule.Delimited { open_; close; sep; _ } ->
     let inside =
       match framed, sep with
-      | [ element_child ], Some { sep_tok; leading = first; trailing } ->
+      | [ element_child ], Some { sep_tok; leading = first; trailing; _ } ->
         [ separated facts element_child ~sep:sep_tok ~leading:first ~trailing ~uses ]
       | _ -> List.map framed ~f:(child facts)
     in

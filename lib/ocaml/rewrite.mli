@@ -123,10 +123,15 @@ type template =
     open on the right at binding power 0. *)
 
 (** [generate ~views f] is the module. [views] names the views module, such
-    as ["Json_views"].
+    as ["Json_views"]. *)
+val generate : views:string -> ?template:template -> Core.Facts.t -> Emit.item list
 
-    It also holds two functions the signature leaves out, so a test can run
-    every congruence and constructor without knowing which module holds it.
+val signature : views:string -> ?template:template -> Core.Facts.t -> Emit.sig_item list
+
+(** [probes ~views ~rewrite f] is a module for a test. It includes the
+    rewrite module, which [rewrite] names, and adds five functions, so a test
+    can run every congruence and constructor without knowing which module
+    holds it. A user's rewrite module carries none of them.
 
     - [probe k slot ~node ~token] is the congruence for kind [k] with [node]
       and [token] given to the child at [slot], lifted to that child's type,
@@ -140,6 +145,4 @@ type template =
       edits of slot [slot] of kind [k], taking the element as a green child,
       or [None] where that slot does not repeat. It gives [None] for a node of any other
       kind. *)
-val generate : views:string -> ?template:template -> Core.Facts.t -> Emit.item list
-
-val signature : views:string -> ?template:template -> Core.Facts.t -> Emit.sig_item list
+val probes : views:string -> rewrite:string -> Core.Facts.t -> Emit.item list

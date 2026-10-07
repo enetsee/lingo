@@ -532,7 +532,7 @@ let () =
             if List.mem_assoc token ~map:acc then acc else (token, (index, state)) :: acc)
           |> List.rev
         in
-        List.iter firsts ~f:(fun (token, (index, state)) ->
+        List.iter firsts ~f:(fun (token, (_, state)) ->
           incr from_tree;
           let offset = byte_of tokens token in
           let known = Ir.Residual.at plan state in

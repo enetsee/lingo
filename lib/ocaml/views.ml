@@ -436,7 +436,9 @@ let reader ((name, arms) : string * arm list) : Emit.item =
        (Emit.ematch
           (Emit.evar "elem")
           [ Emit.ecase
-              (Emit.pconstruct "Siesta.Syntax.Token" [ Emit.pvar "token" ])
+              (Emit.pconstruct
+                 "Siesta.Syntax.Token"
+                 [ (if tokens = [] then Emit.pany else Emit.pvar "token") ])
               (if tokens = []
                then none
                else
@@ -444,7 +446,9 @@ let reader ((name, arms) : string * arm list) : Emit.item =
                    (Emit.ecall "Siesta.Syntax.Token.kind" [ Emit.evar "token" ])
                    (tokens @ [ default ]))
           ; Emit.ecase
-              (Emit.pconstruct "Siesta.Syntax.Node" [ Emit.pvar "node" ])
+              (Emit.pconstruct
+                 "Siesta.Syntax.Node"
+                 [ (if nodes = [] then Emit.pany else Emit.pvar "node") ])
               (if nodes = []
                then none
                else
@@ -606,25 +610,6 @@ let view_module (f : Core.Facts.t) (v : view) : Emit.item =
      @ accessors)
 ;;
 
-let generate (f : Core.Facts.t) : Emit.item list =
-  let views = views_of f in
-  List.map views ~f:(fun (v : view) -> Emit.itype_alias v.view_type syntax_t)
-  @ List.map (variants f views) ~f:(fun (name, ctors) -> Emit.itype_variant name ctors)
-  @ [ Emit.imodule
-        Core.Manifest.view_support
-        (helpers
-         @ List.map (positions f @ sums f views) ~f:reader
-         @ List.filter_map views ~f:(fun (v : view) ->
-           if Array.length v.def.children = 0 then None else Some (slots f v))
-         @ [ dispatch views ])
-    ]
-  @ List.map
-      (positions f @ sums f views)
-      ~f:(fun ((name, _) as variant) ->
-        Emit.imodule (Core.Manifest.view_module name) (variant_items variant))
-  @ List.map views ~f:(view_module f)
-;;
-
 let signature (f : Core.Facts.t) : Emit.sig_item list =
   let views = views_of f in
   List.map views ~f:(fun (v : view) -> Emit.stype_private v.view_type syntax_t)
@@ -657,4 +642,24 @@ let signature (f : Core.Facts.t) : Emit.sig_item list =
          Emit.sval
            (Core.Manifest.view_accessor (Core.Grammar.Name.Child.to_string c.child_name))
            (Emit.tarrow ~domain:(Emit.tcon "t" []) ~codomain:(accessor_ty f v c)))))
+;;
+
+let generate (f : Core.Facts.t) : Emit.item list =
+  let views = views_of f in
+  Emit.tidy ~exports:(signature f)
+  @@ List.map views ~f:(fun (v : view) -> Emit.itype_alias v.view_type syntax_t)
+  @ List.map (variants f views) ~f:(fun (name, ctors) -> Emit.itype_variant name ctors)
+  @ [ Emit.imodule
+        Core.Manifest.view_support
+        (helpers
+         @ List.map (positions f @ sums f views) ~f:reader
+         @ List.filter_map views ~f:(fun (v : view) ->
+           if Array.length v.def.children = 0 then None else Some (slots f v))
+         @ [ dispatch views ])
+    ]
+  @ List.map
+      (positions f @ sums f views)
+      ~f:(fun ((name, _) as variant) ->
+        Emit.imodule (Core.Manifest.view_module name) (variant_items variant))
+  @ List.map views ~f:(view_module f)
 ;;

@@ -180,8 +180,6 @@
         live_suffix (extreme, ror), decode (sbr 3, aor)
    ---------------------------------------------------------------------- *)
 
-let pass fmt = Format.kasprintf (fun s -> print_endline ("PASS " ^ s)) fmt
-
 (* -- the corpus ------------------------------------------------------------ *)
 
 (* The size the corpus is asked for, where the grammar has structures that

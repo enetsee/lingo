@@ -10,7 +10,7 @@ license: "MIT"
 homepage: "https://github.com/enetsee/lingo"
 bug-reports: "https://github.com/enetsee/lingo/issues"
 depends: [
-  "dune" {>= "3.22"}
+  "dune" {>= "3.20"}
   "ocaml" {>= "5.0"}
   "lingo_runtime"
   "ucharset"

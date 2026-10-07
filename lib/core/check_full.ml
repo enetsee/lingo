@@ -497,16 +497,6 @@ let unused_overrides (ctx : ctx) (acc : Error.t list) : Error.t list =
 
 (* -- left recursion -------------------------------------------------------- *)
 
-(* Joins names for a sentence: ["A"], then ["A and B"], then ["A, B and C"].
-   The members of a left recursion read as a list in prose. A token set
-   reads as a set in braces instead. *)
-let rec join_names = function
-  | [] -> ""
-  | [ x ] -> x
-  | [ x; y ] -> x ^ " and " ^ y
-  | x :: rest -> x ^ ", " ^ join_names rest
-;;
-
 (* Writes up each left recursion the analysis found. *)
 let left_recursion (ctx : ctx) (acc : Error.t list) : Error.t list =
   let name (r : int) : Grammar.Name.Rule.t = ctx.shape.rules.(r).Rule.name in

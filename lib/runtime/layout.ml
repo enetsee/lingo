@@ -153,11 +153,8 @@ end = struct
   ;;
 end
 
-(* The last token written, and whether a space may follow it. *)
-type edge =
-  { kind : Ir.Kind.t
-  ; space_after : side
-  }
+(* Whether a space may follow the last token written. *)
+type edge = { space_after : side }
 
 (* [run] is every byte written since the last blank. That is the left-hand side
    of the max-munch test.
@@ -291,7 +288,7 @@ let glue (e : env) (st : state) (w : Written.t) : Ir.Kind.t Handsome.Utf8.t * st
   let lay = e.lay in
   let leaving ~clears ~(broke : bool) =
     { last =
-        Some { kind; space_after = (token lay kind).space_after }
+        Some { space_after = (token lay kind).space_after }
         (* A newline inside a token is not a blank this printed, and the lexer
            does not stop at one. It is a byte of a lexeme still open, which is
            what an unterminated block comment is, so the run carries on. *)
@@ -394,13 +391,6 @@ let kind_of (c : Siesta.Green.child) =
   match c with
   | Siesta.Green.Node n -> Siesta.Green.kind n
   | Siesta.Green.Token t -> Siesta.Green.Token.kind t
-;;
-
-let sep_of (r : Ir.Layout.rule) =
-  match r.frame with
-  | Delimited { sep; _ } -> sep
-  | Separated s -> Some s
-  | Plain -> None
 ;;
 
 let all_space (s : string) : bool =

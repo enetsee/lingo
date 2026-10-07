@@ -194,7 +194,7 @@ let () =
 
 let () =
   (match group.frame with
-   | Core.Rule.Delimited { open_; close; sep = None; boundary = false }
+   | Core.Rule.Delimited { open_; close; sep = None; boundary = false; _ }
      when Core.Kind.Name.equal
             (Core.Facts.kind_name f open_)
             (Core.Kind.Name.token "lparen")

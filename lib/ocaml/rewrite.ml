@@ -1949,54 +1949,6 @@ let binder_signature : Emit.sig_item list =
   ]
 ;;
 
-(* Productions and a block's base first, since a block's module calls its
-   bracketing atom's [make]. Then each block's module, then the roles, whose
-   [make] calls it. *)
-let generate ~(views : string) ?(template : template option) (f : Core.Facts.t)
-  : Emit.item list
-  =
-  let modules = Views.modules f in
-  let is_role ((_ : string), (d : Core.Rule.def)) : bool =
-    match d.origin with
-    | Core.Rule.Pratt_role _ -> true
-    | Core.Rule.User | Core.Rule.Pratt_block -> false
-  in
-  let view_module ((module_name : string), (d : Core.Rule.def)) : Emit.item =
-    Emit.imodule
-      module_name
-      ([ congr ~views f d; make ~views f module_name d ] @ edit_items ~views f d)
-  in
-  takes_next ~views f
-  @ List.map (List.filter modules ~f:(fun m -> not (is_role m))) ~f:view_module
-  @ List.map (blocks f) ~f:(block_module ~views f)
-  @ List.map (List.filter modules ~f:is_role) ~f:view_module
-  @ edit_probes ~views f modules
-  @ binder_items ~views f
-  @ [ apply_item ~views f
-    ; probe f modules
-    ; rebuild ~views f modules
-    ; Emit.ilet
-        "needs_parens"
-        ~args:
-          [ Emit.Named_pat ("at", Emit.pvar "at")
-          ; Emit.arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t"
-          ]
-        (List.fold_right (blocks f) ~init:(Emit.ebool false) ~f:(fun (b : block) rest ->
-           Emit.eor
-             ~left:
-               (Emit.eapply_labelled
-                  (Emit.evar (b.position_module ^ ".needs_parens"))
-                  [ Ppxlib.Labelled "at", Emit.evar "at"
-                  ; Ppxlib.Nolabel, Emit.evar "node"
-                  ])
-             ~right:rest))
-    ]
-  @
-  match template with
-  | Some t -> template_items f t
-  | None -> []
-;;
-
 let signature ~(views : string) ?(template : template option) (f : Core.Facts.t)
   : Emit.sig_item list
   =
@@ -2014,4 +1966,63 @@ let signature ~(views : string) ?(template : template option) (f : Core.Facts.t)
   match template with
   | Some _ -> template_signature
   | None -> []
+;;
+
+(* Productions and a block's base first, since a block's module calls its
+   bracketing atom's [make]. Then each block's module, then the roles, whose
+   [make] calls it. *)
+let generate ~(views : string) ?(template : template option) (f : Core.Facts.t)
+  : Emit.item list
+  =
+  let modules = Views.modules f in
+  Emit.tidy ~exports:(signature ~views ?template f)
+  @@
+  let is_role ((_ : string), (d : Core.Rule.def)) : bool =
+    match d.origin with
+    | Core.Rule.Pratt_role _ -> true
+    | Core.Rule.User | Core.Rule.Pratt_block -> false
+  in
+  let view_module ((module_name : string), (d : Core.Rule.def)) : Emit.item =
+    Emit.imodule
+      module_name
+      ([ congr ~views f d; make ~views f module_name d ] @ edit_items ~views f d)
+  in
+  takes_next ~views f
+  @ List.map (List.filter modules ~f:(fun m -> not (is_role m))) ~f:view_module
+  @ List.map (blocks f) ~f:(block_module ~views f)
+  @ List.map (List.filter modules ~f:is_role) ~f:view_module
+  @ binder_items ~views f
+  @ [ apply_item ~views f ]
+  @
+  match template with
+  | Some t -> template_items f t
+  | None -> []
+;;
+
+(* What a test reaches and a user has no use for. They live in a module of
+   their own, which includes the rewrite module and so reads only what its
+   interface exports. *)
+let probes ~(views : string) ~(rewrite : string) (f : Core.Facts.t) : Emit.item list =
+  let modules = Views.modules f in
+  let names = [ "insert_at"; "delete_at"; "probe"; "rebuild"; "needs_parens" ] in
+  Emit.tidy ~keep:names ~exports:[]
+  @@ (Emit.iinclude rewrite :: edit_probes ~views f modules)
+  @ [ probe f modules
+    ; rebuild ~views f modules
+    ; Emit.ilet
+        "needs_parens"
+        ~args:
+          [ Emit.Named_pat ("at", Emit.pvar "at")
+          ; Emit.arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t"
+          ]
+        (List.fold_right (blocks f) ~init:(Emit.ebool false) ~f:(fun (b : block) rest ->
+           Emit.eor
+             ~left:
+               (Emit.eapply_labelled
+                  (Emit.evar (b.position_module ^ ".needs_parens"))
+                  [ Ppxlib.Labelled "at", Emit.evar "at"
+                  ; Ppxlib.Nolabel, Emit.evar "node"
+                  ])
+             ~right:rest))
+    ]
 ;;

@@ -47,10 +47,6 @@ let dispatch (arms : (Ir.Kind.t list * Emit.expr) list) ~(default : Emit.expr) :
   dispatch_on current arms ~default
 ;;
 
-let holds (kinds : Ir.Kind.t list) : Emit.expr =
-  dispatch [ kinds, Emit.ebool true ] ~default:(Emit.ebool false)
-;;
-
 let add_all ~(set : Emit.expr) (kinds : Emit.expr) : Emit.expr =
   Emit.ecall "add_all" [ set; kinds ]
 ;;
@@ -1020,11 +1016,6 @@ let entry_points (plan : Ir.Plan.t) : Emit.item list =
 
 (* -- the module ------------------------------------------------------------- *)
 
-let generate (plan : Ir.Plan.t) : Emit.item list =
-  [ add_all_item; in_set_item; empty_set_item plan; skip_item plan; cluster plan ]
-  @ entry_points plan
-;;
-
 let entry_type : Emit.ty =
   Emit.tarrow_optional
     "cache"
@@ -1046,4 +1037,10 @@ let signature (plan : Ir.Plan.t) : Emit.sig_item list =
   match Array.to_list plan.roots with
   | [] -> []
   | _ :: _ -> [ Emit.sval "parse_tokens" entry_type ]
+;;
+
+let generate (plan : Ir.Plan.t) : Emit.item list =
+  Emit.tidy ~exports:(signature plan)
+  @@ [ add_all_item; in_set_item; empty_set_item plan; skip_item plan; cluster plan ]
+  @ entry_points plan
 ;;

@@ -571,7 +571,7 @@ let () =
             let name = Core.Grammar.Name.Token.to_string token.name in
             if not (contains ~needle:("<code>" ^ name ^ "</code>") table)
             then Law.fail "(h) %s: the token table has no row for %s" p.name name)
-         Core.Facts.(Scopes.facts p.scopes).tokens)
+         (Scopes.facts p.scopes).Core.Facts.tokens)
     pages;
   if Law.failures () = before
   then Law.pass "(h) every token has a row, over %d of them" !counted
