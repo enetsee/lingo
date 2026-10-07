@@ -462,16 +462,19 @@ let grammar : t =
       "If"
       [ child_req "kw" (Token "if")
       ; child_req "cond" (Rule "Paren")
-      ; child_req "then_" (Rule "Expr")
-        (* The dangling else. [Else] is in the optional child's FIRST and in
-           what may follow it, so the parse cannot separate the two and
-           [greedy] settles it on the nearer [if]. *)
-      ; child_opt ~greedy:true "else_" (Rule "Else")
+        (* Both branches are blocks. An [else] after a bare nested [if] could
+           belong to either [if], and the closing brace keeps it to one. *)
+      ; child_req "then_" (Rule "Block")
+      ; child_opt "else_" (Rule "Else")
       ]
     |> with_committed
   in
   let else_ =
-    prod "Else" [ child_req "kw" (Token "else"); child_req "body" (Rule "Expr") ]
+    prod
+      "Else"
+      [ child_req "kw" (Token "else")
+      ; child_alt_rules ~modifier:Exactly_one "body" [ "Block"; "If" ]
+      ]
   in
   let while_ =
     prod

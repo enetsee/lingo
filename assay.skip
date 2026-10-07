@@ -58,3 +58,13 @@
 2405409640929218875	doesn't type-check: This expression has type Core.Rule.def list -> view list
 3726653015125637195	doesn't type-check: This expression has type Core.Block.def list -> (string * arm list) list
 685787400222754773	doesn't type-check: This expression has type Core.Rule.child list -> (string * arm list) list
+507194301104852758	doesn't type-check: This expression has type ('a * 'b) list -> 'b list
+1914688587210371937	doesn't type-check: This expression has type int list -> int
+1760206838036712046	doesn't type-check: This expression has type Siesta__Syntax.elem list -> int list
+3212362090906460116	doesn't type-check: The value List.concat has type 'a list list -> 'a list
+415940031719592038	doesn't type-check: This expression has type Siesta__Syntax.elem list -> int list
+415179772908963394	doesn't type-check: This expression has type (int * Siesta__Syntax.token_cursor) list -> (string * Siesta__Syntax.token_cursor) list
+1222073947934127340	doesn't type-check: This expression has type Core.Token.def list -> int list
+3186816909319826997	doesn't type-check: This expression has type Core.Block.def list -> block list
+2376862163046844215	doesn't type-check: This expression has type Core.Rule.child list -> Core.Kind.Set.t list
+3636919656862301858	doesn't type-check: This expression has type Core.Token.def list -> int list

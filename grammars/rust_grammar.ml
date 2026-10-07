@@ -134,7 +134,7 @@ let grammar : t =
 
      A variant's payload is optional and starts with [(] or [{]; what follows a
      variant in the body is [,] or [}]. The two sets are disjoint, so the
-     optional child needs no [greedy]. *)
+     parser can tell whether the payload is there. *)
   let tuple_payload =
     prod "TuplePayload" [ child_rep "ty" (Rule "Type") ]
     |> with_delimited_sep ~open_tok:"lparen" ~close_tok:"rparen" ~sep:"comma"

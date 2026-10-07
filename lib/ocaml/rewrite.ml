@@ -92,9 +92,9 @@ let lifted (f : Core.Facts.t) (c : Core.Rule.child) : Emit.expr =
     | Both ->
       Emit.eapply_labelled
         (Emit.evar (runtime "Elem.make"))
-        [ Labelled "node", Emit.evar "node"
-        ; Labelled "token", Emit.evar "token"
-        ; Nolabel, Emit.eunit
+        [ Ppxlib.Labelled "node", Emit.evar "node"
+        ; Ppxlib.Labelled "token", Emit.evar "token"
+        ; Ppxlib.Nolabel, Emit.eunit
         ]
   in
   if repeats c then Emit.ecall (runtime "Elems.all") [ element ] else element
@@ -106,7 +106,7 @@ let probe (f : Core.Facts.t) (modules : (string * Core.Rule.def) list) : Emit.it
     some
       (Emit.eapply_labelled
          (Emit.evar (module_name ^ ".congr"))
-         (args @ [ Nolabel, Emit.eunit ]))
+         (args @ [ Ppxlib.Nolabel, Emit.eunit ]))
   in
   let cases =
     List.concat_map modules ~f:(fun ((module_name : string), (d : Core.Rule.def)) ->
@@ -116,7 +116,9 @@ let probe (f : Core.Facts.t) (modules : (string * Core.Rule.def) list) : Emit.it
       :: List.mapi (Array.to_list d.children) ~f:(fun (i : int) (c : Core.Rule.child) ->
         Emit.ecase
           (Emit.ptuple [ Emit.pint (kind d); Emit.pconstruct "Some" [ Emit.pint i ] ])
-          (call module_name [ Optional (label c), Emit.econstruct "Some" [ lifted f c ] ])))
+          (call
+             module_name
+             [ Ppxlib.Optional (label c), Emit.econstruct "Some" [ lifted f c ] ])))
   in
   Emit.ilet
     "probe"
@@ -345,11 +347,11 @@ let frame
       Ok
         (Emit.eapply_labelled
            (Emit.evar (construct "separated"))
-           [ Nolabel, Emit.eint index
-           ; Labelled "leading", Emit.ebool (always sep.leading)
-           ; Labelled "trailing", Emit.ebool (always sep.trailing)
-           ; Nolabel, token sep.sep_tok text
-           ; Nolabel, elements c
+           [ Ppxlib.Nolabel, Emit.eint index
+           ; Ppxlib.Labelled "leading", Emit.ebool (always sep.leading)
+           ; Ppxlib.Labelled "trailing", Emit.ebool (always sep.trailing)
+           ; Ppxlib.Nolabel, token sep.sep_tok text
+           ; Ppxlib.Nolabel, elements c
            ])
   in
   let delimiter (k : Core.Kind.t) (text : string) : Emit.expr =
@@ -636,9 +638,9 @@ let block_module ~(views : string) (f : Core.Facts.t) (b : block) : Emit.item =
       ~condition:
         (Emit.eapply_labelled
            (Emit.evar (runtime "Parens.ends_open"))
-           [ Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
-           ; Labelled "expression", kind_test (expression_kinds f)
-           ; Nolabel, Emit.evar "node"
+           [ Ppxlib.Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
+           ; Ppxlib.Labelled "expression", kind_test (expression_kinds f)
+           ; Ppxlib.Nolabel, Emit.evar "node"
            ])
       ~then_:(Emit.eint 0)
       ~else_:max_int
@@ -947,20 +949,20 @@ let make ~(views : string) (f : Core.Facts.t) (module_name : string) (d : Core.R
       let built =
         Emit.eapply_labelled
           (Emit.evar (runtime "Construct.finish"))
-          [ Optional replacing, Emit.evar replacing
-          ; ( Labelled "slots"
+          [ Ppxlib.Optional replacing, Emit.evar replacing
+          ; ( Ppxlib.Labelled "slots"
             , Emit.evar (views ^ "." ^ Core.Manifest.view_support ^ ".slots") )
-          ; Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
-          ; Labelled "comment", kind_test (trivia_kinds f ~comments_only:true)
-          ; ( Labelled "takes"
+          ; Ppxlib.Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
+          ; Ppxlib.Labelled "comment", kind_test (trivia_kinds f ~comments_only:true)
+          ; ( Ppxlib.Labelled "takes"
             , match d.origin with
               | Core.Rule.Pratt_role _ ->
                 Emit.elambda [ Emit.arg_any; Emit.arg_any ] (Emit.ebool false)
               | Core.Rule.User | Core.Rule.Pratt_block -> Emit.evar "takes_next" )
-          ; Nolabel, Emit.evar cache
-          ; Nolabel, Emit.eint (kind d)
-          ; Nolabel, Emit.evar (views ^ "." ^ module_name ^ ".cast")
-          ; Nolabel, Emit.elist parts
+          ; Ppxlib.Nolabel, Emit.evar cache
+          ; Ppxlib.Nolabel, Emit.eint (kind d)
+          ; Ppxlib.Nolabel, Emit.evar (views ^ "." ^ module_name ^ ".cast")
+          ; Ppxlib.Nolabel, Emit.elist parts
           ]
       in
       let built =
@@ -1222,11 +1224,12 @@ let edits_of (f : Core.Facts.t) (d : Core.Rule.def) : edit list =
 let edit_args ~(views : string) (f : Core.Facts.t) (d : Core.Rule.def) (e : edit)
   : (Ppxlib.arg_label * Emit.expr) list
   =
-  [ Labelled "kind", Emit.eint (kind d)
-  ; Labelled "slots", Emit.evar (views ^ "." ^ Core.Manifest.view_support ^ ".slots")
-  ; Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
-  ; Labelled "slot", Emit.eint e.index
-  ; ( Labelled "sep"
+  [ Ppxlib.Labelled "kind", Emit.eint (kind d)
+  ; ( Ppxlib.Labelled "slots"
+    , Emit.evar (views ^ "." ^ Core.Manifest.view_support ^ ".slots") )
+  ; Ppxlib.Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
+  ; Ppxlib.Labelled "slot", Emit.eint e.index
+  ; ( Ppxlib.Labelled "sep"
     , match e.sep with
       | Some (k, text) ->
         Emit.econstruct "Some" [ Emit.etuple [ Emit.eint k; Emit.estr text ] ]
@@ -1235,7 +1238,7 @@ let edit_args ~(views : string) (f : Core.Facts.t) (d : Core.Rule.def) (e : edit
 ;;
 
 let opener_arg (e : edit) : Ppxlib.arg_label * Emit.expr =
-  ( Labelled "opener"
+  ( Ppxlib.Labelled "opener"
   , match e.opener with
     | Some k -> Emit.econstruct "Some" [ Emit.eint k ]
     | None -> Emit.econstruct "None" [] )
@@ -1281,10 +1284,10 @@ let edit_items ~(views : string) (f : Core.Facts.t) (d : Core.Rule.def) : Emit.i
                  (Emit.evar (runtime "Edit.insert"))
                  (args
                   @ [ opener_arg e
-                    ; Labelled "at", Emit.evar "at"
-                    ; Nolabel, element
-                    ; Nolabel, Emit.evar "ctx"
-                    ; Nolabel, Emit.evar "node"
+                    ; Ppxlib.Labelled "at", Emit.evar "at"
+                    ; Ppxlib.Nolabel, element
+                    ; Ppxlib.Nolabel, Emit.evar "ctx"
+                    ; Ppxlib.Nolabel, Emit.evar "node"
                     ]))))
     in
     let delete =
@@ -1294,8 +1297,8 @@ let edit_items ~(views : string) (f : Core.Facts.t) (d : Core.Rule.def) : Emit.i
         (Emit.eapply_labelled
            (Emit.evar (runtime "Edit.delete"))
            (args
-            @ [ Labelled "required", Emit.ebool e.must_stay
-              ; Labelled "at", Emit.evar "at"
+            @ [ Ppxlib.Labelled "required", Emit.ebool e.must_stay
+              ; Ppxlib.Labelled "at", Emit.evar "at"
               ]))
     in
     [ insert; delete ])
@@ -1352,15 +1355,16 @@ let edit_probes
            (Emit.evar (runtime "Edit.insert"))
            (edit_args ~views f d e
             @ [ opener_arg e
-              ; Labelled "at", Emit.evar "at"
-              ; Nolabel, Emit.evar "element"
+              ; Ppxlib.Labelled "at", Emit.evar "at"
+              ; Ppxlib.Nolabel, Emit.evar "element"
               ]))
   ; dispatch "delete_at" [] (fun d e ->
       Emit.eapply_labelled
         (Emit.evar (runtime "Edit.delete"))
         (edit_args ~views f d e
-         @ [ Labelled "required", Emit.ebool e.must_stay; Labelled "at", Emit.evar "at" ]
-        ))
+         @ [ Ppxlib.Labelled "required", Emit.ebool e.must_stay
+           ; Ppxlib.Labelled "at", Emit.evar "at"
+           ]))
   ]
 ;;
 
@@ -1454,13 +1458,13 @@ let apply_item ~(views : string) (f : Core.Facts.t) : Emit.item =
     ~args:[ Emit.Named "format"; Emit.Named "before"; Emit.Named "after" ]
     (Emit.eapply_labelled
        (Emit.evar (runtime "apply"))
-       [ Labelled "format", Emit.evar "format"
-       ; Labelled "items", items
-       ; Labelled "between", between
-       ; Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
-       ; Labelled "comment", kind_test (trivia_kinds f ~comments_only:true)
-       ; Labelled "before", Emit.evar "before"
-       ; Labelled "after", Emit.evar "after"
+       [ Ppxlib.Labelled "format", Emit.evar "format"
+       ; Ppxlib.Labelled "items", items
+       ; Ppxlib.Labelled "between", between
+       ; Ppxlib.Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
+       ; Ppxlib.Labelled "comment", kind_test (trivia_kinds f ~comments_only:true)
+       ; Ppxlib.Labelled "before", Emit.evar "before"
+       ; Ppxlib.Labelled "after", Emit.evar "after"
        ])
 ;;
 
@@ -1574,12 +1578,12 @@ let takes_next ~(views : string) (f : Core.Facts.t) : Emit.item list =
         ]
       (Emit.eapply_labelled
          (Emit.evar (runtime "Construct.takes"))
-         [ ( Labelled "slots"
+         [ ( Ppxlib.Labelled "slots"
            , Emit.evar (views ^ "." ^ Core.Manifest.view_support ^ ".slots") )
-         ; Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
-         ; Labelled "open_after", Emit.evar "open_after"
-         ; Nolabel, Emit.evar "node"
-         ; Nolabel, Emit.evar "next"
+         ; Ppxlib.Labelled "trivia", kind_test (trivia_kinds f ~comments_only:false)
+         ; Ppxlib.Labelled "open_after", Emit.evar "open_after"
+         ; Ppxlib.Nolabel, Emit.evar "node"
+         ; Ppxlib.Nolabel, Emit.evar "next"
          ])
   ]
 ;;
@@ -1730,10 +1734,14 @@ let template_items (f : Core.Facts.t) (t : template) : Emit.item list =
          (Emit.etuple
             [ Emit.eapply_labelled
                 (Emit.evar "template")
-                [ Labelled "rule", Emit.evar "rule"; Nolabel, Emit.evar "lhs" ]
+                [ Ppxlib.Labelled "rule", Emit.evar "rule"
+                ; Ppxlib.Nolabel, Emit.evar "lhs"
+                ]
             ; Emit.eapply_labelled
                 (Emit.evar "template")
-                [ Labelled "rule", Emit.evar "rule"; Nolabel, Emit.evar "rhs" ]
+                [ Ppxlib.Labelled "rule", Emit.evar "rule"
+                ; Ppxlib.Nolabel, Emit.evar "rhs"
+                ]
             ])
          [ Emit.ecase
              (Emit.ptuple
@@ -1867,30 +1875,34 @@ let binder_items ~(views : string) (f : Core.Facts.t) : Emit.item list =
   ; Emit.ilet
       "visible"
       ~args:[ Emit.arg_var "at" ]
-      (call "visible" [ Nolabel, Emit.evar "at" ])
+      (call "visible" [ Ppxlib.Nolabel, Emit.evar "at" ])
   ; Emit.ilet
       "fresh"
       ~args:[ Emit.arg_var "at"; Emit.Named "base" ]
-      (call "fresh" [ Nolabel, Emit.evar "at"; Labelled "base", Emit.evar "base" ])
+      (call
+         "fresh"
+         [ Ppxlib.Nolabel, Emit.evar "at"; Ppxlib.Labelled "base", Emit.evar "base" ])
   ; Emit.ilet
       "resolve"
       ~args:[ Emit.arg_var "token" ]
-      (call "resolve" [ Nolabel, Emit.evar "token" ])
+      (call "resolve" [ Ppxlib.Nolabel, Emit.evar "token" ])
   ; Emit.ilet
       "rename"
       ~args:[ Emit.arg_var "cache"; Emit.arg_var "binder"; Emit.Named "to_" ]
       (call
          "rename"
-         [ Nolabel, Emit.evar "cache"
-         ; Nolabel, Emit.evar "binder"
-         ; Labelled "to_", Emit.evar "to_"
+         [ Ppxlib.Nolabel, Emit.evar "cache"
+         ; Ppxlib.Nolabel, Emit.evar "binder"
+         ; Ppxlib.Labelled "to_", Emit.evar "to_"
          ])
   ; Emit.ilet
       "substitute"
       ~args:[ Emit.Named "name"; Emit.Named "by" ]
       (call
          "substitute"
-         [ Labelled "name", Emit.evar "name"; Labelled "by", Emit.evar "by" ])
+         [ Ppxlib.Labelled "name", Emit.evar "name"
+         ; Ppxlib.Labelled "by", Emit.evar "by"
+         ])
   ]
 ;;
 
@@ -1974,7 +1986,9 @@ let generate ~(views : string) ?(template : template option) (f : Core.Facts.t)
              ~left:
                (Emit.eapply_labelled
                   (Emit.evar (b.position_module ^ ".needs_parens"))
-                  [ Labelled "at", Emit.evar "at"; Nolabel, Emit.evar "node" ])
+                  [ Ppxlib.Labelled "at", Emit.evar "at"
+                  ; Ppxlib.Nolabel, Emit.evar "node"
+                  ])
              ~right:rest))
     ]
   @

@@ -221,7 +221,6 @@ let shape (names : names) : shape =
   in
   let mk_child
         ?(modifier = Grammar.Exactly_one)
-        ?(greedy = false)
         ?(break = Grammar.Fit)
         ?(space = true)
         ?recover_to
@@ -235,7 +234,6 @@ let shape (names : names) : shape =
     ; modifier
     ; c_break = break
     ; c_space = space
-    ; greedy
     ; recover_to
     }
   in
@@ -245,7 +243,6 @@ let shape (names : names) : shape =
       ~modifier:c.modifier
       ~break:c.c_break
       ~space:c.c_space
-      ~greedy:c.c_parse.greedy
       ?recover_to:
         (Option.map
            (fun toks -> Kind.Set.of_list (List.map ~f:res_tok toks))

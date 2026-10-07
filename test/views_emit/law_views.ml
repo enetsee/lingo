@@ -25,7 +25,7 @@
 
       Two [Missing] reports over one range fold into one entry, which keeps the
       first one's child name. So (b) reads a placeholder only where its id
-      first appears in the tree, and only where the child its diagnostic names
+      first appears in source order, and only where the child its diagnostic names
       is one that takes a placeholder. A required token takes none, and a
       placeholder folded into a token's report names the token.
 
@@ -262,7 +262,8 @@ let check_node
       (facts : Core.Facts.t)
       (plan : Ir.Plan.t)
       (diagnostics : Lingo_runtime.Diagnostic.t array)
-      (seen : (int, unit) Hashtbl.t)
+      (first : (int, int * int) Hashtbl.t)
+      (number : int)
       (src : string)
       (node : Siesta.Syntax.t)
   : unit
@@ -340,9 +341,11 @@ let check_node
          | Siesta.Syntax.Token _ -> ()
          | Siesta.Syntax.Node n ->
            let id = Siesta.Green.payload (Siesta.Syntax.green n) in
-           if id > 0 && is_placeholder facts k && not (Hashtbl.mem seen id)
+           if
+             id > 0
+             && is_placeholder facts k
+             && Hashtbl.find_opt first id = Some (number, i)
            then (
-             Hashtbl.replace seen id ();
              match diagnostics.(id - 1).kind with
              | Lingo_runtime.Diagnostic.Missing { at_child = Some name; _ } ->
                let named =
@@ -456,16 +459,44 @@ let run_one (case : case) (facts : Core.Facts.t) (plan : Ir.Plan.t) (src : strin
   incr inputs;
   let green, diagnostics = Interp.run plan plan.roots.(0) (Lex.run facts src) in
   let diagnostics = Array.of_list diagnostics in
-  let seen = Hashtbl.create 8 in
+  (* Where each placeholder's id first appears in source order, as a node's
+     number and a child's index. Both walks number the nodes in the same
+     order. Missing children at the end of the input share one id, and the
+     source order puts an inner node's placeholders before the ones its
+     parent holds after it. *)
+  let first = Hashtbl.create 8 in
+  let count = ref 0 in
+  let rec mark (node : Siesta.Syntax.t) =
+    let number = !count in
+    incr count;
+    Array.iteri
+      (fun i elem ->
+         match elem with
+         | Siesta.Syntax.Node n ->
+           let id = Siesta.Green.payload (Siesta.Syntax.green n) in
+           if
+             id > 0
+             && is_placeholder facts (Siesta.Syntax.elem_kind elem)
+             && not (Hashtbl.mem first id)
+           then Hashtbl.replace first id (number, i);
+           mark n
+         | Siesta.Syntax.Token _ -> ())
+      (Siesta.Syntax.children_array node)
+  in
+  let root = Siesta.Syntax.of_root green in
+  mark root;
+  count := 0;
   let rec go (node : Siesta.Syntax.t) =
-    check_node case facts plan diagnostics seen src node;
+    let number = !count in
+    incr count;
+    check_node case facts plan diagnostics first number src node;
     Array.iter
       (function
         | Siesta.Syntax.Node n -> go n
         | Siesta.Syntax.Token _ -> ())
       (Siesta.Syntax.children_array node)
   in
-  go (Siesta.Syntax.of_root green)
+  go root
 ;;
 
 let () =

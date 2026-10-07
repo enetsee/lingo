@@ -231,20 +231,6 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
       let acc =
         List.fold_left prod.children ~init:acc ~f:(fun acc (c : Grammar.child) ->
           let where = Error.At_child { production = pn; child = c.name } in
-          (* A recovery set replaces what the parse resumes on where a child
-             cannot be read. An optional child's absence is silent and a
-             repeated one just ends its loop, so neither has that moment. One
-             or more does: its first is required. *)
-          let acc =
-            match c.modifier, c.c_parse.recover_to with
-            | (Grammar.Zero_or_one | Grammar.Zero_or_more _), Some _ ->
-              Error.make ~detail:(Error.Unused_recover_to { name = c.name }) where :: acc
-            | ( ( Grammar.Zero_or_one
-                | Grammar.Zero_or_more _
-                | Grammar.Exactly_one
-                | Grammar.One_or_more _ )
-              , _ ) -> acc
-          in
           List.fold_left
             ~f:(fun acc s -> sym_error names where s acc)
             ~init:acc
@@ -292,14 +278,9 @@ let production_refs (names : Stage.names) (acc : Error.t list) : Error.t list =
                  ~detail:(Error.Unknown_message_child { name = nm })
                  (Error.At_production pn)
                :: acc
-             (* Only a required child reports, so only a required child has
-                wording to replace. *)
-             | Some { modifier = Grammar.Zero_or_one | Grammar.Zero_or_more _; _ } ->
-               Error.make
-                 ~detail:(Error.Unused_message_child { name = nm })
-                 (Error.At_child { production = pn; child = nm })
-               :: acc
-             | Some { modifier = Grammar.Exactly_one | Grammar.One_or_more _; _ } -> acc)
+             (* Whether the child ever reports needs nullability, so
+                [Check_full] reads that. *)
+             | Some _ -> acc)
           prod.error_messages
           acc
       in

@@ -42,10 +42,6 @@
       a comparison that is off by one gives a different answer, and no
       grammar in grammars/ has one.
 
-      ml is drawn a second time with [if]s that may leave their [else] out.
-      An [if] with no [else] in front of an [else] would take it, so [make]
-      refuses that draw too, and it is counted apart.
-
       rassoc and rust have no bracketing atom. A role constructor there that
       wanted parentheses would fail, so on those two grammars (a) checks that
       none is ever wanted for a tree the parser built. calc carries a prefix
@@ -427,15 +423,10 @@ module Ml_type = struct
 end
 
 module Ml_expr = struct
-  (* [with_else] says whether an [if] may leave its [else] out. *)
-  let rec expr
-            ~(with_else : bool)
-            (cache : Siesta.Cache.t)
-            (state : Random.State.t)
-            (depth : int)
+  let rec expr (cache : Siesta.Cache.t) (state : Random.State.t) (depth : int)
     : (Emitted_views.Ml_views.expr_position, string) result
     =
-    let sub () = expr ~with_else cache state (depth - 1) in
+    let sub () = expr cache state (depth - 1) in
     if depth = 0 || Random.State.int state 4 = 0
     then
       let* atom =
@@ -453,14 +444,9 @@ module Ml_expr = struct
       | 1 ->
         let* cond = sub () in
         let* t = sub () in
-        let* else_ =
-          if with_else || Random.State.bool state
-          then
-            let* e = sub () in
-            Result.map Option.some (Emitted_rewrite.Ml_rewrite.Else.make cache e)
-          else Ok None
-        in
-        let* if_ = Emitted_rewrite.Ml_rewrite.If.make cache ~cond ~t ?else_ () in
+        let* e = sub () in
+        let* else_ = Emitted_rewrite.Ml_rewrite.Else.make cache e in
+        let* if_ = Emitted_rewrite.Ml_rewrite.If.make cache ~cond ~t ~else_ () in
         Ok (Emitted_views.Ml_views.Expr_position_if if_)
       | _ ->
         let op =
@@ -478,10 +464,10 @@ module Ml_expr = struct
         Ok (Emitted_views.Ml_views.Expr_position_expr_bin bin))
   ;;
 
-  let build ~(with_else : bool) (cache : Siesta.Cache.t) (state : Random.State.t)
+  let build (cache : Siesta.Cache.t) (state : Random.State.t)
     : (Siesta.Syntax.t, string) result
     =
-    Result.map Emitted_views.Ml_views.Expr_position.syntax (expr ~with_else cache state 4)
+    Result.map Emitted_views.Ml_views.Expr_position.syntax (expr cache state 4)
   ;;
 end
 
@@ -553,14 +539,7 @@ let drawn : drawn list =
     }
   ; { grammar_name = "ml"
     ; draw_grammar = Lingo_grammars.Ml_grammar.grammar
-    ; build = Ml_expr.build ~with_else:true
-    ; wrap = (fun text -> "let x : int = " ^ text ^ ";")
-    ; block = "Expr"
-    ; asks = Emitted_probe.Ml_probe.needs_parens
-    }
-  ; { grammar_name = "ml"
-    ; draw_grammar = Lingo_grammars.Ml_grammar.grammar
-    ; build = Ml_expr.build ~with_else:false
+    ; build = Ml_expr.build
     ; wrap = (fun text -> "let x : int = " ^ text ^ ";")
     ; block = "Expr"
     ; asks = Emitted_probe.Ml_probe.needs_parens
@@ -589,7 +568,6 @@ let () =
   let built = ref 0 in
   let added = ref 0 in
   let refused = ref 0 in
-  let dangling = ref 0 in
   List.iter drawn ~f:(fun (d : drawn) ->
     match Core.Facts.of_grammar d.draw_grammar with
     | Error _ -> Law.fail "%s: the grammar does not check" d.grammar_name
@@ -636,7 +614,6 @@ let () =
         match d.build cache state with
         | Error reason when String.ends_with ~suffix:"has no bracketing atom" reason ->
           incr refused
-        | Error "a child would take the token after it" -> incr dangling
         | Error reason -> Law.fail "(d) %s: building failed with %S" d.grammar_name reason
         | Ok expression ->
           incr built;
@@ -694,16 +671,14 @@ let () =
                        | Some _ | None -> ())))
                (Siesta.Syntax.descendants expression))
       done);
-  if !dangling = 0 then Law.fail "(d) no draw put an if with no else before an else";
   if Law.failures () = before
   then
     Law.pass
       "(d) %d expressions built from the constructors parse back, with %d atoms put in, \
-       %d refused for want of one, and %d refused where an else would move"
+       and %d refused for want of one"
       !built
       !added
       !refused
-      !dangling
 ;;
 
 let () = Law.summarise "law_parens"

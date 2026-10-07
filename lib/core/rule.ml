@@ -42,7 +42,6 @@ type child =
   ; modifier : Grammar.modifier
   ; c_break : Grammar.break_style
   ; c_space : bool
-  ; greedy : bool
   ; recover_to : Kind.Set.t option
   }
 

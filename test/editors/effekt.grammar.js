@@ -144,17 +144,14 @@ module.exports = grammar({
 
     expr_stmt: $ => seq(field('expr', $._expr), field('semi', ';')),
 
-    if: $ => prec.right(
-      1,
-      seq(
-        field('kw', 'if'),
-        field('cond', $.paren),
-        field('then_', $._expr),
-        optional(field('else_', $.else))
-      )
+    if: $ => seq(
+      field('kw', 'if'),
+      field('cond', $.paren),
+      field('then_', $.block),
+      optional(field('else_', $.else))
     ),
 
-    else: $ => seq(field('kw', 'else'), field('body', $._expr)),
+    else: $ => seq(field('kw', 'else'), field('body', choice($.block, $.if))),
 
     while: $ => seq(field('kw', 'while'), field('cond', $.paren), field('body', $._expr)),
 

@@ -16,8 +16,8 @@
    One line of that comes to over a thousand units of diagram, against a page
    of seven hundred and sixty. Real languages have productions this wide.
 
-   Each optional clause opens on a keyword of its own. The grammar stays
-   LL(1), and no child needs [greedy].
+   Each optional clause opens on a keyword of its own, so the grammar stays
+   LL(1).
 
    Source the grammar parses:
 

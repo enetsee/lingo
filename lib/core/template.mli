@@ -21,8 +21,8 @@
     - An expression block takes the plain metavariable, the sequence one and
       its own typed one as atoms. The sequence one is how [f($$xs)] reads,
       since a postfix body names one symbol and takes no alternatives.
-    - Every optional child is greedy, so a metavariable fills the first child
-      that takes it.
+    - A metavariable fills the first child that takes it. An optional child
+      that can begin with it takes it, and the child after it does not.
     - Every rule, production or block, gets a root of its own that holds one
       of it, so a template can be a fragment. The rules themselves are not
       roots, since a root takes whatever input is left.

@@ -5,12 +5,21 @@
       [Error.codes] appears here, and each grammar's rejection set is the one
       code it is filed under.
 
-      Several carry a [~greedy:true] or an awkward shape for that reason, and
-      the comment says which other code it keeps quiet.
+      Several carry an awkward shape for that reason, and the comment says
+      which other code it keeps quiet.
+
+      Two codes come with a conflict of their own, and the checker reports
+      only the cause. A left recursion makes the child that carries it
+      overlap whatever the rule takes first. A repeated element that can
+      match nothing follows itself, so what it begins with is in its FOLLOW.
+      The witnesses for [left-recursion], [nullable-repeated] and the
+      repeated [ambiguous-empty] rely on that.
 
       A code carries a second grammar where one shape cannot reach what the
       check owes. [left_recursion] has [left_recursion_pair], the first cycle
-      length that separates one finding from many, and [invalid_name] has
+      length that separates one finding from many, and
+      [left_recursion_operator], a cycle through an expression block. And
+      [invalid_name] has
       [invalid_name_kind_suffix], a name in a position the first leaves out.
       The comment on each second grammar says what it adds. Both halves above
       are quantified per entry, so a shared code costs nothing.
@@ -187,6 +196,32 @@ let unused_message_child =
     ]
 ;;
 
+(* Wording for a required child that can match nothing. It is never missing,
+   so it never reports. *)
+let unused_message_child_empty =
+  only
+    [ prod "Root" [ child_req "x" (Rule "Opt"); child_req "y" (Token "tb") ]
+      |> with_messages [ "x", "expected something" ]
+    ; prod "Opt" [ child_opt "t" (Token "ta") ]
+    ]
+;;
+
+(* A recovery set on a required child that can match nothing. *)
+let unused_recover_to_empty =
+  only
+    [ prod
+        "Root"
+        [ child_req ~recover_to:[ "tb" ] "x" (Rule "Opt"); child_req "y" (Token "tb") ]
+    ; prod "Opt" [ child_opt "t" (Token "ta") ]
+    ]
+;;
+
+(* A recovery set on one token. A missing token is reported where it is, and
+   nothing skips. *)
+let unused_recover_to_token =
+  only [ prod "Root" [ child_req ~recover_to:[ "tb" ] "x" (Token "ta") ] ]
+;;
+
 (* A recovery set on a child that never recovers, for the same reason. *)
 let unused_recover_to =
   only
@@ -355,7 +390,12 @@ let ambiguous_same_kind_child =
      Where it is absent the later accessor's rank points at the wrong
      node. *)
   only
-    [ prod "Root" [ child_opt ~greedy:true "a" (Token "ta"); child_req "b" (Token "ta") ]
+    [ prod
+        "Root"
+        [ child_opt "a" (Token "ta")
+        ; child_req "x" (Token "tb")
+        ; child_req "b" (Token "ta")
+        ]
     ]
 ;;
 
@@ -392,39 +432,70 @@ let first_follow_conflict =
 ;;
 
 let left_recursion =
-  (* [~greedy:true] keeps the FIRST/FOLLOW complaint quiet, which the
-     optional self-reference would otherwise raise first. It says the author
-     meant the ambiguity, and the parser still makes no progress. *)
-  only
-    [ prod "Root" [ child_opt ~greedy:true "l" (Rule "Root"); child_req "t" (Token "ta") ]
-    ]
+  (* The optional self-reference also overlaps what follows it. The checker
+     reports the recursion and leaves that out. *)
+  only [ prod "Root" [ child_opt "l" (Rule "Root"); child_req "t" (Token "ta") ] ]
 ;;
 
 let left_recursion_pair =
   (* The same shape one rule wider. A cycle of one is the single length at
      which reporting cycles and reporting components agree, so the self-loop
      above stayed green while a cycle of two reported one finding per
-     rotation: two findings for one left recursion. [~greedy:true] is for the
-     reason given above.
+     rotation: two findings for one left recursion.
 
      [law_validate] part (f) holds the count. Part (a) compares sets of
      codes, and part (e) rejects identical findings where rotations differ in
      both site and message, so a left recursion reported k times gets past
      both. *)
   only
+    [ prod "Root" [ child_opt "l" (Rule "Inner"); child_req "t" (Token "ta") ]
+    ; prod "Inner" [ child_opt "l" (Rule "Root"); child_req "t" (Token "tb") ]
+    ]
+;;
+
+let left_recursion_operator =
+  (* An atom that begins with its own block. Its FIRST holds the block's, so
+     the atoms overlap, and the prefix operator can start [Add]. The checker
+     reports the recursion alone. The report suggests an infix operator. *)
+  only
+    ~expr:
+      [ expr_block
+          ~rule_name:"E"
+          ~atoms:[ Token "ta"; Rule "Add" ]
+          ~prefix_ops:[ prefix ~token:"m" ~bp:70 () ]
+          ()
+      ]
+    [ prod "Root" [ child_req "e" (Rule "E") ]
+    ; prod
+        "Add"
+        [ child_req "l" (Rule "E"); child_req "op" (Token "t"); child_req "r" (Rule "E") ]
+    ]
+;;
+
+(* [t] follows the expression, and [E] has an infix operator on [t], so the
+   expression would take it. *)
+let operator_follow_conflict =
+  only
+    ~expr:
+      [ expr_block
+          ~rule_name:"E"
+          ~atoms:[ Token "ta" ]
+          ~infix_ops:[ infix ~token:"t" ~bp:10 () ]
+          ()
+      ]
     [ prod
         "Root"
-        [ child_opt ~greedy:true "l" (Rule "Inner"); child_req "t" (Token "ta") ]
-    ; prod
-        "Inner"
-        [ child_opt ~greedy:true "l" (Rule "Root"); child_req "t" (Token "tb") ]
+        [ child_req "e" (Rule "E")
+        ; child_req "op" (Token "t")
+        ; child_req "x" (Token "tb")
+        ]
     ]
 ;;
 
 let nullable_repeated =
   only
     [ prod "Root" [ child_rep "xs" (Rule "Opt") ]
-    ; prod "Opt" [ child_opt ~greedy:true "x" (Token "ta") ]
+    ; prod "Opt" [ child_opt "x" (Token "ta") ]
     ]
 ;;
 
@@ -432,14 +503,14 @@ let nullable_pratt_atom =
   only
     ~expr:[ expr_block ~rule_name:"E" ~atoms:[ Rule "Opt" ] () ]
     [ prod "Root" [ child_req "e" (Rule "E") ]
-    ; prod "Opt" [ child_opt ~greedy:true "x" (Token "ta") ]
+    ; prod "Opt" [ child_opt "x" (Token "ta") ]
     ]
 ;;
 
 let nullable_separated_element =
   only
     [ prod "Root" [ child_rep "e" (Rule "Opt") ] |> with_separator ~sep:"comma"
-    ; prod "Opt" [ child_opt ~greedy:true "x" (Token "ta") ]
+    ; prod "Opt" [ child_opt "x" (Token "ta") ]
     ]
 ;;
 
@@ -447,8 +518,8 @@ let nullable_separated_element =
 let ambiguous_empty_alternatives =
   only
     [ prod "Root" [ child_alt_rules ~modifier:Exactly_one "e" [ "Opt"; "Other" ] ]
-    ; prod "Opt" [ child_opt ~greedy:true "x" (Token "ta") ]
-    ; prod "Other" [ child_opt ~greedy:true "x" (Token "tb") ]
+    ; prod "Opt" [ child_opt "x" (Token "ta") ]
+    ; prod "Other" [ child_opt "x" (Token "tb") ]
     ]
 ;;
 
@@ -456,7 +527,7 @@ let ambiguous_empty_alternatives =
 let ambiguous_empty_optional =
   only
     [ prod "Root" [ child_opt "e" (Rule "Opt") ]
-    ; prod "Opt" [ child_opt ~greedy:true "x" (Token "ta") ]
+    ; prod "Opt" [ child_opt "x" (Token "ta") ]
     ]
 ;;
 
@@ -467,7 +538,7 @@ let ambiguous_empty_repeated =
     [ prod
         "Root"
         [ child_alt ~modifier:(Zero_or_more Fit) "e" [ Rule "Opt"; Token "tb" ] ]
-    ; prod "Opt" [ child_opt ~greedy:true "x" (Token "ta") ]
+    ; prod "Opt" [ child_opt "x" (Token "ta") ]
     ]
 ;;
 
@@ -561,7 +632,10 @@ let all : (string * Grammar.t) list =
   ; "binder-not-pattern-token", binder_holds_alternatives
   ; "unknown-message-child", unknown_message_child
   ; "unused-message-child", unused_message_child
+  ; "unused-message-child", unused_message_child_empty
   ; "unused-recover-to", unused_recover_to
+  ; "unused-recover-to", unused_recover_to_empty
+  ; "unused-recover-to", unused_recover_to_token
   ; "unused-resync-anchors", unused_resync_anchors
   ; "unused-resync-anchors", unused_resync_anchors_separated
   ; "no-roots", no_roots
@@ -583,8 +657,10 @@ let all : (string * Grammar.t) list =
   ; "overlapping-single-kinds", overlapping_single_kinds
   ; "first-first-conflict", first_first_conflict
   ; "first-follow-conflict", first_follow_conflict
+  ; "operator-follow-conflict", operator_follow_conflict
   ; "left-recursion", left_recursion
   ; "left-recursion", left_recursion_pair
+  ; "left-recursion", left_recursion_operator
   ; "nullable-repeated", nullable_repeated
   ; "ambiguous-empty", ambiguous_empty_alternatives
   ; "ambiguous-empty", ambiguous_empty_optional

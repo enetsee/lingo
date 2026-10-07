@@ -1,10 +1,189 @@
 open StdLabels
 
+(* -- left recursion, as an analysis ---------------------------------------- *)
+
+(* What a rule's parser reaches without taking a token first. *)
+type left_through =
+  | Through_child of int (** The index of the child. *)
+  | Through_atom
+
+type left_edge =
+  { target : int
+  ; through : left_through
+  }
+
+type cycle =
+  { members : int list (** Ascending, so in declaration order. *)
+  ; path : (int * left_edge) list (** From the first member back to it. *)
+  }
+
+type recursion =
+  { cycles : cycle list
+  ; edge_children : (int * int, unit) Hashtbl.t
+    (** A rule and a child it reaches another member of its cycle through. *)
+  ; blocks : (int, unit) Hashtbl.t (** Blocks on a cycle, by rule id. *)
+  }
+
+(* [r -> s] where r's parser reaches s without taking a token first. A cycle
+   here is a left recursion.
+
+   A delimited production takes its opener before any rule call, so it gives
+   no edges. An expression block reaches its atoms without taking a token,
+   so a cycle through a block counts. *)
+let left_edges (shape : Stage.shape) (fixpoint_reader : Fixpoint.Reader.t)
+  : left_edge list array
+  =
+  let edges = Array.make (Array.length shape.rules) [] in
+  let add (r : int) (edge : left_edge) = edges.(r) <- edge :: edges.(r) in
+  Array.iter shape.rules ~f:(fun (d : Rule.def) ->
+    match d.origin, d.frame with
+    | Rule.Pratt_role _, _ | _, Rule.Delimited _ -> ()
+    | (Rule.Pratt_block | Rule.User), (Rule.Plain | Rule.Committed _ | Rule.Separated _)
+      ->
+      let count = Array.length d.children in
+      let rec walk (i : int) =
+        if i < count
+        then (
+          let ch = d.children.(i) in
+          Array.iter ch.alts ~f:(fun k ->
+            let t = Fixpoint.Reader.rule_of_kind fixpoint_reader k in
+            if t >= 0 then add d.id { target = t; through = Through_child i });
+          if Fixpoint.Reader.child_nullable fixpoint_reader ch then walk (i + 1))
+      in
+      walk 0);
+  Array.iter shape.blocks ~f:(fun (b : Block.def) ->
+    Array.iter b.atoms ~f:(fun k ->
+      let t = Fixpoint.Reader.rule_of_kind fixpoint_reader k in
+      if t >= 0 then add b.rule_id { target = t; through = Through_atom }));
+  Array.map edges ~f:List.rev
+;;
+
+(* Tarjan, one pass over the edge set. A component names a left recursion
+   once.
+
+   Cycles do not. A cycle has one rotation per node on it, so reporting
+   cycles reports the same left recursion once per member. Something then
+   has to walk the reports and recognise the rotations as one.
+
+   Every cycle lies inside a strongly connected component, and a component
+   of more than one rule holds a cycle. So the components to report are the
+   ones with more than one rule, plus any rule that reaches itself. *)
+let cyclic_components (edges : left_edge list array) : int list list =
+  let succs (r : int) : int list =
+    List.map edges.(r) ~f:(fun (e : left_edge) -> e.target)
+  in
+  let n = Array.length edges in
+  let index = Array.make n (-1) in
+  let low = Array.make n 0 in
+  let stacked = Array.make n false in
+  let stack = ref [] in
+  let next = ref 0 in
+  let components = ref [] in
+  let rec visit (v : int) =
+    index.(v) <- !next;
+    low.(v) <- !next;
+    incr next;
+    stack := v :: !stack;
+    stacked.(v) <- true;
+    List.iter (succs v) ~f:(fun w ->
+      if index.(w) < 0
+      then (
+        visit w;
+        low.(v) <- min low.(v) low.(w))
+      else if stacked.(w)
+      then low.(v) <- min low.(v) index.(w));
+    if low.(v) = index.(v)
+    then (
+      let rec pop acc =
+        match !stack with
+        | [] -> acc
+        | w :: rest ->
+          stack := rest;
+          stacked.(w) <- false;
+          if w = v then w :: acc else pop (w :: acc)
+      in
+      components := pop [] :: !components)
+  in
+  for v = 0 to n - 1 do
+    if index.(v) < 0 then visit v
+  done;
+  (* Rule ids are assigned in declaration order. Sorting the members puts
+     them in the author's order, and fixes which site the finding is filed
+     at. The traversal can enter the component anywhere and the order comes
+     out the same. *)
+  List.filter_map !components ~f:(fun members ->
+    match List.sort members ~cmp:compare with
+    | [ r ] when not (List.mem r ~set:(succs r)) -> None
+    | ms -> Some ms)
+  |> List.sort ~cmp:compare
+;;
+
+(* The shortest way round from the first member back to it, breadth first
+   over the edges that stay inside the component. The report shows the
+   author this path, so a short one is the one to show. *)
+let cycle_path (edges : left_edge list array) (members : int list)
+  : (int * left_edge) list
+  =
+  let start = List.hd members in
+  let came_from : (int, int * left_edge) Hashtbl.t = Hashtbl.create 8 in
+  let queue = Queue.create () in
+  Queue.add start queue;
+  let closing = ref None in
+  while Option.is_none !closing && not (Queue.is_empty queue) do
+    let r = Queue.pop queue in
+    List.iter edges.(r) ~f:(fun (e : left_edge) ->
+      if Option.is_none !closing && List.mem e.target ~set:members
+      then
+        if e.target = start
+        then closing := Some (r, e)
+        else if not (Hashtbl.mem came_from e.target)
+        then (
+          Hashtbl.add came_from e.target (r, e);
+          Queue.add e.target queue))
+  done;
+  let rec back (r : int) (acc : (int * left_edge) list) =
+    if r = start
+    then acc
+    else (
+      let from, e = Hashtbl.find came_from r in
+      back from ((from, e) :: acc))
+  in
+  match !closing with
+  | None -> []
+  | Some (last, e) -> back last [] @ [ last, e ]
+;;
+
+(* A left recursion causes conflicts of its own. A rule that begins with
+   itself also begins with whatever it takes first, so the child carrying the
+   recursion overlaps a sibling or what follows it. A block on the cycle has an
+   atom whose FIRST holds the others'. Those findings name the symptom, so the
+   conflict checks skip them and the left recursion is reported on its own. *)
+let recursion_of (shape : Stage.shape) (fixpoint_reader : Fixpoint.Reader.t) : recursion =
+  let edges = left_edges shape fixpoint_reader in
+  let edge_children = Hashtbl.create 8 in
+  let blocks = Hashtbl.create 4 in
+  let cycles =
+    List.map (cyclic_components edges) ~f:(fun members ->
+      List.iter members ~f:(fun r ->
+        if shape.rules.(r).Rule.origin = Rule.Pratt_block then Hashtbl.replace blocks r ();
+        List.iter edges.(r) ~f:(fun (e : left_edge) ->
+          match e.through with
+          | Through_child i when List.mem e.target ~set:members ->
+            Hashtbl.replace edge_children (r, i) ()
+          | Through_child _ | Through_atom -> ()));
+      { members; path = cycle_path edges members })
+  in
+  { cycles; edge_children; blocks }
+;;
+
 type ctx =
   { shape : Stage.shape
   ; fixpoint_tables : Fixpoint.tables
   ; fixpoint_reader : Fixpoint.Reader.t
   ; kind_table : Kind.Table.t
+  ; recursion : recursion
+  ; repeated_empty : (int, unit) Hashtbl.t
+    (** Rules that can match nothing and are an element of a repeated child. *)
   }
 
 let kind_refs (ctx : ctx) (set : Kind.Set.t) : Error.kind_ref list =
@@ -16,6 +195,61 @@ let user_rules (ctx : ctx) : Rule.def list =
     d.origin = Rule.User)
 ;;
 
+(* The rewrite to suggest. A rule that begins with itself through one child
+   repeats what follows that child. A rule that is an atom of a block and
+   begins with the block, then a token, is that block's operator. *)
+let left_rewrite (ctx : ctx) (cycle : cycle) : Error.left_rewrite =
+  let rules = ctx.shape.rules in
+  let single_token (c : Rule.child) : Kind.t option =
+    match c.modifier, c.alts with
+    | Grammar.Exactly_one, [| k |]
+      when Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k < 0 -> Some k
+    | _ -> None
+  in
+  let names_block (c : Rule.child) (block : int) : bool =
+    match c.modifier, c.alts with
+    | Grammar.Exactly_one, [| k |] ->
+      Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k = block
+    | _ -> false
+  in
+  let operator ((r : int), (e : left_edge)) : Error.left_rewrite option =
+    match e.through with
+    | Through_atom -> None
+    | Through_child i ->
+      let d = rules.(r) in
+      let atom_of_target =
+        Array.exists ctx.shape.blocks ~f:(fun (b : Block.def) ->
+          b.rule_id = e.target
+          && Array.exists b.atoms ~f:(fun k ->
+            Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k = r))
+      in
+      if (not atom_of_target) || i + 1 >= Array.length d.children
+      then None
+      else (
+        match single_token d.children.(i + 1) with
+        | None -> None
+        | Some lead ->
+          let last = Array.length d.children - 1 in
+          Some
+            (Error.Operator
+               { block = rules.(e.target).name
+               ; rule = d.name
+               ; lead =
+                   ctx.shape.names.tokens.(ctx.shape.names.kind_token.(Kind.to_int lead))
+                     .name
+               ; infix = last = i + 2 && names_block d.children.(last) e.target
+               }))
+  in
+  match cycle.path with
+  | [ (r, { target; through = Through_child i }) ]
+    when target = r && rules.(r).origin = Rule.User ->
+    Error.Repeat { rule = rules.(r).name; child = rules.(r).children.(i).child_name }
+  | path ->
+    (match List.find_map path ~f:operator with
+     | Some rewrite -> rewrite
+     | None -> Error.Break_cycle)
+;;
+
 (* -- first/first over one child's alternatives ----------------------------- *)
 
 (* Alternative dispatch is a cascade. It takes the first arm whose FIRST
@@ -23,30 +257,33 @@ let user_rules (ctx : ctx) : Rule.def list =
    goes to the first of them. *)
 let first_first (ctx : ctx) (acc : Error.t list) : Error.t list =
   List.fold_left (user_rules ctx) ~init:acc ~f:(fun acc (d : Rule.def) ->
-    Array.fold_left d.children ~init:acc ~f:(fun acc (ch : Rule.child) ->
-      if Array.length ch.alts < 2
-      then acc
-      else (
-        let firsts =
-          Array.to_list
-            (Array.map ~f:(Fixpoint.Reader.kind_first ctx.fixpoint_reader) ch.alts)
-        in
-        let rec overlap acc = function
-          | [] | [ _ ] -> acc
-          | x :: rest ->
-            overlap
-              (List.fold_left rest ~init:acc ~f:(fun a y ->
-                 Kind.Set.union a (Kind.Set.inter x y)))
-              rest
-        in
-        let common = overlap Kind.Set.empty firsts in
-        if Kind.Set.is_empty common
+    List.fold_left
+      (List.mapi (Array.to_list d.children) ~f:(fun i ch -> i, ch))
+      ~init:acc
+      ~f:(fun acc ((i : int), (ch : Rule.child)) ->
+        if Array.length ch.alts < 2 || Hashtbl.mem ctx.recursion.edge_children (d.id, i)
         then acc
-        else
-          Error.make
-            ~detail:(Error.First_first_conflict { common = kind_refs ctx common })
-            (Error.At_child { production = d.name; child = ch.child_name })
-          :: acc)))
+        else (
+          let firsts =
+            Array.to_list
+              (Array.map ~f:(Fixpoint.Reader.kind_first ctx.fixpoint_reader) ch.alts)
+          in
+          let rec overlap acc = function
+            | [] | [ _ ] -> acc
+            | x :: rest ->
+              overlap
+                (List.fold_left rest ~init:acc ~f:(fun a y ->
+                   Kind.Set.union a (Kind.Set.inter x y)))
+                rest
+          in
+          let common = overlap Kind.Set.empty firsts in
+          if Kind.Set.is_empty common
+          then acc
+          else
+            Error.make
+              ~detail:(Error.First_first_conflict { common = kind_refs ctx common })
+              (Error.At_child { production = d.name; child = ch.child_name })
+            :: acc)))
 ;;
 
 (* -- first/follow at a skippable position ---------------------------------- *)
@@ -68,7 +305,7 @@ let first_follow (ctx : ctx) (acc : Error.t list) : Error.t list =
         | Grammar.Exactly_one | Grammar.One_or_more _ ->
           Array.exists ~f:(Fixpoint.Reader.kind_nullable ctx.fixpoint_reader) ch.alts
       in
-      if skippable && not ch.greedy
+      if skippable
       then (
         let rest_first = sfirst.(idx + 1) in
         let rest_passes = spasses.(idx + 1) in
@@ -115,7 +352,19 @@ let first_follow (ctx : ctx) (acc : Error.t list) : Error.t list =
         let common =
           Kind.Set.inter (Fixpoint.Reader.alts_first ctx.fixpoint_reader ch) following
         in
-        if not (Kind.Set.is_empty common)
+        (* A rule that can match nothing and repeats can follow itself, so
+           what it begins with is in its own FOLLOW. That conflict is the
+           repetition's, and [nullable_repeated] or [ambiguous_empty] reports
+           it. *)
+        let from_repetition =
+          Hashtbl.mem ctx.repeated_empty d.id
+          && Kind.Set.subset common ctx.fixpoint_tables.first.(d.id)
+        in
+        if
+          not
+            (Kind.Set.is_empty common
+             || from_repetition
+             || Hashtbl.mem ctx.recursion.edge_children (d.id, idx))
         then
           acc
           := Error.make
@@ -124,6 +373,126 @@ let first_follow (ctx : ctx) (acc : Error.t list) : Error.t list =
              :: !acc)
     done;
     !acc)
+;;
+
+(* -- an operator after an expression ---------------------------------------- *)
+
+(* An expression goes on while the cursor holds an infix operator or a
+   postfix lead of its block, since a child parses it from binding power 0.
+   So those tokens cannot also follow the child. Where one can, the
+   expression takes it and the rest of the rule never sees it.
+
+   What follows is read from [follow_outside]. An atom that ends in an
+   expression is followed by its own block's operators, and the expression
+   taking them is the binding power at work. *)
+let operator_follow (ctx : ctx) (acc : Error.t list) : Error.t list =
+  List.fold_left (user_rules ctx) ~init:acc ~f:(fun acc (d : Rule.def) ->
+    let cs = d.children in
+    let sfirst, spasses = Fixpoint.Reader.suffix_first ctx.fixpoint_reader cs in
+    let after =
+      match d.frame with
+      | Rule.Delimited { close; sep = Some { sep_tok; _ }; _ } ->
+        Kind.Set.of_list [ close; sep_tok ]
+      | Rule.Delimited { close; sep = None; _ } -> Kind.Set.singleton close
+      | Rule.Plain | Rule.Committed _ | Rule.Separated _ ->
+        ctx.fixpoint_tables.follow_outside.(d.id)
+    in
+    let acc = ref acc in
+    Array.iteri cs ~f:(fun idx (ch : Rule.child) ->
+      let blocks =
+        List.filter (Array.to_list ctx.shape.blocks) ~f:(fun (b : Block.def) ->
+          Array.exists ch.alts ~f:(fun k ->
+            Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k = b.rule_id))
+      in
+      let again =
+        match ch.modifier, d.frame with
+        | (Grammar.Exactly_one | Grammar.Zero_or_one), _ -> Kind.Set.empty
+        | ( (Grammar.Zero_or_more _ | Grammar.One_or_more _)
+          , ( Rule.Separated { sep_tok; _ }
+            | Rule.Delimited { sep = Some { sep_tok; _ }; _ } ) ) ->
+          Kind.Set.singleton sep_tok
+        | (Grammar.Zero_or_more _ | Grammar.One_or_more _), _ ->
+          Fixpoint.Reader.alts_first ctx.fixpoint_reader ch
+      in
+      let following =
+        Kind.Set.unions
+          [ sfirst.(idx + 1)
+          ; again
+          ; (if spasses.(idx + 1) then after else Kind.Set.empty)
+          ]
+      in
+      List.iter blocks ~f:(fun (b : Block.def) ->
+        let operators =
+          Kind.Set.union
+            (Kind.Set.of_list
+               (List.map (Array.to_list b.infix) ~f:(fun (o : Block.op) -> o.op_kind)))
+            (Kind.Set.of_list
+               (List.map (Array.to_list b.postfix) ~f:(fun (p : Block.postfix) ->
+                  p.p_lead)))
+        in
+        let common = Kind.Set.inter operators following in
+        if
+          not
+            (Kind.Set.is_empty common
+             || Hashtbl.mem ctx.recursion.edge_children (d.id, idx))
+        then
+          acc
+          := Error.make
+               ~detail:
+                 (Error.Operator_follow_conflict
+                    { block = b.name; common = kind_refs ctx common })
+               (Error.At_child { production = d.name; child = ch.child_name })
+             :: !acc));
+    !acc)
+;;
+
+(* -- overrides nothing reads ------------------------------------------------- *)
+
+(* A message is read where the child is reported missing, and a recovery set
+   where the parse skips after that. An optional or repeated child is never
+   missing, and neither is one that can match nothing. A missing token is
+   reported where it is, and nothing skips, so its recovery set is never
+   read. *)
+let unused_overrides (ctx : ctx) (acc : Error.t list) : Error.t list =
+  List.fold_left (user_rules ctx) ~init:acc ~f:(fun acc (d : Rule.def) ->
+    Array.fold_left d.children ~init:acc ~f:(fun acc (ch : Rule.child) ->
+      let never_missing : Error.unused_reason option =
+        match ch.modifier with
+        | Grammar.Zero_or_one | Grammar.Zero_or_more _ -> Some Error.Not_required
+        | Grammar.Exactly_one | Grammar.One_or_more _ ->
+          if Array.exists ch.alts ~f:(Fixpoint.Reader.kind_nullable ctx.fixpoint_reader)
+          then Some Error.Matches_nothing
+          else None
+      in
+      let one_token =
+        match ch.alts with
+        | [| k |] -> Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k < 0
+        | _ -> false
+      in
+      let where = Error.At_child { production = d.name; child = ch.child_name } in
+      let acc =
+        match never_missing with
+        | Some why
+          when Array.exists d.messages ~f:(fun (name, _) ->
+                 Grammar.Name.Child.equal name ch.child_name) ->
+          Error.make
+            ~detail:(Error.Unused_message_child { name = ch.child_name; why })
+            where
+          :: acc
+        | Some _ | None -> acc
+      in
+      match ch.recover_to, never_missing with
+      | None, _ -> acc
+      | Some _, Some why ->
+        Error.make ~detail:(Error.Unused_recover_to { name = ch.child_name; why }) where
+        :: acc
+      | Some _, None when one_token ->
+        Error.make
+          ~detail:
+            (Error.Unused_recover_to { name = ch.child_name; why = Error.One_token })
+          where
+        :: acc
+      | Some _, None -> acc))
 ;;
 
 (* -- left recursion -------------------------------------------------------- *)
@@ -138,126 +507,25 @@ let rec join_names = function
   | x :: rest -> x ^ ", " ^ join_names rest
 ;;
 
-(* [r -> s] where r's parser reaches s without taking a token first. A cycle
-   here is a left recursion.
-
-   A delimited production takes its opener before any rule call, so it gives
-   no edges. An expression block reaches its atoms without taking a token,
-   so a cycle through a block counts. *)
+(* Writes up each left recursion the analysis found. *)
 let left_recursion (ctx : ctx) (acc : Error.t list) : Error.t list =
-  let adj = Hashtbl.create 32 in
-  let add r s =
-    Hashtbl.replace
-      adj
-      r
-      (s
-       ::
-       (try Hashtbl.find adj r with
-        | Not_found -> []))
-  in
-  Array.iter
-    ~f:(fun (d : Rule.def) ->
-      match d.origin with
-      | Rule.Pratt_role _ -> ()
-      | Rule.Pratt_block | Rule.User ->
-        (match d.frame with
-         | Rule.Delimited _ -> ()
-         | Rule.Plain | Rule.Committed _ | Rule.Separated _ ->
-           let n = Array.length d.children in
-           let rec walk i =
-             if i < n
-             then (
-               let ch = d.children.(i) in
-               Array.iter
-                 ~f:(fun k ->
-                   let t = Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k in
-                   if t >= 0 then add d.id t)
-                 ch.alts;
-               if Fixpoint.Reader.child_nullable ctx.fixpoint_reader ch then walk (i + 1))
-           in
-           walk 0))
-    ctx.shape.rules;
-  Array.iter
-    ~f:(fun (b : Block.def) ->
-      Array.iter
-        ~f:(fun k ->
-          let t = Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k in
-          if t >= 0 then add b.rule_id t)
-        b.atoms)
-    ctx.shape.blocks;
-  let succs r =
-    try Hashtbl.find adj r with
-    | Not_found -> []
-  in
-  (* Tarjan, one pass over the edge set. A component names a left recursion
-     once.
-
-     Cycles do not. A cycle has one rotation per node on it, so reporting
-     cycles reports the same left recursion once per member. Something then
-     has to walk the reports and recognise the rotations as one.
-
-     Every cycle lies inside a strongly connected component, and a component
-     of more than one rule holds a cycle. So the components to report are the
-     ones with more than one rule, plus any rule that reaches itself. Every
-     rule is a component on its own, which is why the single-rule case reads
-     its edges. *)
-  let n = Array.length ctx.shape.rules in
-  let index = Array.make n (-1) in
-  let low = Array.make n 0 in
-  let stacked = Array.make n false in
-  let stack = ref [] in
-  let next = ref 0 in
-  let components = ref [] in
-  let rec visit v =
-    index.(v) <- !next;
-    low.(v) <- !next;
-    incr next;
-    stack := v :: !stack;
-    stacked.(v) <- true;
-    List.iter
-      ~f:(fun w ->
-        if index.(w) < 0
-        then (
-          visit w;
-          low.(v) <- min low.(v) low.(w))
-        else if stacked.(w)
-        then low.(v) <- min low.(v) index.(w))
-      (succs v);
-    if low.(v) = index.(v)
-    then (
-      let rec pop acc =
-        match !stack with
-        | [] -> acc
-        | w :: rest ->
-          stack := rest;
-          stacked.(w) <- false;
-          if w = v then w :: acc else pop (w :: acc)
-      in
-      components := pop [] :: !components)
-  in
-  for v = 0 to n - 1 do
-    if index.(v) < 0 then visit v
-  done;
-  (* Rule ids are assigned in declaration order. Sorting the members puts
-     them in the author's order, and fixes which site the finding is filed
-     at. The traversal can enter the component anywhere and the order comes
-     out the same. *)
-  let cyclic =
-    let elems =
-      List.filter_map
-        ~f:(fun members ->
-          match List.sort members ~cmp:compare with
-          | [ r ] when not (List.mem r ~set:(succs r)) -> None
-          | ms -> Some ms)
-        !components
+  let name (r : int) : Grammar.Name.Rule.t = ctx.shape.rules.(r).Rule.name in
+  List.fold_left (List.rev ctx.recursion.cycles) ~init:acc ~f:(fun acc (cycle : cycle) ->
+    let steps =
+      List.map cycle.path ~f:(fun ((r : int), (e : left_edge)) : Error.left_step ->
+        { rule = name r
+        ; reaches = name e.target
+        ; through =
+            (match e.through with
+             | Through_child i ->
+               Error.Through_child ctx.shape.rules.(r).children.(i).child_name
+             | Through_atom -> Error.Through_atom)
+        })
     in
-    List.sort elems ~cmp:compare
-  in
-  List.fold_left (List.rev cyclic) ~init:acc ~f:(fun acc ms ->
-    let names = List.map ~f:(fun r -> ctx.shape.rules.(r).Rule.name) ms in
+    let members = List.map cycle.members ~f:name in
     Error.make
-      ~detail:(Error.Left_recursion { members = names })
-      (Error.At_production (List.hd names))
+      ~detail:(Error.Left_recursion { members; steps; rewrite = left_rewrite ctx cycle })
+      (Error.At_production (List.hd members))
     :: acc)
 ;;
 
@@ -470,7 +738,7 @@ let empty_first_sets (ctx : ctx) (acc : Error.t list) : Error.t list =
 
 let pratt_atom_first_first (ctx : ctx) (acc : Error.t list) : Error.t list =
   Array.fold_left ~init:acc ctx.shape.blocks ~f:(fun acc (b : Block.def) ->
-    if Array.length b.atoms < 2
+    if Array.length b.atoms < 2 || Hashtbl.mem ctx.recursion.blocks b.rule_id
     then acc
     else (
       let firsts =
@@ -501,27 +769,30 @@ let pratt_atom_first_first (ctx : ctx) (acc : Error.t list) : Error.t list =
    operator itself goes the same way. *)
 let prefix_atom_conflict (ctx : ctx) (acc : Error.t list) : Error.t list =
   Array.fold_left ctx.shape.blocks ~init:acc ~f:(fun acc (b : Block.def) ->
-    Array.fold_left b.prefix ~init:acc ~f:(fun acc (o : Block.op) ->
-      Array.fold_left b.atoms ~init:acc ~f:(fun acc k ->
-        let where =
-          Error.At_operator
-            { block = b.name
-            ; token =
-                Grammar.Name.Token.of_string
-                  (Kind.Name.to_string (Kind.Table.name ctx.kind_table o.op_kind))
-            }
-        in
-        let report (how : Error.prefix_atom) =
-          Error.make ~detail:(Error.Prefix_atom_conflict { how }) where :: acc
-        in
-        let r = Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k in
-        if r < 0
-        then if Kind.equal k o.op_kind then report Error.Is_the_atom else acc
-        else if ctx.shape.rules.(r).Rule.origin <> Rule.User
-        then acc
-        else if Kind.Set.mem ctx.fixpoint_tables.first.(r) o.op_kind
-        then report (Error.Starts_the_atom { atom = ctx.shape.rules.(r).Rule.name })
-        else acc)))
+    if Hashtbl.mem ctx.recursion.blocks b.rule_id
+    then acc
+    else
+      Array.fold_left b.prefix ~init:acc ~f:(fun acc (o : Block.op) ->
+        Array.fold_left b.atoms ~init:acc ~f:(fun acc k ->
+          let where =
+            Error.At_operator
+              { block = b.name
+              ; token =
+                  Grammar.Name.Token.of_string
+                    (Kind.Name.to_string (Kind.Table.name ctx.kind_table o.op_kind))
+              }
+          in
+          let report (how : Error.prefix_atom) =
+            Error.make ~detail:(Error.Prefix_atom_conflict { how }) where :: acc
+          in
+          let r = Fixpoint.Reader.rule_of_kind ctx.fixpoint_reader k in
+          if r < 0
+          then if Kind.equal k o.op_kind then report Error.Is_the_atom else acc
+          else if ctx.shape.rules.(r).Rule.origin <> Rule.User
+          then acc
+          else if Kind.Set.mem ctx.fixpoint_tables.first.(r) o.op_kind
+          then report (Error.Starts_the_atom { atom = ctx.shape.rules.(r).Rule.name })
+          else acc)))
 ;;
 
 (* -- token reachability ---------------------------------------------------- *)
@@ -648,9 +919,31 @@ let run (shape : Stage.shape) (fixpoint_tables : Fixpoint.tables) (dfa : Redfa.D
       ~kind_rule:shape.names.kind_rule
       fixpoint_tables
   in
-  let ctx = { shape; fixpoint_tables; fixpoint_reader; kind_table = shape.names.kinds } in
+  let repeated_empty = Hashtbl.create 4 in
+  Array.iter shape.rules ~f:(fun (d : Rule.def) ->
+    match d.origin, d.frame with
+    | Rule.User, (Rule.Plain | Rule.Committed _ | Rule.Delimited _) ->
+      Array.iter d.children ~f:(fun (ch : Rule.child) ->
+        match ch.modifier with
+        | Grammar.Zero_or_more _ | Grammar.One_or_more _ ->
+          Array.iter ch.alts ~f:(fun k ->
+            let r = Fixpoint.Reader.rule_of_kind fixpoint_reader k in
+            if r >= 0 && fixpoint_tables.nullable.(r)
+            then Hashtbl.replace repeated_empty r ())
+        | Grammar.Exactly_one | Grammar.Zero_or_one -> ())
+    | _ -> ());
+  let ctx =
+    { shape
+    ; fixpoint_tables
+    ; fixpoint_reader
+    ; kind_table = shape.names.kinds
+    ; recursion = recursion_of shape fixpoint_reader
+    ; repeated_empty
+    }
+  in
   first_first ctx []
   |> first_follow ctx
+  |> operator_follow ctx
   |> left_recursion ctx
   |> nullable_repeated ctx
   |> ambiguous_empty ctx
@@ -661,4 +954,5 @@ let run (shape : Stage.shape) (fixpoint_tables : Fixpoint.tables) (dfa : Redfa.D
   |> prefix_atom_conflict ctx
   |> token_reachability ctx dfa
   |> metavariable_clash ctx
+  |> unused_overrides ctx
 ;;

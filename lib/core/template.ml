@@ -58,11 +58,10 @@ let grammar (g : Grammar.t) : Grammar.t option =
     in
     let child (c : Grammar.child) : Grammar.child =
       let symbols = c.head :: c.rest in
-      let repeats, optional =
+      let repeats =
         match c.modifier with
-        | Grammar.Zero_or_more _ | Grammar.One_or_more _ -> true, false
-        | Grammar.Zero_or_one -> false, true
-        | Grammar.Exactly_one -> false, false
+        | Grammar.Zero_or_more _ | Grammar.One_or_more _ -> true
+        | Grammar.Zero_or_one | Grammar.Exactly_one -> false
       in
       (* A rule takes its own typed metavariable. A block's atoms take its
          typed one already, and a child that can be a pattern token takes the
@@ -88,11 +87,7 @@ let grammar (g : Grammar.t) : Grammar.t option =
          begin with it too, through an expression atom, and the dispatch
          takes the first arm that admits it. *)
       let head, rest = if repeats then sequence, c.head :: c.rest else c.head, c.rest in
-      { c with
-        head
-      ; rest = rest @ typed_rules @ plain
-      ; c_parse = { c.c_parse with greedy = c.c_parse.greedy || optional }
-      }
+      { c with head; rest = rest @ typed_rules @ plain }
     in
     (* A root takes whatever input is left, so a rule is no root of its own.
        A wrapper per rule is the root a fragment is parsed at. *)

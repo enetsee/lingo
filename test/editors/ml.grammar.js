@@ -82,15 +82,12 @@ module.exports = grammar({
 
     list: $ => seq('[', optional(seq(sepBy1(',', field('elem', $._expr)), optional(','))), ']'),
 
-    if: $ => prec.right(
-      1,
-      seq(
-        field('kw', 'if'),
-        field('cond', $._expr),
-        field('then_kw', 'then'),
-        field('t', $._expr),
-        optional(field('else_', $.else))
-      )
+    if: $ => seq(
+      field('kw', 'if'),
+      field('cond', $._expr),
+      field('then_kw', 'then'),
+      field('t', $._expr),
+      field('else_', $.else)
     ),
 
     else: $ => seq(field('kw', 'else'), field('e', $._expr)),

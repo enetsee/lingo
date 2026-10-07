@@ -70,7 +70,6 @@ type child =
     (** The boundary in front of this child. On the first child it is the
           boundary against whatever encloses the children. *)
   ; c_space : bool (** Whether a space goes in front of this child. *)
-  ; greedy : bool
   ; recover_to : Kind.Set.t option
     (** Replaces the recovery set computed at this position. [None] leaves
           that set in place. The closers of enclosing frames are added

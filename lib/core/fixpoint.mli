@@ -8,6 +8,11 @@
       start with.
     - [follow.(r)] holds the token kinds that can come immediately after a
       complete [r], across every site that references it.
+    - [follow_outside.(r)] is [follow.(r)] without what an expression
+      block's own operators add. An atom that ends in an expression is
+      followed by its block's operators, and the expression inside takes
+      them. That is the binding power at work. An operator that follows from
+      anywhere else is one the expression would take from its parent.
     - [min_size.(r)] is the fewest tokens [r] derives, and [max_int] where it
       derives nothing.
     - [enclosing.(r)] holds the closers and separators of every frame [r] can
@@ -61,6 +66,7 @@
 type tables =
   { first : Kind.Set.t array
   ; follow : Kind.Set.t array
+  ; follow_outside : Kind.Set.t array
   ; nullable : bool array
   ; min_size : int array
   ; enclosing : Kind.Set.t array

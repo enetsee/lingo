@@ -297,7 +297,14 @@
         { "include": "#expr" }
       ]
     },
-    "if": { "patterns": [ { "include": "#paren" } ] },
+    "if": {
+      "patterns": [
+        { "include": "#paren" },
+        { "include": "#block" },
+        { "include": "#else" }
+      ]
+    },
+    "else": { "patterns": [ { "include": "#block" } ] },
     "while": { "patterns": [ { "include": "#paren" } ] },
     "paren": {
       "name": "meta.paren.effekt",

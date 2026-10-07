@@ -22,10 +22,7 @@ type symbol =
   | Token of string
   | Rule of string
 
-type child_parse =
-  { recover_to : Name.Token.t list option
-  ; greedy : bool
-  }
+type child_parse = { recover_to : Name.Token.t list option }
 
 type child =
   { name : Name.Child.t
@@ -355,7 +352,6 @@ let recover_to_names = Option.map (List.map Name.Token.of_string)
 
 let child
       ?recover_to
-      ?(greedy = false)
       ?(break = Fit)
       ?(space = true)
       ~(modifier : modifier)
@@ -369,7 +365,7 @@ let child
   ; head = sym
   ; rest = []
   ; modifier
-  ; c_parse = { recover_to = recover_to_names recover_to; greedy }
+  ; c_parse = { recover_to = recover_to_names recover_to }
   }
 ;;
 
@@ -377,34 +373,20 @@ let child_req ?recover_to ?break ?space name sym =
   child ?recover_to ?break ?space ~modifier:Exactly_one name sym
 ;;
 
-let child_opt ?recover_to ?greedy ?break ?space (name : string) (sym : symbol) : child =
-  child ?recover_to ?greedy ?break ?space ~modifier:Zero_or_one name sym
+let child_opt ?recover_to ?break ?space (name : string) (sym : symbol) : child =
+  child ?recover_to ?break ?space ~modifier:Zero_or_one name sym
 ;;
 
-let child_rep
-      ?recover_to
-      ?greedy
-      ?break
-      ?space
-      ?(between = Fit)
-      (name : string)
-      (sym : symbol)
+let child_rep ?recover_to ?break ?space ?(between = Fit) (name : string) (sym : symbol)
   : child
   =
-  child ?recover_to ?greedy ?break ?space ~modifier:(Zero_or_more between) name sym
+  child ?recover_to ?break ?space ~modifier:(Zero_or_more between) name sym
 ;;
 
-let child_rep1
-      ?recover_to
-      ?greedy
-      ?break
-      ?space
-      ?(between = Fit)
-      (name : string)
-      (sym : symbol)
+let child_rep1 ?recover_to ?break ?space ?(between = Fit) (name : string) (sym : symbol)
   : child
   =
-  child ?recover_to ?greedy ?break ?space ~modifier:(One_or_more between) name sym
+  child ?recover_to ?break ?space ~modifier:(One_or_more between) name sym
 ;;
 
 let child_alt
@@ -425,7 +407,7 @@ let child_alt
     ; head
     ; rest
     ; modifier
-    ; c_parse = { recover_to = recover_to_names recover_to; greedy = false }
+    ; c_parse = { recover_to = recover_to_names recover_to }
     }
 ;;
 

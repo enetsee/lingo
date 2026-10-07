@@ -74,10 +74,12 @@ val of_grammar : Grammar.t -> (t, Error.t list) result
     metavariable in nearly every slot, so it fails these, and its parser is
     no less sound for that. 
 
-    It also lets two alternatives, or two atoms, start with the same
-    metavariable: [first-first-conflict] and [pratt-atom-conflict]. A
-    template fills the first that takes it, which is what the parser's
-    dispatch does. *)
+    It also lets a metavariable start two things at one position: two
+    alternatives, two atoms, or an optional or repeated child and what
+    follows it. Those are [first-first-conflict], [pratt-atom-conflict] and
+    [first-follow-conflict]. A template fills the first that takes it, which
+    is what the parser's dispatch does. This is the one place lingo parses a
+    grammar that is not LL(1), and only lingo writes these grammars. *)
 val of_template : Grammar.t -> (t, Error.t list) result option
 
 (** {1 Reading the facts} *)

@@ -178,14 +178,15 @@
   |   if a then b
   |     else c;
 ----------------------------------------------------------------------
-"let x : int = if a then if b then c else d;"
+"let x : int = if a then if b then c else d else e;"
 @80
-  | let x: int = if a then if b then c else d;
+  | let x: int = if a then if b then c else d else e;
 @16
   | let x: int =
   |   if a then
   |     if b then c
-  |       else d;
+  |       else d
+  |     else e;
 ----------------------------------------------------------------------
 "let x : int = a.b.c;"
 @80

@@ -32,8 +32,7 @@
     tree-sitter's generator may still find a conflict. lingo checks LL(1)
     and tree-sitter builds an LR automaton, so a grammar can pass the first
     and fail the second. The binding powers carry over as precedences, which
-    covers most of it, and a greedy child becomes a [prec.right] for the
-    dangling [else]. The rest would need the generator in the loop. *)
+    covers most of it. The rest would need the generator in the loop. *)
 
 (** The file's text, or the reason a token has no JavaScript regex. *)
 val emit

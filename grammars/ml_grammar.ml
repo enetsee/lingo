@@ -19,8 +19,8 @@
      closing delimiter and the newline, which is an intersection with a
      complement, and neither backend's dialect has a form for one.
 
-   It doubles up the settings that had one witness: [greedy] on the dangling
-   [else], [recover_to] on a [let] body, [trailing_sep Always] on the list
+   It doubles up the settings that had one witness: [recover_to] on a [let]
+   body, [trailing_sep Always] on the list
    literal, [~space:false] on a labelled argument's value, resync anchors on
    the list.
 
@@ -321,7 +321,8 @@ let grammar : t =
          ~trailing_sep:Always
     |> with_resync_to [ "semi"; "rbrace" ]
   in
-  (* The dangling [else]. [greedy] attaches it to the nearer [if]. *)
+  (* [else] is required. An optional one after a nested [if] could belong to
+     either [if], and no LL(1) grammar settles that. *)
   let else_ =
     prod "Else" [ child_req "kw" (Token "else"); child_req "e" (Rule "Expr") ]
   in
@@ -332,7 +333,7 @@ let grammar : t =
       ; child_req "cond" (Rule "Expr")
       ; child_req "then_kw" (Token "then")
       ; child_req "t" (Rule "Expr")
-      ; child_opt ~greedy:true "else_" (Rule "Else")
+      ; child_req "else_" (Rule "Else")
       ]
     |> with_committed
   in

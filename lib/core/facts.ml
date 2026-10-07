@@ -89,9 +89,12 @@ let view_codes =
   [ "overlapping-single-kinds"; "repeated-vs-single-kinds"; "binder-not-pattern-token" ]
 ;;
 
-(* Two alternatives, or two atoms, that a metavariable can both start. A
-   template takes the first, as the dispatch cascade does anyway. *)
-let first_codes = [ "first-first-conflict"; "pratt-atom-conflict" ]
+(* Two places a metavariable can start both of: two alternatives, two atoms,
+   or an optional or repeated child and what follows it. A template takes the
+   first, as the parser's dispatch does anyway. *)
+let first_codes =
+  [ "first-first-conflict"; "pratt-atom-conflict"; "first-follow-conflict" ]
+;;
 
 (* A name that collides only in the views. A child with alternatives has a
    sum type there, and a template grammar gives most children some. *)

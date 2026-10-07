@@ -63,6 +63,46 @@ type token_unreachable_reason =
   | Empty_language
   | Subsumed_by of Grammar.Name.Token.t
 
+(** How one rule of a left recursion reaches the next. *)
+type left_through =
+  | Through_child of Grammar.Name.Child.t
+  (** A child that the rule reaches before taking a token. *)
+  | Through_atom (** An expression block reaching one of its atoms. *)
+
+(** One step round a left recursion: [rule] begins with [reaches]. *)
+type left_step =
+  { rule : Grammar.Name.Rule.t
+  ; reaches : Grammar.Name.Rule.t
+  ; through : left_through
+  }
+
+(** The rewrite a left recursion suggests. *)
+type left_rewrite =
+  | Repeat of
+      { rule : Grammar.Name.Rule.t
+      ; child : Grammar.Name.Child.t
+      }
+  (** [rule] begins with itself through [child]. What follows [child] can
+      be a repeated child instead. *)
+  | Operator of
+      { block : Grammar.Name.Rule.t
+      ; rule : Grammar.Name.Rule.t
+      ; lead : Grammar.Name.Token.t
+      ; infix : bool
+      }
+  (** [rule] is an atom of [block] that begins with an expression of
+      [block] and then [lead]. It can be an operator of the block: infix
+      where an expression of the block ends it, and postfix otherwise. *)
+  | Break_cycle (** No shape that a rewrite can be read from. *)
+
+(** Why a child's override is never read. *)
+type unused_reason =
+  | Not_required (** The child is optional or repeated, so it is never missing. *)
+  | Matches_nothing (** The child can match nothing, so it is never missing. *)
+  | One_token
+  (** The child is one token. A missing token is reported where it is, and
+      nothing skips, so only a recovery set goes unread. *)
+
 (** The second way a child can match nothing, beside a rule that can. *)
 type ambiguous_empty =
   | Another_alternative (** A second alternative can match nothing too. *)
@@ -107,8 +147,14 @@ type detail =
   | Unknown_binder_child of { name : Grammar.Name.Child.t }
   | Binder_not_pattern_token of { name : Grammar.Name.Child.t }
   | Unknown_message_child of { name : Grammar.Name.Child.t }
-  | Unused_message_child of { name : Grammar.Name.Child.t }
-  | Unused_recover_to of { name : Grammar.Name.Child.t }
+  | Unused_message_child of
+      { name : Grammar.Name.Child.t
+      ; why : unused_reason
+      }
+  | Unused_recover_to of
+      { name : Grammar.Name.Child.t
+      ; why : unused_reason
+      }
   | No_roots
   | Root_is_block of { name : Grammar.Name.Rule.t }
   | Unknown_root of { name : Grammar.Name.Rule.t }
@@ -149,7 +195,15 @@ type detail =
   (* -- the fixpoints and the lexer automaton -------------------------------- *)
   | First_first_conflict of { common : kind_ref list }
   | First_follow_conflict of { common : kind_ref list }
-  | Left_recursion of { members : Grammar.Name.Rule.t list }
+  | Operator_follow_conflict of
+      { block : Grammar.Name.Rule.t (** The block the child's expression is of. *)
+      ; common : kind_ref list (** Its operators that can follow the child. *)
+      }
+  | Left_recursion of
+      { members : Grammar.Name.Rule.t list (** In declaration order. *)
+      ; steps : left_step list (** One way round, from the first member back to it. *)
+      ; rewrite : left_rewrite
+      }
   | Nullable_repeated of { rule : Grammar.Name.Rule.t }
   | Ambiguous_empty of
       { rules : Grammar.Name.Rule.t list (** The alternatives that can match nothing. *)

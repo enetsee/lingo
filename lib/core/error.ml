@@ -43,6 +43,34 @@ type token_unreachable_reason =
   | Empty_language
   | Subsumed_by of Grammar.Name.Token.t
 
+type left_through =
+  | Through_child of Grammar.Name.Child.t
+  | Through_atom
+
+type left_step =
+  { rule : Grammar.Name.Rule.t
+  ; reaches : Grammar.Name.Rule.t
+  ; through : left_through
+  }
+
+type left_rewrite =
+  | Repeat of
+      { rule : Grammar.Name.Rule.t
+      ; child : Grammar.Name.Child.t
+      }
+  | Operator of
+      { block : Grammar.Name.Rule.t
+      ; rule : Grammar.Name.Rule.t
+      ; lead : Grammar.Name.Token.t
+      ; infix : bool
+      }
+  | Break_cycle
+
+type unused_reason =
+  | Not_required
+  | Matches_nothing
+  | One_token
+
 type ambiguous_empty =
   | Another_alternative
   | Absent
@@ -86,8 +114,14 @@ type detail =
   | Unknown_binder_child of { name : Grammar.Name.Child.t }
   | Binder_not_pattern_token of { name : Grammar.Name.Child.t }
   | Unknown_message_child of { name : Grammar.Name.Child.t }
-  | Unused_message_child of { name : Grammar.Name.Child.t }
-  | Unused_recover_to of { name : Grammar.Name.Child.t }
+  | Unused_message_child of
+      { name : Grammar.Name.Child.t
+      ; why : unused_reason
+      }
+  | Unused_recover_to of
+      { name : Grammar.Name.Child.t
+      ; why : unused_reason
+      }
   | No_roots
   | Root_is_block of { name : Grammar.Name.Rule.t }
   | Unknown_root of { name : Grammar.Name.Rule.t }
@@ -128,7 +162,15 @@ type detail =
   (* -- the fixpoints and the lexer automaton -------------------------------- *)
   | First_first_conflict of { common : kind_ref list }
   | First_follow_conflict of { common : kind_ref list }
-  | Left_recursion of { members : Grammar.Name.Rule.t list }
+  | Operator_follow_conflict of
+      { block : Grammar.Name.Rule.t
+      ; common : kind_ref list
+      }
+  | Left_recursion of
+      { members : Grammar.Name.Rule.t list
+      ; steps : left_step list
+      ; rewrite : left_rewrite
+      }
   | Nullable_repeated of { rule : Grammar.Name.Rule.t }
   | Ambiguous_empty of
       { rules : Grammar.Name.Rule.t list
@@ -193,6 +235,7 @@ let code (e : t) : string =
   | Overlapping_single_kinds _ -> "overlapping-single-kinds"
   | First_first_conflict _ -> "first-first-conflict"
   | First_follow_conflict _ -> "first-follow-conflict"
+  | Operator_follow_conflict _ -> "operator-follow-conflict"
   | Left_recursion _ -> "left-recursion"
   | Nullable_repeated _ -> "nullable-repeated"
   | Ambiguous_empty _ -> "ambiguous-empty"
@@ -224,8 +267,6 @@ let names_stage_codes =
   ; "unknown-binder-child"
   ; "binder-not-pattern-token"
   ; "unknown-message-child"
-  ; "unused-message-child"
-  ; "unused-recover-to"
   ; "no-roots"
   ; "root-is-block"
   ; "unknown-root"
@@ -254,6 +295,7 @@ let shape_stage_codes =
 let full_stage_codes =
   [ "first-first-conflict"
   ; "first-follow-conflict"
+  ; "operator-follow-conflict"
   ; "left-recursion"
   ; "nullable-repeated"
   ; "ambiguous-empty"
@@ -265,6 +307,8 @@ let full_stage_codes =
   ; "resync-anchor-conflict"
   ; "token-unreachable"
   ; "metavariable-clash"
+  ; "unused-message-child"
+  ; "unused-recover-to"
   ]
 ;;
 
@@ -329,8 +373,36 @@ let hint (e : t) : string option =
   | Overlapping_single_kinds _ -> Some "wrap one side in a rule of its own"
   | First_follow_conflict _ ->
     Some
-      "mark the child greedy if the parser's natural resolution is what the language \
-       means"
+      "change the syntax so the token cannot both start this child and follow it, such \
+       as a closing keyword or brackets round the child"
+  | Operator_follow_conflict { block; _ } ->
+    Some
+      (Printf.sprintf
+         "follow the expression with a token %s has no operator for, or put the \
+          expression in brackets"
+         (Grammar.Name.Rule.to_string block))
+  | Left_recursion { rewrite = Repeat { rule; child }; _ } ->
+    Some
+      (Printf.sprintf
+         "give what follows %s its own rule, and repeat that in %s instead of calling %s \
+          again. A = A x | y matches the same input as A = y x*"
+         (Grammar.Name.Child.to_string child)
+         (Grammar.Name.Rule.to_string rule)
+         (Grammar.Name.Rule.to_string rule))
+  | Left_recursion { rewrite = Operator { block; rule; lead; infix }; _ } ->
+    Some
+      (Printf.sprintf
+         "make %s %s of %s, %s %s. An expression block parses a chain of operators by \
+          binding power, and needs no left recursion"
+         (Grammar.Name.Rule.to_string rule)
+         (if infix then "an infix operator" else "a postfix operator")
+         (Grammar.Name.Rule.to_string block)
+         (if infix then "on" else "led by")
+         (Grammar.Name.Token.to_string lead))
+  | Left_recursion { rewrite = Break_cycle; _ } ->
+    Some
+      "make one of these rules take a token before it reaches the next, or write the \
+       repetition as a repeated child"
   | Ambiguous_empty { how = Another_alternative; _ } ->
     Some "make all but one of them take at least one token"
   | Ambiguous_empty { how = Absent; _ } ->
@@ -395,16 +467,22 @@ let message (e : t) : string =
     Printf.sprintf
       "the message catalogue names a child %S this production does not have"
       (Grammar.Name.Child.to_string name)
-  | Unused_message_child { name } ->
+  | Unused_message_child { name; why } ->
     Printf.sprintf
-      "%S is optional or repeated, so it never reports and this wording would never be \
-       read"
+      "%S %s, so it never reports and this wording would never be read"
       (Grammar.Name.Child.to_string name)
-  | Unused_recover_to { name } ->
+      (match why with
+       | Not_required -> "is optional or repeated"
+       | Matches_nothing | One_token -> "can match nothing")
+  | Unused_recover_to { name; why } ->
     Printf.sprintf
-      "%S is optional or repeated, so nothing recovers at it and this set would never be \
-       read"
+      "%S %s, so this set would never be read"
       (Grammar.Name.Child.to_string name)
+      (match why with
+       | Not_required -> "is optional or repeated, so nothing recovers at it"
+       | Matches_nothing -> "can match nothing, so nothing recovers at it"
+       | One_token ->
+         "is one token, which is reported missing where it is and skips nothing")
   | No_roots -> "a grammar needs at least one root production"
   | Root_is_block { name } ->
     Printf.sprintf
@@ -492,16 +570,41 @@ let message (e : t) : string =
       "%s cannot settle whether a parser enters this child: it is both in the child's \
        FIRST and in what may follow it"
       (kinds common)
-  | Left_recursion { members } ->
-    (match members with
-     | [ one ] ->
-       Printf.sprintf
-         "left recursion: %s reaches itself without taking a token"
-         (Grammar.Name.Rule.to_string one)
-     | _ ->
-       Printf.sprintf
-         "left recursion: %s reach each other without taking a token"
-         (plain (List.map ~f:Grammar.Name.Rule.to_string members)))
+  | Operator_follow_conflict { block; common } ->
+    Printf.sprintf
+      "%s can follow this child, and an expression of %s goes on with %s, so the \
+       expression takes it and the rest of the production never sees it"
+      (kinds common)
+      (Grammar.Name.Rule.to_string block)
+      (kinds common)
+  | Left_recursion { members; steps; _ } ->
+    let step (s : left_step) : string =
+      match s.through with
+      | Through_child child ->
+        Printf.sprintf
+          "%s begins with %s through its child %s"
+          (Grammar.Name.Rule.to_string s.rule)
+          (Grammar.Name.Rule.to_string s.reaches)
+          (Grammar.Name.Child.to_string child)
+      | Through_atom ->
+        Printf.sprintf
+          "%s begins with its atom %s"
+          (Grammar.Name.Rule.to_string s.rule)
+          (Grammar.Name.Rule.to_string s.reaches)
+    in
+    let rec sentence (parts : string list) : string =
+      match parts with
+      | [] -> ""
+      | [ x ] -> x
+      | [ x; y ] -> x ^ ", and " ^ y
+      | x :: rest -> x ^ ", " ^ sentence rest
+    in
+    Printf.sprintf
+      "left recursion: %s, so %s before taking a token"
+      (sentence (List.map ~f:step steps))
+      (match members with
+       | [ _ ] -> "its parser calls itself"
+       | _ -> "their parsers call each other")
   | Nullable_repeated { rule } ->
     Printf.sprintf
       "every alternative of this repeated child is nullable (%s derives empty), so the \

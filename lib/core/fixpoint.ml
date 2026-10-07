@@ -3,6 +3,7 @@ open StdLabels
 type tables =
   { first : Kind.Set.t array
   ; follow : Kind.Set.t array
+  ; follow_outside : Kind.Set.t array
   ; nullable : bool array
   ; min_size : int array
   ; enclosing : Kind.Set.t array
@@ -317,7 +318,11 @@ let first (ctx : ctx) ~(nullable : bool array) : Kind.Set.t array =
 
 (* -- follow ---------------------------------------------------------------- *)
 
-let follow (ctx : ctx) ~(nullable : bool array) ~(first : Kind.Set.t array)
+let follow
+      (ctx : ctx)
+      ~(own_ops : bool)
+      ~(nullable : bool array)
+      ~(first : Kind.Set.t array)
   : Kind.Set.t array
   =
   let follow = Array.make ctx.n Kind.Set.empty in
@@ -419,7 +424,7 @@ let follow (ctx : ctx) ~(nullable : bool array) ~(first : Kind.Set.t array)
       if ctx.block_of_rule.(i) >= 0
       then (
         let b = ctx.blocks.(ctx.block_of_rule.(i)) in
-        push b.rule_id (block_own_ops b);
+        if own_ops then push b.rule_id (block_own_ops b);
         let efollow = follow.(b.rule_id) in
         let to_kinds set ks =
           Array.iter
@@ -557,9 +562,10 @@ let compute ~(rules : Rule.def array) ~(blocks : Block.def array) ~(kind_rule : 
   let ctx = context ~rules ~blocks ~kind_rule in
   let nullable = nullable ctx in
   let first = first ctx ~nullable in
-  let follow = follow ctx ~nullable ~first in
+  let follow_outside = follow ctx ~own_ops:false ~nullable ~first in
+  let follow = follow ctx ~own_ops:true ~nullable ~first in
   let enclosing = enclosing ctx in
-  { first; follow; nullable; min_size = min_size ctx; enclosing }
+  { first; follow; follow_outside; nullable; min_size = min_size ctx; enclosing }
 ;;
 
 (* -- reading the tables back ----------------------------------------------- *)

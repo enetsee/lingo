@@ -58,9 +58,7 @@ val is_rule : symbol -> bool
     below one, where {!Never} is what is meant. *)
 val always : int -> break_style
 
-(** Parser overrides for one child.
-
-    {2 [recover_to]}
+(** Parser overrides for one child. There is one, [recover_to].
 
     When the parser fails partway through a production it skips forward until
     it reaches a token it can start again on. [recover_to] lists those tokens 
@@ -80,21 +78,8 @@ val always : int -> break_style
 
     Either way, the closing delimiters of the enclosing productions go on
     top. Skipping one of those leaves the outer production waiting for a
-    delimiter that has already been consumed, and one error becomes two.
-
-    {2 [greedy]}
-
-    An optional or repeated child can start with the same token as whatever
-    follows it. The parser cannot separate the two, so the
-    grammar is rejected as [first-follow-conflict]. [greedy] says to take the
-    child.
-
-    The dangling [else] is the standard case. An [else] after a nested [if]
-    could attach to either [if], and greedy attaches it to the nearer one. *)
-type child_parse =
-  { recover_to : Name.Token.t list option
-  ; greedy : bool
-  }
+    delimiter that has already been consumed, and one error becomes two. *)
+type child_parse = { recover_to : Name.Token.t list option }
 
 (** A named slot in a production. [name] becomes the accessor in the typed
     view, [modifier] says how many nodes the slot holds, and [head] with
@@ -535,7 +520,6 @@ val postfix_call
     [~space:false]. *)
 val child
   :  ?recover_to:string list
-  -> ?greedy:bool
   -> ?break:break_style
   -> ?space:bool
   -> modifier:modifier
@@ -553,7 +537,6 @@ val child_req
 
 val child_opt
   :  ?recover_to:string list
-  -> ?greedy:bool
   -> ?break:break_style
   -> ?space:bool
   -> string
@@ -562,7 +545,6 @@ val child_opt
 
 val child_rep
   :  ?recover_to:string list
-  -> ?greedy:bool
   -> ?break:break_style
   -> ?space:bool
   -> ?between:break_style
@@ -574,7 +556,6 @@ val child_rep
     around it usually takes this: an empty one is not syntax anybody wrote. *)
 val child_rep1
   :  ?recover_to:string list
-  -> ?greedy:bool
   -> ?break:break_style
   -> ?space:bool
   -> ?between:break_style

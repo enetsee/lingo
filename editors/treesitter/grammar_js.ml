@@ -151,19 +151,6 @@ let body (facts : Core.Facts.t) (rule : Core.Rule.def) ~(uses : (string, unit) H
     seq_of (leading @ inside)
 ;;
 
-(* A greedy child is taken at a position where taking it and leaving it both
-   parse. The dangling [else] is one. It could attach to either [if], and
-   greedy attaches it to the nearer one. A right precedence reaches the same
-   attachment, because shifting the [else] and attaching it to the nearer
-   [if] are one and the same. *)
-let is_greedy (rule : Core.Rule.def) : bool =
-  Array.exists rule.children ~f:(fun (child : Core.Rule.child) -> child.greedy)
-;;
-
-let with_greedy (rule : Core.Rule.def) (body : Js.t) : Js.t =
-  if is_greedy rule then Js.call "prec.right" [ Js.atom "1"; body ] else body
-;;
-
 (* -- expression blocks ----------------------------------------------------- *)
 
 let precedence (assoc : Core.Grammar.assoc) : string =
@@ -345,8 +332,7 @@ let rule_entries (facts : Core.Facts.t) ~(uses : (string, unit) Hashtbl.t)
   Array.to_list Core.Facts.(facts.rules)
   |> List.concat_map ~f:(fun (rule : Core.Rule.def) ->
     match rule.origin with
-    | Core.Rule.User ->
-      [ Node.of_rule rule.name, with_greedy rule (body facts rule ~uses) ]
+    | Core.Rule.User -> [ Node.of_rule rule.name, body facts rule ~uses ]
     | Core.Rule.Pratt_role { block; role } ->
       [ Node.of_rule rule.name, role_body facts rule ~block ~role ~uses ]
     | Core.Rule.Pratt_block ->
