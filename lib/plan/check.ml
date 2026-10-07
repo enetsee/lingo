@@ -35,6 +35,10 @@ type problem =
       }
   | Close_without_open of { at : string }
   | Commit_matches_nothing of { at : string }
+  | Takes_what_follows of
+      { at : string
+      ; kinds : Ir.Kind.t list
+      }
 
 let pp_problem (fmt : Format.formatter) : problem -> unit = function
   | Rule_out_of_range { at; id } -> Format.fprintf fmt "%s: no rule %d" at id
@@ -61,6 +65,15 @@ let pp_problem (fmt : Format.formatter) : problem -> unit = function
   | Close_without_open { at } -> Format.fprintf fmt "%s: a close with nothing open" at
   | Commit_matches_nothing { at } ->
     Format.fprintf fmt "%s: a required child that can be empty" at
+  | Takes_what_follows { at; kinds } ->
+    Format.fprintf
+      fmt
+      "@[<h>%s: %a can start what is optional here, and can also come after it@]"
+      at
+      (Format.pp_print_list
+         ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
+         Format.pp_print_int)
+      kinds
   | Pairs_unordered { at } ->
     Format.fprintf fmt "%s: the delimiter pairs are not ascending and distinct" at
 ;;
@@ -148,7 +161,203 @@ let nullable_rules (p : Ir.Plan.t) : bool array =
   null
 ;;
 
-let run (p : Ir.Plan.t) : (unit, problem list) result =
+(* -- what may follow --------------------------------------------------------- *)
+
+let union (a : Ir.Kind.t list) (b : Ir.Kind.t list) : Ir.Kind.t list =
+  List.sort_uniq ~cmp:Int.compare (a @ b)
+;;
+
+let inter (a : Ir.Kind.t list) (b : Ir.Kind.t list) : Ir.Kind.t list =
+  List.sort_uniq ~cmp:Int.compare (List.filter a ~f:(fun k -> List.mem k ~set:b))
+;;
+
+let kinds_on (dispatch : (Ir.Kind.t array * 'a) array) : Ir.Kind.t list =
+  List.concat_map (Array.to_list dispatch) ~f:(fun (on, _) -> Array.to_list on)
+;;
+
+(* The kinds [i] can start with, read as [nullable] reads it. A bump names no
+   kind. It takes what the dispatch above it let through, so under [None] it
+   adds nothing. *)
+let rec first
+          (p : Ir.Plan.t)
+          (null : bool array)
+          (under : Ir.Kind.t list option)
+          (i : Ir.Plan.instr)
+  : Ir.Kind.t list
+  =
+  match i with
+  | Seq xs ->
+    let acc = ref []
+    and going = ref true in
+    Array.iter xs ~f:(fun x ->
+      if !going
+      then (
+        acc := union !acc (first p null under x);
+        going := nullable null under x));
+    !acc
+  | Open _ | Close | Trivia | Drain _ -> []
+  | Bump | Bump_reporting _ -> Option.value under ~default:[]
+  | Expect e -> [ e.tok ]
+  | Call r ->
+    if r >= 0 && r < Array.length p.rules then Array.to_list p.rules.(r).first else []
+  | Pratt b ->
+    if b.block >= 0 && b.block < Array.length p.blocks
+    then (
+      let block = p.blocks.(b.block) in
+      union (kinds_on block.atoms) (List.map (Array.to_list block.prefix) ~f:fst))
+    else []
+  | Commit c -> Array.to_list c.first
+  | Alt a ->
+    let on = kinds_on a.arms in
+    let left =
+      match under with
+      | None -> None
+      | Some kinds -> Some (List.filter kinds ~f:(fun k -> not (List.mem k ~set:on)))
+    in
+    union on (first p null left a.otherwise)
+  | Loop l ->
+    if l.entry >= 0 && l.entry < Array.length l.states
+    then kinds_on l.states.(l.entry).accepts
+    else []
+;;
+
+(* What can come straight after an expression's atom, besides what follows the
+   expression: an infix operator, or a postfix one. *)
+let operators (b : Ir.Plan.block) : Ir.Kind.t list =
+  union
+    (List.map (Array.to_list b.infix) ~f:fst)
+    (List.map (Array.to_list b.postfix) ~f:(fun (q : Ir.Plan.postfix) -> q.lead))
+;;
+
+(* A walk that carries what can come after each instruction, and gives each
+   choice the plan makes without taking a token to [choice].
+
+   There are two such choices. An [Alt] runs [otherwise] where no arm holds
+   the kind under the cursor, and an [otherwise] that takes nothing moves on.
+   A loop state that may exit ends the loop where nothing it accepts is under
+   the cursor. Either way, a kind the choice takes must not also be one that
+   can come after it. The parse would take it, and the rest of the rule would
+   never see it.
+
+   [rule_follow] and [block_follow] grow as the walk meets each [Call] and
+   [Pratt]. A rule called as an atom is followed by what follows its block,
+   and by the block's operators. *)
+let follow_walk
+      (p : Ir.Plan.t)
+      (null : bool array)
+      ~(rule_follow : Ir.Kind.t list array)
+      ~(block_follow : Ir.Kind.t list array)
+      ~(grew : bool ref)
+      ~(choice : string -> Ir.Kind.t list -> unit)
+  : unit
+  =
+  let add (sets : Ir.Kind.t list array) (index : int) (kinds : Ir.Kind.t list) =
+    if index >= 0 && index < Array.length sets
+    then (
+      let next = union sets.(index) kinds in
+      if List.length next > List.length sets.(index)
+      then (
+        sets.(index) <- next;
+        grew := true))
+  in
+  let rec visit at (under : Ir.Kind.t list option) (follow : Ir.Kind.t list) i =
+    match (i : Ir.Plan.instr) with
+    | Seq xs ->
+      let n = Array.length xs in
+      (* [after.(k)] is what can come after [xs.(k - 1)]. *)
+      let after = Array.make (n + 1) follow in
+      for k = n - 1 downto 0 do
+        after.(k)
+        <- (if nullable null None xs.(k)
+            then union (first p null None xs.(k)) after.(k + 1)
+            else first p null None xs.(k))
+      done;
+      let under = ref under in
+      Array.iteri xs ~f:(fun k x ->
+        visit (sub at (Printf.sprintf "%d" k)) !under after.(k + 1) x;
+        if not (nullable null !under x) then under := None)
+    | Open _ | Close | Trivia | Bump | Bump_reporting _ | Drain _ | Expect _ -> ()
+    | Call r -> add rule_follow r follow
+    | Pratt b -> add block_follow b.block follow
+    | Commit c -> visit (sub at "body") (Some (Array.to_list c.first)) follow c.body
+    | Alt a ->
+      let on = kinds_on a.arms in
+      let left =
+        match under with
+        | None -> None
+        | Some kinds -> Some (List.filter kinds ~f:(fun k -> not (List.mem k ~set:on)))
+      in
+      let reachable =
+        match left with
+        | None -> true
+        | Some kinds -> kinds <> []
+      in
+      if reachable && nullable null left a.otherwise
+      then (
+        let taken =
+          match under with
+          | None -> on
+          | Some kinds -> inter on kinds
+        in
+        choice at (inter taken follow));
+      Array.iteri a.arms ~f:(fun n (on, body) ->
+        visit (sub at (Printf.sprintf "arm %d" n)) (Some (Array.to_list on)) follow body);
+      visit (sub at "otherwise") left follow a.otherwise
+    | Loop l ->
+      let n = Array.length l.states in
+      let exits (s : Ir.Plan.loop_state) : bool =
+        match s.exit with
+        | May_exit -> true
+        | May_exit_reporting _ -> false
+      in
+      (* What can come once the loop is in [state]: something it accepts, or,
+         where it may end there, what follows the loop. *)
+      let at_state (state : int) : Ir.Kind.t list =
+        if state < 0 || state >= n
+        then []
+        else (
+          let s = l.states.(state) in
+          if exits s then union (kinds_on s.accepts) follow else kinds_on s.accepts)
+      in
+      Array.iteri l.states ~f:(fun si (s : Ir.Plan.loop_state) ->
+        let at = sub at (Printf.sprintf "state %d" si) in
+        if exits s then choice at (inter (kinds_on s.accepts) follow);
+        let after =
+          Array.fold_left s.accepts ~init:[] ~f:(fun acc (_, target) ->
+            union acc (at_state target))
+        in
+        visit (sub at "emits") (Some (kinds_on s.accepts)) after s.emits)
+  in
+  Array.iteri p.rules ~f:(fun ri (r : Ir.Plan.rule) ->
+    visit (Printf.sprintf "rule %d %s" ri r.name) None rule_follow.(ri) r.body);
+  Array.iteri p.blocks ~f:(fun bi (b : Ir.Plan.block) ->
+    let after_atom = union block_follow.(bi) (operators b) in
+    Array.iter b.atoms ~f:(fun (_, atom) ->
+      match (atom : Ir.Plan.atom) with
+      | Atom_token -> ()
+      | Atom_rule r -> add rule_follow r after_atom);
+    Array.iteri b.postfix ~f:(fun qi (q : Ir.Plan.postfix) ->
+      visit (Printf.sprintf "block %d/postfix %d" bi qi) None after_atom q.body))
+;;
+
+(* Every overlap between what a choice takes and what can follow it. FOLLOW
+   comes from a fixpoint over the walk: a set only grows, so the walk settles,
+   and the last run, with nothing left to grow, is the one that reports. *)
+let overlaps (p : Ir.Plan.t) (null : bool array) : problem list =
+  let rule_follow = Array.make (Array.length p.rules) []
+  and block_follow = Array.make (Array.length p.blocks) [] in
+  let grew = ref true in
+  while !grew do
+    grew := false;
+    follow_walk p null ~rule_follow ~block_follow ~grew ~choice:(fun _ _ -> ())
+  done;
+  let found = ref [] in
+  follow_walk p null ~rule_follow ~block_follow ~grew ~choice:(fun at kinds ->
+    if kinds <> [] then found := Takes_what_follows { at; kinds } :: !found);
+  List.rev !found
+;;
+
+let run ?(template : bool = false) (p : Ir.Plan.t) : (unit, problem list) result =
   let found = ref [] in
   let report x = found := x :: !found in
   let n_rules = Array.length p.rules in
@@ -322,6 +531,7 @@ let run (p : Ir.Plan.t) : (unit, problem list) result =
   kinds "trivia" p.trivia;
   kind "error kind" p.error_kind;
   kind "missing kind" p.missing_kind;
+  if not template then List.iter (overlaps p null) ~f:report;
   match List.rev !found with
   | [] -> Ok ()
   | problems -> Error problems

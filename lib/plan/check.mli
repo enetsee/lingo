@@ -61,8 +61,20 @@ type problem =
       reports its child missing where nothing in [first] is under the cursor.
       A child that can match nothing is never missing, so that report would
       be wrong on valid input. *)
+  | Takes_what_follows of
+      { at : string
+      ; kinds : Ir.Kind.t list
+      }
+  (** A choice the plan makes without taking a token takes these kinds, and
+      they can also come after it. There are two such choices: an [Alt] whose
+      [otherwise] can take nothing, and a loop state that may exit. Either
+      way the parse takes the kind, and what comes after never sees it. *)
 
 val pp_problem : Format.formatter -> problem -> unit
 
-(** One pass. Findings come back in the order the walk meets them. *)
-val run : Ir.Plan.t -> (unit, problem list) result
+(** Findings come back in the order the walk meets them, and
+    [Takes_what_follows] comes last.
+
+    [~template:true] leaves [Takes_what_follows] out. A template grammar's
+    metavariable can start two things, so its plan overlaps on purpose. *)
+val run : ?template:bool -> Ir.Plan.t -> (unit, problem list) result

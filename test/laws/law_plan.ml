@@ -21,7 +21,7 @@
       reader defaults would have to be dropped and defaulted to the same
       value to stay hidden.
 
-      Coverage. One plan, and twenty-four broken ones. The plan's loop reaches
+      Coverage. One plan, and twenty-six broken ones. The plan's loop reaches
       both exit policies: it may end after an element, and ending after a
       separator reports the separator as extra. The round-trip says
       nothing about a plan no [of_facts] would build, and [of_facts] does not
@@ -547,6 +547,39 @@ let broken =
       }
     , function
       | Plan.Check.Commit_matches_nothing _ -> true
+      | _ -> false )
+  ; ( "an optional word followed by a word"
+    , with_body
+        (open_
+           (Ir.Plan.Seq
+              [| Ir.Plan.Alt
+                   { arms = [| [| k_word |], Ir.Plan.Bump |]
+                   ; otherwise = Ir.Plan.Seq [||]
+                   }
+               ; expect k_word
+              |]))
+    , function
+      | Plan.Check.Takes_what_follows _ -> true
+      | _ -> false )
+  ; ( "a list of words followed by a word"
+    , with_body
+        (open_
+           (Ir.Plan.Seq
+              [| Ir.Plan.Loop
+                   { entry = 0
+                   ; ends_on = None
+                   ; states =
+                       [| { accepts = [| [| k_word |], 0 |]
+                          ; exit = Ir.Plan.May_exit
+                          ; when_missing = None
+                          ; emits = Ir.Plan.Bump
+                          }
+                       |]
+                   }
+               ; expect k_word
+              |]))
+    , function
+      | Plan.Check.Takes_what_follows _ -> true
       | _ -> false )
   ; ( "a node opened and not closed"
     , with_body (Ir.Plan.Seq [| Ir.Plan.Open n_file; Ir.Plan.Bump |])

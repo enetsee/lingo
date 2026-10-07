@@ -42,9 +42,9 @@ let grammars : (string * Core.Grammar.t) list =
 (* A grammar the checker accepts always lowers to a plan [Plan.Check] accepts.
    A plan it rejects is a fault in lingo, and emitting it would ship a parser
    that can fail valid input. *)
-let lower (name : string) (facts : Core.Facts.t) : Ir.Plan.t =
+let lower ?(template : bool = false) (name : string) (facts : Core.Facts.t) : Ir.Plan.t =
   let plan, _ = Plan.Lower.of_facts facts in
-  match Plan.Check.run plan with
+  match Plan.Check.run ~template plan with
   | Ok () -> plan
   | Error problems ->
     Format.eprintf
@@ -92,10 +92,10 @@ let () =
         | "template-lexer-mli" ->
           print_string (Ocaml.Emit.render_signature Ocaml.Lexer.signature)
         | "template-parser" ->
-          let plan = lower (name ^ " template") (template_facts ()) in
+          let plan = lower ~template:true (name ^ " template") (template_facts ()) in
           print_string (Ocaml.Emit.render (Ocaml.Parser.generate plan))
         | "template-parser-mli" ->
-          let plan = lower (name ^ " template") (template_facts ()) in
+          let plan = lower ~template:true (name ^ " template") (template_facts ()) in
           print_string (Ocaml.Emit.render_signature (Ocaml.Parser.signature plan))
         | "mli" ->
           print_string (Ocaml.Emit.render_signature (Ocaml.Views.signature facts))

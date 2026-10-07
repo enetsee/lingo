@@ -8,7 +8,7 @@
 
       Mechanism. Part (a) makes every invariant [Check] holds a post-condition
       of the lowering, rather than a fact about the plans that happen to be in
-      test/expect. There are thirteen of them and this law restates none.
+      test/expect. There are fourteen of them and this law restates none.
 
       Parts (b) and (c) are one walk over the plan, collecting the ids it
       names, against the catalogue's length. The walk is this law's own: the
@@ -324,7 +324,7 @@ let () =
 
 (* -- (e) every kind is checked where it sits ------------------------------- *)
 
-(* [Check.run] looks in forty-two places and names thirteen problems, and
+(* [Check.run] looks in forty-two places and names fourteen problems, and
    test/laws/law_plan.ml gives it one broken plan per problem. That is not the
    same claim. A plan carrying a negative kind proves the checker can say
    [Negative_kind]; it says nothing about whether the checker looks for one
