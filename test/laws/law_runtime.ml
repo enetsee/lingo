@@ -55,13 +55,12 @@
       because the cursor has moved past what the span covers by the time the
       report happens.
 
-      Part (b) holds by construction in two of its three halves. Nothing in the
-      runtime moves the cursor backwards, and both sites that advance it are
-      guarded, so no single-site mutation can report on those two. A mutation
-      that advances the offset by two does not report either -- it dies on
-      [Invalid_argument "index out of bounds"] from [next_meaningful] indexed
-      past its last entry, which is red and not a reading. What the check earns
-      is the third half: a cursor that stops advancing.
+      Part (b) holds by construction in one of its three halves: nothing in
+      the runtime moves the cursor backwards. Both sites that advance it are
+      guarded, so a cursor that moves by one never passes the last token. A
+      mutation that moves it by two steps over the guard. Part (b) reports
+      the cursor past the last token, and part (a) the tokens it skipped. The
+      third half is a cursor that stops advancing.
 
       Why one-byte tokens hide a defect. Advancing the offset by a byte rather
       than by the token's length leaves every span correct whose tokens happen

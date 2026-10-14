@@ -3,21 +3,30 @@ open StdLabels
 type t =
   { tokens : Token.t array
   ; mutable pos : int
+  ; mutable next : int
   ; mutable offset : int
   ; trivia_lookup : bool array
-  ; next_meaningful : int array
   ; builder : Siesta.Builder.t
   ; diags : Diagnostic.t Dynarray.t
   ; mutable reports : int
   ; mutable depth : int
   }
 
-(* [next_meaningful.(i)] is the smallest [j >= i] that is either the end of
-   the array or a meaningful token. Precomputing it makes a peek O(1). Walking
-   the trivia instead costs the run's length on every peek, and a peek happens
-   at every dispatch.
+let is_trivia (c : t) (k : Ir.Kind.t) =
+  k >= 0 && k < Array.length c.trivia_lookup && c.trivia_lookup.(k)
+;;
 
-   Built right to left so each entry reads its successor. *)
+(* The first meaningful token at or after [i], or the end of the array. *)
+let rec meaningful_from (c : t) (i : int) : int =
+  if i < Array.length c.tokens && is_trivia c c.tokens.(i).kind
+  then meaningful_from c (i + 1)
+  else i
+;;
+
+(* [next] is [meaningful_from c pos], kept so that a peek is O(1). Walking the
+   trivia instead costs the run's length on every peek, and a peek happens at
+   every dispatch. [pos] only ever moves forward by one, so [next] moves only
+   once [pos] passes it, and a parse walks each run of trivia once. *)
 let create
       ?(cache = Siesta.Cache.create ())
       ~(trivia_kinds : Ir.Kind.t list)
@@ -27,34 +36,24 @@ let create
   let max_kind = List.fold_left trivia_kinds ~init:(-1) ~f:max in
   let trivia_lookup = Array.make (max_kind + 1) false in
   List.iter trivia_kinds ~f:(fun k -> if k >= 0 then trivia_lookup.(k) <- true);
-  let n = Array.length tokens in
-  let is_trivia_at i =
-    let k = (tokens.(i) : Token.t).kind in
-    k >= 0 && k < Array.length trivia_lookup && trivia_lookup.(k)
+  let c =
+    { tokens
+    ; pos = 0
+    ; next = 0
+    ; offset = 0
+    ; trivia_lookup
+    ; builder = Siesta.Builder.create ~cache ()
+    ; diags = Dynarray.create ()
+    ; reports = 0
+    ; depth = 0
+    }
   in
-  let next_meaningful = Array.make (n + 1) n in
-  for i = n - 1 downto 0 do
-    next_meaningful.(i) <- (if is_trivia_at i then next_meaningful.(i + 1) else i)
-  done;
-  { tokens
-  ; pos = 0
-  ; offset = 0
-  ; trivia_lookup
-  ; next_meaningful
-  ; builder = Siesta.Builder.create ~cache ()
-  ; diags = Dynarray.create ()
-  ; reports = 0
-  ; depth = 0
-  }
+  c.next <- meaningful_from c 0;
+  c
 ;;
 
 let position (c : t) = c.pos
-
-let is_trivia (c : t) (k : Ir.Kind.t) =
-  k >= 0 && k < Array.length c.trivia_lookup && c.trivia_lookup.(k)
-;;
-
-let peek_idx (c : t) = c.next_meaningful.(c.pos)
+let peek_idx (c : t) = c.next
 let meaningful_position = peek_idx
 
 let current (c : t) : Ir.Kind.t =
@@ -70,7 +69,7 @@ let peek_meaningful_at (c : t) ~(n : int) : Ir.Kind.t =
   let j = ref (peek_idx c) in
   let remaining = ref n in
   while !remaining > 0 && !j < total do
-    j := c.next_meaningful.(!j + 1);
+    j := meaningful_from c (!j + 1);
     decr remaining
   done;
   if !j >= total then Ir.Kind.none else c.tokens.(!j).kind
@@ -91,6 +90,7 @@ let range (c : t) =
 let emit_token (c : t) (t : Token.t) =
   Siesta.Builder.token c.builder t.kind t.text;
   c.pos <- c.pos + 1;
+  if c.pos > c.next then c.next <- meaningful_from c c.pos;
   c.offset <- c.offset + String.length t.text
 ;;
 
