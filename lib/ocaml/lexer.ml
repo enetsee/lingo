@@ -140,7 +140,12 @@ let finish_body (facts : Core.Facts.t) : Emit.expr =
 ;;
 
 (* [lex] around whichever cluster the shape gave. Everything outside the scan
-   is here, so the shapes differ only in the scan. *)
+   is here, so the shapes differ only in the scan.
+
+   The buffer starts at a token per two bytes of source. Grown from empty, it
+   doubles a dozen times on a file of a few thousand tokens, and every array
+   it leaves behind is garbage. incr's source measured 1.5 to 5 bytes a
+   token, so the guess rarely grows, and grows once where it does. *)
 let lex_item (facts : Core.Facts.t) (cluster : (string * Emit.arg list * Emit.expr) list)
   : Emit.item
   =
@@ -160,7 +165,13 @@ let lex_item (facts : Core.Facts.t) (cluster : (string * Emit.arg list * Emit.ex
          (elet
             "out"
             ~body:(ecall "Dynarray.create" [ eunit ])
-            ~rest:(elet "emit" ~body:emit_binding ~rest:body)))
+            ~rest:
+              (eseq
+                 [ ecall
+                     "Dynarray.ensure_capacity"
+                     [ evar "out"; ecall "/" [ evar "n"; eint 2 ] ]
+                 ; elet "emit" ~body:emit_binding ~rest:body
+                 ])))
 ;;
 
 (* -- the table shape ------------------------------------------------------- *)
