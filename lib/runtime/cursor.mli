@@ -8,9 +8,8 @@
     {1 Trivia}
 
     The kinds given to {!create} as trivia are hidden from the cursor's view.
-    {!current}, {!at}, {!eof}, {!peek_meaningful_at} and {!range} all look
-    past them. None of the five moves the cursor or puts anything in the
-    tree.
+    {!current}, {!at}, {!eof} and {!range} all look past them. None of the
+    four moves the cursor or puts anything in the tree.
 
     Trivia enters the tree when the parser consumes input or freezes a
     position. That means {!bump}, {!skip_trivia}, {!Recover.expect} and
@@ -51,10 +50,6 @@ val current : t -> Ir.Kind.t
 
 val at : t -> Ir.Kind.t -> bool
 val eof : t -> bool
-
-(** [peek_meaningful_at c ~n] is the kind [n] meaningful tokens further on.
-    [n = 0] is {!current}. {!Ir.Kind.none} past the end of the input. *)
-val peek_meaningful_at : t -> n:int -> Ir.Kind.t
 
 (** The byte range of the token {!current} is on, half open. Leading
     trivia sits outside it, so a diagnostic points at the token rather than

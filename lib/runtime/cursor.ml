@@ -64,17 +64,6 @@ let current (c : t) : Ir.Kind.t =
 let eof (c : t) = peek_idx c >= Array.length c.tokens
 let at (c : t) (k : Ir.Kind.t) = current c = k
 
-let peek_meaningful_at (c : t) ~(n : int) : Ir.Kind.t =
-  let total = Array.length c.tokens in
-  let j = ref (peek_idx c) in
-  let remaining = ref n in
-  while !remaining > 0 && !j < total do
-    j := meaningful_from c (!j + 1);
-    decr remaining
-  done;
-  if !j >= total then Ir.Kind.none else c.tokens.(!j).kind
-;;
-
 let range (c : t) =
   let i = peek_idx c in
   let trivia_bytes = ref 0 in
