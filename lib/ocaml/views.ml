@@ -247,149 +247,264 @@ let variants (f : Core.Facts.t) (views : view list)
 let support (name : string) : string = Core.Manifest.view_support ^ "." ^ name
 let some (e : Emit.expr) : Emit.expr = Emit.econstruct "Some" [ e ]
 let none : Emit.expr = Emit.econstruct "None" []
-let deref (name : string) : Emit.expr = Emit.ecall "!" [ Emit.evar name ]
 
 (* A child goes to the slot it last filled while that slot repeats and takes
    it, and otherwise to the first slot further on that takes it. A child no
    slot takes is trivia, an error node, or one of the frame's own tokens, and
-   no accessor reads it. *)
-let walk : Emit.item =
-  let push (slot : Emit.expr) : Emit.expr =
-    Emit.ecall
-      "Array.set"
-      [ Emit.evar "slots"
-      ; slot
-      ; Emit.econstruct
-          "::"
-          [ Emit.evar "elem"; Emit.ecall "Array.get" [ Emit.evar "slots"; slot ] ]
+   no accessor reads it.
+
+   A caller reads a node one accessor at a time. So an accessor walks only as
+   far as its own slot, and allocates nothing it does not return.
+
+   [seek] finds the first child the walk puts in a slot or a later one. That
+   child is in the slot exactly when the slot takes it, because [scan] gave
+   every slot before it the chance. A repeating slot then runs up to the next
+   child a later slot takes. Inside that run the slot takes every child it
+   admits and the rest are trivia, so [collect] reads the run right to left
+   and conses each element once. *)
+let walk : Emit.item list =
+  let open Emit in
+  let s = evar "s" in
+  let node = evar "node" in
+  let count = ecall "Array.length" [ efield s "repeats" ] in
+  let fits (slot : expr) (kind : expr) : expr = eapply (efield s "fits") [ slot; kind ] in
+  let nth (i : expr) : expr = ecall "Siesta.Syntax.nth_child_exn" [ node; i ] in
+  let kind_of (elem : expr) : expr = ecall "Siesta.Syntax.elem_kind" [ elem ] in
+  let plus_one (e : expr) : expr = ecall "+" [ e; eint 1 ] in
+  let from_start (slot : expr) : expr =
+    ecall "seek" [ s; slot; node; eint 0; eint (-1) ]
+  in
+  let empty = econstruct "[]" [] in
+  [ itype_record
+      "shape"
+      [ ( "fits"
+        , tarrow
+            ~domain:(tcon "int" [])
+            ~codomain:(tarrow ~domain:(tcon "int" []) ~codomain:(tcon "bool" [])) )
+      ; "repeats", tcon "array" [ tcon "bool" [] ]
       ]
-  in
-  let count = Emit.ecall "Array.length" [ Emit.evar "repeats" ] in
-  let fits (slot : Emit.expr) : Emit.expr =
-    Emit.ecall "fits" [ slot; Emit.evar "kind" ]
-  in
-  let scan =
-    Emit.elet
-      "slot"
-      ~body:(Emit.ecall "ref" [ Emit.ecall "+" [ deref "last"; Emit.eint 1 ] ])
-      ~rest:
-        (Emit.eseq
-           [ Emit.ewhile
-               ~condition:
-                 (Emit.eand
-                    ~left:(Emit.eless ~left:(deref "slot") ~right:count)
-                    ~right:(Emit.enot (fits (deref "slot"))))
-               ~body:(Emit.ecall "incr" [ Emit.evar "slot" ])
-           ; Emit.ewhen
-               ~condition:(Emit.eless ~left:(deref "slot") ~right:count)
-               ~then_:
-                 (Emit.eseq
-                    [ push (deref "slot")
-                    ; Emit.ecall ":=" [ Emit.evar "last"; deref "slot" ]
-                    ])
-           ])
-  in
-  let step =
-    Emit.elambda
-      [ Emit.arg_var "elem" ]
-      (Emit.elet
-         "kind"
-         ~body:(Emit.ecall "Siesta.Syntax.elem_kind" [ Emit.evar "elem" ])
+  ; ilet
+      ~rec_:true
+      ~args:[ arg_var "s"; arg_var "kind"; arg_var "slot" ]
+      "scan"
+      (eif
+         ~condition:
+           (eand
+              ~left:(eless ~left:(evar "slot") ~right:count)
+              ~right:(enot (fits (evar "slot") (evar "kind"))))
+         ~then_:(ecall "scan" [ s; evar "kind"; plus_one (evar "slot") ])
+         ~else_:(evar "slot"))
+  ; ilet
+      ~args:[ arg_var "s"; arg_var "last"; arg_var "kind" ]
+      "place"
+      (eif
+         ~condition:
+           (eand
+              ~left:(egreater_equal ~left:(evar "last") ~right:(eint 0))
+              ~right:
+                (eand
+                   ~left:(ecall "Array.get" [ efield s "repeats"; evar "last" ])
+                   ~right:(fits (evar "last") (evar "kind"))))
+         ~then_:(evar "last")
+         ~else_:
+           (elet
+              "slot"
+              ~body:(ecall "scan" [ s; evar "kind"; plus_one (evar "last") ])
+              ~rest:
+                (eif
+                   ~condition:(eless ~left:(evar "slot") ~right:count)
+                   ~then_:(evar "slot")
+                   ~else_:(evar "last"))))
+  ; ilet
+      ~rec_:true
+      ~args:
+        [ arg_var "s"
+        ; arg_var "slot"
+        ; arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t"
+        ; arg_var "i"
+        ; arg_var "last"
+        ]
+      "seek"
+      (eif
+         ~condition:
+           (egreater_equal
+              ~left:(evar "i")
+              ~right:(ecall "Siesta.Syntax.num_children" [ node ]))
+         ~then_:(evar "i")
+         ~else_:
+           (elet
+              "last"
+              ~body:(ecall "place" [ s; evar "last"; kind_of (nth (evar "i")) ])
+              ~rest:
+                (eif
+                   ~condition:(egreater_equal ~left:(evar "last") ~right:(evar "slot"))
+                   ~then_:(evar "i")
+                   ~else_:
+                     (ecall
+                        "seek"
+                        [ s; evar "slot"; node; plus_one (evar "i"); evar "last" ]))))
+  ; ilet
+      ~args:
+        [ arg_var "s"
+        ; arg_var "slot"
+        ; arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t"
+        ; arg_var "i"
+        ]
+      "holds"
+      (eand
+         ~left:
+           (eless ~left:(evar "i") ~right:(ecall "Siesta.Syntax.num_children" [ node ]))
+         ~right:(fits (evar "slot") (kind_of (nth (evar "i")))))
+  ; ilet
+      ~rec_:true
+      ~args:
+        [ arg_var "s"
+        ; arg_var "read"
+        ; arg_var "slot"
+        ; arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t"
+        ; arg_var "first"
+        ; arg_var "i"
+        ; arg_var "acc"
+        ]
+      "collect"
+      (eif
+         ~condition:(eless ~left:(evar "i") ~right:(evar "first"))
+         ~then_:(evar "acc")
+         ~else_:
+           (elet
+              "elem"
+              ~body:(nth (evar "i"))
+              ~rest:
+                (elet
+                   "acc"
+                   ~body:
+                     (eif
+                        ~condition:(fits (evar "slot") (kind_of (evar "elem")))
+                        ~then_:
+                          (ematch
+                             (ecall "read" [ evar "elem" ])
+                             [ ecase
+                                 (pconstruct "Some" [ pvar "x" ])
+                                 (econstruct "::" [ evar "x"; evar "acc" ])
+                             ; ecase (pconstruct "None" []) (evar "acc")
+                             ])
+                        ~else_:(evar "acc"))
+                   ~rest:
+                     (ecall
+                        "collect"
+                        [ s
+                        ; evar "read"
+                        ; evar "slot"
+                        ; node
+                        ; evar "first"
+                        ; ecall "-" [ evar "i"; eint 1 ]
+                        ; evar "acc"
+                        ]))))
+    (* A required child the parse could not find holds a placeholder, which no
+       reading takes. So [one] gives [None] there, and [many] leaves it out. *)
+  ; ilet
+      ~args:[ arg_var "s"; arg_var "read"; arg_var "node"; arg_var "slot" ]
+      "one"
+      (elet
+         "i"
+         ~body:(from_start (evar "slot"))
          ~rest:
-           (Emit.eif
-              ~condition:
-                (Emit.eand
-                   ~left:(Emit.egreater_equal ~left:(deref "last") ~right:(Emit.eint 0))
-                   ~right:
-                     (Emit.eand
-                        ~left:
-                          (Emit.ecall "Array.get" [ Emit.evar "repeats"; deref "last" ])
-                        ~right:(fits (deref "last"))))
-              ~then_:(push (deref "last"))
-              ~else_:scan))
-  in
-  Emit.ilet
-    "walk"
-    ~args:[ Emit.arg_var "fits"; Emit.arg_var "repeats"; Emit.arg_var "node" ]
-    (Emit.econstraint
-       (Emit.elet
-          "slots"
-          ~body:(Emit.ecall "Array.make" [ count; Emit.econstruct "[]" [] ])
-          ~rest:
-            (Emit.elet
-               "last"
-               ~body:(Emit.ecall "ref" [ Emit.eint (-1) ])
-               ~rest:
-                 (Emit.eseq
-                    [ Emit.ecall
-                        "Array.iter"
-                        [ step
-                        ; Emit.ecall "Siesta.Syntax.children_array" [ Emit.evar "node" ]
-                        ]
-                    ; Emit.ecall "Array.map" [ Emit.evar "List.rev"; Emit.evar "slots" ]
-                    ])))
-       (Emit.tcon "array" [ Emit.tcon "list" [ elem_t ] ]))
+           (eif
+              ~condition:(ecall "holds" [ s; evar "slot"; node; evar "i" ])
+              ~then_:(ecall "read" [ nth (evar "i") ])
+              ~else_:none))
+  ; ilet
+      ~args:[ arg_var "s"; arg_var "read"; arg_var "node"; arg_var "slot" ]
+      "many"
+      (elet
+         "first"
+         ~body:(from_start (evar "slot"))
+         ~rest:
+           (eif
+              ~condition:(ecall "holds" [ s; evar "slot"; node; evar "first" ])
+              ~then_:
+                (ecall
+                   "collect"
+                   [ s
+                   ; evar "read"
+                   ; evar "slot"
+                   ; node
+                   ; evar "first"
+                   ; ecall
+                       "-"
+                       [ ecall
+                           "seek"
+                           [ s
+                           ; plus_one (evar "slot")
+                           ; node
+                           ; plus_one (evar "first")
+                           ; evar "slot"
+                           ]
+                       ; eint 1
+                       ]
+                   ; empty
+                   ])
+              ~else_:empty))
+  ; ilet
+      ~args:[ arg_var "s"; arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t" ]
+      "walk"
+      (econstraint
+         (ecall
+            "Array.init"
+            [ count
+            ; elambda
+                [ arg_var "slot" ]
+                (eif
+                   ~condition:(ecall "Array.get" [ efield s "repeats"; evar "slot" ])
+                   ~then_:(ecall "many" [ s; evar "Option.some"; node; evar "slot" ])
+                   ~else_:
+                     (ecall
+                        "Option.to_list"
+                        [ ecall "one" [ s; evar "Option.some"; node; evar "slot" ] ]))
+            ])
+         (tcon "array" [ tcon "list" [ elem_t ] ]))
+  ]
 ;;
 
 let helpers : Emit.item list =
-  [ walk
-  ; Emit.ilet
-      "cast"
-      ~args:
-        [ Emit.arg_var "kind"
-        ; Emit.arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t"
-        ]
-      (Emit.eif
-         ~condition:
-           (Emit.eequal
-              ~left:(Emit.ecall "Siesta.Syntax.kind" [ Emit.evar "node" ])
-              ~right:(Emit.evar "kind"))
-         ~then_:(some (Emit.evar "node"))
-         ~else_:none)
-  ; Emit.ilet
-      "token"
-      ~args:[ Emit.arg_typed ~arg_name:"elem" ~type_path:"Siesta.Syntax.elem" ]
-      (Emit.ematch
-         (Emit.evar "elem")
-         [ Emit.ecase
-             (Emit.pconstruct "Siesta.Syntax.Token" [ Emit.pvar "token" ])
-             (some (Emit.evar "token"))
-         ; Emit.ecase (Emit.pconstruct "Siesta.Syntax.Node" [ Emit.pany ]) none
-         ])
-  ; Emit.ilet
-      "node"
-      ~args:
-        [ Emit.arg_var "kind"
-        ; Emit.arg_typed ~arg_name:"elem" ~type_path:"Siesta.Syntax.elem"
-        ]
-      (Emit.ematch
-         (Emit.evar "elem")
-         [ Emit.ecase
-             (Emit.pconstruct "Siesta.Syntax.Node" [ Emit.pvar "node" ])
-             (Emit.ecall "cast" [ Emit.evar "kind"; Emit.evar "node" ])
-         ; Emit.ecase (Emit.pconstruct "Siesta.Syntax.Token" [ Emit.pany ]) none
-         ])
-    (* A required child the parse could not find holds a placeholder, which no
-       reading takes. So [one] gives [None] there, and [many] leaves it out. *)
-  ; Emit.ilet
-      "one"
-      ~args:[ Emit.arg_var "read"; Emit.arg_var "slots"; Emit.arg_var "slot" ]
-      (Emit.ematch
-         (Emit.ecall "Array.get" [ Emit.evar "slots"; Emit.evar "slot" ])
-         [ Emit.ecase (Emit.pconstruct "[]" []) none
-         ; Emit.ecase
-             (Emit.pconstruct "::" [ Emit.pvar "elem"; Emit.pany ])
-             (Emit.ecall "read" [ Emit.evar "elem" ])
-         ])
-  ; Emit.ilet
-      "many"
-      ~args:[ Emit.arg_var "read"; Emit.arg_var "slots"; Emit.arg_var "slot" ]
-      (Emit.ecall
-         "List.filter_map"
-         [ Emit.evar "read"
-         ; Emit.ecall "Array.get" [ Emit.evar "slots"; Emit.evar "slot" ]
-         ])
-  ]
+  walk
+  @ [ Emit.ilet
+        "cast"
+        ~args:
+          [ Emit.arg_var "kind"
+          ; Emit.arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t"
+          ]
+        (Emit.eif
+           ~condition:
+             (Emit.eequal
+                ~left:(Emit.ecall "Siesta.Syntax.kind" [ Emit.evar "node" ])
+                ~right:(Emit.evar "kind"))
+           ~then_:(some (Emit.evar "node"))
+           ~else_:none)
+    ; Emit.ilet
+        "token"
+        ~args:[ Emit.arg_typed ~arg_name:"elem" ~type_path:"Siesta.Syntax.elem" ]
+        (Emit.ematch
+           (Emit.evar "elem")
+           [ Emit.ecase
+               (Emit.pconstruct "Siesta.Syntax.Token" [ Emit.pvar "token" ])
+               (some (Emit.evar "token"))
+           ; Emit.ecase (Emit.pconstruct "Siesta.Syntax.Node" [ Emit.pany ]) none
+           ])
+    ; Emit.ilet
+        "node"
+        ~args:
+          [ Emit.arg_var "kind"
+          ; Emit.arg_typed ~arg_name:"elem" ~type_path:"Siesta.Syntax.elem"
+          ]
+        (Emit.ematch
+           (Emit.evar "elem")
+           [ Emit.ecase
+               (Emit.pconstruct "Siesta.Syntax.Node" [ Emit.pvar "node" ])
+               (Emit.ecall "cast" [ Emit.evar "kind"; Emit.evar "node" ])
+           ; Emit.ecase (Emit.pconstruct "Siesta.Syntax.Token" [ Emit.pany ]) none
+           ])
+    ]
 ;;
 
 let kind_pattern (kinds : Ir.Kind.t list) : Emit.pat =
@@ -475,12 +590,9 @@ let slots (f : Core.Facts.t) (v : view) : Emit.item =
   in
   Emit.ilet
     v.view_type
-    ~args:[ Emit.arg_typed ~arg_name:"node" ~type_path:"Siesta.Syntax.t" ]
-    (Emit.ecall
-       "walk"
-       [ fits
-       ; Emit.earray (List.map children ~f:(fun c -> Emit.ebool (repeats c)))
-       ; Emit.evar "node"
+    (Emit.erecord
+       [ "fits", fits
+       ; "repeats", Emit.earray (List.map children ~f:(fun c -> Emit.ebool (repeats c)))
        ])
 ;;
 
@@ -500,7 +612,7 @@ let dispatch (views : view list) : Emit.item =
                (some
                   (if Array.length v.def.children = 0
                    then Emit.earray []
-                   else Emit.ecall v.view_type [ Emit.evar "node" ])))
+                   else Emit.ecall "walk" [ Emit.evar v.view_type; Emit.evar "node" ])))
            @ [ Emit.ecase Emit.pany none ]))
        (Emit.tcon "option" [ Emit.tcon "array" [ Emit.tcon "list" [ elem_t ] ] ]))
 ;;
@@ -508,7 +620,10 @@ let dispatch (views : view list) : Emit.item =
 let reading (f : Core.Facts.t) (v : view) (c : Core.Rule.child) : Emit.expr =
   match shape f v.def c with
   | Token -> Emit.evar (support "token")
-  | Node { kind = k; _ } -> Emit.ecall (support "node") [ Emit.eint k ]
+  | Node { kind = k; _ } ->
+    Emit.elambda
+      [ Emit.arg_var "elem" ]
+      (Emit.ecall (support "node") [ Emit.eint k; Emit.evar "elem" ])
   | Position name | Sum { name; _ } -> Emit.evar (support name)
 ;;
 
@@ -587,8 +702,9 @@ let view_module (f : Core.Facts.t) (v : view) : Emit.item =
         (Emit.econstraint
            (Emit.ecall
               (support (if repeats c then "many" else "one"))
-              [ reading f v c
-              ; Emit.ecall (support v.view_type) [ Emit.evar "view" ]
+              [ Emit.evar (support v.view_type)
+              ; reading f v c
+              ; Emit.evar "view"
               ; Emit.eint i
               ])
            (accessor_ty f v c)))

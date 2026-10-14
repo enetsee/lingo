@@ -22,7 +22,7 @@ runs:
         opam pin add -y -n redfa.dev \
           git+https://github.com/enetsee/redfa.git#6d6ae56dacb7a2dccdbf0c923c9ccb5a47b44273
         opam pin add -y -n siesta.dev \
-          git+https://github.com/enetsee/siesta.git#53f8fe491376f31e71983da9788c207ff9374776
+          git+https://github.com/enetsee/siesta.git#c29281ea581beddc714474919b890ddd9fadc642
         opam pin add -y -n handsome.dev \
           git+https://github.com/enetsee/handsome.git#9e9e350ad0bb1e30e0c07eb3caa444b0af10859c
         opam pin add -y -n bolts.dev \

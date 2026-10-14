@@ -25,12 +25,12 @@
 
     {1 Which child is which}
 
-    The accessors do not count kinds. Each module sorts the node's children
-    into its slots once, left to right, the way the parse filled them. A slot
-    keeps taking children while it repeats, and otherwise the next child goes
-    to the first later slot that admits it. A placeholder fills its slot. So
-    [lhs] and [rhs] stay apart where both are expressions, and where one is
-    missing.
+    The accessors do not count kinds. An accessor sorts the node's children
+    into slots left to right, the way the parse filled them, and stops at the
+    end of its own slot. A slot keeps taking children while it repeats, and
+    otherwise the next child goes to the first later slot that admits it. A
+    placeholder fills its slot. So [lhs] and [rhs] stay apart where both are
+    expressions, and where one is missing.
 
     The emitted module links [Siesta] and nothing else.
 
