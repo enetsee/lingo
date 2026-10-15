@@ -11,15 +11,7 @@
     "value": {
       "patterns": [ { "include": "#object" }, { "include": "#array" } ]
     },
-    "member": {
-      "patterns": [
-        {
-          "name": "support.type.property-name.json",
-          "match": "\"(?:[^\"\\\\]|\\\\[\\s\\S])*\""
-        },
-        { "include": "#value" }
-      ]
-    },
+    "member": { "patterns": [ { "include": "#value" } ] },
     "object": {
       "name": "meta.object.json",
       "begin": "\\{",
@@ -31,6 +23,10 @@
         "0": { "name": "punctuation.section.braces.end.json" }
       },
       "patterns": [
+        {
+          "name": "support.type.property-name.json",
+          "match": "(?:\"(?:[^\"\\\\]|\\\\[\\s\\S])*\")(?=(?>(?:[\\t\\n\\r ]+))*(?::))"
+        },
         { "include": "#member" },
         { "include": "#trivia" },
         { "include": "#tokens" }

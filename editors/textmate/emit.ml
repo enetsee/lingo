@@ -6,6 +6,7 @@ type ctx =
   ; language : string
   ; alias : Core.Rule.id -> Core.Rule.id
   ; raw : Core.Rule.id -> Yojson.Basic.t list
+  ; clash : Clash.t
   }
 
 let has_trivia (facts : Core.Facts.t) : bool =
@@ -80,31 +81,66 @@ let wrap_scope (ctx : ctx) (rule : Core.Rule.def) : Scopes.Scope.t =
 
 (* -- per-child patterns ---------------------------------------------------- *)
 
-(* Whether a pattern list may carry the identity child's own scope.
+(* A position tied to the literal beside it, as one match.
 
-   A body pattern is tried at every position the list reaches. A name scoped
-   [entity.name.function] there colours every identifier and every keyword it
-   matches as a function name. So the identity scope goes only where one
-   match ties it to its production: a region's [begin] (see {!Shape.Region}),
-   or a pair with the literal before it (see {!anchored_pairs}). *)
-type positions =
-  | Every_position
-  | Except_identity
+   Before: [(data)\s+([A-Z]...)] matches only where [data] does, and scopes
+   both. After: [(?:"...")(?=\s*:)] scopes the string only where a colon
+   follows, and leaves the colon to whatever scopes it anyway. A lookbehind
+   would do the first without consuming [data], but a lookbehind has to be
+   fixed width, and the trivia between the two is not. *)
+let pair_pattern (ctx : ctx) (pair : Clash.pair) : Yojson.Basic.t option =
+  let separator = Oniguruma.neutralise (Oniguruma.trivia_separator ctx.facts) in
+  match Oniguruma.of_token_at_child ctx.facts pair.token with
+  | Error _ -> None
+  | Ok regex ->
+    (match pair.anchor with
+     | Clash.Before { lead; lead_scope } ->
+       (match Oniguruma.of_token lead with
+        | Error _ -> None
+        | Ok lead_regex ->
+          let indexed =
+            (match lead_scope with
+             | Some lead_scope -> [ 1, lead_scope ]
+             | None -> [])
+            @ [ 2, pair.scope ]
+          in
+          Some
+            (`Assoc
+                [ ( "match"
+                  , `String
+                      ("("
+                       ^ Oniguruma.neutralise lead_regex
+                       ^ ")"
+                       ^ separator
+                       ^ "("
+                       ^ Oniguruma.neutralise regex
+                       ^ ")") )
+                ; "captures", captures ctx indexed
+                ]))
+     | Clash.After next ->
+       (match Oniguruma.of_token next with
+        | Error _ -> None
+        | Ok next_regex ->
+          Some
+            (`Assoc
+                (named ctx (Some pair.scope)
+                 @ [ ( "match"
+                     , `String
+                         ("(?:"
+                          ^ Oniguruma.neutralise regex
+                          ^ ")(?="
+                          ^ separator
+                          ^ "(?:"
+                          ^ Oniguruma.neutralise next_regex
+                          ^ "))") )
+                   ]))))
+;;
 
-let scope_at
-      (ctx : ctx)
-      (rule : Core.Rule.def)
-      ~(index : int)
-      ~(token : Core.Token.id)
-      ~(positions : positions)
-  : Scopes.Scope.t option
-  =
-  match positions with
-  | Every_position -> Scopes.resolve ctx.scopes ~rule:rule.id ~child:index ~token
-  | Except_identity ->
-    if rule.identity = Some index
-    then Scopes.token ctx.scopes token
-    else Scopes.resolve ctx.scopes ~rule:rule.id ~child:index ~token
+(* The pairs of every position a place tries, ahead of everything else in
+   it. Anywhere later, a pattern spliced in earlier could take the text
+   first. See {!Clash}. *)
+let place_pairs (ctx : ctx) (place : Clash.place) : Yojson.Basic.t list =
+  List.filter_map (Clash.pairs ctx.clash place) ~f:(pair_pattern ctx)
 ;;
 
 (* A pattern for one token in one child position, or nothing where the
@@ -113,74 +149,54 @@ let scope_at
    Emitting both changes what matches. A per-child pattern is tried before
    that entry, and that entry puts a longer literal ahead of the shorter one
    it starts with. So a per-child [=] emitted beside an unchanged scope
-   would claim the [=] of [==] at that position alone. *)
+   would claim the [=] of [==] at that position alone.
+
+   A position tied to a literal is emitted at the front of each place that
+   tries it, and nothing is emitted here. See {!Clash}. *)
 let token_pattern
       (ctx : ctx)
       (rule : Core.Rule.def)
+      (shape : Shape.t)
       ~(index : int)
       ~(token : Core.Token.def)
-      ~(positions : positions)
   : Yojson.Basic.t option
   =
-  let scope = scope_at ctx rule ~index ~token:token.id ~positions in
-  let redundant =
-    match scope, Scopes.token ctx.scopes token.id with
-    | Some here, Some there -> Scopes.Scope.equal here there
-    | _ -> false
-  in
-  if redundant
+  let scope = Shape.body_scope ctx.scopes rule shape ~index ~token:token.id in
+  if Clash.is_paired ctx.clash ~rule:rule.id ~child:index ~token:token.id
   then None
   else (
-    match Oniguruma.of_token_at_child ctx.facts token with
-    | Error _ -> None
-    | Ok regex -> Some (`Assoc (named ctx scope @ [ "match", `String regex ])))
+    let redundant =
+      match scope, Scopes.token ctx.scopes token.id with
+      | Some here, Some there -> Scopes.Scope.equal here there
+      | _ -> false
+    in
+    if redundant
+    then None
+    else (
+      match Oniguruma.of_token_at_child ctx.facts token with
+      | Error _ -> None
+      | Ok regex -> Some (`Assoc (named ctx scope @ [ "match", `String regex ]))))
 ;;
 
-let child_patterns_at
-      (ctx : ctx)
-      (rule : Core.Rule.def)
-      ~(index : int)
-      ~(positions : positions)
+let child_patterns_at (ctx : ctx) (rule : Core.Rule.def) (shape : Shape.t) ~(index : int)
   : Yojson.Basic.t list
   =
   let child = rule.children.(index) in
   Array.to_list child.alts
   |> List.filter_map ~f:(fun (kind : Core.Kind.t) ->
     match Core.Facts.token_of_kind ctx.facts kind with
-    | Some token -> token_pattern ctx rule ~index ~token ~positions
+    | Some token -> token_pattern ctx rule shape ~index ~token
     | None ->
       (match Core.Facts.rule_of_kind ctx.facts kind with
        | Some target -> Some (rule_include ctx target.id)
        | None -> None))
 ;;
 
-(* Children that point at a matched pair go first.
-
-   A pattern list has no precedence beyond the order it is written in, and
-   an open-ended child can reach the same opening token as a bracketed
-   sibling. A production holding a scrutinee expression and a braced body
-   would otherwise let the expression take the [{]. *)
-let child_patterns
-      (ctx : ctx)
-      (rule : Core.Rule.def)
-      ~(from : int)
-      ~(positions : positions)
+let child_patterns (ctx : ctx) (rule : Core.Rule.def) (shape : Shape.t) ~(from : int)
   : Yojson.Basic.t list
   =
-  let opens_a_pair (index : int) : bool =
-    match Shape.rule_of_child ctx.facts rule.children.(index) with
-    | None -> false
-    | Some target ->
-      (match target.frame with
-       | Core.Rule.Delimited _ -> true
-       | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Separated _ -> false)
-  in
-  let indices =
-    List.init ~len:(Array.length rule.children - from) ~f:(fun i -> i + from)
-  in
-  let bracketed, rest = List.partition ~f:opens_a_pair indices in
-  List.concat_map (bracketed @ rest) ~f:(fun index ->
-    child_patterns_at ctx rule ~index ~positions)
+  List.concat_map (Shape.emission_order ctx.facts rule ~from) ~f:(fun index ->
+    child_patterns_at ctx rule shape ~index)
 ;;
 
 (* The separator of a framed body is not a child, so nothing above emits it.
@@ -207,55 +223,12 @@ let with_tails (ctx : ctx) (patterns : Yojson.Basic.t list) : Yojson.Basic.t lis
   patterns @ trivia @ [ include_key "tokens" ]
 ;;
 
-(* The identity child of a flat list, tied to the literal before it.
-
-   [(data)\s+([A-Z]...)] matches only where [data] does, so its name group
-   fires once per declaration however far the list is spliced. A bare
-   [[A-Z]...] would fire at every capitalised word the list reaches.
-
-   The anchor is the child immediately before, and it has to be a required
-   literal. A pattern token anchors nothing, and an optional child is absent
-   from some of the text the pair has to match. With no such anchor the name
-   keeps its token's scope. *)
-let anchored_pairs (ctx : ctx) (rule : Core.Rule.def) : Yojson.Basic.t list =
-  let separator = Oniguruma.neutralise (Oniguruma.trivia_separator ctx.facts) in
-  Option.to_list rule.identity
-  |> List.filter_map ~f:(fun (index : int) ->
-    match Shape.anchor ctx.facts ctx.scopes rule ~index with
-    | None -> None
-    | Some (lead, token, scope) ->
-      (match Oniguruma.of_token lead, Oniguruma.of_token token with
-       | Ok lead_regex, Ok regex ->
-         let lead_scope =
-           Scopes.resolve ctx.scopes ~rule:rule.id ~child:(index - 1) ~token:lead.id
-         in
-         let indexed =
-           (match lead_scope with
-            | Some lead_scope -> [ 1, lead_scope ]
-            | None -> [])
-           @ [ 2, scope ]
-         in
-         Some
-           (`Assoc
-               [ ( "match"
-                 , `String
-                     ("("
-                      ^ Oniguruma.neutralise lead_regex
-                      ^ ")"
-                      ^ separator
-                      ^ "("
-                      ^ Oniguruma.neutralise regex
-                      ^ ")") )
-               ; "captures", captures ctx indexed
-               ])
-       | _ -> None))
-;;
-
 (* -- the four shapes ------------------------------------------------------- *)
 
 let entry (ctx : ctx) (rule : Core.Rule.def) : Yojson.Basic.t =
   let raw = ctx.raw rule.id in
-  match Shape.of_rule ctx.facts ctx.scopes rule with
+  let shape = Shape.of_rule ctx.facts ctx.scopes rule in
+  match shape with
   | Shape.Delimited { open_; close; sep } ->
     let regex (token : Core.Token.def) : string =
       match Oniguruma.of_token token with
@@ -263,7 +236,8 @@ let entry (ctx : ctx) (rule : Core.Rule.def) : Yojson.Basic.t =
       | Error _ -> Oniguruma.escape (Option.value (Core.Token.text token) ~default:"")
     in
     let body =
-      child_patterns ctx rule ~from:rule.body_from ~positions:Every_position
+      place_pairs ctx (Clash.Body rule.id)
+      @ child_patterns ctx rule shape ~from:rule.body_from
       @ separator_pattern ctx sep
       @ raw
     in
@@ -275,9 +249,12 @@ let entry (ctx : ctx) (rule : Core.Rule.def) : Yojson.Basic.t =
            (whole_match ctx (Scopes.token ctx.scopes open_.id))
        @ optional_field "endCaptures" (whole_match ctx (Scopes.token ctx.scopes close.id))
        @ [ "patterns", `List (with_tails ctx body) ])
-  | Shape.Region { begin_regex; begin_captures; end_regex; body_from; use_identity } ->
-    let positions = if use_identity then Every_position else Except_identity in
-    let body = child_patterns ctx rule ~from:body_from ~positions @ raw in
+  | Shape.Region { begin_regex; begin_captures; end_regex; body_from; _ } ->
+    let body =
+      place_pairs ctx (Clash.Body rule.id)
+      @ child_patterns ctx rule shape ~from:body_from
+      @ raw
+    in
     `Assoc
       (named ctx (Some (wrap_scope ctx rule))
        @ [ "begin", `String begin_regex; "end", `String end_regex ]
@@ -317,14 +294,7 @@ let entry (ctx : ctx) (rule : Core.Rule.def) : Yojson.Basic.t =
         separator_pattern ctx (Core.Facts.token_of_kind ctx.facts sep_tok)
       | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Delimited _ -> []
     in
-    `Assoc
-      [ ( "patterns"
-        , `List
-            (anchored_pairs ctx rule
-             @ child_patterns ctx rule ~from:0 ~positions:Except_identity
-             @ separator
-             @ raw) )
-      ]
+    `Assoc [ "patterns", `List (child_patterns ctx rule shape ~from:0 @ separator @ raw) ]
 ;;
 
 (* -- the expression block -------------------------------------------------- *)
@@ -458,7 +428,11 @@ let enclosed_pattern
          | Core.Block.Many { sep = Some { sep_tok; _ }; _ } ->
            Core.Facts.token_of_kind ctx.facts sep_tok
        in
-       let inner = content_includes ctx block_key content @ separator_pattern ctx sep in
+       let inner =
+         place_pairs ctx (Clash.Enclosed postfix.p_rule)
+         @ content_includes ctx block_key content
+         @ separator_pattern ctx sep
+       in
        Some
          (`Assoc
              (named ctx (Some (postfix_wrap ctx postfix.p_rule))

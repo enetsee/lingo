@@ -23,6 +23,7 @@
 module Key = Key
 module Oniguruma = Oniguruma
 module Shape = Shape
+module Clash = Clash
 module Emit = Emit
 module Check = Check
 

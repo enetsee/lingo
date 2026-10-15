@@ -109,19 +109,24 @@ val leaf_token
   -> Core.Rule.def
   -> (Core.Rule.id * int * Core.Token.def) option
 
-(** {1 A name in a flat list}
+(** {1 What a body list carries} *)
 
-    A {!Flat} entry is spliced into whatever includes it, and every pattern
-    in it is tried there too. A name pattern in it would colour every match
-    the list reaches. So a list carries its name only as a pair: the literal
-    before it, then the name, in one match. *)
+(** The children a body list emits from [from] on, in the order it emits
+    them: those that open a matched pair first, then the rest in declaration
+    order. *)
+val emission_order : Core.Facts.t -> Core.Rule.def -> from:int -> int list
 
-(** The pair for one position: the literal before it, the token there, and
-    the scope it takes. [None] where the position's scope is its token's
-    own, or where the child before it is not a required literal. *)
-val anchor
-  :  Core.Facts.t
-  -> Scopes.t
+(** The first child a shape emits as a pattern in its list. [None] for a
+    single match, which has no list. *)
+val body_from : Core.Rule.def -> t -> int option
+
+(** The scope a token takes at one position of a body list. It is
+    {!Scopes.resolve}, except for an identity child the shape keeps out of
+    its body. That child takes its token's scope. *)
+val body_scope
+  :  Scopes.t
   -> Core.Rule.def
+  -> t
   -> index:int
-  -> (Core.Token.def * Core.Token.def * Scopes.Scope.t) option
+  -> token:Core.Token.id
+  -> Scopes.Scope.t option

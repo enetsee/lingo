@@ -14,6 +14,7 @@ type ctx =
         {!Shape.forwards_to}. *)
   ; raw : Core.Rule.id -> Yojson.Basic.t list
     (** Hand-written patterns to splice into a rule's body. *)
+  ; clash : Clash.t (** The positions tied to a literal beside them. *)
   }
 
 (** The repository entry for one rule the author wrote. *)
@@ -24,6 +25,10 @@ val entry : ctx -> Core.Rule.def -> Yojson.Basic.t
     operator tokens need none, since they are tokens and the grammar-wide
     token entry covers them. *)
 val block_entry : ctx -> Core.Block.def -> Yojson.Basic.t
+
+(** The pairs a place puts ahead of everything else. The document root is
+    the one place no entry here emits, so {!Textmate} asks for it. *)
+val place_pairs : ctx -> Clash.place -> Yojson.Basic.t list
 
 (** One pattern per trivia token. [None] where the grammar declares none. *)
 val trivia_entry : ctx -> Yojson.Basic.t option

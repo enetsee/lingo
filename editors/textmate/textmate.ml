@@ -2,6 +2,7 @@ open StdLabels
 module Key = Key
 module Oniguruma = Oniguruma
 module Shape = Shape
+module Clash = Clash
 module Emit = Emit
 module Check = Check
 
@@ -227,7 +228,8 @@ let generate
     let raw_of (id : Core.Rule.id) : Yojson.Basic.t list = parsed.(id) in
     let has_raw (id : Core.Rule.id) : bool = parsed.(id) <> [] in
     let alias = aliases facts scopes ~raw:has_raw in
-    let ctx : Emit.ctx = { facts; scopes; language; alias; raw = raw_of } in
+    let clash = Clash.of_scopes scopes ~raw:has_raw in
+    let ctx : Emit.ctx = { facts; scopes; language; alias; raw = raw_of; clash } in
     let block_of (rule : Core.Rule.id) : Core.Block.def option =
       Array.find_opt
         Core.Facts.(facts.blocks)
@@ -268,7 +270,8 @@ let generate
         entries
     in
     let root_patterns =
-      [ `Assoc [ "include", `String ("#" ^ root) ] ]
+      Emit.place_pairs ctx Clash.Root
+      @ [ `Assoc [ "include", `String ("#" ^ root) ] ]
       @ (if Emit.has_trivia facts then [ `Assoc [ "include", `String "#trivia" ] ] else [])
       @ [ `Assoc [ "include", `String "#tokens" ] ]
     in

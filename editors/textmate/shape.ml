@@ -403,45 +403,55 @@ let forwards_to
     if !blocked then None else !target)
 ;;
 
-(* -- a position scope in a flat list --------------------------------------- *)
+(* -- what a body list carries ---------------------------------------------- *)
 
-let position_scopes (facts : Core.Facts.t) (scopes : Scopes.t) (rule : Core.Rule.def)
-  : (int * Core.Token.def * Scopes.Scope.t) list
-  =
-  List.concat
-    (List.init ~len:(Array.length rule.children) ~f:(fun (index : int) ->
-       Array.to_list rule.children.(index).alts
-       |> List.filter_map ~f:(fun (kind : Core.Kind.t) ->
-         match Core.Facts.token_of_kind facts kind with
-         | None -> None
-         | Some token ->
-           (match
-              ( Scopes.resolve scopes ~rule:rule.id ~child:index ~token:token.id
-              , Scopes.token scopes token.id )
-            with
-            | None, _ -> None
-            | Some here, Some there when Scopes.Scope.equal here there -> None
-            | Some here, _ -> Some (index, token, here)))))
+(* Children that point at a matched pair go first.
+
+   A pattern list has no precedence beyond the order it is written in, and
+   an open-ended child can reach the same opening token as a bracketed
+   sibling. A production holding a scrutinee expression and a braced body
+   would otherwise let the expression take the [{]. *)
+let emission_order (facts : Core.Facts.t) (rule : Core.Rule.def) ~(from : int) : int list =
+  let opens_a_pair (index : int) : bool =
+    match rule_of_child facts rule.children.(index) with
+    | None -> false
+    | Some target ->
+      (match target.frame with
+       | Core.Rule.Delimited _ -> true
+       | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Separated _ -> false)
+  in
+  let indices =
+    List.init ~len:(max 0 (Array.length rule.children - from)) ~f:(fun i -> i + from)
+  in
+  let bracketed, rest = List.partition ~f:opens_a_pair indices in
+  bracketed @ rest
 ;;
 
-let anchor
-      (facts : Core.Facts.t)
+let body_from (rule : Core.Rule.def) (shape : t) : int option =
+  match shape with
+  | Flat -> Some 0
+  | Region { body_from; _ } -> Some body_from
+  | Delimited _ -> Some rule.body_from
+  | Capture _ -> None
+;;
+
+(* A list spliced elsewhere, or a region whose [begin] could not take the
+   name, scopes the name as its token. See {!t.Region}. *)
+let body_scope
       (scopes : Scopes.t)
       (rule : Core.Rule.def)
+      (shape : t)
       ~(index : int)
-  : (Core.Token.def * Core.Token.def * Scopes.Scope.t) option
+      ~(token : Core.Token.id)
+  : Scopes.Scope.t option
   =
-  if index = 0
-  then None
-  else (
-    let before = rule.children.(index - 1) in
-    let child = rule.children.(index) in
-    if not (is_required before && is_required child)
-    then None
-    else (
-      match token_of_child facts before, token_of_child facts child with
-      | Some lead, Some token when Core.Token.text lead <> None ->
-        List.find_map (position_scopes facts scopes rule) ~f:(fun (at, _, scope) ->
-          if at = index then Some (lead, token, scope) else None)
-      | _ -> None))
+  let drops_identity =
+    match shape with
+    | Flat -> true
+    | Region { use_identity; _ } -> not use_identity
+    | Delimited _ | Capture _ -> false
+  in
+  if drops_identity && rule.identity = Some index
+  then Scopes.token scopes token
+  else Scopes.resolve scopes ~rule:rule.id ~child:index ~token
 ;;

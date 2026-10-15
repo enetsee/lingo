@@ -50,6 +50,20 @@ type problem =
         includes it, and there is no enclosing object to name. The same goes
         for an expression block, and for a postfix operator whose whole body
         is its lead token. *)
+  | Unanchored_scope of
+      { rule : Core.Grammar.Name.Rule.t
+      ; child : Core.Grammar.Name.Child.t
+      ; token : Core.Grammar.Name.Token.t
+      ; against : (Core.Grammar.Name.Rule.t * Core.Grammar.Name.Child.t) option
+      }
+  (** A child is scoped, the same text takes another scope in the same
+        place, and no literal beside the child tells the two apart. A
+        TextMate engine has only the text to go on, so one of the two would
+        be coloured as the other. See {!Clash}.
+
+        [against] is the other position. It is [None] where the other is an
+        operator, an atom of an expression block, or the grammar-wide token
+        list ahead of the child. *)
   | Bad_raw_pattern of
       { rule : Core.Grammar.Name.Rule.t
       ; reason : string

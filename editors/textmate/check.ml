@@ -20,6 +20,12 @@ type problem =
       }
   | Forwarding_cycle of { rules : Core.Grammar.Name.Rule.t list }
   | Unattachable_scope of { rule : Core.Grammar.Name.Rule.t }
+  | Unanchored_scope of
+      { rule : Core.Grammar.Name.Rule.t
+      ; child : Core.Grammar.Name.Child.t
+      ; token : Core.Grammar.Name.Token.t
+      ; against : (Core.Grammar.Name.Rule.t * Core.Grammar.Name.Child.t) option
+      }
   | Bad_raw_pattern of
       { rule : Core.Grammar.Name.Rule.t
       ; reason : string
@@ -68,6 +74,21 @@ let problem_to_string (problem : problem) : string =
       "%S is scoped, and what it emits is a list of patterns, which has nowhere to carry \
        a scope"
       (Core.Grammar.Name.Rule.to_string rule)
+  | Unanchored_scope { rule; child; token; against } ->
+    Printf.sprintf
+      "%S in %S is scoped, and %S takes another scope in the same place (%s) with no \
+       literal beside %S to tell them apart"
+      (Core.Grammar.Name.Child.to_string child)
+      (Core.Grammar.Name.Rule.to_string rule)
+      (Core.Grammar.Name.Token.to_string token)
+      (match against with
+       | Some (rule, child) ->
+         Printf.sprintf
+           "as %S in %S"
+           (Core.Grammar.Name.Child.to_string child)
+           (Core.Grammar.Name.Rule.to_string rule)
+       | None -> "in the token list or an expression")
+      (Core.Grammar.Name.Child.to_string child)
   | Bad_raw_pattern { rule; reason } ->
     Printf.sprintf
       "the pattern written for %S %s"
@@ -429,6 +450,28 @@ let check_attachable
       if carries rule then None else Some (Unattachable_scope { rule = rule.name }))
 ;;
 
+let check_clashes (scopes : Scopes.t) ~(raw : Core.Rule.id -> bool) : problem list =
+  let facts = Scopes.facts scopes in
+  let position (rule : Core.Rule.id) (child : int)
+    : Core.Grammar.Name.Rule.t * Core.Grammar.Name.Child.t
+    =
+    let def = Core.Facts.rule facts rule in
+    def.name, def.children.(child).child_name
+  in
+  Clash.unanchored (Clash.of_scopes scopes ~raw)
+  |> List.map ~f:(fun (u : Clash.unanchored) ->
+    let rule, child = position u.rule u.child in
+    Unanchored_scope
+      { rule
+      ; child
+      ; token = (Core.Facts.token facts u.token).name
+      ; against =
+          (match u.against with
+           | Some (rule, child) -> Some (position rule child)
+           | None -> None)
+      })
+;;
+
 let check_no_whitespace ~(field : string) (value : string) : problem list =
   if String.equal value ""
   then [ Bad_setting { field; value; reason = "is empty" } ]
@@ -492,7 +535,8 @@ let run
      @ check_openers facts
      @ check_postfix_leads facts
      @ check_attachable facts scopes ~raw:has_raw
-     @ check_forwarding facts scopes ~raw:has_raw);
+     @ check_forwarding facts scopes ~raw:has_raw
+     @ check_clashes scopes ~raw:has_raw);
   match List.sort_uniq ~cmp:compare_problem !problems with
   | [] -> Ok parsed
   | problems -> Error problems

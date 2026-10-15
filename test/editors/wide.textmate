@@ -15,6 +15,20 @@
       "end": "(?<=;)",
       "beginCaptures": { "0": { "name": "keyword.control.select.wide" } },
       "patterns": [
+        {
+          "match": "(\\bfrom\\b)(?>(?:[\\t\\n\\r ]+))*((?!(?:and|as|asc|by|desc|distinct|from|group|having|join|limit|offset|on|or|order|select|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*)",
+          "captures": {
+            "1": { "name": "keyword.control.from.wide" },
+            "2": { "name": "entity.name.type.wide" }
+          }
+        },
+        {
+          "match": "(\\bjoin\\b)(?>(?:[\\t\\n\\r ]+))*((?!(?:and|as|asc|by|desc|distinct|from|group|having|join|limit|offset|on|or|order|select|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*)",
+          "captures": {
+            "1": { "name": "keyword.control.join.wide" },
+            "2": { "name": "entity.name.type.wide" }
+          }
+        },
         { "include": "#column_list" },
         { "include": "#table" },
         { "include": "#join" },
@@ -39,15 +53,7 @@
         "2": { "name": "variable.other.member.wide" }
       }
     },
-    "table": {
-      "patterns": [
-        {
-          "name": "entity.name.type.wide",
-          "match": "(?!(?:and|as|asc|by|desc|distinct|from|group|having|join|limit|offset|on|or|order|select|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
-        },
-        { "include": "#alias" }
-      ]
-    },
+    "table": { "patterns": [ { "include": "#alias" } ] },
     "join": {
       "patterns": [ { "include": "#table" }, { "include": "#expr" } ]
     },
