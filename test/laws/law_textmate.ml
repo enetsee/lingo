@@ -7,8 +7,8 @@
           a pattern scopes is a group its regex actually has.
       (e) Every scope is a well formed path ending in the language.
       (f) A grammar emits the same bytes every time.
-      (g) A [begin] appears exactly where the framing says a region is, and
-          nowhere else.
+      (g) A [begin] appears wherever a matched pair frames a rule, and never
+          on a separated list.
       (h) Every scope, derived or written, is carried somewhere in the
           document.
       (i) Every {!Scopes.finding} has a witness override that provokes it
@@ -21,6 +21,8 @@
           literal before every pattern token.
       (m) Two guards the twelve grammars cannot reach, each on a grammar
           written for it.
+      (o) A declaration's name is scoped once, in a region's [begin], and
+          never by a bare pattern in a list.
 
       Mechanism. Parts (a) to (h) and (l) read the emitted JSON back and walk
       it. They
@@ -32,8 +34,9 @@
       Part (g) is the claim {!Core.Rule.frame} is for. In the predecessor the
       author wrote each region by hand, once per production, and named the
       anchor regexes. Here the region comes out of the frame, so the law is
-      that the two agree: a rule framed by a matched pair is a region, a rule
-      that contains its own errors may be one, and nothing else ever is.
+      that the two agree: a rule framed by a matched pair is a region, and a
+      separated list never is. Any other rule may be one, where it opens on a
+      literal and ends on one.
 
       Part (h) is the silence check, and it carries the resolution chain. A
       scope nothing carries is a colour the author asked for and will not see.
@@ -577,8 +580,8 @@ let () =
                         "(g) %s: %s is framed by a matched pair and emits no region"
                         e.name
                         (Core.Grammar.Name.Rule.to_string rule.name)
-                  | Core.Rule.Committed _ -> ()
-                  | Core.Rule.Plain | Core.Rule.Separated _ ->
+                  | Core.Rule.Committed _ | Core.Rule.Plain -> ()
+                  | Core.Rule.Separated _ ->
                     if is_region
                     then
                       Law.fail
@@ -1411,6 +1414,160 @@ let () =
        should"
       (List.length fields)
       (List.length references)
+;;
+
+(* -- (o) a declaration names itself once ---------------------------------- *)
+
+(* A plain rule that opens on a keyword and ends on a closer is a region, and
+   its name is a group in the [begin]. A plain rule that cannot be one is a
+   pattern list. Its name is scoped where a required literal sits right before
+   it, as one match with that literal, and takes the token's own scope
+   anywhere else.
+
+   Nothing in the corpus has any of these shapes with an identity scope on it,
+   so a witness carries all three. [FnDef] is the region. [Ty] opens on an
+   optional token and names itself after [type], so it is a list with a pair.
+   [Let] has nothing before its name but an optional token, so it is a list
+   with no pair. [Decl] above them is a list too. Every pattern in a list is
+   tried wherever the list is included. Before the fix, [Let]'s bare [word]
+   pattern named every [pub], [def] and lowercase word in the file a
+   function.
+
+   A [word] pattern left in a list still comes ahead of [#tokens], so it is
+   fenced off every keyword. Without the fence it takes [pub] before the
+   keyword scope can. *)
+let () =
+  let before = Law.failures () in
+  let witness =
+    let open Core.Grammar in
+    create
+      ~tokens:
+        [ kw "def"
+        ; kw "pub"
+        ; kw "static"
+        ; kw "open"
+        ; kw "type"
+        ; punct_tight ~name:"lbrace" "{"
+        ; punct_tight ~name:"rbrace" "}"
+        ; pat "word" Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z'))
+        ]
+      ~roots:[ "File" ]
+      [ prod "File" [ child_rep "decl" (Rule "Decl") ]
+      ; prod
+          "Decl"
+          [ child_opt "vis" (Token "pub")
+          ; child_alt ~modifier:Exactly_one "kind" [ Rule "FnDef"; Rule "Let"; Rule "Ty" ]
+          ]
+      ; prod
+          "FnDef"
+          [ child_req "kw" (Token "def")
+          ; child_req "name" (Token "word")
+          ; child_req "body" (Rule "Body")
+          ]
+        |> with_identity "name"
+      ; prod "Let" [ child_opt "st" (Token "static"); child_req "name" (Token "word") ]
+        |> with_identity "name"
+      ; prod
+          "Ty"
+          [ child_opt "o" (Token "open")
+          ; child_req "kw" (Token "type")
+          ; child_req "name" (Token "word")
+          ]
+        |> with_identity "name"
+      ; prod "Body" [ child_rep "stmt" (Token "word") ]
+        |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+      ]
+  in
+  let identity (name : string) : Scopes.override =
+    Scopes.Identity
+      { rule = Core.Grammar.Name.Rule.of_string name
+      ; scope = Scopes.Scope.Entity_name_function
+      }
+  in
+  let function_name = "entity.name.function.witness" in
+  let named_function (json : Yojson.Basic.t) : bool =
+    field "name" json = Some (`String function_name)
+  in
+  (match
+     Scopes.of_facts
+       (facts_of witness)
+       ~overrides:[ identity "FnDef"; identity "Let"; identity "Ty" ]
+   with
+   | Error findings ->
+     Law.fail
+       "(o) the witness overrides were rejected: %s"
+       (String.concat ", " (List.map Scopes.finding_to_string findings))
+   | Ok scopes ->
+     (match Textmate.generate scopes ~language:"witness" () with
+      | Error problems ->
+        List.iter
+          (fun p -> Law.fail "(o) a declaration: %a" Textmate.Check.pp_problem p)
+          problems
+      | Ok text ->
+        let document = Yojson.Basic.from_string text in
+        (match field "repository" document with
+         | Some (`Assoc fields) ->
+           (match List.assoc_opt "fn_def" fields with
+            | None -> Law.fail "(o) the witness emitted no entry for fn_def"
+            | Some entry ->
+              if field "begin" entry = None
+              then Law.fail "(o) fn_def opens on def and ends on }, and emitted no region";
+              let in_begin =
+                match field "beginCaptures" entry with
+                | Some (`Assoc captures) ->
+                  List.exists (fun (_, capture) -> named_function capture) captures
+                | _ -> false
+              in
+              if not in_begin then Law.fail "(o) fn_def does not name itself in its begin");
+           (match List.assoc_opt "ty" fields with
+            | None -> Law.fail "(o) the witness emitted no entry for ty"
+            | Some entry ->
+              let paired =
+                List.exists
+                  (fun pattern ->
+                     match field "match" pattern, field "captures" pattern with
+                     | Some (`String regex), Some (`Assoc captures) ->
+                       let lead = {|(\btype\b)|} in
+                       String.length regex > String.length lead
+                       && String.sub regex 0 (String.length lead) = lead
+                       &&
+                         (match List.assoc_opt "2" captures with
+                         | Some capture -> named_function capture
+                         | None -> false)
+                     | _ -> false)
+                  (patterns_in entry)
+              in
+              if not paired
+              then Law.fail "(o) ty does not name itself in a pair with type");
+           let fence = {|(?!(?:def|open|pub|static|type)\b)|} in
+           List.iter
+             (fun (key, entry) ->
+                List.iter
+                  (fun pattern ->
+                     (match field "match" pattern with
+                      | Some (`String regex)
+                        when key <> "tokens"
+                             && String.ends_with ~suffix:"[a-z]+" regex
+                             && not (String.equal regex (fence ^ "[a-z]+")) ->
+                        Law.fail
+                          "(o) %s matches %s, which is not fenced off the keywords"
+                          key
+                          regex
+                      | _ -> ());
+                     if field "match" pattern <> None && named_function pattern
+                     then
+                       Law.fail
+                         "(o) %s carries a bare pattern scoped %s, which every lowercase \
+                          word it reaches would take"
+                         key
+                         function_name)
+                  (patterns_in entry))
+             fields
+         | _ -> Law.fail "(o) the witness emitted no repository")));
+  if Law.failures () = before
+  then
+    Law.pass
+      "(o) a declaration names itself once: in a region's begin, in a pair, or not at all"
 ;;
 
 let () = Law.summarise "law_textmate"

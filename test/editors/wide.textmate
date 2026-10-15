@@ -43,7 +43,7 @@
       "patterns": [
         {
           "name": "entity.name.type.wide",
-          "match": "[A-Z_a-z][0-9A-Z_a-z]*"
+          "match": "(?!(?:and|as|asc|by|desc|distinct|from|group|having|join|limit|offset|on|or|order|select|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
         },
         { "include": "#alias" }
       ]

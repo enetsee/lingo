@@ -28,7 +28,9 @@
       ]
     },
     "fields": { "patterns": [ { "include": "#leaf" } ] },
-    "leaf": { "patterns": [ { "match": "[a-z]+" } ] },
+    "leaf": {
+      "patterns": [ { "match": "(?!(?:end|in|let|sig)\\b)[a-z]+" } ]
+    },
     "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },
     "tokens": {
       "patterns": [

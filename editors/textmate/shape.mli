@@ -25,6 +25,13 @@
     the anchors fall out of the first and last children. Nothing is
     configured.
 
+    A [Plain] rule is a region too, where it opens on a literal, ends on
+    one, and cannot be a single match. Its alternative is a list of
+    patterns, and a list is spliced into whatever includes it. Each pattern
+    in it is then tried far outside the rule. A declaration's name pattern
+    would colour every identifier in the file. A region keeps the name to
+    its [begin].
+
     {2 What that costs}
 
     A [Committed] region ends on a lookbehind past its last child. The
@@ -101,3 +108,20 @@ val leaf_token
   :  Core.Facts.t
   -> Core.Rule.def
   -> (Core.Rule.id * int * Core.Token.def) option
+
+(** {1 A name in a flat list}
+
+    A {!Flat} entry is spliced into whatever includes it, and every pattern
+    in it is tried there too. A name pattern in it would colour every match
+    the list reaches. So a list carries its name only as a pair: the literal
+    before it, then the name, in one match. *)
+
+(** The pair for one position: the literal before it, the token there, and
+    the scope it takes. [None] where the position's scope is its token's
+    own, or where the child before it is not a required literal. *)
+val anchor
+  :  Core.Facts.t
+  -> Scopes.t
+  -> Core.Rule.def
+  -> index:int
+  -> (Core.Token.def * Core.Token.def * Scopes.Scope.t) option

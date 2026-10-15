@@ -11,8 +11,8 @@
     A TextMate engine tries patterns in order and takes the first that
     matches at the cursor. So a regex that is unambiguous inside an
     automaton can be ambiguous on its own: [=] matches the first character
-    of [==]. {!of_token_at_child} carries a guard against that, and
-    {!of_token} leaves it off. *)
+    of [==], and an identifier pattern matches [pub]. {!of_token_at_child}
+    carries a guard against both, and {!of_token} leaves it off. *)
 
 (** Backslashes the Oniguruma metacharacters, so the result matches the
     argument as text. *)
@@ -21,10 +21,11 @@ val escape : string -> string
 (** The regex for a token, or the reason it has none. *)
 val of_token : Core.Token.def -> (string, string) result
 
-(** [of_token], with a guard against the token claiming the first characters
-    of a longer literal in the same grammar. Use it wherever the pattern is
-    emitted ahead of the grammar-wide token list, which is every per-child
-    position. *)
+(** [of_token], with a guard against the token claiming text the lexer
+    gives to another. A literal is kept off the first characters of a longer
+    literal. A pattern is kept off every keyword it matches, where the
+    keyword has a word shape. Use it wherever the pattern is emitted ahead of
+    the grammar-wide token list, which is every per-child position. *)
 val of_token_at_child : Core.Facts.t -> Core.Token.def -> (string, string) result
 
 (** Rewrites a bare [(] into [(?:], leaving [(?...], an escaped [\\(] and a

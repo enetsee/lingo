@@ -347,7 +347,10 @@ let of_rule (facts : Core.Facts.t) (scopes : Scopes.t) (rule : Core.Rule.def) : 
   | Core.Rule.Plain ->
     (match capture_parts facts scopes rule with
      | Some parts -> Capture parts
-     | None -> Flat)
+     | None ->
+       (match region facts scopes rule with
+        | Some shape -> shape
+        | None -> Flat))
   | Core.Rule.Separated _ -> Flat
 ;;
 
@@ -398,4 +401,47 @@ let forwards_to
         | None ->
           if not (is_covered_elsewhere facts scopes rule ~index) then blocked := true));
     if !blocked then None else !target)
+;;
+
+(* -- a position scope in a flat list --------------------------------------- *)
+
+let position_scopes (facts : Core.Facts.t) (scopes : Scopes.t) (rule : Core.Rule.def)
+  : (int * Core.Token.def * Scopes.Scope.t) list
+  =
+  List.concat
+    (List.init ~len:(Array.length rule.children) ~f:(fun (index : int) ->
+       Array.to_list rule.children.(index).alts
+       |> List.filter_map ~f:(fun (kind : Core.Kind.t) ->
+         match Core.Facts.token_of_kind facts kind with
+         | None -> None
+         | Some token ->
+           (match
+              ( Scopes.resolve scopes ~rule:rule.id ~child:index ~token:token.id
+              , Scopes.token scopes token.id )
+            with
+            | None, _ -> None
+            | Some here, Some there when Scopes.Scope.equal here there -> None
+            | Some here, _ -> Some (index, token, here)))))
+;;
+
+let anchor
+      (facts : Core.Facts.t)
+      (scopes : Scopes.t)
+      (rule : Core.Rule.def)
+      ~(index : int)
+  : (Core.Token.def * Core.Token.def * Scopes.Scope.t) option
+  =
+  if index = 0
+  then None
+  else (
+    let before = rule.children.(index - 1) in
+    let child = rule.children.(index) in
+    if not (is_required before && is_required child)
+    then None
+    else (
+      match token_of_child facts before, token_of_child facts child with
+      | Some lead, Some token when Core.Token.text lead <> None ->
+        List.find_map (position_scopes facts scopes rule) ~f:(fun (at, _, scope) ->
+          if at = index then Some (lead, token, scope) else None)
+      | _ -> None))
 ;;

@@ -12,8 +12,12 @@
     "decl": {
       "patterns": [ { "include": "#let" }, { "include": "#block" } ]
     },
-    "let": { "patterns": [ { "match": "[a-z]+" }, { "include": "#names" } ] },
-    "names": { "patterns": [ { "match": "[a-z]+" } ] },
+    "let": {
+      "patterns": [
+        { "match": "(?!(?:end|let)\\b)[a-z]+" }, { "include": "#names" }
+      ]
+    },
+    "names": { "patterns": [ { "match": "(?!(?:end|let)\\b)[a-z]+" } ] },
     "block": {
       "name": "meta.block.shapes",
       "begin": "\\{",

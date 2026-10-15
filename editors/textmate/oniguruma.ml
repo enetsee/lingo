@@ -80,10 +80,38 @@ let longer_literals (facts : Core.Facts.t) (text : string) : string list =
   List.sort_uniq ~cmp:String.compare extensions
 ;;
 
+(* The keywords a pattern token would also match.
+
+   lingo's lexer gives a keyword priority over a pattern of the same length,
+   so [pub] is never an identifier. A TextMate pattern list has no such rule.
+   A per-child identifier pattern comes before the grammar-wide token entry,
+   so it takes [pub] first and the keyword scope never fires. Only a keyword
+   with a word shape can be fenced off. The [\b] after it is what stops the
+   fence taking the [pub] at the front of [public]. *)
+let shadowed_keywords (facts : Core.Facts.t) (token : Core.Token.def) : string list =
+  let ast = lazy (Redfa.Regex.to_ast token.regex) in
+  Array.fold_left
+    Core.Facts.(facts.tokens)
+    ~init:[]
+    ~f:(fun acc (other : Core.Token.def) ->
+      match other.klass with
+      | Core.Grammar.Keyword text
+        when is_word_shaped text && Redfa.Ast.eval (Lazy.force ast) text -> text :: acc
+      | Core.Grammar.Keyword _ | Core.Grammar.Punctuation _ | Core.Grammar.Pattern _ ->
+        acc)
+  |> List.sort_uniq ~cmp:String.compare
+;;
+
 let of_token_at_child (facts : Core.Facts.t) (token : Core.Token.def)
   : (string, string) result
   =
   match of_token token, Core.Token.text token with
+  | Ok regex, None ->
+    (match shadowed_keywords facts token with
+     | [] -> Ok regex
+     | keywords ->
+       let alternatives = String.concat ~sep:"|" (List.map keywords ~f:escape) in
+       Ok ("(?!(?:" ^ alternatives ^ ")\\b)" ^ regex))
   | Ok regex, Some text when not (is_word_shaped text) ->
     (match longer_literals facts text with
      | [] -> Ok regex

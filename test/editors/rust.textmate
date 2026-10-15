@@ -90,7 +90,7 @@
       "patterns": [
         {
           "name": "variable.other.enummember.rust",
-          "match": "[A-Z_a-z][0-9A-Z_a-z]*"
+          "match": "(?!(?:enum|fn|let|match|struct|trait)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
         },
         { "include": "#variant_payload" }
       ]
@@ -222,7 +222,7 @@
       "patterns": [
         {
           "name": "entity.name.type.rust",
-          "match": "[A-Z_a-z][0-9A-Z_a-z]*"
+          "match": "(?!(?:enum|fn|let|match|struct|trait)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
         }
       ]
     },

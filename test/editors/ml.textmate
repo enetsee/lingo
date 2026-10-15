@@ -96,7 +96,7 @@
         { "include": "#ctor_payload" },
         {
           "name": "entity.name.type.constructor.ml",
-          "match": "[A-Z_a-z][0-9A-Z_a-z]*"
+          "match": "(?!(?:data|else|if|import|let|then|type|val)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
         }
       ]
     },
