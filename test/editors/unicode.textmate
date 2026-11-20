@@ -17,7 +17,7 @@
         "0": { "name": "punctuation.section.raquo.end.unicode" }
       },
       "patterns": [
-        { "match": "[a-z\\u{C0}-\\u{FF}\\u{391}-\\u{3C9}]+" },
+        { "match": "[a-zÀ-ÿΑ-ω]+" },
         { "include": "#trivia" },
         { "include": "#tokens" }
       ]

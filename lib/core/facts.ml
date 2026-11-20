@@ -7,6 +7,7 @@ type t =
   ; blocks : Block.def array
   ; first : Kind.Set.t array
   ; follow : Kind.Set.t array
+  ; follow_outside : Kind.Set.t array
   ; nullable : bool array
   ; min_size : int array
   ; enclosing : Kind.Set.t array
@@ -64,6 +65,7 @@ let derive ~(keep : Error.t -> bool) (g : Grammar.t) : (t, Error.t list) result 
             ; blocks = s.blocks
             ; first = tables.first
             ; follow = tables.follow
+            ; follow_outside = tables.follow_outside
             ; nullable = tables.nullable
             ; min_size = tables.min_size
             ; enclosing = tables.enclosing
@@ -160,6 +162,7 @@ let is_token_kind t k = token_of_kind t k <> None
 let is_trivia_kind t k = Kind.Set.mem t.trivia k
 let first_of t (i : Rule.id) = t.first.(i)
 let follow_of t (i : Rule.id) = t.follow.(i)
+let follow_outside_of t (i : Rule.id) = t.follow_outside.(i)
 let is_nullable t (i : Rule.id) = t.nullable.(i)
 let min_size t (i : Rule.id) = t.min_size.(i)
 

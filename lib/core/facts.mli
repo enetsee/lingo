@@ -28,6 +28,9 @@ type t = private
   ; blocks : Block.def array (** Indexed by {!Block.type-id}. *)
   ; first : Kind.Set.t array (** Indexed by {!Rule.type-id}. *)
   ; follow : Kind.Set.t array (** Indexed by {!Rule.type-id}. *)
+  ; follow_outside : Kind.Set.t array
+    (** {!t.follow} without what an expression block's own operators add.
+          Indexed by {!Rule.type-id}. *)
   ; nullable : bool array (** Indexed by {!Rule.type-id}. *)
   ; min_size : int array
     (** The fewest tokens the rule derives, and [max_int] where it derives
@@ -95,6 +98,11 @@ val is_token_kind : t -> Kind.t -> bool
 val is_trivia_kind : t -> Kind.t -> bool
 val first_of : t -> Rule.id -> Kind.Set.t
 val follow_of : t -> Rule.id -> Kind.Set.t
+
+(** What can come after a complete rule, leaving out the operators of an
+    expression the rule ends in. That expression takes those itself. *)
+val follow_outside_of : t -> Rule.id -> Kind.Set.t
+
 val is_nullable : t -> Rule.id -> bool
 
 (** The fewest tokens a rule derives. A block's number is its smallest atom,

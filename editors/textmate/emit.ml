@@ -237,18 +237,152 @@ let with_tails (ctx : ctx) (patterns : Yojson.Basic.t list) : Yojson.Basic.t lis
   patterns @ trivia @ [ include_key "tokens" ]
 ;;
 
-(* -- the four shapes ------------------------------------------------------- *)
+(* -- the shapes ------------------------------------------------------------ *)
+
+(* One part of a cut region: the children from [lo] as far as the child it is
+   cut at, behind whatever [inner] holds.
+
+   A part opens only where the region around it does, at the start. Without
+   that the first one opens again on its own keyword further on: the second
+   [if] of [if ... else if ...] would be a second first part of the outer
+   [if], where the parser has an [if] of its own inside the first.
+
+   The first part takes what the region opens on. Every part around it takes
+   nothing, and [taking] says which this is. A part that takes nothing stands
+   where it opened, so an end that looks behind is kept off that place. *)
+let part
+      (ctx : ctx)
+      (rule : Core.Rule.def)
+      (shape : Shape.t)
+      ~(opens : string)
+      ~(taking : bool)
+      ~(begin_captures : (int * Scopes.Scope.t) list)
+      ~(lo : int)
+      ~(split : Shape.split)
+      ~(pairs : Yojson.Basic.t list)
+      ~(inner : Yojson.Basic.t list)
+  : Yojson.Basic.t
+  =
+  let close =
+    match split.close with
+    | Shape.Behind text ->
+      [ "end", `String ((if taking then "" else "(?!\\G)") ^ Shape.behind text) ]
+    | Shape.Literal token ->
+      let regex =
+        match Oniguruma.of_token_at_child ctx.facts token with
+        | Ok regex -> regex
+        | Error _ -> Oniguruma.escape (Option.value (Core.Token.text token) ~default:"")
+      in
+      [ "end", `String regex ]
+      @ optional_field
+          "endCaptures"
+          (whole_match
+             ctx
+             (Shape.body_scope ctx.scopes rule shape ~index:split.upto ~token:token.id))
+  in
+  `Assoc
+    ([ "begin", `String ("\\G" ^ opens) ]
+     @ close
+     @ (match begin_captures with
+        | [] -> []
+        | indexed -> [ "beginCaptures", captures ctx indexed ])
+     @ [ ( "patterns"
+         , `List
+             (with_tails
+                ctx
+                (inner @ pairs @ child_patterns_in ctx rule shape ~lo ~hi:split.upto)) )
+       ])
+;;
+
+(* A bracket of a matched pair, as the pair's own entry writes it. *)
+let bracket (token : Core.Token.def) : string =
+  match Oniguruma.of_token token with
+  | Ok regex -> regex
+  | Error _ -> Oniguruma.escape (Option.value (Core.Token.text token) ~default:"")
+;;
+
+(* The one regex of a single-match entry, a group per part. *)
+let capture_regex (ctx : ctx) (parts : Shape.part list) : string =
+  let separator = Oniguruma.neutralise (Oniguruma.trivia_separator ctx.facts) in
+  String.concat
+    ~sep:separator
+    (List.map parts ~f:(fun (part : Shape.part) ->
+       "(" ^ Oniguruma.neutralise part.regex ^ ")"))
+;;
+
+(* A region, whole or cut. A cut region opens where its first part does
+   without taking anything, so the first part is the first thing it tries,
+   and it cannot end where it opened. Each further cut is a part around the
+   parts before it, which opens at the same place and ends at its own cut. *)
+let region
+      (ctx : ctx)
+      (rule : Core.Rule.def)
+      (shape : Shape.t)
+      ~(raw : Yojson.Basic.t list)
+      ~(begin_regex : string)
+      ~(begin_captures : (int * Scopes.Scope.t) list)
+      ~(end_regex : string)
+      ~(body_from : int)
+      ~(ahead : bool)
+      ~(splits : Shape.split list)
+  : Yojson.Basic.t
+  =
+  let pairs = place_pairs ctx (Clash.Body rule.id) in
+  match splits with
+  | [] ->
+    (* A [begin] that takes nothing leaves the region where it opened, and
+       an [end] that matched there would end it before anything was read. *)
+    let end_regex = if ahead then "(?!\\G)" ^ end_regex else end_regex in
+    `Assoc
+      (named ctx (Some (wrap_scope ctx rule))
+       @ [ "begin", `String begin_regex; "end", `String end_regex ]
+       @ (match begin_captures with
+          | [] -> []
+          | indexed -> [ "beginCaptures", captures ctx indexed ])
+       @ [ ( "patterns"
+           , `List
+               (with_tails
+                  ctx
+                  (pairs @ child_patterns ctx rule shape ~from:body_from @ raw)) )
+         ])
+  | first :: _ ->
+    let parts, rest =
+      List.fold_left
+        splits
+        ~init:([], body_from)
+        ~f:(fun (inner, lo) (split : Shape.split) ->
+          let innermost = split == first in
+          ( [ part
+                ctx
+                rule
+                shape
+                ~opens:(if innermost then begin_regex else "")
+                ~taking:(innermost && not ahead)
+                ~begin_captures:(if innermost then begin_captures else [])
+                ~lo
+                ~split
+                ~pairs
+                ~inner
+            ]
+          , split.upto + 1 ))
+    in
+    let after =
+      child_patterns_in ctx rule shape ~lo:rest ~hi:(Array.length rule.children - 1)
+    in
+    `Assoc
+      (named ctx (Some (wrap_scope ctx rule))
+       @ [ "begin", `String ("(?=" ^ begin_regex ^ ")")
+         ; "end", `String ("(?!\\G)" ^ end_regex)
+         ]
+       @ [ "patterns", `List (with_tails ctx (parts @ pairs @ after @ raw)) ])
+;;
 
 let entry (ctx : ctx) (rule : Core.Rule.def) : Yojson.Basic.t =
   let raw = ctx.raw rule.id in
   let shape = Shape.of_rule ctx.facts ctx.scopes rule in
   match shape with
   | Shape.Delimited { open_; close; sep } ->
-    let regex (token : Core.Token.def) : string =
-      match Oniguruma.of_token token with
-      | Ok regex -> regex
-      | Error _ -> Oniguruma.escape (Option.value (Core.Token.text token) ~default:"")
-    in
+    let regex = bracket in
     let body =
       place_pairs ctx (Clash.Body rule.id)
       @ child_patterns ctx rule shape ~from:rule.body_from
@@ -263,79 +397,76 @@ let entry (ctx : ctx) (rule : Core.Rule.def) : Yojson.Basic.t =
            (whole_match ctx (Scopes.token ctx.scopes open_.id))
        @ optional_field "endCaptures" (whole_match ctx (Scopes.token ctx.scopes close.id))
        @ [ "patterns", `List (with_tails ctx body) ])
-  | Shape.Region { begin_regex; begin_captures; end_regex; body_from; split = None; _ } ->
-    let body =
-      place_pairs ctx (Clash.Body rule.id)
-      @ child_patterns ctx rule shape ~from:body_from
-      @ raw
+  | Shape.Region { begin_regex; begin_captures; end_regex; body_from; ahead; splits; _ }
+    ->
+    region
+      ctx
+      rule
+      shape
+      ~raw
+      ~begin_regex
+      ~begin_captures
+      ~end_regex
+      ~body_from
+      ~ahead
+      ~splits
+  | Shape.Open { begin_regex; begin_captures; body_from; ahead; until; splits; _ } ->
+    let end_regex =
+      "(?="
+      ^ String.concat
+          ~sep:"|"
+          (List.map until ~f:(fun (token : Core.Token.def) ->
+             match Oniguruma.of_token_at_child ctx.facts token with
+             | Ok regex -> regex
+             | Error _ ->
+               Oniguruma.escape (Option.value (Core.Token.text token) ~default:"")))
+      ^ ")"
     in
-    `Assoc
-      (named ctx (Some (wrap_scope ctx rule))
-       @ [ "begin", `String begin_regex; "end", `String end_regex ]
-       @ (match begin_captures with
-          | [] -> []
-          | indexed -> [ "beginCaptures", captures ctx indexed ])
-       @ [ "patterns", `List (with_tails ctx body) ])
-  | Shape.Region
-      { begin_regex; begin_captures; end_regex; body_from; split = Some split; _ } ->
-    (* The first part is what the uncut region was, as far as the child it is
-       cut at. The outer region opens where the first part does without taking
-       anything, so the first part is the first thing it tries, and it cannot
-       end where it opened. *)
-    let pairs = place_pairs ctx (Clash.Body rule.id) in
-    let close =
-      match split.close with
-      | Shape.Behind text -> [ "end", `String ("(?<=" ^ Oniguruma.escape text ^ ")") ]
-      | Shape.Literal token ->
-        let regex =
-          match Oniguruma.of_token token with
-          | Ok regex -> regex
-          | Error _ -> Oniguruma.escape (Option.value (Core.Token.text token) ~default:"")
-        in
-        [ "end", `String regex ]
-        @ optional_field
-            "endCaptures"
-            (whole_match
-               ctx
-               (Shape.body_scope ctx.scopes rule shape ~index:split.upto ~token:token.id))
+    region
+      ctx
+      rule
+      shape
+      ~raw
+      ~begin_regex
+      ~begin_captures
+      ~end_regex
+      ~body_from
+      ~ahead
+      ~splits
+  | Shape.Tailed { from; lead; until } ->
+    let regex (token : Core.Token.def) : string =
+      match Oniguruma.of_token_at_child ctx.facts token with
+      | Ok regex -> regex
+      | Error _ -> Oniguruma.escape (Option.value (Core.Token.text token) ~default:"")
     in
-    let first =
+    let ahead = "(?=" ^ String.concat ~sep:"|" (List.map until ~f:regex) ^ ")" in
+    let tail =
       `Assoc
-        ([ "begin", `String begin_regex ]
-         @ close
-         @ (match begin_captures with
-            | [] -> []
-            | indexed -> [ "beginCaptures", captures ctx indexed ])
+        ([ "begin", `String (regex lead); "end", `String ahead ]
+         @ optional_field
+             "beginCaptures"
+             (whole_match
+                ctx
+                (Shape.body_scope ctx.scopes rule shape ~index:from ~token:lead.id))
          @ [ ( "patterns"
              , `List
                  (with_tails
                     ctx
-                    (pairs @ child_patterns_in ctx rule shape ~lo:body_from ~hi:split.upto))
-             )
+                    (place_pairs ctx (Clash.Body rule.id)
+                     @ child_patterns_in
+                         ctx
+                         rule
+                         shape
+                         ~lo:(from + 1)
+                         ~hi:(Array.length rule.children - 1))) )
            ])
     in
-    let rest =
-      child_patterns_in
-        ctx
-        rule
-        shape
-        ~lo:(split.upto + 1)
-        ~hi:(Array.length rule.children - 1)
-    in
     `Assoc
-      (named ctx (Some (wrap_scope ctx rule))
-       @ [ "begin", `String ("(?=" ^ begin_regex ^ ")")
-         ; "end", `String ("(?!\\G)" ^ end_regex)
-         ]
-       @ [ "patterns", `List (with_tails ctx ((first :: pairs) @ rest @ raw)) ])
+      [ ( "patterns"
+        , `List (child_patterns_in ctx rule shape ~lo:0 ~hi:(from - 1) @ [ tail ] @ raw) )
+      ]
   | Shape.Capture parts ->
-    let separator = Oniguruma.neutralise (Oniguruma.trivia_separator ctx.facts) in
-    let regex =
-      String.concat
-        ~sep:separator
-        (List.map parts ~f:(fun (part : Shape.part) ->
-           "(" ^ Oniguruma.neutralise part.regex ^ ")"))
-    in
+    let regex = capture_regex ctx parts in
     let indexed =
       List.mapi parts ~f:(fun index (part : Shape.part) -> index + 1, part.scope)
       |> List.filter_map ~f:(fun (index, scope) ->
@@ -471,11 +602,14 @@ let content_includes (ctx : ctx) (block_key : string) (content : Core.Block.cont
   | includes -> includes
 ;;
 
-(* [x(a, b)] and [x[i]]: a matched pair that recurses into the block. *)
+(* [x(a, b)] and [x[i]]: a matched pair that recurses into the block.
+   [behind] goes in front of the opener, and is what the opener has to stand
+   behind. *)
 let enclosed_pattern
       (ctx : ctx)
       (block_key : string)
       (postfix : Core.Block.postfix)
+      ~(behind : string)
       ~(close : Core.Kind.t)
       ~(content : Core.Block.content)
   : Yojson.Basic.t option
@@ -494,15 +628,19 @@ let enclosed_pattern
          | Core.Block.Many { sep = Some { sep_tok; _ }; _ } ->
            Core.Facts.token_of_kind ctx.facts sep_tok
        in
+       (* The operand's own list trails the trivia and token entries, as the
+          body of any pair does. An expression's entry trails neither. *)
        let inner =
-         place_pairs ctx (Clash.Enclosed postfix.p_rule)
-         @ content_includes ctx block_key content
-         @ separator_pattern ctx sep
+         with_tails
+           ctx
+           (place_pairs ctx (Clash.Enclosed postfix.p_rule)
+            @ content_includes ctx block_key content
+            @ separator_pattern ctx sep)
        in
        Some
          (`Assoc
              (named ctx (Some (postfix_wrap ctx postfix.p_rule))
-              @ [ "begin", `String open_regex; "end", `String close_regex ]
+              @ [ "begin", `String (behind ^ open_regex); "end", `String close_regex ]
               @ optional_field
                   "beginCaptures"
                   (whole_match ctx (Scopes.token ctx.scopes open_.id))
@@ -514,25 +652,228 @@ let enclosed_pattern
   | _ -> None
 ;;
 
-let block_entry (ctx : ctx) (block : Core.Block.def) : Yojson.Basic.t =
+(* What an entry opens on, where it opens a region or is one match. A list
+   opens on nothing of its own. *)
+let opening (ctx : ctx) (rule : Core.Rule.def) : string option =
+  match rule.origin with
+  | Core.Rule.Pratt_block | Core.Rule.Pratt_role _ -> None
+  | Core.Rule.User ->
+    (match Shape.of_rule ctx.facts ctx.scopes rule with
+     | Shape.Delimited { open_; _ } -> Some (bracket open_)
+     | Shape.Region { begin_regex; _ } | Shape.Open { begin_regex; _ } -> Some begin_regex
+     | Shape.Capture parts -> Some (capture_regex ctx parts)
+     | Shape.Tailed _ | Shape.Flat -> None)
+;;
+
+(* -- an operand and what is written behind it ------------------------------
+
+   An operator that encloses its operand opens on a bracket, and so may an
+   atom: [f(x)] is a call and [(x)] is a parenthesised expression. A list
+   has no way to say which, since both stand in it and it tries the same
+   patterns at every position.
+
+   So an operand opens a region of its own, and the operators that follow an
+   operand are tried in that region and nowhere else. It ends in front of
+   the first thing that is none of them, whatever that is: [end] is a
+   lookahead for anything at all, and it is tried after the operators. The
+   region takes trivia too, so a call on the next line is still a call.
+
+   A token atom opens the region by being taken. An atom that is a region
+   or a single match opens one around itself: on a lookahead for what the
+   atom opens on, so the atom is the first thing in it. The operators there
+   refuse the position the region opened at, which is the atom's own
+   bracket, and take every one after it.
+
+   An atom that is a list is spliced as before. What it ends on is an
+   operand of its own, or a token that takes no operator.
+
+   An operator that encloses its operand has no pattern in the block's own
+   list. A bracket met there stands behind no operand, so it is an atom's. *)
+
+(* Every operator of a block that is written behind its operand. [later]
+   keeps one that encloses its operand off the position its region opened
+   at, and [enclosing] says whether those are wanted at all. *)
+let postfix_patterns
+      (ctx : ctx)
+      (block : Core.Block.def)
+      ~(enclosing : bool)
+      ~(later : bool)
+  : Yojson.Basic.t list
+  =
   let block_key = Key.of_rule (Core.Facts.rule ctx.facts block.rule_id).name in
-  let atoms =
+  Array.to_list block.postfix
+  |> List.filter_map ~f:(fun (postfix : Core.Block.postfix) ->
+    match postfix.p_body with
+    | Core.Block.Nothing -> None
+    | Core.Block.Then kinds -> access_pattern ctx postfix kinds
+    | Core.Block.Enclosed _ when not enclosing -> None
+    | Core.Block.Enclosed { close; content } ->
+      enclosed_pattern
+        ctx
+        block_key
+        postfix
+        ~behind:(if later then "(?!\\G)" else "")
+        ~close
+        ~content)
+;;
+
+(* An operator that is one token, which the grammar-wide entry scopes in a
+   list. Inside an operand's region it needs a pattern of its own, or the
+   region would end at it and [x?(y)] would lose its call. *)
+let bare_postfix_patterns (ctx : ctx) (block : Core.Block.def) : Yojson.Basic.t list =
+  Array.to_list block.postfix
+  |> List.filter_map ~f:(fun (postfix : Core.Block.postfix) ->
+    match postfix.p_body, Core.Facts.token_of_kind ctx.facts postfix.p_lead with
+    | Core.Block.Nothing, Some lead ->
+      (match Oniguruma.of_token_at_child ctx.facts lead with
+       | Ok regex ->
+         Some
+           (`Assoc
+               (named ctx (Scopes.token ctx.scopes lead.id) @ [ "match", `String regex ]))
+       | Error _ -> None)
+    | (Core.Block.Nothing | Core.Block.Then _ | Core.Block.Enclosed _), _ -> None)
+;;
+
+let operand_region
+      (ctx : ctx)
+      (block : Core.Block.def)
+      ~(opens : (string * Yojson.Basic.t) list)
+      ~(later : bool)
+      ~(atoms : Yojson.Basic.t list)
+  : Yojson.Basic.t
+  =
+  let trivia = if has_trivia ctx.facts then [ include_key "trivia" ] else [] in
+  `Assoc
+    (opens
+     @ [ "end", `String "(?=\\S)"
+       ; "applyEndPatternLast", `Int 1
+       ; ( "patterns"
+         , `List
+             (postfix_patterns ctx block ~enclosing:true ~later
+              @ bare_postfix_patterns ctx block
+              @ atoms
+              @ trivia) )
+       ])
+;;
+
+let block_entry (ctx : ctx) (block : Core.Block.def) : Yojson.Basic.t =
+  let rule_of (kind : Core.Kind.t) : Core.Rule.def option =
+    match Core.Facts.rule_of_kind ctx.facts kind with
+    | Some target -> Some (Core.Facts.rule ctx.facts (ctx.alias target.id))
+    | None -> None
+  in
+  let encloses =
+    Array.exists block.postfix ~f:(fun (postfix : Core.Block.postfix) ->
+      match postfix.p_body with
+      | Core.Block.Enclosed _ -> true
+      | Core.Block.Nothing | Core.Block.Then _ -> false)
+  in
+  let includes (wrapped : Core.Rule.def -> bool) : Yojson.Basic.t list =
     Array.to_list block.atoms
     |> List.filter_map ~f:(fun (kind : Core.Kind.t) ->
-      match Core.Facts.rule_of_kind ctx.facts kind with
-      | Some target -> Some (rule_include ctx target.id)
-      | None -> None)
+      match rule_of kind with
+      | Some target when not (wrapped target) -> Some (rule_include ctx target.id)
+      | Some _ | None -> None)
   in
-  let postfix =
-    Array.to_list block.postfix
-    |> List.filter_map ~f:(fun (postfix : Core.Block.postfix) ->
-      match postfix.p_body with
-      | Core.Block.Nothing -> None
-      | Core.Block.Then kinds -> access_pattern ctx postfix kinds
-      | Core.Block.Enclosed { close; content } ->
-        enclosed_pattern ctx block_key postfix ~close ~content)
-  in
-  `Assoc [ "patterns", `List (with_tails ctx (atoms @ postfix)) ]
+  (* The entry trails neither the trivia nor the token entry. It is spliced
+     into the list that holds the expression, and the token entry in the
+     middle of that list would take the keyword of every region listed after
+     it. The list that holds it trails both. *)
+  if not encloses
+  then
+    `Assoc
+      [ ( "patterns"
+        , `List
+            (includes (fun _ -> false)
+             @ postfix_patterns ctx block ~enclosing:true ~later:false) )
+      ]
+  else (
+    (* The atoms that open on something, each with what it opens on. *)
+    let around =
+      Array.to_list block.atoms
+      |> List.filter_map ~f:(fun (kind : Core.Kind.t) ->
+        match rule_of kind with
+        | Some target ->
+          (match opening ctx target with
+           | Some regex -> Some (target, regex)
+           | None -> None)
+        | None -> None)
+    in
+    let is_around (rule : Core.Rule.def) : bool =
+      List.exists around ~f:(fun ((other : Core.Rule.def), _) -> other.id = rule.id)
+    in
+    let around_region =
+      match around with
+      | [] -> []
+      | around ->
+        [ operand_region
+            ctx
+            block
+            ~opens:
+              [ ( "begin"
+                , `String
+                    ("(?="
+                     ^ String.concat
+                         ~sep:"|"
+                         (List.map around ~f:(fun (_, regex) ->
+                            "(?:" ^ Oniguruma.neutralise regex ^ ")"))
+                     ^ ")") )
+              ]
+            ~later:true
+            ~atoms:
+              (List.map around ~f:(fun ((rule : Core.Rule.def), _) ->
+                 rule_include ctx rule.id))
+        ]
+    in
+    let tokens =
+      Array.to_list block.atoms
+      |> List.filter_map ~f:(fun (kind : Core.Kind.t) ->
+        match Core.Facts.token_of_kind ctx.facts kind with
+        | Some token ->
+          (match Oniguruma.of_token_at_child ctx.facts token with
+           | Ok regex -> Some (token, regex)
+           | Error _ -> None)
+        | None -> None)
+    in
+    let token_region =
+      match tokens with
+      | [] -> []
+      | tokens ->
+        let scoped =
+          List.mapi tokens ~f:(fun index ((token : Core.Token.def), _) ->
+            index + 1, Scopes.token ctx.scopes token.id)
+          |> List.filter_map ~f:(fun (index, scope) ->
+            match scope with
+            | Some scope -> Some (index, scope)
+            | None -> None)
+        in
+        [ operand_region
+            ctx
+            block
+            ~opens:
+              ([ ( "begin"
+                 , `String
+                     (String.concat
+                        ~sep:"|"
+                        (List.map tokens ~f:(fun (_, regex) ->
+                           "(" ^ Oniguruma.neutralise regex ^ ")"))) )
+               ]
+               @
+               match scoped with
+               | [] -> []
+               | scoped -> [ "beginCaptures", captures ctx scoped ])
+            ~later:false
+            ~atoms:[]
+        ]
+    in
+    `Assoc
+      [ ( "patterns"
+        , `List
+            (around_region
+             @ includes is_around
+             @ token_region
+             @ postfix_patterns ctx block ~enclosing:false ~later:false) )
+      ])
 ;;
 
 (* -- the two grammar-wide entries ------------------------------------------ *)

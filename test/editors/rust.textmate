@@ -87,12 +87,14 @@
       ]
     },
     "variant": {
+      "name": "meta.variant.rust",
+      "begin": "(?!(?:enum|fn|let|match|struct|trait|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*",
+      "end": "(?=\\}|,)",
+      "beginCaptures": { "0": { "name": "variable.other.enummember.rust" } },
       "patterns": [
-        {
-          "name": "variable.other.enummember.rust",
-          "match": "(?!(?:enum|fn|let|match|struct|trait|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
-        },
-        { "include": "#variant_payload" }
+        { "include": "#variant_payload" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
       ]
     },
     "variant_payload": {
@@ -194,7 +196,17 @@
         { "include": "#tokens" }
       ]
     },
-    "where": { "patterns": [ { "include": "#bounds" } ] },
+    "where": {
+      "name": "meta.where.rust",
+      "begin": "\\bwhere\\b",
+      "end": "(?=\\{)",
+      "beginCaptures": { "0": { "name": "keyword.other.where.rust" } },
+      "patterns": [
+        { "include": "#bounds" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
     "bounds": { "patterns": [ { "include": "#type" } ] },
     "param_list": {
       "name": "meta.param.list.rust",
@@ -248,10 +260,16 @@
     "stmt": { "patterns": [ { "include": "#let" }, { "include": "#expr" } ] },
     "let": {
       "name": "meta.let.rust",
-      "begin": "\\blet\\b",
-      "end": "(?<=;)",
-      "beginCaptures": { "0": { "name": "keyword.control.let.rust" } },
+      "begin": "(?=\\blet\\b)",
+      "end": "(?!\\G)(?<=;)",
       "patterns": [
+        {
+          "begin": "\\G\\blet\\b",
+          "end": "(?!(?:enum|fn|let|match|struct|trait|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*",
+          "endCaptures": { "0": { "name": "variable.other.rust" } },
+          "beginCaptures": { "0": { "name": "keyword.control.let.rust" } },
+          "patterns": [ { "include": "#trivia" }, { "include": "#tokens" } ]
+        },
         { "include": "#expr" },
         { "include": "#trivia" },
         { "include": "#tokens" }
@@ -287,8 +305,110 @@
     },
     "expr": {
       "patterns": [
-        { "include": "#block" },
-        { "include": "#match" },
+        {
+          "begin": "(?=(?:\\{)|(?:\\bmatch\\b))",
+          "end": "(?=\\S)",
+          "applyEndPatternLast": 1,
+          "patterns": [
+            {
+              "name": "meta.member-access.rust",
+              "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+              "captures": {
+                "1": { "name": "punctuation.accessor.rust" },
+                "2": { "name": "variable.other.rust" }
+              }
+            },
+            {
+              "name": "meta.subscript.rust",
+              "begin": "(?!\\G)\\[",
+              "end": "\\]",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.brackets.begin.rust" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.brackets.end.rust" }
+              },
+              "patterns": [
+                { "include": "#expr" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            {
+              "name": "meta.function-call.rust",
+              "begin": "(?!\\G)\\(",
+              "end": "\\)",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.parens.begin.rust" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.parens.end.rust" }
+              },
+              "patterns": [
+                { "include": "#expr" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            { "name": "keyword.operator.question.rust", "match": "\\?" },
+            { "include": "#block" },
+            { "include": "#match" },
+            { "include": "#trivia" }
+          ]
+        },
+        {
+          "begin": "([0-9]+)|((?!(?:enum|fn|let|match|struct|trait|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*)",
+          "beginCaptures": {
+            "1": { "name": "constant.numeric.integer.rust" },
+            "2": { "name": "variable.other.rust" }
+          },
+          "end": "(?=\\S)",
+          "applyEndPatternLast": 1,
+          "patterns": [
+            {
+              "name": "meta.member-access.rust",
+              "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+              "captures": {
+                "1": { "name": "punctuation.accessor.rust" },
+                "2": { "name": "variable.other.rust" }
+              }
+            },
+            {
+              "name": "meta.subscript.rust",
+              "begin": "\\[",
+              "end": "\\]",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.brackets.begin.rust" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.brackets.end.rust" }
+              },
+              "patterns": [
+                { "include": "#expr" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            {
+              "name": "meta.function-call.rust",
+              "begin": "\\(",
+              "end": "\\)",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.parens.begin.rust" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.parens.end.rust" }
+              },
+              "patterns": [
+                { "include": "#expr" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            { "name": "keyword.operator.question.rust", "match": "\\?" },
+            { "include": "#trivia" }
+          ]
+        },
         {
           "name": "meta.member-access.rust",
           "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
@@ -296,33 +416,7 @@
             "1": { "name": "punctuation.accessor.rust" },
             "2": { "name": "variable.other.rust" }
           }
-        },
-        {
-          "name": "meta.subscript.rust",
-          "begin": "\\[",
-          "end": "\\]",
-          "beginCaptures": {
-            "0": { "name": "punctuation.section.brackets.begin.rust" }
-          },
-          "endCaptures": {
-            "0": { "name": "punctuation.section.brackets.end.rust" }
-          },
-          "patterns": [ { "include": "#expr" } ]
-        },
-        {
-          "name": "meta.function-call.rust",
-          "begin": "\\(",
-          "end": "\\)",
-          "beginCaptures": {
-            "0": { "name": "punctuation.section.parens.begin.rust" }
-          },
-          "endCaptures": {
-            "0": { "name": "punctuation.section.parens.end.rust" }
-          },
-          "patterns": [ { "include": "#expr" } ]
-        },
-        { "include": "#trivia" },
-        { "include": "#tokens" }
+        }
       ]
     },
     "trivia": {

@@ -15,27 +15,13 @@
       "end": "(?<=;)",
       "beginCaptures": { "0": { "name": "keyword.control.select.wide" } },
       "patterns": [
-        {
-          "match": "(\\bfrom\\b)(?>(?:[\\t\\n\\r ]+))*((?!(?:and|as|asc|by|desc|distinct|from|group|having|join|limit|offset|on|or|order|select|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*)",
-          "captures": {
-            "1": { "name": "keyword.control.from.wide" },
-            "2": { "name": "entity.name.type.wide" }
-          }
-        },
-        {
-          "match": "(\\bjoin\\b)(?>(?:[\\t\\n\\r ]+))*((?!(?:and|as|asc|by|desc|distinct|from|group|having|join|limit|offset|on|or|order|select|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*)",
-          "captures": {
-            "1": { "name": "keyword.control.join.wide" },
-            "2": { "name": "entity.name.type.wide" }
-          }
-        },
         { "include": "#column_list" },
-        { "include": "#table" },
+        { "include": "#from" },
         { "include": "#join" },
-        { "include": "#expr" },
-        { "include": "#key_list" },
-        { "include": "#expr" },
-        { "include": "#order_list" },
+        { "include": "#where" },
+        { "include": "#group_by" },
+        { "include": "#having" },
+        { "include": "#order_by" },
         { "include": "#limit" },
         { "include": "#trivia" },
         { "include": "#tokens" }
@@ -53,17 +39,110 @@
         "2": { "name": "variable.other.member.wide" }
       }
     },
-    "table": { "patterns": [ { "include": "#alias" } ] },
+    "from": {
+      "name": "meta.from.wide",
+      "begin": "\\bfrom\\b",
+      "end": "(?=\\bjoin\\b|\\bwhere\\b|\\bgroup\\b|\\bhaving\\b|\\border\\b|\\blimit\\b|;)",
+      "beginCaptures": { "0": { "name": "keyword.control.from.wide" } },
+      "patterns": [
+        { "include": "#table" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "table": {
+      "name": "meta.table.wide",
+      "begin": "(?!(?:and|as|asc|by|desc|distinct|from|group|having|join|limit|offset|on|or|order|select|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*",
+      "end": "(?=\\bjoin\\b|\\bon\\b|\\bwhere\\b|\\bgroup\\b|\\bhaving\\b|\\border\\b|\\blimit\\b|;)",
+      "beginCaptures": { "0": { "name": "entity.name.type.wide" } },
+      "patterns": [
+        { "include": "#alias" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
     "join": {
-      "patterns": [ { "include": "#table" }, { "include": "#expr" } ]
+      "name": "meta.join.wide",
+      "begin": "(?=\\bjoin\\b)",
+      "end": "(?!\\G)(?=\\bjoin\\b|\\bwhere\\b|\\bgroup\\b|\\bhaving\\b|\\border\\b|\\blimit\\b|;)",
+      "patterns": [
+        {
+          "begin": "\\G\\bjoin\\b",
+          "end": "\\bon\\b",
+          "endCaptures": { "0": { "name": "keyword.other.on.wide" } },
+          "beginCaptures": { "0": { "name": "keyword.control.join.wide" } },
+          "patterns": [
+            { "include": "#table" },
+            { "include": "#trivia" },
+            { "include": "#tokens" }
+          ]
+        },
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "where": {
+      "name": "meta.where.wide",
+      "begin": "\\bwhere\\b",
+      "end": "(?=\\bgroup\\b|\\bhaving\\b|\\border\\b|\\blimit\\b|;)",
+      "beginCaptures": { "0": { "name": "keyword.control.where.wide" } },
+      "patterns": [
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "group_by": {
+      "name": "meta.group.by.wide",
+      "begin": "\\bgroup\\b",
+      "end": "(?=\\bhaving\\b|\\border\\b|\\blimit\\b|;)",
+      "beginCaptures": { "0": { "name": "keyword.other.group.wide" } },
+      "patterns": [
+        { "include": "#key_list" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
     },
     "key_list": { "patterns": [ { "include": "#expr" } ] },
+    "having": {
+      "name": "meta.having.wide",
+      "begin": "\\bhaving\\b",
+      "end": "(?=\\border\\b|\\blimit\\b|;)",
+      "beginCaptures": { "0": { "name": "keyword.other.having.wide" } },
+      "patterns": [
+        { "include": "#expr" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "order_by": {
+      "name": "meta.order.by.wide",
+      "begin": "\\border\\b",
+      "end": "(?=\\blimit\\b|;)",
+      "beginCaptures": { "0": { "name": "keyword.other.order.wide" } },
+      "patterns": [
+        { "include": "#order_list" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
     "order_list": { "patterns": [ { "include": "#order_key" } ] },
     "order_key": {
       "patterns": [ { "include": "#expr" }, { "include": "#direction" } ]
     },
     "direction": { "patterns": [] },
-    "limit": { "patterns": [ { "include": "#offset" } ] },
+    "limit": {
+      "name": "meta.limit.wide",
+      "begin": "\\blimit\\b",
+      "end": "(?=;)",
+      "beginCaptures": { "0": { "name": "keyword.other.limit.wide" } },
+      "patterns": [
+        { "include": "#offset" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
     "offset": {
       "name": "meta.offset.wide",
       "match": "(\\boffset\\b)(?>(?:[\\t\\n\\r ]+))*([0-9]+)",
@@ -98,9 +177,7 @@
             "1": { "name": "punctuation.accessor.wide" },
             "2": { "name": "variable.other.wide" }
           }
-        },
-        { "include": "#trivia" },
-        { "include": "#tokens" }
+        }
       ]
     },
     "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },

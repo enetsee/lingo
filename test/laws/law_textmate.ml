@@ -29,6 +29,10 @@
           also matches, and in a rule nothing literal leads into.
       (r) A region whose list cannot tell two children apart is cut in two
           where a cut parts them, and refused where none does.
+      (s) Each token of a list has one thing that opens on it: a rule is a
+          region wherever its opening and its end can be told, a region is
+          cut wherever two takers of one token stand on two sides, and an
+          operand opens a region its operators are read in.
 
       Mechanism. Parts (a) to (h) and (l) read the emitted JSON back and walk
       it. They
@@ -75,6 +79,33 @@
       as written, on one line and across several, and nested in each other.
       No grammar in the corpus has the shape, so the part carries witnesses,
       one for each condition a cut has to meet.
+
+      Part (s) came from the engine as well. On 2026-11-20 every token of 39
+      Cupcake files and of the good inputs of this corpus went through
+      vscode-textmate 9, and the regions around it were compared with the
+      rules the parser puts around it. The faults that showed, each of which
+      part (s) holds a witness against:
+
+      - A call and a parenthesised expression in one list, told apart by the
+        order of the list.
+      - A rule with no fixed end left as a list, so that a pattern's bracket
+        stood in the block its statement stands in.
+      - A rule that opens on a name and holds a bracket left as a list, so
+        that a constructor's fields were read where a tuple pattern stood.
+      - A wrapper forwarding to what it holds and losing the literal it opens
+        on.
+      - An expression's list ending in the grammar-wide token list, which took
+        the keyword of every region listed after the expression.
+      - The first part of a cut region opening a second time on its own
+        keyword, so that [if ... else if ...] was one region.
+      - A single match reading an expression block as one token.
+
+      With these fixed every token of every one of those inputs stands in the
+      regions the parser gives it, and the same holds with a space put before
+      every bracket and a line break before every brace. That check needs the
+      engine, so no test here makes it. What a test here can say is the last
+      line of part (s): no list of any corpus grammar gives one token to two
+      regions, but for the one it names.
 
       What the corpus does not reach, and what the witnesses are for. Nothing
       in the thirteen grammars splices a capturing group -- redfa emits [(?:]
@@ -841,7 +872,9 @@ let () =
     (function
       | Textmate.Check.Key_collision _ -> true
       | _ -> false);
-  (* Two children whose matched pairs open on the same token. *)
+  (* Three children whose matched pairs open on the same token. Two are told
+     apart by a cut behind the first. With three, one side of any cut still
+     holds two. *)
   let shared =
     let open Core.Grammar in
     create
@@ -849,14 +882,22 @@ let () =
         [ punct_tight ~name:"lbrack" "["
         ; punct_tight ~name:"rbrack" "]"
         ; punct_tight ~name:"rbrace" "}"
+        ; punct_tight ~name:"rparen" ")"
         ; pat "word" Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z'))
         ]
       ~roots:[ "File" ]
-      [ prod "File" [ child_req "one" (Rule "A"); child_req "two" (Rule "B") ]
+      [ prod
+          "File"
+          [ child_req "one" (Rule "A")
+          ; child_req "two" (Rule "B")
+          ; child_req "three" (Rule "C")
+          ]
       ; prod "A" [ child_rep "word" (Token "word") ]
         |> with_delimited ~open_tok:"lbrack" ~close_tok:"rbrack"
       ; prod "B" [ child_rep "word" (Token "word") ]
         |> with_delimited ~open_tok:"lbrack" ~close_tok:"rbrace"
+      ; prod "C" [ child_rep "word" (Token "word") ]
+        |> with_delimited ~open_tok:"lbrack" ~close_tok:"rparen"
       ]
   in
   (match Core.Facts.of_grammar shared with
@@ -868,7 +909,7 @@ let () =
      ()
    | Ok facts ->
      expect
-       "two children opening on one token"
+       "three children opening on one token"
        (Textmate.generate (scopes_of facts) ~language:"witness" ())
        (function
          | Textmate.Check.Shared_opener _ -> true
@@ -1670,15 +1711,14 @@ let () =
    clash, so a part of {!Textmate.Clash} that stops seeing it changes what is
    emitted.
 
-   A block ahead of the claim: the brackets' body is an expression block and
-   then [Tail]. A matched pair wraps one child, so the body is a list of its
-   own, spliced into the brackets. The block's list ends in the grammar-wide
-   token list, so every [word] in the body is taken there as a variable
-   before [Tail.name] is tried. Nothing else in the body is a [word].
+   A block ahead of the claim: the body is an expression block and then
+   [Tail]. Nothing in the block is a [word], and the grammar-wide token list
+   is tried behind everything, so there is no clash and [Tail.name] needs no
+   tie. The block's list once ended in that token list, which took every
+   [word] in the body first.
 
    A block behind the claim: [Tail] first, then a block with [word] as an
-   atom. The token list behind [Tail] is a fallback, so the clash is with the
-   atom alone.
+   atom. The clash is with the atom.
 
    A symbol that holds an operator: [sym]'s language holds [+], and [+] is an
    infix operator of the block after it. Neither side has a literal beside
@@ -1687,7 +1727,8 @@ let () =
    A production that is also an atom: [Pair] is reached after [nest] in
    [Group], and as an atom of the block, where nothing literal leads into
    it. A pair after [nest] would leave the atom's occurrences to the bare
-   pattern. *)
+   pattern. [Pair] may start with a [!], so it opens on no name of its own
+   and stays a list. *)
 let () =
   let before = Law.failures () in
   let open Core.Grammar in
@@ -1737,15 +1778,17 @@ let () =
       List.iter (fun p -> Law.fail "(q) %s: %a" what Textmate.Check.pp_problem p) problems
     | Some (Ok text) ->
       let document = Yojson.Basic.from_string text in
+      (* [Body] is a region of its own where it opens on [as], and its list
+         is then where the tie stands. *)
       let first =
         match field "repository" document with
         | Some (`Assoc fields) ->
-          (match List.assoc_opt "file" fields with
-           | Some entry ->
+          (match List.assoc_opt "body" fields, List.assoc_opt "file" fields with
+           | Some entry, _ | None, Some entry ->
              (match field "patterns" entry with
               | Some (`List (first :: _)) -> Some first
               | _ -> None)
-           | None -> None)
+           | None, None -> None)
         | _ -> None
       in
       let is_pair =
@@ -1766,6 +1809,62 @@ let () =
         Law.fail
           "(q) %s: the body does not open with the pair that scopes Tail.name after as"
           what
+  in
+  (* The claim is scoped by a pattern of its own, and no tie is emitted. *)
+  let untied
+        (what : string)
+        (result : (string, Textmate.Check.problem list) result option)
+    : unit
+    =
+    match result with
+    | None -> Law.fail "(q) %s: the overrides were rejected" what
+    | Some (Error problems) ->
+      List.iter (fun p -> Law.fail "(q) %s: %a" what Textmate.Check.pp_problem p) problems
+    | Some (Ok text) ->
+      let scoped : Yojson.Basic.t =
+        `Assoc [ "name", `String "entity.name.type.witness" ]
+      in
+      let rec count (json : Yojson.Basic.t) : int * int =
+        match json with
+        | `Assoc fields ->
+          let own =
+            if List.assoc_opt "name" fields = Some (`String "entity.name.type.witness")
+            then 1
+            else 0
+          in
+          List.fold_left
+            (fun (bare, tied) (key, value) ->
+               if key = "captures"
+               then (
+                 match value with
+                 | `Assoc groups ->
+                   ( bare
+                   , tied
+                     + List.length (List.filter (fun (_, group) -> group = scoped) groups)
+                   )
+                 | _ -> bare, tied)
+               else (
+                 let more_bare, more_tied = count value in
+                 bare + more_bare, tied + more_tied))
+            (own, 0)
+            fields
+        | `List items ->
+          List.fold_left
+            (fun (bare, tied) item ->
+               let more_bare, more_tied = count item in
+               bare + more_bare, tied + more_tied)
+            (0, 0)
+            items
+        | _ -> 0, 0
+      in
+      let bare, tied = count (Yojson.Basic.from_string text) in
+      if bare <> 1 || tied <> 0
+      then
+        Law.fail
+          "(q) %s: Tail.name is scoped by %d patterns of its own and %d ties"
+          what
+          bare
+          tied
   in
   let rejected
         (what : string)
@@ -1789,7 +1888,7 @@ let () =
           what
           (String.concat ", " (List.map Textmate.Check.problem_to_string problems))
   in
-  paired
+  untied
     "a block ahead of the claim"
     (generate
        (create
@@ -1853,13 +1952,16 @@ let () =
     (generate
        (create
           ~expr:[ expr_block ~rule_name:"Expr" ~atoms:[ Rule "Pair"; Token "int" ] () ]
-          ~tokens:(brackets @ [ kw "nest"; word; int ])
+          ~tokens:(brackets @ [ kw "nest"; punct ~name:"bang" "!"; word; int ])
           ~roots:[ "File" ]
           [ prod "File" [ child_req "e" (Rule "Expr") ]
             |> with_delimited ~open_tok:"lbrack" ~close_tok:"rbrack"
           ; prod
               "Pair"
-              [ child_req "key" (Token "word"); child_req "value" (Rule "Value") ]
+              [ child_opt "bang" (Token "bang")
+              ; child_req "key" (Token "word")
+              ; child_req "value" (Rule "Value")
+              ]
           ; prod
               "Value"
               [ child_alt ~modifier:Exactly_one "v" [ Token "word"; Rule "Group" ] ]
@@ -1925,6 +2027,7 @@ let () =
     ; ( "Body"
       , prod "Body" [ child_rep "word" (Token "word") ]
         |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace" )
+    ; "Word", prod "Word" [ child_req "word" (Token "word") ]
     ]
   in
   let keyword (text : string) : string * symbol =
@@ -2019,8 +2122,25 @@ let () =
       in
       (match patterns_of entry with
        | part :: outer ->
+         (* The first part opens once, where the region does. Anywhere later
+            it would open again on its own keyword. *)
          let opens = text_of "begin" part in
-         if not (String.equal (text_of "begin" entry) ("(?=" ^ opens ^ ")"))
+         let once = {|\G|} in
+         let opens_once =
+           String.length opens >= String.length once
+           && String.equal (String.sub opens 0 (String.length once)) once
+         in
+         let keyword =
+           if opens_once
+           then
+             String.sub
+               opens
+               (String.length once)
+               (String.length opens - String.length once)
+           else opens
+         in
+         if
+           not (opens_once && String.equal (text_of "begin" entry) ("(?=" ^ keyword ^ ")"))
          then
            Law.fail
              "(r) %s: the region opens on %S and its first part on %S"
@@ -2144,17 +2264,34 @@ let () =
     ; pair "body" "Body"
     ]
     (refused shares);
-  (* At a literal: only in front of a pair. A token beside it may be tied to
-     it, and the first part's end would take the literal first. *)
+  (* At a literal: no cut in front of a token. A token beside it may be tied
+     to it, and the first part's end would take the literal first. The token
+     may be absent here, so it carries no cut of its own. *)
   check
     "a literal with a token after it"
+    [ keyword "go"
+    ; pair "body" "Body"
+    ; keyword "then"
+    ; "name?", Token "word"
+    ; pair "last" "Body"
+    ]
+    (refused closes_early);
+  (* A name that is always there carries the cut itself: the first part ends
+     by taking it. *)
+  check
+    "a name behind a literal"
     [ keyword "go"
     ; pair "body" "Body"
     ; keyword "then"
     ; "name", Token "word"
     ; pair "last" "Body"
     ]
-    (refused closes_early);
+    (Cut
+       { first_end = {|(?!(?:catch|do|end|go|sep|then|try|while)\b)[a-z]+|}
+       ; first = [ "#body" ]
+       ; rest = [ "#body" ]
+       ; named = false, false
+       });
   (* At a literal: the first part ends at the first place the literal stands,
      so a second one is no cut of its own. *)
   check
@@ -2162,7 +2299,7 @@ let () =
     [ keyword "go"
     ; pair "body" "Body"
     ; keyword "sep"
-    ; "name", Token "word"
+    ; "name?", Token "word"
     ; keyword "sep"
     ; pair "last" "Body"
     ]
@@ -2237,7 +2374,7 @@ let () =
     "a scoped token in the first part"
     [ keyword "go"
     ; pair "head" "Head"
-    ; "name", Token "word"
+    ; "name?", Token "word"
     ; keyword "then"
     ; pair "cond" "Cond"
     ]
@@ -2283,10 +2420,906 @@ let () =
        ; rest = [ "#cond" ]
        ; named = true, true
        });
+  (* The same behind the cut. Each side of a cut is a list of its own, and a
+     tie found in either is tried in both. [Word] holds the other name here,
+     so that [name] carries no cut of its own. *)
+  check
+    ~overrides:(type_scopes "name_5")
+    "a position tied to a literal behind the cut"
+    [ keyword "go"
+    ; pair "head" "Head"
+    ; keyword "then"
+    ; pair "cond" "Cond"
+    ; pair "other" "Word"
+    ; "name", Token "word"
+    ; keyword "sep"
+    ; keyword "end"
+    ]
+    (Cut
+       { first_end = {|(?<=\))|}
+       ; first = [ "#head" ]
+       ; rest = [ "#cond"; "#word" ]
+       ; named = true, true
+       });
   if Law.failures () = before
   then
     Law.pass
       "(r) a region is cut where a cut parts its children, and refused where none does"
+;;
+
+(* -- (s) each token of a list has one thing that opens on it -------------- *)
+
+(* What the witnesses share. [Tuple], [Group] and [Trio] are three matched
+   pairs on a round bracket, [Set] and [Body] two on a brace. [Left] reaches
+   the first of each and [Right] the second, and neither holds one as a child
+   of its own. So no rule here has two pairs of its own on one opener, and
+   part (r) has nothing to say about any of them.
+
+   Each witness names the entry it reads and writes it out whole: what the
+   region opens on, what it ends on, and what its list holds, with each part
+   of a cut in angle brackets. A plain list is in square brackets alone. *)
+let () =
+  let before = Law.failures () in
+  let open Core.Grammar in
+  let tokens =
+    [ kw "go"
+    ; kw "val"
+    ; kw "if"
+    ; kw "else"
+    ; kw "with"
+    ; kw "at"
+    ; kw "end"
+    ; kw "fn"
+    ; kw "self"
+    ; punct_tight ~name:"lparen" "("
+    ; punct_tight ~name:"rparen" ")"
+    ; punct_tight ~name:"lbrace" "{"
+    ; punct_tight ~name:"rbrace" "}"
+    ; punct ~space_before:Space ~name:"lbrack" "["
+    ; punct_tight ~name:"rbrack" "]"
+    ; punct ~name:"eq" "="
+    ; punct ~name:"arrow" "=>"
+    ; punct ~name:"semi" ";"
+    ; punct ~name:"comma" ","
+    ; punct ~name:"bang" "!"
+    ; pat "word" Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z'))
+    ; pat ~trivia:Reformat "ws" Redfa.Regex.(plus (singleton_char ' '))
+    ]
+  in
+  let name = {|(?!(?:at|else|end|fn|go|if|self|val|with)\b)[a-z]+|} in
+  let pair (name : string) ~(open_tok : string) ~(close_tok : string) : production =
+    prod name [ child_rep "word" (Token "word") ] |> with_delimited ~open_tok ~close_tok
+  in
+  let tuple = pair "Tuple" ~open_tok:"lparen" ~close_tok:"rparen" in
+  let group = pair "Group" ~open_tok:"lparen" ~close_tok:"rparen" in
+  let trio = pair "Trio" ~open_tok:"lparen" ~close_tok:"rparen" in
+  let set = pair "Set" ~open_tok:"lbrace" ~close_tok:"rbrace" in
+  let body = pair "Body" ~open_tok:"lbrace" ~close_tok:"rbrace" in
+  let either (name : string) (rules : string list) : production =
+    prod name [ child_alt_rules ~modifier:Exactly_one "kind" rules ]
+  in
+  let left = either "Left" [ "Tuple"; "Set" ] in
+  let right = either "Right" [ "Group"; "Body" ] in
+  let pairs = [ tuple; group; set; body ] in
+  (* A list that leads with a name and can be no region: it holds one
+     child. *)
+  let lead = prod "Lead" [ child_req "name" (Token "word") ] in
+  let file (rule : string) : production = prod "File" [ child_rep "stmt" (Rule rule) ] in
+  let document
+        ?(expr = [])
+        ?(roots = [ "File" ])
+        ?(overrides = [])
+        (what : string)
+        (rules : production list)
+    : Yojson.Basic.t
+    =
+    let scopes =
+      match Scopes.of_facts (facts_of (create ~expr ~tokens ~roots rules)) ~overrides with
+      | Ok scopes -> scopes
+      | Error findings ->
+        failwith (String.concat ", " (List.map Scopes.finding_to_string findings))
+    in
+    match Textmate.generate scopes ~language:"witness" () with
+    | Error problems ->
+      Law.fail
+        "(s) %s: refused for %s"
+        what
+        (String.concat ", " (List.map Textmate.Check.problem_to_string problems));
+      `Null
+    | Ok text -> Yojson.Basic.from_string text
+  in
+  let entries_of (json : Yojson.Basic.t) : (string * Yojson.Basic.t) list =
+    match field "repository" json with
+    | Some (`Assoc entries) -> entries
+    | _ -> []
+  in
+  let repository ?expr ?roots (what : string) (rules : production list)
+    : (string * Yojson.Basic.t) list
+    =
+    entries_of (document ?expr ?roots what rules)
+  in
+  let text_of (key : string) (json : Yojson.Basic.t) : string =
+    match field key json with
+    | Some (`String text) -> text
+    | _ -> ""
+  in
+  let patterns_of (json : Yojson.Basic.t) : Yojson.Basic.t list =
+    match field "patterns" json with
+    | Some (`List patterns) -> patterns
+    | _ -> []
+  in
+  let holds (part : string) (text : string) : bool =
+    let width = String.length part in
+    let rec at (i : int) : bool =
+      i + width <= String.length text
+      && (String.equal (String.sub text i width) part || at (i + 1))
+    in
+    at 0
+  in
+  let entry (what : string) (key : string) (entries : (string * Yojson.Basic.t) list)
+    : Yojson.Basic.t
+    =
+    match List.assoc_opt key entries with
+    | Some json -> json
+    | None ->
+      if entries <> [] then Law.fail "(s) %s: no entry %S" what key;
+      `Null
+  in
+  let rec describe (json : Yojson.Basic.t) : string =
+    let inner =
+      List.map
+        (fun pattern ->
+           match
+             field "include" pattern, field "begin" pattern, field "match" pattern
+           with
+           | Some (`String key), _, _ -> key
+           | _, Some _, _ -> "<" ^ describe pattern ^ ">"
+           | _, None, Some _ -> "/" ^ text_of "match" pattern ^ "/"
+           | _, None, None -> "?")
+        (patterns_of json)
+      |> List.filter (fun key -> key <> "#trivia" && key <> "#tokens")
+      |> String.concat " "
+    in
+    match field "begin" json with
+    | Some _ ->
+      Printf.sprintf "%s..%s[%s]" (text_of "begin" json) (text_of "end" json) inner
+    | None -> Printf.sprintf "[%s]" inner
+  in
+  let expect (what : string) (json : Yojson.Basic.t) (wanted : string) : unit =
+    if json <> `Null && not (String.equal (describe json) wanted)
+    then Law.fail "(s) %s:\n  wanted %s\n  got    %s" what wanted (describe json)
+  in
+  let reads (what : string) (key : string) (rules : production list) (wanted : string)
+    : unit
+    =
+    expect what (entry what key (repository what rules)) wanted
+  in
+  (* -- a region ends behind what its last child always ends on --
+
+     [Rest] is another [Stmt] or a [Body], and both end on a brace. So [Stmt]
+     ends behind one, and is a region. Its [Body] ends on a brace too, which
+     takes the cut part (r) describes. *)
+  let chain (rest : string list) : production list =
+    [ file "Stmt"
+    ; prod
+        "Stmt"
+        [ child_req "kw" (Token "if")
+        ; child_req "cond" (Rule "Tuple")
+        ; child_req "then" (Rule "Body")
+        ; child_req "else" (Token "else")
+        ; child_req "rest" (Rule "Rest")
+        ]
+    ; either "Rest" rest
+    ; tuple
+    ; body
+    ]
+  in
+  reads
+    "a last child that ends on one text whichever it is"
+    "stmt"
+    (chain [ "Stmt"; "Body" ])
+    {|(?=\bif\b)..(?!\G)(?<=\})[<\G\bif\b..\belse\b[#tuple #body]> #rest]|};
+  (* An alternative that is the rule again ends as the rule does, so it agrees
+     with whatever the others end on. Here that is a round bracket, and the
+     cut moves to the body. *)
+  reads
+    "a last child that is the rule again or ends on one text"
+    "stmt"
+    (chain [ "Stmt"; "Tuple" ])
+    {|(?=\bif\b)..(?!\G)(?<=\))[<\G\bif\b..(?<=\})[#tuple #body]> #rest]|};
+  (* Two alternatives that end on two texts, and there is nothing to look
+     behind for. The rule still ends in front of what follows it, which here
+     is the next [if]. *)
+  reads
+    "a last child that ends on one of two texts"
+    "stmt"
+    (chain [ "Tuple"; "Body" ])
+    {|\bif\b..(?=\bif\b)[#tuple #body #rest]|};
+  (* -- a region that ends behind a word ends behind the whole of it -- *)
+  reads
+    "a region that ends behind a keyword"
+    "stmt"
+    [ file "Stmt"
+    ; prod
+        "Stmt"
+        [ child_req "kw" (Token "go")
+        ; child_req "body" (Rule "Body")
+        ; child_req "end" (Token "end")
+        ]
+      |> with_committed
+    ; body
+    ]
+    {|\bgo\b..(?<=\bend)\b[#body]|};
+  (* -- a region is cut where two takers on one token stand on two sides --
+
+     One list over [Left] and [Right] reads every round bracket as [Left]'s
+     pair. Cut at the literal between them, each side reads its own. *)
+  let assign (children : child list) (rules : production list) : production list =
+    [ file "Stmt"
+    ; prod
+        "Stmt"
+        ((child_req "kw" (Token "go") :: children) @ [ child_req "semi" (Token "semi") ])
+      |> with_committed
+    ]
+    @ rules
+  in
+  let sides (left : production) (right : production) : production list =
+    assign
+      [ child_req "left" (Rule "Left")
+      ; child_req "eq" (Token "eq")
+      ; child_req "right" (Rule "Right")
+      ]
+      ([ left; right ] @ pairs)
+  in
+  reads
+    "two children that reach different pairs on one bracket"
+    "stmt"
+    (sides left right)
+    {|(?=\bgo\b)..(?!\G)(?<=;)[<\G\bgo\b..=(?!>)[#left]> #right]|};
+  (* Both sides reach the same pairs, so a cut would change nothing. *)
+  reads
+    "two children that reach the same pairs"
+    "stmt"
+    (sides left (either "Right" [ "Tuple"; "Set" ]))
+    {|\bgo\b..(?<=;)[#left #right]|};
+  (* The literal also stands loose in what the first part would hold, and the
+     part would end there. *)
+  reads
+    "a literal that also stands loose before the cut"
+    "stmt"
+    (sides
+       (prod
+          "Left"
+          [ child_opt "bang" (Token "bang")
+          ; child_req "one" (Rule "Tuple")
+          ; child_req "eq" (Token "eq")
+          ; child_req "name" (Token "word")
+          ])
+       right)
+    {|\bgo\b..(?<=;)[#left #right]|};
+  (* A child that holds a pair of its own is tried ahead of the rest, so here
+     it is [Left]'s bracket that one list reads as the other's. *)
+  reads
+    "a later child that the list tries first"
+    "stmt"
+    (assign
+       [ child_req "left" (Rule "Left")
+       ; child_req "eq" (Token "eq")
+       ; child_req "group" (Rule "Group")
+       ]
+       (left :: pairs))
+    {|(?=\bgo\b)..(?!\G)(?<=;)[<\G\bgo\b..=(?!>)[#left]> #group]|};
+  (* A literal in front of a list that leads with a token may be tied to that
+     token, so it carries no cut. *)
+  reads
+    "a literal in front of a list that leads with a token"
+    "stmt"
+    (assign
+       [ child_req "left" (Rule "Left")
+       ; child_req "eq" (Token "eq")
+       ; child_req "lead" (Rule "Lead")
+       ; child_req "group" (Rule "Group")
+       ]
+       ([ left; lead ] @ pairs))
+    {|\bgo\b..(?<=;)[#group #left #lead]|};
+  (* A cut behind a child that ends on one text, which need be no pair. *)
+  reads
+    "a child that ends on a fixed text"
+    "stmt"
+    (assign
+       [ child_req "head" (Rule "Head"); child_req "right" (Rule "Right") ]
+       ([ prod
+            "Head"
+            [ child_opt "bang" (Token "bang")
+            ; child_req "tuple" (Rule "Tuple")
+            ; child_req "arrow" (Token "arrow")
+            ]
+        ; right
+        ]
+        @ pairs))
+    {|(?=\bgo\b)..(?!\G)(?<=;)[<\G\bgo\b..(?<==>)[#head]> #right]|};
+  (* Every cut worth taking is taken, each in what the one before it left:
+     three pairs on one bracket are three lists. *)
+  reads
+    "three children that reach three pairs on one bracket"
+    "stmt"
+    (assign
+       [ child_req "left" (Rule "Left")
+       ; child_req "eq" (Token "eq")
+       ; child_req "right" (Rule "Right")
+       ; child_req "arrow" (Token "arrow")
+       ; child_req "last" (Rule "Last")
+       ]
+       ([ left; right; either "Last" [ "Trio" ]; trio ] @ pairs))
+    {|(?=\bgo\b)..(?!\G)(?<=;)[<\G..=>[<\G\bgo\b..=(?!>)[#left]> #right]> #trio]|};
+  (* A name carries a cut as a literal does, where what follows takes the
+     same name. The label is no operand, and the expression behind it starts
+     with one. *)
+  let words : expr_def list =
+    [ expr_block
+        ~rule_name:"Expr"
+        ~atoms:[ Token "word"; Token "self"; Rule "Paren" ]
+        ~postfix:
+          [ postfix_call
+              ~kind_suffix:"call"
+              ~open_tok:"lparen"
+              ~close_tok:"rparen"
+              ~elem:(Rule "Expr")
+              ~bp:90
+              ()
+          ; postfix_simple ~kind_suffix:"bang" ~token:"bang" ~bp:90 ()
+          ]
+        ()
+    ]
+  in
+  let paren : production =
+    prod "Paren" [ child_req "inner" (Rule "Expr") ]
+    |> with_delimited ~open_tok:"lparen" ~close_tok:"rparen"
+  in
+  expect
+    "a name in front of an expression"
+    (entry
+       "a name in front of an expression"
+       "stmt"
+       (repository
+          ~expr:words
+          "a name in front of an expression"
+          (assign
+             [ child_req "label" (Token "word"); child_req "value" (Rule "Expr") ]
+             [ paren ])))
+    (Printf.sprintf {|(?=\bgo\b)..(?!\G)(?<=;)[<\G\bgo\b..%s[/%s/]> #expr]|} name name);
+  (* -- a rule that is a region is no forwarder --
+
+     [Hold] forwarded to [Set] would put that brace beside [Body]'s in the
+     list of [Stmt]. It holds the pair through [Wrap], which has no token of
+     its own and forwards. [Name] is two tokens, which is one match and no
+     region, so it forwards as well. *)
+  let what = "a pair behind a literal" in
+  let entries =
+    repository
+      what
+      [ file "Stmt"
+      ; prod
+          "Stmt"
+          [ child_req "kw" (Token "go")
+          ; child_req "body" (Rule "Body")
+          ; child_req "hold" (Rule "Hold")
+          ; child_req "name" (Rule "Name")
+          ; child_req "semi" (Token "semi")
+          ]
+        |> with_committed
+      ; prod "Hold" [ child_req "kw" (Token "with"); child_req "wrap" (Rule "Wrap") ]
+      ; prod "Wrap" [ child_req "set" (Rule "Set") ]
+      ; prod "Name" [ child_req "kw" (Token "at"); child_req "leaf" (Rule "Leaf") ]
+      ; prod "Leaf" [ child_req "word" (Token "word") ]
+      ; body
+      ; set
+      ]
+  in
+  expect what (entry what "hold" entries) {|\bwith\b..(?<=\})[#set]|};
+  expect what (entry what "stmt" entries) {|\bgo\b..(?<=;)[#body #hold #leaf]|};
+  if List.mem_assoc "wrap" entries || List.mem_assoc "name" entries
+  then Law.fail "(s) %s: a rule that is no region has an entry of its own" what;
+  (* -- a rule with no fixed end ends in front of what follows it --
+
+     [Val] ends on no text. What follows one is the next [val], so its
+     region ends in front of that. *)
+  let binding (children : child list) (rules : production list) : production list =
+    [ file "Val"; prod "Val" (child_req "kw" (Token "val") :: children) ] @ rules
+  in
+  let bound (right : production) : production list =
+    binding
+      [ child_req "left" (Rule "Left")
+      ; child_req "eq" (Token "eq")
+      ; child_req "right" (Rule "Right")
+      ]
+      ([ left; right ] @ pairs)
+  in
+  reads
+    "a rule that ends on nothing fixed"
+    "val"
+    (bound right)
+    {|(?=\bval\b)..(?!\G)(?=\bval\b)[<\G\bval\b..=(?!>)[#left]> #right]|};
+  reads
+    "a rule whose two sides reach the same pairs"
+    "val"
+    (bound (either "Right" [ "Tuple"; "Set" ]))
+    {|\bval\b..(?=\bval\b)[#left #right]|};
+  (* What follows is a name, and there is no looking ahead for one: an
+     expression inside the rule starts with one too. *)
+  let what = "a rule that a name may follow" in
+  let entries =
+    repository
+      what
+      [ prod "File" [ child_rep "stmt" (Rule "Stmt") ]
+      ; either "Stmt" [ "Val"; "Call" ]
+      ; prod "Val" [ child_req "kw" (Token "val"); child_req "left" (Rule "Left") ]
+      ; prod "Call" [ child_req "name" (Token "word"); child_req "set" (Rule "Set") ]
+      ; left
+      ; tuple
+      ; set
+      ]
+  in
+  if List.mem_assoc "val" entries && field "begin" (entry what "val" entries) <> None
+  then Law.fail "(s) %s: the rule is a region" what;
+  (* A token that follows the rule is one the rule holds. Cut at it, the end
+     is tried only in the list of what comes after. *)
+  reads
+    "a rule that holds a token which also follows it"
+    "fn"
+    [ file "Stmt"
+    ; prod
+        "Stmt"
+        [ child_req "kw" (Token "go")
+        ; child_req "fn" (Rule "Fn")
+        ; child_req "end" (Token "end")
+        ]
+    ; prod
+        "Fn"
+        [ child_req "kw" (Token "fn")
+        ; child_req "tuple" (Rule "Tuple")
+        ; child_req "end" (Token "end")
+        ; child_req "right" (Rule "Right")
+        ]
+    ; either "Right" [ "Tuple"; "Body" ]
+    ; tuple
+    ; body
+    ]
+    {|(?=\bfn\b)..(?!\G)(?=\bend\b)[<\G\bfn\b..\bend\b[#tuple]> #right]|};
+  (* A bracket follows the rule and the rule's own list takes that bracket,
+     with nothing to cut at. It stays a list, and here that is a forwarder. *)
+  let what = "a rule whose list takes what follows it" in
+  let entries =
+    repository
+      what
+      [ file "Stmt"
+      ; prod
+          "Stmt"
+          [ child_req "kw" (Token "go")
+          ; child_req "fn" (Rule "Fn")
+          ; child_req "tuple" (Rule "Tuple")
+          ; child_req "semi" (Token "semi")
+          ]
+      ; prod "Fn" [ child_req "kw" (Token "fn"); child_req "left" (Rule "Left") ]
+      ; left
+      ; tuple
+      ; set
+      ]
+  in
+  if List.mem_assoc "fn" entries
+  then
+    Law.fail "(s) %s: the rule has an entry, %s" what (describe (entry what "fn" entries));
+  (* -- no grammar is refused for a region it did not have before --
+
+     A name scoped for its position and tied to the literal in front of it
+     needs that literal in its own list. A region would open on it, so the
+     rule stays the list it was, and the grammar is still accepted. [name] is
+     a type here and a variable in the token list, and [other] holds the same
+     token. *)
+  let type_scopes (rule : string) : Scopes.override list =
+    [ Scopes.Token
+        { token = Core.Grammar.Name.Token.of_string "word"
+        ; scope = Scopes.Scope.Variable_other
+        }
+    ; Scopes.Child
+        { rule = Core.Grammar.Name.Rule.of_string rule
+        ; child = Core.Grammar.Name.Child.of_string "name"
+        ; scope = Scopes.Scope.Entity_name_type None
+        }
+    ]
+  in
+  let what = "a rule whose opening literal a name is tied to" in
+  let json =
+    document
+      ~overrides:(type_scopes "Lead")
+      what
+      (binding
+         [ child_req "lead" (Rule "Lead")
+         ; child_opt "other" (Token "word")
+         ; child_req "eq" (Token "eq")
+         ; child_req "right" (Rule "Right")
+         ]
+         ([ lead; right ] @ pairs))
+  in
+  expect what (entry what "val" (entries_of json)) "[#lead #right]";
+  let what =
+    "a rule that would end on a fixed text, whose opening literal a name is tied to"
+  in
+  let json =
+    document
+      ~overrides:(type_scopes "Lead")
+      what
+      [ file "Stmt"
+      ; prod
+          "Stmt"
+          [ child_req "kw" (Token "if")
+          ; child_req "lead" (Rule "Lead")
+          ; child_opt "other" (Token "word")
+          ; child_req "then" (Rule "Body")
+          ; child_req "else" (Token "else")
+          ; child_req "rest" (Rule "Rest")
+          ]
+      ; either "Rest" [ "Stmt"; "Body" ]
+      ; lead
+      ; body
+      ]
+  in
+  expect what (entry what "stmt" (entries_of json)) "[#body #lead #rest]";
+  (* Two children that hold one pair, in a rule that opens on that pair. As a
+     region it would end behind the first, and there is no cut. *)
+  let what = "a rule that opens on a pair and holds it twice" in
+  let entries =
+    repository
+      what
+      [ prod "File" [ child_req "one" (Rule "Tuple"); child_req "two" (Rule "Tuple") ]
+      ; tuple
+      ]
+  in
+  expect what (entry what "file" entries) "[#tuple #tuple]";
+  (* -- a rule opens on its name where nothing else takes that name --
+
+     [Named] starts with a name and holds a bracket behind it. A list would
+     put that bracket beside [Tuple]'s. *)
+  let named : production =
+    prod "Named" [ child_req "name" (Token "word"); child_opt "group" (Rule "Group") ]
+  in
+  reads
+    "a rule that starts with a name"
+    "named"
+    (assign
+       [ child_alt_rules ~modifier:Exactly_one "kind" [ "Named"; "Tuple" ] ]
+       [ named; tuple; group ])
+    (name ^ {|..(?=;)[#group]|});
+  (* The list that holds it takes the same name somewhere else, with nothing
+     between the two to cut at, and every such name would open the rule. *)
+  reads
+    "a rule whose name something else takes"
+    "named"
+    (assign
+       [ child_req "lead" (Rule "Lead"); child_req "named" (Rule "Named") ]
+       [ prod
+           "Named"
+           [ child_req "name" (Token "word"); child_req "group" (Rule "Group") ]
+       ; lead
+       ; group
+       ])
+    ("[#group /" ^ name ^ "/]");
+  (* -- a rule opens on what it starts with where every such token is a
+        literal --
+
+     [Head] starts with a pair and ends on an arrow. *)
+  let head : production =
+    prod "Head" [ child_req "tuple" (Rule "Tuple"); child_req "arrow" (Token "arrow") ]
+  in
+  reads
+    "a rule that starts with a pair"
+    "head"
+    (assign
+       [ child_req "head" (Rule "Head"); child_req "body" (Rule "Body") ]
+       [ head; tuple; body ])
+    {|(?=\()..(?!\G)(?<==>)[#tuple]|};
+  (* A rule that opens on a lookahead and is cut behind a child. Its first
+     part takes nothing either, so it stands where it opened, and an end that
+     looks behind is kept off that place. *)
+  reads
+    "a rule that starts with a pair and is cut behind a child"
+    "outer"
+    (assign
+       [ child_req "outer" (Rule "Outer") ]
+       ([ prod
+            "Outer"
+            [ child_req "head" (Rule "Head"); child_req "right" (Rule "Right") ]
+        ; head
+        ; either "Right" [ "Group" ]
+        ]
+        @ pairs))
+    {|(?=(?=\())..(?!\G)(?<=\))[<\G(?=\()..(?!\G)(?<==>)[#head]> #group]|};
+  (* Something else in the list opens on the same bracket, with nothing
+     between the two to cut at. [Head] stays a list, and a list of one pair
+     and a token is a forwarder. *)
+  let what = "a rule that starts with a pair which something else opens on" in
+  let entries =
+    repository
+      what
+      (assign
+         [ child_req "right" (Rule "Right"); child_req "head" (Rule "Head") ]
+         ([ head; right ] @ pairs))
+  in
+  if List.mem_assoc "head" entries
+  then
+    Law.fail
+      "(s) %s: the rule has an entry, %s"
+      what
+      (describe (entry what "head" entries));
+  (* -- the tail of a list element is a region --
+
+     [Arm] may start with a name, so it opens on nothing. It is an element of
+     a separated list in a pair, so what follows its arrow ends in front of
+     the separator or the closer. *)
+  let wide_left : production =
+    prod
+      "Left"
+      [ child_alt ~modifier:Exactly_one "kind" [ Rule "Tuple"; Rule "Set"; Token "word" ]
+      ]
+  in
+  let arm (children : child list) : production =
+    prod
+      "Arm"
+      ([ child_req "left" (Rule "Left"); child_req "arrow" (Token "arrow") ] @ children)
+  in
+  let arms : production =
+    prod "Arms" [ child_rep "arm" (Rule "Arm") ]
+    |> with_delimited_sep ~open_tok:"lbrack" ~close_tok:"rbrack" ~sep:"semi"
+  in
+  let one_right : child list = [ child_req "right" (Rule "Right") ] in
+  let tail = {|[#left <=>..(?=;|\])[#right]>]|} in
+  let whole = "[#left #right]" in
+  reads
+    "an element of a separated list in a pair"
+    "arm"
+    ([ file "Arms"; arms; arm one_right; wide_left; right ] @ pairs)
+    tail;
+  reads
+    "an element of a list with no separator"
+    "arm"
+    ([ file "Arms"
+     ; prod "Arms" [ child_rep "arm" (Rule "Arm") ]
+       |> with_delimited ~open_tok:"lbrack" ~close_tok:"rbrack"
+     ; arm one_right
+     ; wide_left
+     ; right
+     ]
+     @ pairs)
+    whole;
+  (* With one list that has no separator, an element there is followed by the
+     next one and by nothing the tail could look ahead for. *)
+  reads
+    "an element of two lists, one with no separator"
+    "arm"
+    ([ file "Stmt"
+     ; either "Stmt" [ "Arms"; "Others" ]
+     ; arms
+     ; prod "Others" [ child_rep "arm" (Rule "Arm") ]
+       |> with_delimited ~open_tok:"lparen" ~close_tok:"rparen"
+     ; arm one_right
+     ; wide_left
+     ; right
+     ]
+     @ pairs)
+    whole;
+  reads
+    "an element that something else holds too"
+    "arm"
+    ([ file "Stmt"
+     ; either "Stmt" [ "Arms"; "Lone" ]
+     ; arms
+     ; prod "Lone" [ child_req "kw" (Token "go"); child_req "arm" (Rule "Arm") ]
+     ; arm one_right
+     ; wide_left
+     ; right
+     ]
+     @ pairs)
+    whole;
+  reads
+    "an element of two lists with two separators"
+    "arm"
+    ([ file "Stmt"
+     ; either "Stmt" [ "Arms"; "Others" ]
+     ; arms
+     ; prod "Others" [ child_rep "arm" (Rule "Arm") ]
+       |> with_delimited_sep ~open_tok:"lparen" ~close_tok:"rparen" ~sep:"comma"
+     ; arm one_right
+     ; wide_left
+     ; right
+     ]
+     @ pairs)
+    whole;
+  expect
+    "an element that is a root as well"
+    (entry
+       "an element that is a root as well"
+       "arm"
+       (repository
+          ~roots:[ "File"; "Arm" ]
+          "an element that is a root as well"
+          ([ file "Arms"; arms; arm one_right; wide_left; right ] @ pairs)))
+    whole;
+  reads
+    "an element whose two sides reach the same pairs"
+    "arm"
+    ([ file "Arms"; arms; arm one_right; wide_left; either "Right" [ "Tuple"; "Set" ] ]
+     @ pairs)
+    whole;
+  (* The tail is a list of its own. A rule in front of the arrow that opens
+     on a name is alone on that name, whatever the tail takes. One in the
+     tail, beside a loose name, is not. *)
+  let what = "an element with a name in front of its arrow and names behind it" in
+  let entries =
+    repository
+      what
+      ([ file "Arms"
+       ; arms
+       ; arm one_right
+       ; either "Left" [ "Front"; "Tuple" ]
+       ; prod "Front" [ child_req "name" (Token "word"); child_req "set" (Rule "Set") ]
+       ; prod
+           "Right"
+           [ child_opt "group" (Rule "Group")
+           ; child_req "back" (Rule "Back")
+           ; child_req "other" (Token "word")
+           ]
+       ; prod "Back" [ child_req "name" (Token "word"); child_req "body" (Rule "Body") ]
+       ]
+       @ pairs)
+  in
+  expect what (entry what "arm" entries) tail;
+  expect what (entry what "front" entries) (name ^ {|..(?<=\})[#set]|});
+  expect what (entry what "back" entries) ("[#body /" ^ name ^ "/]");
+  (* A token after the arrow may be tied to it, and the tail's own opening
+     would take the arrow first. *)
+  reads
+    "an element whose tail leads with a token"
+    "arm"
+    ([ file "Arms"
+     ; arms
+     ; arm [ child_req "lead" (Rule "Lead"); child_req "group" (Rule "Group") ]
+     ; wide_left
+     ; lead
+     ]
+     @ pairs)
+    "[#group #left #lead]";
+  (* The separator stands loose in the tail, which would end there. *)
+  let loose (token : string) : production =
+    prod
+      "Right"
+      [ child_opt "bang" (Token "bang")
+      ; child_req "one" (Rule "Group")
+      ; child_req "loose" (Token token)
+      ; child_req "two" (Rule "Body")
+      ]
+  in
+  reads
+    "an element with the separator loose in its tail"
+    "arm"
+    ([ file "Arms"; arms; arm one_right; wide_left; loose "semi" ] @ pairs)
+    whole;
+  reads
+    "an element with the closer loose in its tail"
+    "arm"
+    ([ file "Arms"; arms; arm one_right; wide_left; loose "rbrack" ] @ pairs)
+    whole;
+  (* The separator inside a pair the tail reaches is taken there, and ends
+     nothing. *)
+  reads
+    "an element with the separator inside a pair of its tail"
+    "arm"
+    [ file "Arms"
+    ; arms
+    ; arm one_right
+    ; wide_left
+    ; right
+    ; tuple
+    ; set
+    ; body
+    ; prod "Group" [ child_req "inner" (Rule "Inner") ]
+      |> with_delimited ~open_tok:"lparen" ~close_tok:"rparen"
+    ; prod
+        "Inner"
+        [ child_opt "bang" (Token "bang")
+        ; child_req "one" (Token "word")
+        ; child_req "semi" (Token "semi")
+        ; child_req "two" (Token "word")
+        ]
+    ]
+    tail;
+  (* -- an operand opens a region, and its operators are read inside it --
+
+     [Paren] is an atom on the bracket the call opens on. The block's own
+     list holds no pattern for the call. A token atom opens a region by
+     being taken, and the call and the one-token operator stand in it. An
+     atom that is a pair opens one around itself, where the call refuses the
+     place the region opened at. Both end in front of whatever is none of
+     these. *)
+  let what = "a call behind its operand" in
+  let block =
+    entry
+      what
+      "expr"
+      (repository
+         ~expr:words
+         what
+         [ file "Stmt"
+         ; prod "Stmt" [ child_req "e" (Rule "Expr"); child_req "semi" (Token "semi") ]
+         ; paren
+         ])
+  in
+  let call (opens : string) : string = opens ^ {|..\)[#expr]|} in
+  expect
+    what
+    block
+    (Printf.sprintf
+       {|[<(?=(?:\())..(?=\S)[<%s> /!/ #paren]> <(%s)|(\bself\b)..(?=\S)[<%s> /!/]>]|}
+       (call {|(?!\G)\(|})
+       name
+       (call {|\(|}));
+  List.iter
+    (fun (region : Yojson.Basic.t) ->
+       if
+         field "begin" region <> None
+         && field "applyEndPatternLast" region <> Some (`Int 1)
+       then
+         Law.fail "(s) %s: an operand's region ends before its operators are tried" what)
+    (patterns_of block);
+  (* A block with no operator that encloses its operand is the list it was. *)
+  let what = "a block with no call" in
+  expect
+    what
+    (entry
+       what
+       "expr"
+       (repository
+          ~expr:[ expr_block ~rule_name:"Expr" ~atoms:[ Token "word"; Rule "Paren" ] () ]
+          what
+          [ file "Stmt"
+          ; prod "Stmt" [ child_req "e" (Rule "Expr"); child_req "semi" (Token "semi") ]
+          ; paren
+          ]))
+    "[#paren]";
+  (* -- every list of the corpus gives each token to one region --
+
+     One list does not. A [match] in the rust grammar reads an expression and
+     then its body, and a block is an atom of that expression, so a brace
+     behind [match] opens either. Nothing in the text says which until the
+     expression is over, and a list has no way to know that it is. *)
+  List.iter
+    (fun (entry : Editor_corpus.entry) ->
+       let scopes = Editor_corpus.scopes entry in
+       let facts = Scopes.facts scopes in
+       let found =
+         List.map
+           (fun (kind, one, two) ->
+              Printf.sprintf
+                "%s: %s and %s"
+                (Core.Kind.Name.to_string (Core.Facts.kind_name facts kind))
+                (Core.Grammar.Name.Rule.to_string (Core.Facts.rule facts one).name)
+                (Core.Grammar.Name.Rule.to_string (Core.Facts.rule facts two).name))
+           (Textmate.Shape.undecided facts scopes)
+       in
+       let wanted =
+         if String.equal entry.name "rust"
+         then [ "T_LBRACE: Block and MatchBody" ]
+         else []
+       in
+       if found <> wanted
+       then
+         Law.fail
+           "(s) %s: a list gives one token to two regions: %s"
+           entry.name
+           (String.concat ", " found))
+    Editor_corpus.all;
+  ignore holds;
+  if Law.failures () = before
+  then Law.pass "(s) each token of a list has one thing that opens on it"
 ;;
 
 let () = Law.summarise "law_textmate"

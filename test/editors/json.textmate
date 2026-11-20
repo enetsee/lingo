@@ -11,7 +11,17 @@
     "value": {
       "patterns": [ { "include": "#object" }, { "include": "#array" } ]
     },
-    "member": { "patterns": [ { "include": "#value" } ] },
+    "member": {
+      "name": "meta.member.json",
+      "begin": "\"(?:[^\"\\\\]|\\\\[\\s\\S])*\"",
+      "end": "(?=\\}|,)",
+      "beginCaptures": { "0": { "name": "support.type.property-name.json" } },
+      "patterns": [
+        { "include": "#value" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
     "object": {
       "name": "meta.object.json",
       "begin": "\\{",
@@ -23,10 +33,6 @@
         "0": { "name": "punctuation.section.braces.end.json" }
       },
       "patterns": [
-        {
-          "name": "support.type.property-name.json",
-          "match": "(?:\"(?:[^\"\\\\]|\\\\[\\s\\S])*\")(?=(?>(?:[\\t\\n\\r ]+))*(?::))"
-        },
         { "include": "#member" },
         { "include": "#trivia" },
         { "include": "#tokens" }

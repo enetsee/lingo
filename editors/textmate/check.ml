@@ -426,8 +426,8 @@ let carries_a_scope
        settles it. *)
     ignore raw;
     (match Shape.of_rule facts scopes rule with
-     | Shape.Flat -> false
-     | Shape.Delimited _ | Shape.Region _ | Shape.Capture _ -> true)
+     | Shape.Flat | Shape.Tailed _ -> false
+     | Shape.Delimited _ | Shape.Region _ | Shape.Open _ | Shape.Capture _ -> true)
 ;;
 
 let check_attachable

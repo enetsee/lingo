@@ -13,7 +13,7 @@
       "patterns": [
         { "include": "#leaf" },
         { "include": "#group" },
-        { "include": "#fields" }
+        { "include": "#sig" }
       ]
     },
     "group": {
@@ -23,6 +23,17 @@
       "beginCaptures": { "0": { "name": "punctuation.separator.recovery" } },
       "patterns": [
         { "include": "#leaf" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "sig": {
+      "name": "meta.sig.recovery",
+      "begin": "\\bsig\\b",
+      "end": "(?<=\\bin)\\b",
+      "beginCaptures": { "0": { "name": "keyword.other.sig.recovery" } },
+      "patterns": [
+        { "include": "#fields" },
         { "include": "#trivia" },
         { "include": "#tokens" }
       ]

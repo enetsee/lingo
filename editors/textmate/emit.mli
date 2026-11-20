@@ -23,7 +23,17 @@ val entry : ctx -> Core.Rule.def -> Yojson.Basic.t
 (** The repository entry for an expression block: its atoms, and a pattern
     per postfix operator that has a shape of its own. The prefix and infix
     operator tokens need none, since they are tokens and the grammar-wide
-    token entry covers them. *)
+    token entry covers them.
+
+    Where the block has an operator that encloses its operand, an operand
+    opens a region of its own and every operator written behind an operand is
+    tried in that region and nowhere else. So [f(x)] is a call and [(x)] is
+    an atom, with any space, comment or line break between [f] and its
+    bracket. A token atom opens the region by being taken. An atom that is a
+    region or a single match opens one around itself.
+
+    The entry trails neither the trivia nor the token entry. The list that
+    holds the expression trails both, once, at its end. *)
 val block_entry : ctx -> Core.Block.def -> Yojson.Basic.t
 
 (** The pairs a place puts ahead of everything else. The document root is

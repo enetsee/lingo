@@ -37,14 +37,16 @@ type t =
 
    [scope] is what the token's own emission gives it, and [wanted] is what
    the author asked for. The two differ only for a name a list keeps out of
-   its body. [fallback] marks the grammar-wide token list, which is a
-   pattern the engine tries and not a place the grammar puts the token. *)
+   its body.
+
+   The grammar-wide token list is no member. Every list trails it, so it is
+   tried behind every claim, and taking text from what is behind is what a
+   per-position scope is for. *)
 type member =
   { at : (Core.Rule.id * int) option
   ; token : Core.Token.def
   ; scope : Scopes.Scope.t option
   ; wanted : Scopes.Scope.t option
-  ; fallback : bool
   }
 
 let same_scope (a : Scopes.Scope.t option) (b : Scopes.Scope.t option) : bool =
@@ -95,9 +97,8 @@ let overlaps (a : Core.Token.def) (b : Core.Token.def) : bool =
    region or matches as one regex is opaque: what it holds is tried in a
    place of its own, or not at all.
 
-   An expression block is spliced like a flat entry, and its list ends in
-   the trivia and token entries. Those land in the middle of the including
-   place. *)
+   An expression block is spliced like a flat entry. Its members are its
+   atoms and its operators. *)
 let places (scopes : Scopes.t) ~(raw : Core.Rule.id -> bool) : (place * member list) list =
   let facts = Scopes.facts scopes in
   let rules = Core.Facts.(facts.rules) in
@@ -110,24 +111,14 @@ let places (scopes : Scopes.t) ~(raw : Core.Rule.id -> bool) : (place * member l
       Core.Facts.(facts.blocks)
       ~f:(fun (block : Core.Block.def) -> block.rule_id = id)
   in
-  let loose (token : Core.Token.def) ~(fallback : bool) : member =
+  let loose (token : Core.Token.def) : member =
     let scope = Scopes.token scopes token.id in
-    { at = None; token; scope; wanted = scope; fallback }
+    { at = None; token; scope; wanted = scope }
   in
   let occurrence (kind : Core.Kind.t) : member list =
     match Core.Facts.token_of_kind facts kind with
-    | Some token when not (Core.Token.is_trivia token) -> [ loose token ~fallback:false ]
+    | Some token when not (Core.Token.is_trivia token) -> [ loose token ]
     | Some _ | None -> []
-  in
-  let tokens_tail : member list =
-    Array.to_list Core.Facts.(facts.tokens)
-    |> List.filter_map ~f:(fun (token : Core.Token.def) ->
-      if Core.Token.is_trivia token
-      then None
-      else (
-        match Core.Token.text token, Scopes.token scopes token.id with
-        | None, None -> None
-        | _ -> Some (loose token ~fallback:true)))
   in
   let rec include_ ~(visited : Core.Rule.id list ref) (target : Core.Rule.def)
     : member list
@@ -142,17 +133,22 @@ let places (scopes : Scopes.t) ~(raw : Core.Rule.id -> bool) : (place * member l
         (match Shape.forwards_to facts scopes ~raw target with
          | Some next -> include_ ~visited (Core.Facts.rule facts next)
          | None ->
+           let last = Array.length target.children - 1 in
            (match Lazy.force shapes.(target.id) with
-            | Shape.Flat -> body ~visited target Shape.Flat ~from:0
-            | Shape.Delimited _ | Shape.Region _ | Shape.Capture _ -> [])))
+            | Shape.Flat -> body ~visited target Shape.Flat ~from:0 ~upto:last
+            | Shape.Tailed { from; _ } as shape ->
+              body ~visited target shape ~from:0 ~upto:(from - 1)
+            | Shape.Delimited _ | Shape.Region _ | Shape.Open _ | Shape.Capture _ -> [])))
   and body
         ~(visited : Core.Rule.id list ref)
         (rule : Core.Rule.def)
         (shape : Shape.t)
         ~(from : int)
+        ~(upto : int)
     : member list
     =
     Shape.emission_order facts rule ~from
+    |> List.filter ~f:(fun (index : int) -> index <= upto)
     |> List.concat_map ~f:(fun (index : int) ->
       Array.to_list rule.children.(index).alts
       |> List.concat_map ~f:(fun (kind : Core.Kind.t) ->
@@ -163,7 +159,6 @@ let places (scopes : Scopes.t) ~(raw : Core.Rule.id -> bool) : (place * member l
             ; token
             ; scope = Shape.body_scope scopes rule shape ~index ~token:token.id
             ; wanted = Scopes.resolve scopes ~rule:rule.id ~child:index ~token:token.id
-            ; fallback = false
             }
           ]
         | None ->
@@ -191,7 +186,7 @@ let places (scopes : Scopes.t) ~(raw : Core.Rule.id -> bool) : (place * member l
         | Core.Block.Nothing -> occurrence postfix.p_lead
         | Core.Block.Then _ | Core.Block.Enclosed _ -> [])
     in
-    atoms @ ops block.prefix @ ops block.infix @ bare_postfix @ tokens_tail
+    atoms @ ops block.prefix @ ops block.infix @ bare_postfix
   in
   let fresh () : Core.Rule.id list ref = ref [] in
   let root =
@@ -199,20 +194,36 @@ let places (scopes : Scopes.t) ~(raw : Core.Rule.id -> bool) : (place * member l
     | first :: _ -> [ Root, include_ ~visited:(fresh ()) (Core.Facts.rule facts first) ]
     | [] -> []
   in
+  (* A region that is cut is one place for each part, all under the rule's
+     name: each part is a list of its own, and a tie found in any of them is
+     tried in all. *)
   let regions =
     Array.to_list rules
-    |> List.filter_map ~f:(fun (rule : Core.Rule.def) ->
+    |> List.concat_map ~f:(fun (rule : Core.Rule.def) ->
       match rule.origin with
-      | Core.Rule.Pratt_role _ | Core.Rule.Pratt_block -> None
+      | Core.Rule.Pratt_role _ | Core.Rule.Pratt_block -> []
       | Core.Rule.User ->
         let shape = Lazy.force shapes.(rule.id) in
+        let last = Array.length rule.children - 1 in
+        let own ~(from : int) ~(upto : int) : place * member list =
+          Body rule.id, body ~visited:(ref [ rule.id ]) rule shape ~from ~upto
+        in
+        let parts ~(from : int) (splits : Shape.split list) : (place * member list) list =
+          let lo, found =
+            List.fold_left
+              splits
+              ~init:(from, [])
+              ~f:(fun (lo, found) (split : Shape.split) ->
+                split.upto + 1, own ~from:lo ~upto:split.upto :: found)
+          in
+          List.rev (own ~from:lo ~upto:last :: found)
+        in
         (match shape with
-         | Shape.Delimited _ | Shape.Region _ ->
-           (match Shape.body_from rule shape with
-            | Some from ->
-              Some (Body rule.id, body ~visited:(ref [ rule.id ]) rule shape ~from)
-            | None -> None)
-         | Shape.Flat | Shape.Capture _ -> None))
+         | Shape.Delimited _ -> [ own ~from:rule.body_from ~upto:last ]
+         | Shape.Region { body_from; splits; _ } | Shape.Open { body_from; splits; _ } ->
+           parts ~from:body_from splits
+         | Shape.Tailed { from; _ } -> [ own ~from:(from + 1) ~upto:last ]
+         | Shape.Flat | Shape.Capture _ -> []))
   in
   let enclosed =
     Array.to_list Core.Facts.(facts.blocks)
@@ -294,7 +305,12 @@ let references (scopes : Scopes.t) (target : Core.Rule.def)
       (Array.to_list Core.Facts.(facts.rules)
        |> List.concat_map ~f:(fun (parent : Core.Rule.def) ->
          match parent.origin, Shape.of_rule facts scopes parent with
-         | Core.Rule.User, (Shape.Flat | Shape.Region _ | Shape.Delimited _) ->
+         | ( Core.Rule.User
+           , ( Shape.Flat
+             | Shape.Tailed _
+             | Shape.Region _
+             | Shape.Open _
+             | Shape.Delimited _ ) ) ->
            List.init ~len:(Array.length parent.children) ~f:(fun index -> index)
            |> List.filter_map ~f:(fun (index : int) ->
              if Array.exists parent.children.(index).alts ~f:is_target
@@ -343,7 +359,7 @@ let anchors_of (scopes : Scopes.t) (rule : Core.Rule.def) ~(index : int) : ancho
         | Some next -> [ After next ]
         | None ->
           (match shape, index, references scopes rule with
-           | Shape.Flat, 0, Some (_ :: _ as parents) ->
+           | (Shape.Flat | Shape.Tailed _), 0, Some (_ :: _ as parents) ->
              let leads = List.map parents ~f:(fun (parent, at) -> before parent ~at) in
              if List.for_all leads ~f:Option.is_some
              then List.filter_map leads ~f:(fun lead -> lead)
@@ -356,9 +372,7 @@ let anchors_of (scopes : Scopes.t) (rule : Core.Rule.def) ~(index : int) : ancho
 (* A claim clashes with another member of its place where the two can match
    the same text and come out differently. An occurrence the grammar puts
    there clashes wherever it sits in the order: an earlier one takes the
-   claim's text, and a later one has its own text taken. The grammar-wide
-   list clashes only from in front. Behind the claim it is a fallback, and
-   taking text from a fallback is what a per-position scope is for. *)
+   claim's text, and a later one has its own text taken. *)
 let of_scopes (scopes : Scopes.t) ~(raw : Core.Rule.id -> bool) : t =
   let facts = Scopes.facts scopes in
   let places = places scopes ~raw in
@@ -366,7 +380,7 @@ let of_scopes (scopes : Scopes.t) ~(raw : Core.Rule.id -> bool) : t =
   let wanted = Hashtbl.create 16 in
   List.iter places ~f:(fun (_, members) ->
     let members = Array.of_list members in
-    Array.iteri members ~f:(fun k (claim : member) ->
+    Array.iter members ~f:(fun (claim : member) ->
       match claim.at with
       | None -> ()
       | Some (rule, child) ->
@@ -375,11 +389,10 @@ let of_scopes (scopes : Scopes.t) ~(raw : Core.Rule.id -> bool) : t =
         let claimed = not (same_scope claim.scope (Scopes.token scopes claim.token.id)) in
         if claimed
         then
-          Array.iteri members ~f:(fun m (other : member) ->
+          Array.iter members ~f:(fun (other : member) ->
             if
               (not (Hashtbl.mem clashing key))
               && other.at <> claim.at
-              && ((not other.fallback) || m < k)
               && (not (same_scope claim.scope other.scope))
               && overlaps claim.token other.token
             then Hashtbl.replace clashing key other.at)));
@@ -429,7 +442,7 @@ let is_paired (t : t) ~(rule : Core.Rule.id) ~(child : int) ~(token : Core.Token
 ;;
 
 let pairs (t : t) (place : place) : pair list =
-  Option.value (List.assoc_opt place t.pairs) ~default:[]
+  List.concat_map t.pairs ~f:(fun (other, found) -> if other = place then found else [])
 ;;
 
 let unanchored (t : t) : unanchored list = t.unanchored

@@ -28,7 +28,17 @@
         { "include": "#tokens" }
       ]
     },
-    "path": { "patterns": [ { "include": "#path_seg" } ] },
+    "path": {
+      "name": "meta.path.ml",
+      "begin": "(?!(?:data|else|if|import|let|then|type|val)\\b)[A-Z_a-z][0-9A-Z_a-z]*",
+      "end": "(?=;)",
+      "beginCaptures": { "0": { "name": "variable.other.ml" } },
+      "patterns": [
+        { "include": "#path_seg" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
     "path_seg": {
       "name": "meta.path.seg.ml",
       "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
@@ -92,12 +102,14 @@
       ]
     },
     "ctor": {
+      "name": "meta.ctor.ml",
+      "begin": "(?!(?:data|else|if|import|let|then|type|val)\\b)[A-Z_a-z][0-9A-Z_a-z]*",
+      "end": "(?=\\}|\\|)",
+      "beginCaptures": { "0": { "name": "entity.name.type.constructor.ml" } },
       "patterns": [
         { "include": "#ctor_payload" },
-        {
-          "name": "entity.name.type.constructor.ml",
-          "match": "(?!(?:data|else|if|import|let|then|type|val)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
-        }
+        { "include": "#trivia" },
+        { "include": "#tokens" }
       ]
     },
     "ctor_payload": {
@@ -114,15 +126,33 @@
     },
     "let_decl": {
       "name": "meta.let.decl.ml",
-      "begin": "(\\blet\\b)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
-      "end": "(?<=;)",
-      "beginCaptures": {
-        "1": { "name": "storage.type.let.ml" },
-        "2": { "name": "entity.name.function.ml" }
-      },
+      "begin": "(?=(\\blet\\b)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*))",
+      "end": "(?!\\G)(?<=;)",
       "patterns": [
-        { "include": "#param" },
-        { "include": "#type" },
+        {
+          "begin": "\\G",
+          "end": "=(?!=)",
+          "endCaptures": { "0": { "name": "punctuation.separator.ml" } },
+          "patterns": [
+            {
+              "begin": "\\G(\\blet\\b)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
+              "end": ":",
+              "endCaptures": { "0": { "name": "punctuation.separator.ml" } },
+              "beginCaptures": {
+                "1": { "name": "storage.type.let.ml" },
+                "2": { "name": "entity.name.function.ml" }
+              },
+              "patterns": [
+                { "include": "#param" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            { "include": "#type" },
+            { "include": "#trivia" },
+            { "include": "#tokens" }
+          ]
+        },
         { "include": "#expr" },
         { "include": "#trivia" },
         { "include": "#tokens" }
@@ -135,14 +165,27 @@
     },
     "plain_param": {
       "name": "meta.plain.param.ml",
-      "match": "(\\()(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*(:)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*(\\))",
-      "captures": {
-        "1": { "name": "punctuation.separator.ml" },
-        "2": { "name": "variable.parameter.ml" },
-        "3": { "name": "punctuation.separator.ml" },
-        "4": { "name": "variable.other.ml" },
-        "5": { "name": "punctuation.separator.ml" }
-      }
+      "begin": "(?=\\()",
+      "end": "(?!\\G)(?<=\\))",
+      "patterns": [
+        {
+          "begin": "\\G\\(",
+          "end": "(?!(?:data|else|if|import|let|then|type|val)\\b)[A-Z_a-z][0-9A-Z_a-z]*",
+          "endCaptures": { "0": { "name": "variable.parameter.ml" } },
+          "beginCaptures": { "0": { "name": "punctuation.separator.ml" } },
+          "patterns": [
+            {
+              "name": "variable.parameter.ml",
+              "match": "(?!(?:data|else|if|import|let|then|type|val)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
+            },
+            { "include": "#trivia" },
+            { "include": "#tokens" }
+          ]
+        },
+        { "include": "#type" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
     },
     "labelled_param": {
       "name": "meta.labelled.param.ml",
@@ -181,17 +224,107 @@
     "arg": {
       "patterns": [ { "include": "#label" }, { "include": "#expr" } ]
     },
-    "type": {
-      "patterns": [
-        { "include": "#type_group" },
-        { "include": "#trivia" },
-        { "include": "#tokens" }
-      ]
-    },
+    "type": { "patterns": [ { "include": "#type_group" } ] },
     "expr": {
       "patterns": [
-        { "include": "#list" },
+        {
+          "begin": "(?=(?:\\[))",
+          "end": "(?=\\S)",
+          "applyEndPatternLast": 1,
+          "patterns": [
+            {
+              "name": "meta.expr.postfix.field.ml",
+              "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
+              "captures": {
+                "1": { "name": "punctuation.accessor.ml" },
+                "2": { "name": "variable.other.ml" }
+              }
+            },
+            {
+              "name": "meta.function-call.ml",
+              "begin": "(?!\\G)\\(",
+              "end": "\\)",
+              "beginCaptures": {
+                "0": { "name": "punctuation.separator.ml" }
+              },
+              "endCaptures": { "0": { "name": "punctuation.separator.ml" } },
+              "patterns": [
+                { "include": "#arg" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            {
+              "name": "meta.expr.postfix.block.ml",
+              "begin": "(?!\\G)\\{",
+              "end": "\\}",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.braces.begin.ml" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.braces.end.ml" }
+              },
+              "patterns": [
+                { "include": "#expr" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            { "include": "#list" },
+            { "include": "#trivia" }
+          ]
+        },
         { "include": "#if" },
+        {
+          "begin": "([0-9]+)|((?!(?:data|else|if|import|let|then|type|val)\\b)[A-Z_a-z][0-9A-Z_a-z]*)",
+          "beginCaptures": {
+            "1": { "name": "constant.numeric.integer.ml" },
+            "2": { "name": "variable.other.ml" }
+          },
+          "end": "(?=\\S)",
+          "applyEndPatternLast": 1,
+          "patterns": [
+            {
+              "name": "meta.expr.postfix.field.ml",
+              "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
+              "captures": {
+                "1": { "name": "punctuation.accessor.ml" },
+                "2": { "name": "variable.other.ml" }
+              }
+            },
+            {
+              "name": "meta.function-call.ml",
+              "begin": "\\(",
+              "end": "\\)",
+              "beginCaptures": {
+                "0": { "name": "punctuation.separator.ml" }
+              },
+              "endCaptures": { "0": { "name": "punctuation.separator.ml" } },
+              "patterns": [
+                { "include": "#arg" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            {
+              "name": "meta.expr.postfix.block.ml",
+              "begin": "\\{",
+              "end": "\\}",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.braces.begin.ml" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.braces.end.ml" }
+              },
+              "patterns": [
+                { "include": "#expr" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            { "include": "#trivia" }
+          ]
+        },
         {
           "name": "meta.expr.postfix.field.ml",
           "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?:\\(\\*(?:(?!\\*\\))[^\\n])*\\*\\)))*([A-Z_a-z][0-9A-Z_a-z]*)",
@@ -199,29 +332,7 @@
             "1": { "name": "punctuation.accessor.ml" },
             "2": { "name": "variable.other.ml" }
           }
-        },
-        {
-          "name": "meta.function-call.ml",
-          "begin": "\\(",
-          "end": "\\)",
-          "beginCaptures": { "0": { "name": "punctuation.separator.ml" } },
-          "endCaptures": { "0": { "name": "punctuation.separator.ml" } },
-          "patterns": [ { "include": "#arg" } ]
-        },
-        {
-          "name": "meta.expr.postfix.block.ml",
-          "begin": "\\{",
-          "end": "\\}",
-          "beginCaptures": {
-            "0": { "name": "punctuation.section.braces.begin.ml" }
-          },
-          "endCaptures": {
-            "0": { "name": "punctuation.section.braces.end.ml" }
-          },
-          "patterns": [ { "include": "#expr" } ]
-        },
-        { "include": "#trivia" },
-        { "include": "#tokens" }
+        }
       ]
     },
     "trivia": {

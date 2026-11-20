@@ -20,7 +20,7 @@ runs:
         opam pin add -y -n ucharset.dev \
           git+https://github.com/enetsee/ucharset.git#a95ff971807dc003a252a8e3061e2d89955b242e
         opam pin add -y -n redfa.dev \
-          git+https://github.com/enetsee/redfa.git#6d6ae56dacb7a2dccdbf0c923c9ccb5a47b44273
+          git+https://github.com/enetsee/redfa.git#0eb745abe17984e439b4878d1ba6d9c426fb2df2
         opam pin add -y -n siesta.dev \
           git+https://github.com/enetsee/siesta.git#c29281ea581beddc714474919b890ddd9fadc642
         opam pin add -y -n handsome.dev \

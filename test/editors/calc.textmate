@@ -24,13 +24,7 @@
         { "include": "#tokens" }
       ]
     },
-    "expr": {
-      "patterns": [
-        { "include": "#parens" },
-        { "include": "#trivia" },
-        { "include": "#tokens" }
-      ]
-    },
+    "expr": { "patterns": [ { "include": "#parens" } ] },
     "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },
     "tokens": {
       "patterns": [

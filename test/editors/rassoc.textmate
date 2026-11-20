@@ -8,9 +8,7 @@
     { "include": "#tokens" }
   ],
   "repository": {
-    "expr": {
-      "patterns": [ { "include": "#trivia" }, { "include": "#tokens" } ]
-    },
+    "expr": { "patterns": [] },
     "trivia": { "patterns": [ { "match": "[\\t\\n\\r ]+" } ] },
     "tokens": {
       "patterns": [

@@ -31,7 +31,9 @@
 (** A place: a list the engine tries as a whole. *)
 type place =
   | Root
-  | Body of Core.Rule.id (** The body of a region or a matched pair. *)
+  | Body of Core.Rule.id
+  (** The body of a region or a matched pair, or the part of a list that
+        stands in a region of its own. *)
   | Enclosed of Core.Rule.id
   (** The body of an enclosed postfix operator, by
         {!Core.Block.postfix.p_rule}. *)
