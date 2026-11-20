@@ -12,3 +12,5 @@
 (match_body) @fold
 (expr_postfix_index) @fold
 (expr_postfix_call) @fold
+(scrutinee_postfix_index) @fold
+(scrutinee_postfix_call) @fold

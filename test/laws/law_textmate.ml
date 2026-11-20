@@ -936,6 +936,77 @@ let () =
      Law.fail
        "(j) two children holding one pair: reported %s"
        (String.concat ", " (List.map Textmate.Check.problem_to_string problems)));
+  (* One list that gives a token to two things. A statement reads an
+     expression and then a body, and a set among the expression's atoms
+     opens on the body's brace. Then an angle bracket that is both an
+     operator of the expression and the opener of one of its atoms. *)
+  let either_of (problems : Textmate.Check.problem list) ~(loose : bool) : bool =
+    List.exists
+      (function
+        | Textmate.Check.Undecided { second; _ } -> second = None = loose
+        | _ -> false)
+      problems
+  in
+  let undecided ~(loose : bool) (what : string) (grammar : Core.Grammar.t) : unit =
+    match Textmate.generate (scopes_of (facts_of grammar)) ~language:"witness" () with
+    | Ok _ -> Law.fail "(j) %s: the grammar was accepted" what
+    | Error problems ->
+      if not (either_of problems ~loose)
+      then
+        Law.fail
+          "(j) %s: reported %s"
+          what
+          (String.concat ", " (List.map Textmate.Check.problem_to_string problems))
+  in
+  undecided
+    ~loose:false
+    "a bracket that opens an atom and the body behind the expression"
+    (let open Core.Grammar in
+     create
+       ~expr:[ expr_block ~rule_name:"Expr" ~atoms:[ Token "word"; Rule "Set" ] () ]
+       ~tokens:
+         [ kw "go"
+         ; punct_tight ~name:"lbrace" "{"
+         ; punct_tight ~name:"rbrace" "}"
+         ; pat "word" Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z'))
+         ]
+       ~roots:[ "File" ]
+       [ prod "File" [ child_rep "stmt" (Rule "Stmt") ]
+       ; prod
+           "Stmt"
+           [ child_req "kw" (Token "go")
+           ; child_req "value" (Rule "Expr")
+           ; child_req "body" (Rule "Body")
+           ]
+       ; prod "Set" [ child_rep "word" (Token "word") ]
+         |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+       ; prod "Body" [ child_rep "word" (Token "word") ]
+         |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+       ]);
+  undecided
+    ~loose:true
+    "a bracket that is an operator and opens an atom"
+    (let open Core.Grammar in
+     create
+       ~expr:
+         [ expr_block
+             ~rule_name:"Expr"
+             ~atoms:[ Token "word"; Rule "Angle" ]
+             ~infix_ops:[ infix ~token:"langle" ~bp:10 () ]
+             ()
+         ]
+       ~tokens:
+         [ punct ~name:"langle" "<"
+         ; punct ~name:"rangle" ">"
+         ; punct ~name:"semi" ";"
+         ; pat "word" Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z'))
+         ]
+       ~roots:[ "File" ]
+       [ prod "File" [ child_rep "stmt" (Rule "Stmt") ]
+       ; prod "Stmt" [ child_req "value" (Rule "Expr"); child_req "semi" (Token "semi") ]
+       ; prod "Angle" [ child_rep "word" (Token "word") ]
+         |> with_delimited ~open_tok:"langle" ~close_tok:"rangle"
+       ]);
   let rust = scopes_of (facts_of Lingo_grammars.Rust_grammar.grammar) in
   expect
     "a hand-written pattern that is not JSON"
@@ -2589,10 +2660,37 @@ let () =
     if json <> `Null && not (String.equal (describe json) wanted)
     then Law.fail "(s) %s:\n  wanted %s\n  got    %s" what wanted (describe json)
   in
+  (* The backend refuses the grammar, for a list that gives one token to two
+     things. *)
+  let refuses ?(roots = [ "File" ]) (what : string) (rules : production list) : unit =
+    match
+      Textmate.generate
+        (scopes_of (facts_of (create ~tokens ~roots rules)))
+        ~language:"witness"
+        ()
+    with
+    | Ok _ -> Law.fail "(s) %s: accepted" what
+    | Error problems ->
+      if
+        not
+          (List.exists
+             (function
+               | Textmate.Check.Undecided _ -> true
+               | _ -> false)
+             problems)
+      then
+        Law.fail
+          "(s) %s: refused for %s"
+          what
+          (String.concat ", " (List.map Textmate.Check.problem_to_string problems))
+  in
+  let refused = "refused" in
   let reads (what : string) (key : string) (rules : production list) (wanted : string)
     : unit
     =
-    expect what (entry what key (repository what rules)) wanted
+    if String.equal wanted refused
+    then refuses what rules
+    else expect what (entry what key (repository what rules)) wanted
   in
   (* -- a region ends behind what its last child always ends on --
 
@@ -2683,7 +2781,8 @@ let () =
     (sides left (either "Right" [ "Tuple"; "Set" ]))
     {|\bgo\b..(?<=;)[#left #right]|};
   (* The literal also stands loose in what the first part would hold, and the
-     part would end there. *)
+     part would end there. So there is no cut, the two brackets stay in one
+     list, and the grammar is refused. *)
   reads
     "a literal that also stands loose before the cut"
     "stmt"
@@ -2696,7 +2795,7 @@ let () =
           ; child_req "name" (Token "word")
           ])
        right)
-    {|\bgo\b..(?<=;)[#left #right]|};
+    refused;
   (* A child that holds a pair of its own is tried ahead of the rest, so here
      it is [Left]'s bracket that one list reads as the other's. *)
   reads
@@ -2710,7 +2809,7 @@ let () =
        (left :: pairs))
     {|(?=\bgo\b)..(?!\G)(?<=;)[<\G\bgo\b..=(?!>)[#left]> #group]|};
   (* A literal in front of a list that leads with a token may be tied to that
-     token, so it carries no cut. *)
+     token, so it carries no cut, and the grammar is refused. *)
   reads
     "a literal in front of a list that leads with a token"
     "stmt"
@@ -2721,7 +2820,7 @@ let () =
        ; child_req "group" (Rule "Group")
        ]
        ([ left; lead ] @ pairs))
-    {|\bgo\b..(?<=;)[#group #left #lead]|};
+    refused;
   (* A cut behind a child that ends on one text, which need be no pair. *)
   reads
     "a child that ends on a fixed text"
@@ -3035,22 +3134,13 @@ let () =
         @ pairs))
     {|(?=(?=\())..(?!\G)(?<=\))[<\G(?=\()..(?!\G)(?<==>)[#head]> #group]|};
   (* Something else in the list opens on the same bracket, with nothing
-     between the two to cut at. [Head] stays a list, and a list of one pair
-     and a token is a forwarder. *)
-  let what = "a rule that starts with a pair which something else opens on" in
-  let entries =
-    repository
-      what
-      (assign
-         [ child_req "right" (Rule "Right"); child_req "head" (Rule "Head") ]
-         ([ head; right ] @ pairs))
-  in
-  if List.mem_assoc "head" entries
-  then
-    Law.fail
-      "(s) %s: the rule has an entry, %s"
-      what
-      (describe (entry what "head" entries));
+     between the two to cut at. [Head] cannot be a region, so its pair stands
+     beside the other, and the grammar is refused. *)
+  refuses
+    "a rule that starts with a pair which something else opens on"
+    (assign
+       [ child_req "right" (Rule "Right"); child_req "head" (Rule "Head") ]
+       ([ head; right ] @ pairs));
   (* -- the tail of a list element is a region --
 
      [Arm] may start with a name, so it opens on nothing. It is an element of
@@ -3073,6 +3163,9 @@ let () =
   in
   let one_right : child list = [ child_req "right" (Rule "Right") ] in
   let tail = {|[#left <=>..(?=;|\])[#right]>]|} in
+  (* An element with no tail keeps both sides in the list of arms. Where the
+     two sides reach different pairs on one bracket, that list cannot tell
+     them apart and the grammar is refused. *)
   let whole = "[#left #right]" in
   reads
     "an element of a separated list in a pair"
@@ -3090,7 +3183,7 @@ let () =
      ; right
      ]
      @ pairs)
-    whole;
+    refused;
   (* With one list that has no separator, an element there is followed by the
      next one and by nothing the tail could look ahead for. *)
   reads
@@ -3106,7 +3199,7 @@ let () =
      ; right
      ]
      @ pairs)
-    whole;
+    refused;
   reads
     "an element that something else holds too"
     "arm"
@@ -3119,7 +3212,7 @@ let () =
      ; right
      ]
      @ pairs)
-    whole;
+    refused;
   reads
     "an element of two lists with two separators"
     "arm"
@@ -3133,17 +3226,11 @@ let () =
      ; right
      ]
      @ pairs)
-    whole;
-  expect
+    refused;
+  refuses
+    ~roots:[ "File"; "Arm" ]
     "an element that is a root as well"
-    (entry
-       "an element that is a root as well"
-       "arm"
-       (repository
-          ~roots:[ "File"; "Arm" ]
-          "an element that is a root as well"
-          ([ file "Arms"; arms; arm one_right; wide_left; right ] @ pairs)))
-    whole;
+    ([ file "Arms"; arms; arm one_right; wide_left; right ] @ pairs);
   reads
     "an element whose two sides reach the same pairs"
     "arm"
@@ -3187,7 +3274,7 @@ let () =
      ; lead
      ]
      @ pairs)
-    "[#group #left #lead]";
+    refused;
   (* The separator stands loose in the tail, which would end there. *)
   let loose (token : string) : production =
     prod
@@ -3202,12 +3289,12 @@ let () =
     "an element with the separator loose in its tail"
     "arm"
     ([ file "Arms"; arms; arm one_right; wide_left; loose "semi" ] @ pairs)
-    whole;
+    refused;
   reads
     "an element with the closer loose in its tail"
     "arm"
     ([ file "Arms"; arms; arm one_right; wide_left; loose "rbrack" ] @ pairs)
-    whole;
+    refused;
   (* The separator inside a pair the tail reaches is taken there, and ends
      nothing. *)
   reads
@@ -3285,37 +3372,29 @@ let () =
           ; paren
           ]))
     "[#paren]";
-  (* -- every list of the corpus gives each token to one region --
+  (* -- every list of the corpus gives each token to one thing --
 
-     One list does not. A [match] in the rust grammar reads an expression and
-     then its body, and a block is an atom of that expression, so a brace
-     behind [match] opens either. Nothing in the text says which until the
-     expression is over, and a list has no way to know that it is. *)
+     The backend refuses a grammar where one does not, so part (p) says this
+     already. It is said here by the function that finds them, which part
+     (p) reaches only through the refusal. *)
   List.iter
     (fun (entry : Editor_corpus.entry) ->
        let scopes = Editor_corpus.scopes entry in
        let facts = Scopes.facts scopes in
-       let found =
-         List.map
-           (fun (kind, one, two) ->
-              Printf.sprintf
-                "%s: %s and %s"
-                (Core.Kind.Name.to_string (Core.Facts.kind_name facts kind))
-                (Core.Grammar.Name.Rule.to_string (Core.Facts.rule facts one).name)
-                (Core.Grammar.Name.Rule.to_string (Core.Facts.rule facts two).name))
-           (Textmate.Shape.undecided facts scopes)
+       let rule (id : Core.Rule.id) : string =
+         Core.Grammar.Name.Rule.to_string (Core.Facts.rule facts id).name
        in
-       let wanted =
-         if String.equal entry.name "rust"
-         then [ "T_LBRACE: Block and MatchBody" ]
-         else []
-       in
-       if found <> wanted
-       then
-         Law.fail
-           "(s) %s: a list gives one token to two regions: %s"
-           entry.name
-           (String.concat ", " found))
+       List.iter
+         (fun (found : Textmate.Shape.undecided) ->
+            Law.fail
+              "(s) %s: a list gives %s to %s and %s"
+              entry.name
+              (Core.Kind.Name.to_string (Core.Facts.kind_name facts found.token))
+              (rule found.first)
+              (match found.second with
+               | Some second -> rule second
+               | None -> "a token of its own"))
+         (Textmate.Shape.undecided facts scopes))
     Editor_corpus.all;
   ignore holds;
   if Law.failures () = before

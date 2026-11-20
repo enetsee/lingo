@@ -46,6 +46,13 @@ type t =
       }
   | Flat
 
+type undecided =
+  { within : Core.Rule.id option
+  ; token : Core.Kind.t
+  ; first : Core.Rule.id
+  ; second : Core.Rule.id option
+  }
+
 type conflict =
   | Shares of
       { token : Core.Token.def
@@ -1241,7 +1248,9 @@ let parts_of (facts : Core.Facts.t) (scopes : Scopes.t) (rule : Core.Rule.def)
 
 (* Every list: a rule's parts, the operand of each operator that encloses
    one, and the root. Each is the symbols it holds. *)
-let lists (facts : Core.Facts.t) (scopes : Scopes.t) : Core.Kind.t array list list =
+let lists (facts : Core.Facts.t) (scopes : Scopes.t)
+  : (Core.Rule.id option * Core.Kind.t array list) list
+  =
   let of_rules =
     Array.to_list Core.Facts.(facts.rules)
     |> List.concat_map ~f:(fun (rule : Core.Rule.def) ->
@@ -1262,9 +1271,10 @@ let lists (facts : Core.Facts.t) (scopes : Scopes.t) : Core.Kind.t array list li
         List.map
           (parts_of facts scopes rule @ tail)
           ~f:(fun (lo, hi) ->
-            List.init
-              ~len:(max 0 (hi - lo + 1))
-              ~f:(fun offset -> rule.children.(lo + offset).alts)))
+            ( Some rule.id
+            , List.init
+                ~len:(max 0 (hi - lo + 1))
+                ~f:(fun offset -> rule.children.(lo + offset).alts) )))
   in
   let of_operators =
     Array.to_list Core.Facts.(facts.blocks)
@@ -1272,15 +1282,16 @@ let lists (facts : Core.Facts.t) (scopes : Scopes.t) : Core.Kind.t array list li
       Array.to_list block.postfix
       |> List.filter_map ~f:(fun (postfix : Core.Block.postfix) ->
         match postfix.p_body with
-        | Core.Block.Enclosed { content = Core.Block.One kinds; _ } -> Some [ kinds ]
+        | Core.Block.Enclosed { content = Core.Block.One kinds; _ } ->
+          Some (Some postfix.p_rule, [ kinds ])
         | Core.Block.Enclosed { content = Core.Block.Many { elem; _ }; _ } ->
-          Some [ elem ]
+          Some (Some postfix.p_rule, [ elem ])
         | Core.Block.Nothing | Core.Block.Then _ -> None))
   in
   let of_roots =
     List.map
       Core.Facts.(facts.roots)
-      ~f:(fun (root : Core.Rule.id) -> [ [| (Core.Facts.rule facts root).kind |] ])
+      ~f:(fun (root : Core.Rule.id) -> None, [ [| (Core.Facts.rule facts root).kind |] ])
   in
   of_rules @ of_operators @ of_roots
 ;;
@@ -1297,7 +1308,7 @@ let alone (facts : Core.Facts.t) (scopes : Scopes.t) (rule : Core.Rule.def) (lea
     | Takes token -> [ token.kind ]
     | Looks tokens -> List.map tokens ~f:(fun (token : Core.Token.def) -> token.kind)
   in
-  List.for_all (lists facts scopes) ~f:(fun (symbols : Core.Kind.t array list) ->
+  List.for_all (lists facts scopes) ~f:(fun ((_, symbols) : _ * Core.Kind.t array list) ->
     let visited = ref [] in
     let next = ref 0 in
     let taken =
@@ -1310,25 +1321,32 @@ let alone (facts : Core.Facts.t) (scopes : Scopes.t) (rule : Core.Rule.def) (lea
         (not (Core.Kind.equal kind other)) || taker = rule.id)))
 ;;
 
-(* The lists that give one token to two regions. A list takes the first
-   pattern that matches, so every occurrence of the token opens the first of
-   the two. A pair and a region are named by their rule here. Two tokens that
-   stand loose are no such case: neither opens anything. *)
-let undecided (facts : Core.Facts.t) (scopes : Scopes.t)
-  : (Core.Kind.t * Core.Rule.id * Core.Rule.id) list
-  =
-  List.concat_map (lists facts scopes) ~f:(fun (symbols : Core.Kind.t array list) ->
-    let visited = ref [] in
-    let next = ref 0 in
-    let taken =
-      List.concat_map symbols ~f:(fun (alts : Core.Kind.t array) ->
-        List.concat_map (Array.to_list alts) ~f:(takes_kind facts scopes ~visited ~next))
-    in
-    List.concat_map taken ~f:(fun (kind, taker) ->
-      List.filter_map taken ~f:(fun (other, by) ->
-        if Core.Kind.equal kind other && taker >= 0 && (by > taker || by < 0)
-        then Some (kind, taker, if by < 0 then taker else by)
-        else None)))
+(* The lists that give one token to two things, where one of them is a
+   region. A list takes the first pattern that matches, so every occurrence
+   of the token opens the first of the two. A pair and a region are named by
+   their rule. Two tokens that stand loose are no such case: neither opens
+   anything. *)
+let undecided (facts : Core.Facts.t) (scopes : Scopes.t) : undecided list =
+  List.concat_map
+    (lists facts scopes)
+    ~f:(fun ((within, symbols) : Core.Rule.id option * Core.Kind.t array list) ->
+      let visited = ref [] in
+      let next = ref 0 in
+      let taken =
+        List.concat_map symbols ~f:(fun (alts : Core.Kind.t array) ->
+          List.concat_map (Array.to_list alts) ~f:(takes_kind facts scopes ~visited ~next))
+      in
+      List.concat_map taken ~f:(fun (token, taker) ->
+        List.filter_map taken ~f:(fun (other, by) ->
+          if Core.Kind.equal token other && taker >= 0 && (by > taker || by < 0)
+          then
+            Some
+              { within
+              ; token
+              ; first = taker
+              ; second = (if by < 0 then None else Some by)
+              }
+          else None)))
   |> List.sort_uniq ~cmp:compare
 ;;
 

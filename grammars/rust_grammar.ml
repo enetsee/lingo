@@ -370,7 +370,7 @@ let grammar : t =
       ~indent_width:0
       "Match"
       [ child_req "kw" (Token "match")
-      ; child_req ~break:Never "scrutinee" (Rule "Expr")
+      ; child_req ~break:Never "scrutinee" (Rule "Scrutinee")
       ; child_req ~break:Never "body" (Rule "MatchBody")
       ]
     |> with_committed
@@ -380,10 +380,10 @@ let grammar : t =
      [eq] binds loosest and to the right, so [a = b = c] is [a = (b = c)]. The
      comparisons sit above it to the left and the arithmetic above those. The
      four postfix operators share one binding power well over all of them. *)
-  let expr =
+  let expression (rule_name : string) (atoms : symbol list) : expr_def =
     expr_block
-      ~rule_name:"Expr"
-      ~atoms:[ Token "int"; Token "ident"; Rule "Block"; Rule "Match" ]
+      ~rule_name
+      ~atoms
       ~prefix_ops:[ prefix ~token:"bang" ~bp:60 () ]
       ~infix_ops:
         [ infix ~assoc:Right ~token:"eq" ~bp:1 ()
@@ -418,8 +418,18 @@ let grammar : t =
       ~continuation_indent:2
       ()
   in
+  let expr =
+    expression "Expr" [ Token "int"; Token "ident"; Rule "Block"; Rule "Match" ]
+  in
+  (* What a [match] reads in front of its body. It is [Expr] with no block
+     among its atoms. With one, a brace behind [match] could open the
+     scrutinee or the body, and only the place in the rule says which. A
+     parser has that place. An editor's pattern list does not, and the
+     TextMate backend refuses a grammar that needs it. A block inside an
+     index or a call is still read by [Expr]. *)
+  let scrutinee = expression "Scrutinee" [ Token "int"; Token "ident"; Rule "Match" ] in
   create
-    ~expr:[ expr ]
+    ~expr:[ expr; scrutinee ]
     ~tokens
     ~roots:[ "File" ]
     [ file

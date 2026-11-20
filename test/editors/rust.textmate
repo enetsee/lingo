@@ -282,7 +282,7 @@
       "beginCaptures": { "0": { "name": "keyword.control.match.rust" } },
       "patterns": [
         { "include": "#match_body" },
-        { "include": "#expr" },
+        { "include": "#scrutinee" },
         { "include": "#trivia" },
         { "include": "#tokens" }
       ]
@@ -411,6 +411,121 @@
         },
         {
           "name": "meta.member-access.rust",
+          "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+          "captures": {
+            "1": { "name": "punctuation.accessor.rust" },
+            "2": { "name": "variable.other.rust" }
+          }
+        }
+      ]
+    },
+    "scrutinee": {
+      "patterns": [
+        {
+          "begin": "(?=(?:\\bmatch\\b))",
+          "end": "(?=\\S)",
+          "applyEndPatternLast": 1,
+          "patterns": [
+            {
+              "name": "meta.scrutinee.postfix.field.rust",
+              "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+              "captures": {
+                "1": { "name": "punctuation.accessor.rust" },
+                "2": { "name": "variable.other.rust" }
+              }
+            },
+            {
+              "name": "meta.scrutinee.postfix.index.rust",
+              "begin": "(?!\\G)\\[",
+              "end": "\\]",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.brackets.begin.rust" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.brackets.end.rust" }
+              },
+              "patterns": [
+                { "include": "#expr" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            {
+              "name": "meta.scrutinee.postfix.call.rust",
+              "begin": "(?!\\G)\\(",
+              "end": "\\)",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.parens.begin.rust" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.parens.end.rust" }
+              },
+              "patterns": [
+                { "include": "#expr" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            { "name": "keyword.operator.question.rust", "match": "\\?" },
+            { "include": "#match" },
+            { "include": "#trivia" }
+          ]
+        },
+        {
+          "begin": "([0-9]+)|((?!(?:enum|fn|let|match|struct|trait|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*)",
+          "beginCaptures": {
+            "1": { "name": "constant.numeric.integer.rust" },
+            "2": { "name": "variable.other.rust" }
+          },
+          "end": "(?=\\S)",
+          "applyEndPatternLast": 1,
+          "patterns": [
+            {
+              "name": "meta.scrutinee.postfix.field.rust",
+              "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
+              "captures": {
+                "1": { "name": "punctuation.accessor.rust" },
+                "2": { "name": "variable.other.rust" }
+              }
+            },
+            {
+              "name": "meta.scrutinee.postfix.index.rust",
+              "begin": "\\[",
+              "end": "\\]",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.brackets.begin.rust" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.brackets.end.rust" }
+              },
+              "patterns": [
+                { "include": "#expr" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            {
+              "name": "meta.scrutinee.postfix.call.rust",
+              "begin": "\\(",
+              "end": "\\)",
+              "beginCaptures": {
+                "0": { "name": "punctuation.section.parens.begin.rust" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.section.parens.end.rust" }
+              },
+              "patterns": [
+                { "include": "#expr" },
+                { "include": "#trivia" },
+                { "include": "#tokens" }
+              ]
+            },
+            { "name": "keyword.operator.question.rust", "match": "\\?" },
+            { "include": "#trivia" }
+          ]
+        },
+        {
+          "name": "meta.scrutinee.postfix.field.rust",
           "match": "(\\.)(?>(?:[\\t\\n\\r ]+)|(?://[^\\n]*))*([A-Z_a-z][0-9A-Z_a-z]*)",
           "captures": {
             "1": { "name": "punctuation.accessor.rust" },

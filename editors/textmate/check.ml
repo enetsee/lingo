@@ -19,6 +19,12 @@ type problem =
       ; child : Core.Grammar.Name.Child.t
       ; text : string
       }
+  | Undecided of
+      { within : Core.Grammar.Name.Rule.t option
+      ; token : Core.Grammar.Name.Token.t
+      ; first : Core.Grammar.Name.Rule.t
+      ; second : Core.Grammar.Name.Rule.t option
+      }
   | Shared_postfix_lead of
       { block : Core.Grammar.Name.Rule.t
       ; token : Core.Grammar.Name.Token.t
@@ -68,6 +74,34 @@ let problem_to_string (problem : problem) : string =
       (Core.Grammar.Name.Rule.to_string rule)
       text
       (Core.Grammar.Name.Child.to_string child)
+  | Undecided { within; token; first; second } ->
+    let where =
+      match within with
+      | Some rule ->
+        Printf.sprintf "production %S" (Core.Grammar.Name.Rule.to_string rule)
+      | None -> "the top of the file"
+    in
+    let rule = Core.Grammar.Name.Rule.to_string in
+    let token = Core.Grammar.Name.Token.to_string token in
+    (match second with
+     | Some second ->
+       Printf.sprintf
+         "the list of %s takes %S for both %S and %S, and nothing in the text says \
+          which; read the first through a rule that cannot start with %S, give it \
+          brackets of its own, or put a literal between the two"
+         where
+         token
+         (rule first)
+         (rule second)
+         token
+     | None ->
+       Printf.sprintf
+         "the list of %s takes %S for %S and also as a token of its own; give %S a token \
+          that nothing else in the list takes"
+         where
+         token
+         (rule first)
+         (rule first))
   | Shared_postfix_lead { block; token } ->
     Printf.sprintf
       "expression block %S has more than one postfix operator leading on %S"
@@ -321,6 +355,26 @@ let check_keys (facts : Core.Facts.t) : problem list =
 
 (* What a rule's pattern list cannot tell apart, as {!Shape.conflicts} finds
    it. A region the backend could cut in two has nothing left to report. *)
+(* A list that gives one token to two things. {!Shape.undecided} finds them
+   over every list of the grammar, where {!check_children} reads one rule's
+   own children. *)
+let check_lists (facts : Core.Facts.t) (scopes : Scopes.t) : problem list =
+  let rule (id : Core.Rule.id) : Core.Grammar.Name.Rule.t =
+    (Core.Facts.rule facts id).name
+  in
+  List.filter_map (Shape.undecided facts scopes) ~f:(fun (found : Shape.undecided) ->
+    match Core.Facts.token_of_kind facts found.token with
+    | None -> None
+    | Some token ->
+      Some
+        (Undecided
+           { within = Option.map rule found.within
+           ; token = token.name
+           ; first = rule found.first
+           ; second = Option.map rule found.second
+           }))
+;;
+
 let check_children (facts : Core.Facts.t) (scopes : Scopes.t) : problem list =
   Array.to_list Core.Facts.(facts.rules)
   |> List.filter ~f:is_emitted
@@ -528,6 +582,7 @@ let run
      @ check_oniguruma facts
      @ check_keys facts
      @ check_children facts scopes
+     @ check_lists facts scopes
      @ check_postfix_leads facts
      @ check_attachable facts scopes ~raw:has_raw
      @ check_forwarding facts scopes ~raw:has_raw

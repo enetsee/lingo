@@ -122,8 +122,9 @@
 
     An expression block is the other half. See {!Emit.block_entry}.
 
-    {!undecided} names what is left: a token that some list still gives to
-    two regions. *)
+    {!val-undecided} names what is left: a token that some list still gives to
+    two things, one of them a region. The backend refuses a grammar that has
+    one. *)
 
 (** One group of a single-regex emission. *)
 type part =
@@ -210,13 +211,22 @@ type conflict =
     that was cut has nothing left. *)
 val conflicts : Core.Facts.t -> Scopes.t -> Core.Rule.def -> conflict list
 
-(** A token that some list gives to two regions, with the two rules. A
-    matched pair counts as a region. Empty for a grammar whose every list
-    can tell what opens on each token. *)
-val undecided
-  :  Core.Facts.t
-  -> Scopes.t
-  -> (Core.Kind.t * Core.Rule.id * Core.Rule.id) list
+(** A token that some list gives to two things, one of them a region. A
+    matched pair counts as a region. *)
+type undecided =
+  { within : Core.Rule.id option
+    (** The rule whose list it is: a rule's own, or the operand of an operator
+        that encloses one. [None] for the list at the top of the file. *)
+  ; token : Core.Kind.t
+  ; first : Core.Rule.id (** A region that opens on [token]. *)
+  ; second : Core.Rule.id option
+    (** Another region that opens on it. [None] where [token] also stands
+        loose in the list, as a child of some rule spliced into it. *)
+  }
+
+(** Every such token. Empty for a grammar whose every list can tell what
+    opens on each token it takes. *)
+val undecided : Core.Facts.t -> Scopes.t -> undecided list
 
 (** The rule this one forwards to, where its body is nothing but a reference
     to that rule.

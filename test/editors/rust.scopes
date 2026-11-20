@@ -66,9 +66,16 @@ rules
   MatchBody            -
   MatchArm             -
   Expr                 -
+  Scrutinee            -
   ExprBin              -
   ExprPrefix           -
   ExprPostfixTry       -
   ExprPostfixField     meta.member-access
   ExprPostfixIndex     meta.subscript
   ExprPostfixCall      meta.function-call
+  ScrutineeBin         -
+  ScrutineePrefix      -
+  ScrutineePostfixTry  -
+  ScrutineePostfixField -
+  ScrutineePostfixIndex -
+  ScrutineePostfixCall -

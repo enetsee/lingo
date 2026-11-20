@@ -31,6 +31,7 @@
     <li><a href="#rule-MatchBody"><code>MatchBody</code></a></li>
     <li><a href="#rule-MatchArm"><code>MatchArm</code></a></li>
     <li><a href="#rule-Expr"><code>Expr</code></a></li>
+    <li><a href="#rule-Scrutinee"><code>Scrutinee</code></a></li>
   </ul>
   <section id="rule-File">
   <h3>File</h3>
@@ -899,8 +900,8 @@
   </section>
   <section id="rule-Match">
   <h3>Match</h3>
-  <pre class="lg-listing"><span class="lg-rule">Match</span> <span class="lg-notation">=</span> <span class="lg-child">kw</span><span class="lg-notation">:</span><a href="#token-match"><span class="lg-literal">&#39;match&#39;</span></a> <span class="lg-child">scrutinee</span><span class="lg-notation">:</span><a href="#rule-Expr"><span class="lg-ref">Expr</span></a> <span class="lg-child">body</span><span class="lg-notation">:</span><a href="#rule-MatchBody"><span class="lg-ref">MatchBody</span></a></pre>
-  <svg class="lg-diagram" role="img" viewBox="0 0 280 56" width="280" height="56" xmlns="http://www.w3.org/2000/svg">
+  <pre class="lg-listing"><span class="lg-rule">Match</span> <span class="lg-notation">=</span> <span class="lg-child">kw</span><span class="lg-notation">:</span><a href="#token-match"><span class="lg-literal">&#39;match&#39;</span></a> <span class="lg-child">scrutinee</span><span class="lg-notation">:</span><a href="#rule-Scrutinee"><span class="lg-ref">Scrutinee</span></a> <span class="lg-child">body</span><span class="lg-notation">:</span><a href="#rule-MatchBody"><span class="lg-ref">MatchBody</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 300 56" width="300" height="56" xmlns="http://www.w3.org/2000/svg">
     <title>Match</title>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
@@ -911,20 +912,18 @@
     </a>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="76,35 88,35" />
     <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="88" y="18">scrutinee</text>
-    <a href="#rule-Expr">
-    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="88" y="22" width="52" height="26" rx="3" />
-    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="114" y="39">Expr</text>
+    <a href="#rule-Scrutinee">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="88" y="22" width="92" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="134" y="39">Scrutinee</text>
     </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="140,35 160,35" />
-    <path class="lg-arrow" fill="currentColor" d="M 155 35 L 145 31 L 145 39 Z" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="160,35 172,35" />
-    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="172" y="18">body</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="180,35 192,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="192" y="18">body</text>
     <a href="#rule-MatchBody">
-    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="172" y="22" width="92" height="26" rx="3" />
-    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="218" y="39">MatchBody</text>
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="192" y="22" width="92" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="238" y="39">MatchBody</text>
     </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="264,35 278,35" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="278,28 278,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="284,35 298,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="298,28 298,42" />
   </svg>
   </section>
   <section id="rule-MatchBody">
@@ -1147,9 +1146,142 @@
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="274,28 274,42" />
   </svg>
   </section>
+  <section id="rule-Scrutinee">
+  <h3>Scrutinee</h3>
+  <pre class="lg-listing"><span class="lg-rule">Scrutinee</span> <span class="lg-notation">= expression</span>
+
+  <span class="lg-notation">atoms</span> <a href="#token-int"><span class="lg-token">int</span></a> <a href="#token-ident"><span class="lg-token">ident</span></a> <a href="#rule-Match"><span class="lg-ref">Match</span></a>
+  <span class="lg-notation">prefix</span> <a href="#token-bang"><span class="lg-literal">&#39;!&#39;</span></a> <span class="lg-notation">(60 right)</span>
+  <span class="lg-notation">infix</span>
+    <a href="#token-eq"><span class="lg-literal">&#39;=&#39;</span></a> <span class="lg-notation">(1 right)</span>
+    <a href="#token-eqeq"><span class="lg-literal">&#39;==&#39;</span></a> <span class="lg-notation">(5 left)</span>
+    <a href="#token-bangeq"><span class="lg-literal">&#39;!=&#39;</span></a> <span class="lg-notation">(5 left)</span>
+    <a href="#token-plus"><span class="lg-literal">&#39;+&#39;</span></a> <span class="lg-notation">(10 left)</span>
+    <a href="#token-minus"><span class="lg-literal">&#39;-&#39;</span></a> <span class="lg-notation">(10 left)</span>
+    <a href="#token-star"><span class="lg-literal">&#39;*&#39;</span></a> <span class="lg-notation">(20 left)</span>
+    <a href="#token-slash"><span class="lg-literal">&#39;/&#39;</span></a> <span class="lg-notation">(20 left)</span>
+  <span class="lg-notation">postfix</span>
+    <span class="lg-notation">x</span><a href="#token-question"><span class="lg-literal">&#39;?&#39;</span></a> <span class="lg-notation">(100)</span>
+    <span class="lg-notation">x</span><a href="#token-dot"><span class="lg-literal">&#39;.&#39;</span></a><a href="#token-ident"><span class="lg-token">ident</span></a> <span class="lg-notation">(100)</span>
+    <span class="lg-notation">x</span><a href="#token-lbracket"><span class="lg-literal">&#39;[&#39;</span></a><a href="#rule-Expr"><span class="lg-ref">Expr</span></a><a href="#token-rbracket"><span class="lg-literal">&#39;]&#39;</span></a> <span class="lg-notation">(100)</span>
+    <span class="lg-notation">x</span><a href="#token-lparen"><span class="lg-literal">&#39;(&#39;</span></a><a href="#rule-Expr"><span class="lg-ref">Expr</span></a> <span class="lg-notation">sep</span> <a href="#token-comma"><span class="lg-literal">&#39;,&#39;</span></a> <span class="lg-notation">trailing-on-break</span><a href="#token-rparen"><span class="lg-literal">&#39;)&#39;</span></a> <span class="lg-notation">(100)</span>
+</pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 276 398" width="276" height="398" xmlns="http://www.w3.org/2000/svg">
+    <title>Scrutinee</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 40,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 33 35 L 23 31 L 23 39 Z" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="40" y="18">prefix</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="40,35 78,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 64 35 L 54 31 L 54 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="78,35 78,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="78,35 116,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 102 35 L 92 31 L 92 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="40,35 52,35 52,73 64,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 42 35 L 50 31 L 50 39 Z" />
+    <a href="#token-bang">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="64" y="60" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="78" y="77">!</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="92,73 104,73 104,35 116,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 94 73 L 102 69 L 102 77 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="116,35 128,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="128,35 160,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 149 35 L 139 31 L 139 39 Z" />
+    <a href="#token-int">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="160" y="22" width="44" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="182" y="39">int</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="204,35 236,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 225 35 L 215 31 L 215 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="128,35 140,35 140,73 152,73" />
+    <a href="#token-ident">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="152" y="60" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="182" y="77">ident</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="212,73 224,73 224,35 236,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="128,35 140,35 140,111 152,111" />
+    <a href="#rule-Match">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="152" y="98" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="182" y="115">Match</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="212,111 224,111 224,35 236,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="236,35 260,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 253 35 L 243 31 L 243 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 28,35 28,149 96,149" />
+    <path class="lg-arrow" fill="currentColor" d="M 57 149 L 67 145 L 67 153 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="96,149 124,149" />
+    <path class="lg-arrow" fill="currentColor" d="M 105 149 L 115 145 L 115 153 Z" />
+    <a href="#token-eq">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="124" y="136" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="138" y="153">=</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="152,149 180,149" />
+    <path class="lg-arrow" fill="currentColor" d="M 161 149 L 171 145 L 171 153 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="96,149 108,149 108,187 120,187" />
+    <path class="lg-arrow" fill="currentColor" d="M 98 149 L 106 145 L 106 153 Z" />
+    <a href="#token-eqeq">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="120" y="174" width="36" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="138" y="191">==</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="156,187 168,187 168,149 180,149" />
+    <path class="lg-arrow" fill="currentColor" d="M 158 187 L 166 183 L 166 191 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="96,149 108,149 108,225 120,225" />
+    <path class="lg-arrow" fill="currentColor" d="M 98 149 L 106 145 L 106 153 Z" />
+    <a href="#token-bangeq">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="120" y="212" width="36" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="138" y="229">!=</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="156,225 168,225 168,149 180,149" />
+    <path class="lg-arrow" fill="currentColor" d="M 158 225 L 166 221 L 166 229 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="96,149 108,149 108,263 124,263" />
+    <path class="lg-arrow" fill="currentColor" d="M 111 263 L 121 259 L 121 267 Z" />
+    <a href="#token-plus">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="124" y="250" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="138" y="267">+</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="152,263 168,263 168,149 180,149" />
+    <path class="lg-arrow" fill="currentColor" d="M 155 263 L 165 259 L 165 267 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="96,149 108,149 108,301 124,301" />
+    <path class="lg-arrow" fill="currentColor" d="M 111 301 L 121 297 L 121 305 Z" />
+    <a href="#token-minus">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="124" y="288" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="138" y="305">-</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="152,301 168,301 168,149 180,149" />
+    <path class="lg-arrow" fill="currentColor" d="M 155 301 L 165 297 L 165 305 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="96,149 108,149 108,339 124,339" />
+    <path class="lg-arrow" fill="currentColor" d="M 111 339 L 121 335 L 121 343 Z" />
+    <a href="#token-star">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="124" y="326" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="138" y="343">*</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="152,339 168,339 168,149 180,149" />
+    <path class="lg-arrow" fill="currentColor" d="M 155 339 L 165 335 L 165 343 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="96,149 108,149 108,377 124,377" />
+    <path class="lg-arrow" fill="currentColor" d="M 111 377 L 121 373 L 121 381 Z" />
+    <a href="#token-slash">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="124" y="364" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="138" y="381">/</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="152,377 168,377 168,149 180,149" />
+    <path class="lg-arrow" fill="currentColor" d="M 155 377 L 165 373 L 165 381 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="180,149 248,149 248,35 260,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 209 149 L 219 145 L 219 153 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="260,35 274,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="274,28 274,42" />
+  </svg>
+  </section>
   <h2 id="operators">Operators</h2>
   <table id="precedence">
     <tr><th>binds</th><th>shape</th><th>operators</th></tr>
+    <tr><td>1</td><td>infix, right</td><td><code>=</code></td></tr>
+    <tr><td>5</td><td>infix, left</td><td><code>==</code> <code>!=</code></td></tr>
+    <tr><td>10</td><td>infix, left</td><td><code>+</code> <code>-</code></td></tr>
+    <tr><td>20</td><td>infix, left</td><td><code>*</code> <code>/</code></td></tr>
+    <tr><td>60</td><td>prefix</td><td><code>!</code></td></tr>
+    <tr><td>100</td><td>postfix</td><td><code>?</code> <code>.</code> <code>[</code> <code>(</code></td></tr>
     <tr><td>1</td><td>infix, right</td><td><code>=</code></td></tr>
     <tr><td>5</td><td>infix, left</td><td><code>==</code> <code>!=</code></td></tr>
     <tr><td>10</td><td>infix, left</td><td><code>+</code> <code>-</code></td></tr>
@@ -1217,14 +1349,15 @@
     <tr><td><a href="#rule-ParamList"><code>ParamList</code></a></td><td><code>(</code></td><td><code>-&gt;</code></td><td></td></tr>
     <tr><td><a href="#rule-Param"><code>Param</code></a></td><td><code>ident</code></td><td><code>)</code> <code>,</code></td><td></td></tr>
     <tr><td><a href="#rule-Type"><code>Type</code></a></td><td><code>ident</code></td><td><code>where</code> <code>{</code> <code>}</code> <code>)</code> <code>,</code> <code>;</code></td><td></td></tr>
-    <tr><td><a href="#rule-Block"><code>Block</code></a></td><td><code>{</code></td><td><code>struct</code> <code>enum</code> <code>trait</code> <code>fn</code> <code>{</code> <code>}</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>,</code> <code>;</code> <code>.</code> <code>?</code> <code>=</code> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>==</code> <code>!=</code></td><td></td></tr>
+    <tr><td><a href="#rule-Block"><code>Block</code></a></td><td><code>{</code></td><td><code>struct</code> <code>enum</code> <code>trait</code> <code>fn</code> <code>}</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>,</code> <code>;</code> <code>.</code> <code>?</code> <code>=</code> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>==</code> <code>!=</code></td><td></td></tr>
     <tr><td><a href="#rule-Stmt"><code>Stmt</code></a></td><td><code>let</code> <code>match</code> <code>{</code> <code>!</code> <code>ident</code> <code>int</code></td><td><code>let</code> <code>match</code> <code>{</code> <code>}</code> <code>!</code> <code>ident</code> <code>int</code></td><td></td></tr>
     <tr><td><a href="#rule-Let"><code>Let</code></a></td><td><code>let</code></td><td><code>let</code> <code>match</code> <code>{</code> <code>}</code> <code>!</code> <code>ident</code> <code>int</code></td><td></td></tr>
     <tr><td><a href="#rule-ExprStmt"><code>ExprStmt</code></a></td><td><code>match</code> <code>{</code> <code>!</code> <code>ident</code> <code>int</code></td><td><code>let</code> <code>match</code> <code>{</code> <code>}</code> <code>!</code> <code>ident</code> <code>int</code></td><td></td></tr>
     <tr><td><a href="#rule-Match"><code>Match</code></a></td><td><code>match</code></td><td><code>{</code> <code>}</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>,</code> <code>;</code> <code>.</code> <code>?</code> <code>=</code> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>==</code> <code>!=</code></td><td></td></tr>
     <tr><td><a href="#rule-MatchBody"><code>MatchBody</code></a></td><td><code>{</code></td><td><code>{</code> <code>}</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>,</code> <code>;</code> <code>.</code> <code>?</code> <code>=</code> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>==</code> <code>!=</code></td><td></td></tr>
     <tr><td><a href="#rule-MatchArm"><code>MatchArm</code></a></td><td><code>ident</code> <code>int</code></td><td><code>}</code> <code>,</code></td><td></td></tr>
-    <tr><td><a href="#rule-Expr"><code>Expr</code></a></td><td><code>match</code> <code>{</code> <code>!</code> <code>ident</code> <code>int</code></td><td><code>{</code> <code>}</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>,</code> <code>;</code> <code>.</code> <code>?</code> <code>=</code> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>==</code> <code>!=</code></td><td></td></tr>
+    <tr><td><a href="#rule-Expr"><code>Expr</code></a></td><td><code>match</code> <code>{</code> <code>!</code> <code>ident</code> <code>int</code></td><td><code>}</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>,</code> <code>;</code> <code>.</code> <code>?</code> <code>=</code> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>==</code> <code>!=</code></td><td></td></tr>
+    <tr><td><a href="#rule-Scrutinee"><code>Scrutinee</code></a></td><td><code>match</code> <code>!</code> <code>ident</code> <code>int</code></td><td><code>{</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>,</code> <code>.</code> <code>?</code> <code>=</code> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>==</code> <code>!=</code></td><td></td></tr>
   </table>
   <h2 id="examples">Examples</h2>
   <section>

@@ -104,7 +104,7 @@ module.exports = grammar({
 
     match: $ => seq(
       field('kw', 'match'),
-      field('scrutinee', $._expr),
+      field('scrutinee', $._scrutinee),
       field('body', $.match_body)
     ),
 
@@ -131,6 +131,19 @@ module.exports = grammar({
       $.expr_postfix_index,
       $.expr_postfix_call,
       $.block,
+      $.match
+    ),
+
+    scrutinee: $ => field('atom', choice($.int, $.ident)),
+
+    _scrutinee: $ => choice(
+      $.scrutinee,
+      $.scrutinee_bin,
+      $.scrutinee_prefix,
+      $.scrutinee_postfix_try,
+      $.scrutinee_postfix_field,
+      $.scrutinee_postfix_index,
+      $.scrutinee_postfix_call,
       $.match
     ),
 
@@ -162,6 +175,64 @@ module.exports = grammar({
       100,
       seq(
         field('operand', $._expr),
+        '(',
+        optional(seq(sepBy1(',', field('args', $._expr)), optional(','))),
+        ')'
+      )
+    ),
+
+    scrutinee_bin: $ => choice(
+      prec.right(
+        1,
+        seq(field('lhs', $._scrutinee), field('op', '='), field('rhs', $._scrutinee))
+      ),
+      prec.left(
+        5,
+        seq(field('lhs', $._scrutinee), field('op', '=='), field('rhs', $._scrutinee))
+      ),
+      prec.left(
+        5,
+        seq(field('lhs', $._scrutinee), field('op', '!='), field('rhs', $._scrutinee))
+      ),
+      prec.left(
+        10,
+        seq(field('lhs', $._scrutinee), field('op', '+'), field('rhs', $._scrutinee))
+      ),
+      prec.left(
+        10,
+        seq(field('lhs', $._scrutinee), field('op', '-'), field('rhs', $._scrutinee))
+      ),
+      prec.left(
+        20,
+        seq(field('lhs', $._scrutinee), field('op', '*'), field('rhs', $._scrutinee))
+      ),
+      prec.left(
+        20,
+        seq(field('lhs', $._scrutinee), field('op', '/'), field('rhs', $._scrutinee))
+      )
+    ),
+
+    scrutinee_prefix: $ => prec.right(60, seq(field('op', '!'), field('operand', $._scrutinee))),
+
+    scrutinee_postfix_try: $ => prec.left(
+      100,
+      seq(field('operand', $._scrutinee), field('op', '?'))
+    ),
+
+    scrutinee_postfix_field: $ => prec.left(
+      100,
+      seq(field('operand', $._scrutinee), field('op', '.'), field('rhs', $.ident))
+    ),
+
+    scrutinee_postfix_index: $ => prec.left(
+      100,
+      seq(field('operand', $._scrutinee), '[', field('body', $._expr), ']')
+    ),
+
+    scrutinee_postfix_call: $ => prec.left(
+      100,
+      seq(
+        field('operand', $._scrutinee),
         '(',
         optional(seq(sepBy1(',', field('args', $._expr)), optional(','))),
         ')'

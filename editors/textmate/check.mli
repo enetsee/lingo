@@ -48,6 +48,27 @@ type problem =
         too, and no cut of the region parts the two. The region would end
         behind the earlier child, and what follows would be coloured by
         whatever list the region sat in. *)
+  | Undecided of
+      { within : Core.Grammar.Name.Rule.t option
+      ; token : Core.Grammar.Name.Token.t
+      ; first : Core.Grammar.Name.Rule.t
+      ; second : Core.Grammar.Name.Rule.t option
+      }
+  (** One list takes [token] for two things, and [first] is a region that
+        opens on it. [second] is another such region, or [None] where the
+        token also stands loose in the list. [within] is the rule whose list
+        it is, and [None] at the top of the file.
+
+        A list takes the first pattern that matches, so every occurrence of
+        the token opens the first of the two. A parser tells them apart by
+        where it is in the rule, and a list has no such place. [match e \{ \}]
+        with a block among the atoms of [e] is the case: a brace behind
+        [match] may open the scrutinee or the body.
+
+        A grammar avoids it by reading the first of the two through a rule
+        that cannot start with the token, by giving it brackets of its own,
+        or by a literal between them, which the region is cut at. See
+        {!Shape.val-undecided}. *)
   | Shared_postfix_lead of
       { block : Core.Grammar.Name.Rule.t
       ; token : Core.Grammar.Name.Token.t
