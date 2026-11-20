@@ -314,6 +314,7 @@ let steps =
   ; "new-line"
   ; "hard-nested"
   ; "break-after"
+  ; "yields"
   ; "blank-kept"
   ; "lead-sep"
   ; "lead-sep-owned"

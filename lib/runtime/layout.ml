@@ -182,6 +182,9 @@ type state =
     (* The first token written since this was [None]. {!walk} reads it to glue
        the first element of a body a second way, behind a leading separator,
        without folding the element twice. *)
+  ; yields : bool
+    (* Whether the child just folded is a node whose group yields. {!split}
+       clears it in front of each child and reads it straight after. *)
   }
 
 let start =
@@ -193,6 +196,7 @@ let start =
   ; written = 0
   ; hard = 0
   ; first = None
+  ; yields = false
   }
 ;;
 
@@ -309,6 +313,7 @@ let glue (e : env) (st : state) (w : Written.t) : Ir.Kind.t Handsome.Utf8.t * st
         (match st.first with
          | None -> Some w
          | Some _ as f -> f)
+    ; yields = st.yields
     }
   in
   match st.last with
@@ -808,6 +813,16 @@ let rec walk (e : env) (es : entry array) (i : int) (stop : int) (st : state) =
    starts where the comment does. A slot that nests keeps the gap a
    continuation, and rust's bounds step in from their [where].
 
+   A group counts a later one on its line at its flat width, so a parameter
+   list in front of a long body would open before the body does. A delimited
+   rule's group yields: what stands before it counts it as far as its first
+   break, which is its opener's line. That reaches only as far as the next
+   plain group around it, and every rule here is wrapped in two. So the groups
+   of a plain rule yield as well, from its first child that yields with no gap
+   in front of it that may break. Up to that child they stay plain. A gap that
+   may break has to count flat: with it counted as a break, effekt's
+   [def f() = if (x)] kept its line and the brace opened the next one.
+
    A delimited or separated body keeps one group, so a list breaks all its
    separators or none. *)
 and split
@@ -821,21 +836,24 @@ and split
   let group = Handsome.Utf8.group
   and from_line = Handsome.Utf8.from_line in
   let enter (it : entry) (st : state) =
-    let st = { st with brk = stronger st.brk it.before } in
+    let st = { st with brk = stronger st.brk it.before; yields = false } in
     match it.gap with
     | Some _ as g -> { st with gap = g }
     | None -> st
   in
   (* [out] is what is settled: everything up to the last child that broke on
-     its own. [acc] is what follows it, for the next gap's group to hold. *)
+     its own. [acc] is what follows it, for the next gap's group to hold, and
+     [yields] is whether a child in [acc] yields with no gap in front of it
+     that may break. *)
   let rec go
             (i : int)
             ~(out : Ir.Kind.t Handsome.Utf8.t)
+            ~(yields : bool)
             (acc : Ir.Kind.t Handsome.Utf8.t)
             (st : state)
     =
     if i >= stop
-    then out ^^ group acc, st
+    then out ^^ group ~yields acc, { st with yields }
     else (
       let it = es.(i) in
       let stood = st.brk
@@ -852,8 +870,19 @@ and split
       if after.hard > st.hard
       then (
         say e "split";
-        go (i + 1) ~out:(out ^^ group (group acc ^^ gap) ^^ from_line d) empty after)
-      else go (i + 1) ~out (group acc ^^ gap ^^ from_line d) after)
+        go
+          (i + 1)
+          ~out:(out ^^ group ~yields (group ~yields acc ^^ gap) ^^ from_line d)
+          ~yields:false
+          empty
+          after)
+      else
+        go
+          (i + 1)
+          ~out
+          ~yields:(yields || (after.yields && it.before = Ir.Layout.Flat))
+          (group ~yields acc ^^ gap ^^ from_line d)
+          after)
   in
   if i >= stop
   then empty, empty, st
@@ -866,8 +895,8 @@ and split
     let lead, d, st = child e it ~stood ~stood_gap (enter it st) in
     let d, st =
       if st.hard > before
-      then go (i + 1) ~out:(from_line d) empty st
-      else go (i + 1) ~out:empty (from_line d) st
+      then go (i + 1) ~out:(from_line d) ~yields:false empty st
+      else go (i + 1) ~out:empty ~yields:st.yields (from_line d) st
     in
     lead, d, st)
 
@@ -1270,20 +1299,37 @@ and node
         | Some { always = false; _ } -> true
         | Some { always = true; _ } | None -> false)
     in
+    (* A delimited rule breaks after its opener, so it yields whatever it
+       holds. A plain rule yields where {!split} marked its groups, and the
+       state holds that once the children are folded. A separated list has no
+       opener to end the line on. *)
+    let yields (folded : state) : bool =
+      match r.frame with
+      | Delimited _ -> true
+      | Separated _ -> false
+      | Plain ->
+        if folded.yields then say e "yields";
+        folded.yields
+    in
     match tail_policy, head_turns with
     | (`Plain | `Present _ | `Add _), false ->
       let lead, d, st = build ~alt:(fun flat _ -> flat) in
-      lead, Handsome.Utf8.group (Handsome.Utf8.annotate k d), undo st
+      let yields = yields st in
+      ( lead
+      , Handsome.Utf8.group ~yields (Handsome.Utf8.annotate k d)
+      , { (undo st) with yields } )
     | (`Plain | `Present _ | `Add _), true | (`Maybe _ | `Held _), _ ->
       let out = ref None in
       let d =
-        Handsome.Utf8.framed (fun alt ->
+        (* Only a rule with a separator comes here, and its frame settles
+           whether it yields before anything is folded. *)
+        Handsome.Utf8.framed ~yields:(yields st) (fun alt ->
           let lead, d, st = build ~alt in
           out := Some (lead, st);
           Handsome.Utf8.annotate k d)
       in
       (match !out with
-       | Some (lead, st) -> lead, d, undo st
+       | Some (lead, st) -> lead, d, { (undo st) with yields = yields st }
        | None -> invalid_arg "Layout.node: framed did not build its body"))
 ;;
 

@@ -149,7 +149,19 @@ val boundary : lex:(string -> Token.t array) -> string -> int -> bool
     It is here rather than inside {!format} because a caller rendering {!doc}
     itself has to use the same one. The fold writes a break wherever the ruler
     could need one and nowhere else, so one of its documents rendered under
-    [Handsome.Content] puts lines past the ruler with no break left to take. *)
+    [Handsome.Content] puts lines past the ruler with no break left to take.
+
+    What follows a group counts at its flat width, with one exception. A
+    delimited rule yields: what stands before it on its line counts it as far
+    as its opener, where it can end the line. So a header with a parameter
+    list and a body in braces opens the body, and opens the list only where the
+    header alone does not fit. A plain rule yields from its first child that
+    does, where no boundary in front of that child may break, so a body behind
+    a rule that only holds it is counted the same way.
+
+    A boundary that may break in front of a body is settled with the body
+    flat, and opens before the body does. test/units/yields.ml holds each of
+    these at the width where it turns. *)
 val fit : Handsome.fit
 
 (** The document, with each token's kind on it. A caller folding the rendered
@@ -160,9 +172,9 @@ val fit : Handsome.fit
     the handful of steps no boundary governs. A law counts them to say which a
     corpus reaches, because a step no fold takes is one no law covers.
 
-    The kind is there for the counting. There are fifteen steps and that number
-    follows from this fold, so a count over steps alone stands still however far
-    a corpus is taken. How many steps a rule has follows from the grammar. *)
+    The kind is there for the counting. How many steps there are follows from
+    this fold, so a count over steps alone stands still however far a corpus is
+    taken. How many steps a rule has follows from the grammar. *)
 val doc
   :  ?trace:(step:string -> kind:Ir.Kind.t -> unit)
   -> Ir.Layout.t
