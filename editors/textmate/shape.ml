@@ -5,6 +5,15 @@ type part =
   ; scope : Scopes.Scope.t option
   }
 
+type close =
+  | Literal of Core.Token.def
+  | Behind of string
+
+type split =
+  { upto : int
+  ; close : close
+  }
+
 type t =
   | Delimited of
       { open_ : Core.Token.def
@@ -17,9 +26,20 @@ type t =
       ; end_regex : string
       ; body_from : int
       ; use_identity : bool
+      ; split : split option
       }
   | Capture of part list
   | Flat
+
+type conflict =
+  | Shares of
+      { token : Core.Token.def
+      ; children : int list
+      }
+  | Closes of
+      { child : int
+      ; text : string
+      }
 
 (* -- reading a child ------------------------------------------------------- *)
 
@@ -301,6 +321,169 @@ let region_begin
   | Some _ -> alone ()
 ;;
 
+(* -- what a pattern list cannot tell apart --------------------------------- *)
+
+(* The matched pair a child holds. *)
+let pair_of_child (facts : Core.Facts.t) (child : Core.Rule.child)
+  : (Core.Rule.def * Core.Kind.t * Core.Kind.t) option
+  =
+  match rule_of_child facts child with
+  | None -> None
+  | Some target ->
+    (match target.frame with
+     | Core.Rule.Delimited { open_; close; _ } -> Some (target, open_, close)
+     | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Separated _ -> None)
+;;
+
+(* The fixed text a child ends on: a literal token's own, or the closer of the
+   pair it holds. *)
+let ends_on (facts : Core.Facts.t) (child : Core.Rule.child) : string option =
+  match token_of_child facts child with
+  | Some token -> Core.Token.text token
+  | None ->
+    (match pair_of_child facts child with
+     | Some (_, _, close) ->
+       Option.bind (Core.Facts.token_of_kind facts close) Core.Token.text
+     | None -> None)
+;;
+
+let ends_with ~(suffix : string) (text : string) : bool =
+  let width = String.length suffix in
+  String.length text >= width
+  && String.equal (String.sub text ~pos:(String.length text - width) ~len:width) suffix
+;;
+
+(* Children in [lo, hi] that hold different pairs opening on one token. Two
+   that hold the same pair are one pattern, which every occurrence reaches,
+   so a pair counts once however many children hold it. *)
+let shared_openers (facts : Core.Facts.t) (rule : Core.Rule.def) ~(lo : int) ~(hi : int)
+  : conflict list
+  =
+  let groups = Hashtbl.create 4 in
+  for index = lo to hi do
+    match pair_of_child facts rule.children.(index) with
+    | None -> ()
+    | Some (target, open_, _) ->
+      let key = Core.Kind.to_int open_ in
+      let held =
+        match Hashtbl.find_opt groups key with
+        | Some (_, held) -> held
+        | None -> []
+      in
+      if not (List.exists held ~f:(fun (_, pair) -> pair = target.id))
+      then Hashtbl.replace groups key (open_, (index, target.id) :: held)
+  done;
+  Hashtbl.fold
+    (fun _ (open_, held) acc ->
+       match held, Core.Facts.token_of_kind facts open_ with
+       | _ :: _ :: _, Some token ->
+         Shares { token; children = List.rev_map held ~f:fst } :: acc
+       | _ -> acc)
+    groups
+    []
+;;
+
+(* Children in [lo, hi) that end on text a lookbehind for [behind] matches. A
+   region that ends behind its last child ends behind one of these first. *)
+let early_closers
+      (facts : Core.Facts.t)
+      (rule : Core.Rule.def)
+      ~(lo : int)
+      ~(hi : int)
+      ~(behind : string)
+  : conflict list
+  =
+  List.init ~len:(max 0 (hi - lo)) ~f:(fun offset -> lo + offset)
+  |> List.filter_map ~f:(fun (index : int) ->
+    match ends_on facts rule.children.(index) with
+    | Some text when ends_with ~suffix:behind text ->
+      Some (Closes { child = index; text })
+    | Some _ | None -> None)
+;;
+
+let region_conflicts
+      (facts : Core.Facts.t)
+      (rule : Core.Rule.def)
+      ~(lo : int)
+      ~(hi : int)
+      ~(behind : string)
+  : conflict list
+  =
+  shared_openers facts rule ~lo ~hi @ early_closers facts rule ~lo ~hi ~behind
+;;
+
+(* Where to cut a region whose one list cannot tell two children apart.
+
+   The first part runs from the opening token to a child between the two,
+   and ends on it: by taking it where it is a literal, and behind its closer
+   where it is a matched pair. What follows is tried in the outer region,
+   which the first part's children are out of by then.
+
+   A cut has to leave nothing to tell apart on either side, and the outer
+   region must not end where the first part does. A literal is taken only in
+   front of a matched pair: a token beside it may be tied to it as a pair,
+   and the first part's end would take the literal before that pair matched. *)
+let split_of
+      (facts : Core.Facts.t)
+      (rule : Core.Rule.def)
+      ~(from : int)
+      ~(closing : string)
+  : split option
+  =
+  let last = Array.length rule.children - 1 in
+  let clean ~(lo : int) ~(hi : int) ~(behind : string) : bool =
+    region_conflicts facts rule ~lo ~hi ~behind = []
+  in
+  let rest_is_clean (upto : int) : bool = clean ~lo:(upto + 1) ~hi:last ~behind:closing in
+  let cut (upto : int) : split option =
+    let child = rule.children.(upto) in
+    if not (is_required child)
+    then None
+    else (
+      match token_of_child facts child, pair_of_child facts child with
+      | Some token, _ ->
+        (* The first part ends at the first place the literal stands, so one
+           that stands earlier too is no cut of its own. *)
+        let stands_earlier =
+          List.exists
+            (List.init ~len:(upto - from) ~f:(fun offset -> from + offset))
+            ~f:(fun (index : int) ->
+              Array.exists rule.children.(index).alts ~f:(Core.Kind.equal token.kind))
+        in
+        let before_a_pair =
+          Option.is_some (pair_of_child facts rule.children.(upto + 1))
+        in
+        (match Core.Token.text token with
+         | None -> None
+         | Some text ->
+           if
+             shared_openers facts rule ~lo:from ~hi:(upto - 1) = []
+             && (not stands_earlier)
+             && (not (ends_with ~suffix:closing text))
+             && before_a_pair
+             && rest_is_clean upto
+           then Some { upto; close = Literal token }
+           else None)
+      | None, Some (_, _, close) ->
+        (match Option.bind (Core.Facts.token_of_kind facts close) Core.Token.text with
+         | None -> None
+         | Some text ->
+           if
+             clean ~lo:from ~hi:upto ~behind:text
+             && (not (ends_with ~suffix:closing text))
+             && rest_is_clean upto
+           then Some { upto; close = Behind text }
+           else None)
+      | None, None -> None)
+  in
+  if clean ~lo:from ~hi:last ~behind:closing
+  then None
+  else
+    List.find_map
+      (List.init ~len:(max 0 (last - from)) ~f:(fun offset -> from + offset))
+      ~f:cut
+;;
+
 let region (facts : Core.Facts.t) (scopes : Scopes.t) (rule : Core.Rule.def) : t option =
   match opening_token facts rule, closing_text facts rule with
   | Some lead, Some closing ->
@@ -314,6 +497,7 @@ let region (facts : Core.Facts.t) (scopes : Scopes.t) (rule : Core.Rule.def) : t
          ; end_regex = "(?<=" ^ Oniguruma.escape closing ^ ")"
          ; body_from
          ; use_identity
+         ; split = split_of facts rule ~from:body_from ~closing
          })
   | _ -> None
 ;;
@@ -352,6 +536,21 @@ let of_rule (facts : Core.Facts.t) (scopes : Scopes.t) (rule : Core.Rule.def) : 
         | Some shape -> shape
         | None -> Flat))
   | Core.Rule.Separated _ -> Flat
+;;
+
+(* What a rule's list still cannot tell apart, after any cut. A region that was
+   cut has nothing left on either side, which is what makes a cut one. *)
+let conflicts (facts : Core.Facts.t) (scopes : Scopes.t) (rule : Core.Rule.def)
+  : conflict list
+  =
+  let last = Array.length rule.children - 1 in
+  match of_rule facts scopes rule with
+  | Region { split = Some _; _ } -> []
+  | Region { split = None; body_from; _ } ->
+    (match closing_text facts rule with
+     | Some behind -> region_conflicts facts rule ~lo:body_from ~hi:last ~behind
+     | None -> shared_openers facts rule ~lo:body_from ~hi:last)
+  | Delimited _ | Capture _ | Flat -> shared_openers facts rule ~lo:0 ~hi:last
 ;;
 
 (* -- forwarding ------------------------------------------------------------ *)

@@ -109,7 +109,7 @@ let grammar : t =
     ; pat
         ~trivia:Preserve
         ~textmate:{|\(\*(?:(?!\*\))[^\n])*\*\)|}
-        ~treesitter:{|\(\*(?:(?!\*\))[^\n])*\*\)|}
+        ~treesitter:{|\(\*(?:[^*\n]|\*+[^*)\n])*\*+\)|}
         "comment"
         comment
     ]

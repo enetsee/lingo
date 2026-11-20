@@ -16,6 +16,12 @@
     expression are all dropped, because highlighting needs none of them and
     tree-sitter has recovery of its own.
 
+    An empty node is dropped as well. tree-sitter refuses a rule that matches
+    nothing, so a rule that may be empty is written in the form that takes a
+    token, and the position holding it is one that may be absent. A parameter
+    list with nothing between its brackets is then a pair of brackets and no
+    list node.
+
     Nothing here is configured. The structure comes from the framing and the
     children, the precedences from the binding powers, the fold regions from
     the matched pairs, and the captures from the scopes. The token

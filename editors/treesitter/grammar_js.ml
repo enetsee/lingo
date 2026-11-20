@@ -47,16 +47,43 @@ let element (facts : Core.Facts.t) (child : Core.Rule.child) : Js.t =
     ]
 ;;
 
-let repeated (child : Core.Rule.child) (element : Js.t) : Js.t =
-  match child.modifier with
-  | Core.Grammar.Exactly_one -> element
-  | Core.Grammar.Zero_or_one -> Js.call "optional" [ element ]
-  | Core.Grammar.Zero_or_more _ -> Js.call "repeat" [ element ]
-  | Core.Grammar.One_or_more _ -> Js.call "repeat1" [ element ]
+(* tree-sitter has no rule that matches nothing, but for the one it starts
+   at. So a rule that may be empty is written in the form that takes a token,
+   and every position holding it becomes one that may be absent. The language
+   is the same. An empty list is then no node in tree-sitter's tree, where
+   lingo's holds an empty one, and a query has nothing to name in either.
+
+   [whole] is a position as its rule writes it, and [filled] the same position
+   where it has to take a token. [filled] is [None] where the position always
+   does.
+
+   Only a required child holds a rule that may be empty. The grammar's own
+   checks reject an optional or a repeated child that does, as two ways to
+   parse nothing. *)
+type part =
+  { whole : Js.t
+  ; filled : Js.t option
+  }
+
+let holds_empty (facts : Core.Facts.t) (child : Core.Rule.child) : bool =
+  Array.exists child.alts ~f:(fun (kind : Core.Kind.t) ->
+    match Core.Facts.rule_of_kind facts kind with
+    | Some rule -> Core.Facts.is_nullable facts rule.id
+    | None -> false)
 ;;
 
-let child (facts : Core.Facts.t) (child : Core.Rule.child) : Js.t =
-  repeated child (element facts child)
+let child (facts : Core.Facts.t) (child : Core.Rule.child) : part =
+  let element = element facts child in
+  match child.modifier with
+  | Core.Grammar.Exactly_one when not (holds_empty facts child) ->
+    { whole = element; filled = None }
+  | Core.Grammar.Exactly_one | Core.Grammar.Zero_or_one ->
+    { whole = Js.call "optional" [ element ]; filled = Some element }
+  | Core.Grammar.Zero_or_more _ ->
+    { whole = Js.call "repeat" [ element ]
+    ; filled = Some (Js.call "repeat1" [ element ])
+    }
+  | Core.Grammar.One_or_more _ -> { whole = Js.call "repeat1" [ element ]; filled = None }
 ;;
 
 (* A body whose elements are separated.
@@ -71,7 +98,7 @@ let separated
       ~(leading : Core.Grammar.optional_sep)
       ~(trailing : Core.Grammar.optional_sep)
       ~(uses : (string, unit) Hashtbl.t)
-  : Js.t
+  : part
   =
   let sep = symbol facts sep in
   let element = element facts element_child in
@@ -95,14 +122,17 @@ let separated
       Js.call "seq" [ Js.call "optional" [ sep ]; rest ]
   in
   match element_child.modifier with
-  | Core.Grammar.One_or_more _ -> with_leading with_trailing
+  | Core.Grammar.One_or_more _ -> { whole = with_leading with_trailing; filled = None }
   | Core.Grammar.Zero_or_more _ ->
+    let rest = Js.call "optional" [ with_trailing ] in
     (match leading with
-     | Core.Grammar.Never -> Js.call "optional" [ with_trailing ]
+     | Core.Grammar.Never -> { whole = rest; filled = Some with_trailing }
      | Core.Grammar.On_break | Core.Grammar.Always ->
-       with_leading (Js.call "optional" [ with_trailing ]))
-  | Core.Grammar.Exactly_one -> element
-  | Core.Grammar.Zero_or_one -> Js.call "optional" [ element ]
+       (* A lone leading separator is a body with something in it. *)
+       { whole = with_leading rest
+       ; filled = Some (Js.call "choice" [ Js.call "seq" [ sep; rest ]; with_trailing ])
+       })
+  | Core.Grammar.Exactly_one | Core.Grammar.Zero_or_one -> child facts element_child
 ;;
 
 (* -- a rule's body --------------------------------------------------------- *)
@@ -119,8 +149,8 @@ let seq_of (parts : Js.t list) : Js.t =
    one for the shape an enclosed postfix operator desugars into, where the
    operand sits before the opening bracket. One walk serves both, as one
    fold serves both in the formatter. *)
-let body (facts : Core.Facts.t) (rule : Core.Rule.def) ~(uses : (string, unit) Hashtbl.t)
-  : Js.t
+let parts (facts : Core.Facts.t) (rule : Core.Rule.def) ~(uses : (string, unit) Hashtbl.t)
+  : part list
   =
   let leading =
     List.init ~len:rule.body_from ~f:(fun index -> child facts rule.children.(index))
@@ -130,9 +160,11 @@ let body (facts : Core.Facts.t) (rule : Core.Rule.def) ~(uses : (string, unit) H
       ~len:(Array.length rule.children - rule.body_from)
       ~f:(fun index -> rule.children.(index + rule.body_from))
   in
+  let delimiter (kind : Core.Kind.t) : part =
+    { whole = symbol facts kind; filled = None }
+  in
   match rule.frame with
-  | Core.Rule.Plain | Core.Rule.Committed _ ->
-    seq_of (leading @ List.map framed ~f:(child facts))
+  | Core.Rule.Plain | Core.Rule.Committed _ -> leading @ List.map framed ~f:(child facts)
   | Core.Rule.Delimited { open_; close; sep; _ } ->
     let inside =
       match framed, sep with
@@ -140,7 +172,7 @@ let body (facts : Core.Facts.t) (rule : Core.Rule.def) ~(uses : (string, unit) H
         [ separated facts element_child ~sep:sep_tok ~leading:first ~trailing ~uses ]
       | _ -> List.map framed ~f:(child facts)
     in
-    seq_of ((leading @ [ symbol facts open_ ]) @ inside @ [ symbol facts close ])
+    (leading @ [ delimiter open_ ]) @ inside @ [ delimiter close ]
   | Core.Rule.Separated { sep_tok; leading = first; trailing; _ } ->
     let inside =
       match framed with
@@ -148,7 +180,38 @@ let body (facts : Core.Facts.t) (rule : Core.Rule.def) ~(uses : (string, unit) H
         [ separated facts element_child ~sep:sep_tok ~leading:first ~trailing ~uses ]
       | _ -> List.map framed ~f:(child facts)
     in
-    seq_of (leading @ inside)
+    leading @ inside
+;;
+
+let wholes (parts : part list) : Js.t list =
+  List.map parts ~f:(fun (part : part) -> part.whole)
+;;
+
+let body (facts : Core.Facts.t) (rule : Core.Rule.def) ~(uses : (string, unit) Hashtbl.t)
+  : Js.t
+  =
+  seq_of (wholes (parts facts rule ~uses))
+;;
+
+(* The body where it has to take a token, for a body that may be empty, and
+   [None] for one that always takes one. There is one alternative for each
+   position that may be the first to take a token, with the positions in front
+   of it left out. *)
+let filled (parts : part list) : Js.t option =
+  let rec alternatives (parts : part list) : Js.t list option =
+    match parts with
+    | [] -> Some []
+    | part :: rest ->
+      (match part.filled, alternatives rest with
+       | Some first, Some later -> Some (seq_of (first :: wholes rest) :: later)
+       | None, _ | _, None -> None)
+  in
+  match alternatives parts with
+  | None -> None
+  | Some [] ->
+    raise (Cannot "a rule that holds nothing, which tree-sitter has no form for")
+  | Some [ one ] -> Some one
+  | Some many -> Some (Js.call "choice" many)
 ;;
 
 (* -- expression blocks ----------------------------------------------------- *)
@@ -203,7 +266,7 @@ let operator_alternatives
               [ Js.string (Core.Grammar.Name.Child.to_string this.child_name)
               ; symbol facts op.op_kind
               ]
-          else child facts this)
+          else (child facts this).whole)
       in
       Js.call (precedence op.assoc) [ Js.atom (string_of_int op.bp); seq_of parts ]
     in
@@ -326,13 +389,36 @@ let extras (facts : Core.Facts.t) : Js.t list =
     else Some (regex_of token))
 ;;
 
+let referenced (facts : Core.Facts.t) (id : Core.Rule.id) : bool =
+  let kind = (Core.Facts.rule facts id).kind in
+  Array.exists
+    Core.Facts.(facts.rules)
+    ~f:(fun (rule : Core.Rule.def) ->
+      Array.exists rule.children ~f:(fun (child : Core.Rule.child) ->
+        Core.Kind.Set.mem child.kinds kind))
+;;
+
+(* The one rule tree-sitter lets match nothing is the rule it starts at, and
+   only where no other rule refers to it. *)
+let starts_empty (facts : Core.Facts.t) (id : Core.Rule.id) : bool =
+  match Core.Facts.(facts.roots) with
+  | [ only ] -> only = id && not (referenced facts id)
+  | [] | _ :: _ :: _ -> false
+;;
+
 let rule_entries (facts : Core.Facts.t) ~(uses : (string, unit) Hashtbl.t)
   : (string * Js.t) list
   =
   Array.to_list Core.Facts.(facts.rules)
   |> List.concat_map ~f:(fun (rule : Core.Rule.def) ->
     match rule.origin with
-    | Core.Rule.User -> [ Node.of_rule rule.name, body facts rule ~uses ]
+    | Core.Rule.User ->
+      let written =
+        match filled (parts facts rule ~uses) with
+        | Some taking when not (starts_empty facts rule.id) -> taking
+        | Some _ | None -> body facts rule ~uses
+      in
+      [ Node.of_rule rule.name, written ]
     | Core.Rule.Pratt_role { block; role } ->
       [ Node.of_rule rule.name, role_body facts rule ~block ~role ~uses ]
     | Core.Rule.Pratt_block ->
@@ -350,24 +436,36 @@ let rule_entries (facts : Core.Facts.t) ~(uses : (string, unit) Hashtbl.t)
 (* The root goes first: tree-sitter parses from the first rule in the map.
 
    A grammar may declare several, and tree-sitter takes one, so the rest are
-   gathered under a rule made up for the purpose. This backend invents a
-   node nowhere else. *)
+   gathered under a rule made up for the purpose. A lone root that may be
+   empty and that another rule refers to goes under one as well: it is
+   written in the form that takes a token, and the made-up rule is the one
+   that may match nothing. This backend invents a node nowhere else. *)
 let ordered (facts : Core.Facts.t) (entries : (string * Js.t) list) : (string * Js.t) list
   =
   let name_of (id : Core.Rule.id) : string =
     Node.of_rule (Core.Facts.rule facts id).name
   in
+  let gathered (roots : Core.Rule.id list) : (string * Js.t) list =
+    let any =
+      match List.map roots ~f:(fun id -> Js.atom ("$." ^ name_of id)) with
+      | [ one ] -> one
+      | many -> Js.call "choice" many
+    in
+    let start =
+      if List.exists roots ~f:(Core.Facts.is_nullable facts)
+      then Js.call "optional" [ any ]
+      else any
+    in
+    (Node.start, start) :: entries
+  in
   match Core.Facts.(facts.roots) with
   | [] -> entries
-  | [ only ] ->
+  | [ only ] when starts_empty facts only || not (Core.Facts.is_nullable facts only) ->
     let key = name_of only in
     (match List.assoc_opt key entries with
      | None -> entries
      | Some js -> (key, js) :: List.filter entries ~f:(fun (k, _) -> k <> key))
-  | roots ->
-    ( Node.start
-    , Js.call "choice" (List.map roots ~f:(fun id -> Js.atom ("$." ^ name_of id))) )
-    :: entries
+  | roots -> gathered roots
 ;;
 
 let helpers =

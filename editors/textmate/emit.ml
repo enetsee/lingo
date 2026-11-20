@@ -199,6 +199,20 @@ let child_patterns (ctx : ctx) (rule : Core.Rule.def) (shape : Shape.t) ~(from :
     child_patterns_at ctx rule shape ~index)
 ;;
 
+(* The same for the children in [lo, hi], which is one side of a cut. *)
+let child_patterns_in
+      (ctx : ctx)
+      (rule : Core.Rule.def)
+      (shape : Shape.t)
+      ~(lo : int)
+      ~(hi : int)
+  : Yojson.Basic.t list
+  =
+  Shape.emission_order ctx.facts rule ~from:lo
+  |> List.filter ~f:(fun (index : int) -> index <= hi)
+  |> List.concat_map ~f:(fun (index : int) -> child_patterns_at ctx rule shape ~index)
+;;
+
 (* The separator of a framed body is not a child, so nothing above emits it.
 
    The grammar-wide entry already covers a separator that carries a scope,
@@ -249,7 +263,7 @@ let entry (ctx : ctx) (rule : Core.Rule.def) : Yojson.Basic.t =
            (whole_match ctx (Scopes.token ctx.scopes open_.id))
        @ optional_field "endCaptures" (whole_match ctx (Scopes.token ctx.scopes close.id))
        @ [ "patterns", `List (with_tails ctx body) ])
-  | Shape.Region { begin_regex; begin_captures; end_regex; body_from; _ } ->
+  | Shape.Region { begin_regex; begin_captures; end_regex; body_from; split = None; _ } ->
     let body =
       place_pairs ctx (Clash.Body rule.id)
       @ child_patterns ctx rule shape ~from:body_from
@@ -262,6 +276,58 @@ let entry (ctx : ctx) (rule : Core.Rule.def) : Yojson.Basic.t =
           | [] -> []
           | indexed -> [ "beginCaptures", captures ctx indexed ])
        @ [ "patterns", `List (with_tails ctx body) ])
+  | Shape.Region
+      { begin_regex; begin_captures; end_regex; body_from; split = Some split; _ } ->
+    (* The first part is what the uncut region was, as far as the child it is
+       cut at. The outer region opens where the first part does without taking
+       anything, so the first part is the first thing it tries, and it cannot
+       end where it opened. *)
+    let pairs = place_pairs ctx (Clash.Body rule.id) in
+    let close =
+      match split.close with
+      | Shape.Behind text -> [ "end", `String ("(?<=" ^ Oniguruma.escape text ^ ")") ]
+      | Shape.Literal token ->
+        let regex =
+          match Oniguruma.of_token token with
+          | Ok regex -> regex
+          | Error _ -> Oniguruma.escape (Option.value (Core.Token.text token) ~default:"")
+        in
+        [ "end", `String regex ]
+        @ optional_field
+            "endCaptures"
+            (whole_match
+               ctx
+               (Shape.body_scope ctx.scopes rule shape ~index:split.upto ~token:token.id))
+    in
+    let first =
+      `Assoc
+        ([ "begin", `String begin_regex ]
+         @ close
+         @ (match begin_captures with
+            | [] -> []
+            | indexed -> [ "beginCaptures", captures ctx indexed ])
+         @ [ ( "patterns"
+             , `List
+                 (with_tails
+                    ctx
+                    (pairs @ child_patterns_in ctx rule shape ~lo:body_from ~hi:split.upto))
+             )
+           ])
+    in
+    let rest =
+      child_patterns_in
+        ctx
+        rule
+        shape
+        ~lo:(split.upto + 1)
+        ~hi:(Array.length rule.children - 1)
+    in
+    `Assoc
+      (named ctx (Some (wrap_scope ctx rule))
+       @ [ "begin", `String ("(?=" ^ begin_regex ^ ")")
+         ; "end", `String ("(?!\\G)" ^ end_regex)
+         ]
+       @ [ "patterns", `List (with_tails ctx ((first :: pairs) @ rest @ raw)) ])
   | Shape.Capture parts ->
     let separator = Oniguruma.neutralise (Oniguruma.trivia_separator ctx.facts) in
     let regex =

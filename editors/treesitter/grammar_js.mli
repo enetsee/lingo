@@ -18,6 +18,8 @@
       pattern token           a rule of its own, so a query can name it
       trivia                  extras
       binding power           prec.left / prec.right, by associativity
+      a rule that may be      the form that takes a token, and optional(...)
+        empty                   at each position that holds it
     v}
 
     A production that contains its own errors is a [seq] like any other.

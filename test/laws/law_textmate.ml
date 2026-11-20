@@ -27,6 +27,8 @@
       (q) A clash is found wherever the engine meets one: behind an
           expression block, ahead of one, against an operator its pattern
           also matches, and in a rule nothing literal leads into.
+      (r) A region whose list cannot tell two children apart is cut in two
+          where a cut parts them, and refused where none does.
 
       Mechanism. Parts (a) to (h) and (l) read the emitted JSON back and walk
       it. They
@@ -62,6 +64,17 @@
       and whether an editor colours what a reader expects. The first needs the
       engine. The second needs a person, who reads test/editors/*.textmate by
       eye.
+
+      Part (r) came from the engine all the same. On 2026-11-20 a grammar with
+      [do (head) \{ \} while (cond)], [while (head) (cond) \{ \}] and
+      [try \{ \} catch (e) \{ \}] went through vscode-textmate 9 as the backend
+      would have emitted it. The [do] region ended behind the head's bracket
+      and its [while] opened a loop of its own that ran to the next brace. The
+      [try] region ended behind its first block, and the handler's parameter
+      came out as an expression. Cut as part (r) describes, all three colour
+      as written, on one line and across several, and nested in each other.
+      No grammar in the corpus has the shape, so the part carries witnesses,
+      one for each condition a cut has to meet.
 
       What the corpus does not reach, and what the witnesses are for. Nothing
       in the thirteen grammars splices a capturing group -- redfa emits [(?:]
@@ -860,6 +873,28 @@ let () =
        (function
          | Textmate.Check.Shared_opener _ -> true
          | _ -> false));
+  (* Two children that hold one matched pair. Both reach the one region, so
+     the backend takes the grammar. *)
+  let twice =
+    let open Core.Grammar in
+    create
+      ~tokens:
+        [ punct_tight ~name:"lbrack" "["
+        ; punct_tight ~name:"rbrack" "]"
+        ; pat "word" Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z'))
+        ]
+      ~roots:[ "File" ]
+      [ prod "File" [ child_req "one" (Rule "A"); child_req "two" (Rule "A") ]
+      ; prod "A" [ child_rep "word" (Token "word") ]
+        |> with_delimited ~open_tok:"lbrack" ~close_tok:"rbrack"
+      ]
+  in
+  (match Textmate.generate (scopes_of (facts_of twice)) ~language:"witness" () with
+   | Ok _ -> ()
+   | Error problems ->
+     Law.fail
+       "(j) two children holding one pair: reported %s"
+       (String.concat ", " (List.map Textmate.Check.problem_to_string problems)));
   let rust = scopes_of (facts_of Lingo_grammars.Rust_grammar.grammar) in
   expect
     "a hand-written pattern that is not JSON"
@@ -1838,6 +1873,420 @@ let () =
     Law.pass
       "(q) a clash is found behind a block, ahead of one, against an operator, and in an \
        atom"
+;;
+
+(* -- (r) a region that cannot tell two children apart is cut -------------- *)
+
+(* What the witnesses share. [Head], [Cond] and [Last] are three matched pairs
+   on one bracket, and [Body] is a pair on another. Each witness is one
+   committed production over them, which is a region: it opens on a keyword
+   and ends behind its last child. *)
+type cut =
+  | Cut of
+      { first_end : string (** The [end] of the first part. *)
+      ; first : string list (** What the first part includes. *)
+      ; rest : string list (** What the outer region includes after it. *)
+      ; named : bool * bool
+        (** Whether the first part's list scopes a type, and whether the
+            outer one does. *)
+      }
+  | Refused of string * (Textmate.Check.problem -> bool)
+
+let () =
+  let before = Law.failures () in
+  let open Core.Grammar in
+  let tokens =
+    [ kw "go"
+    ; kw "do"
+    ; kw "while"
+    ; kw "try"
+    ; kw "catch"
+    ; kw "then"
+    ; kw "sep"
+    ; kw "end"
+    ; punct_tight ~name:"lparen" "("
+    ; punct_tight ~name:"rparen" ")"
+    ; punct_tight ~name:"lbrace" "{"
+    ; punct_tight ~name:"rbrace" "}"
+    ; pat "word" Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z'))
+    ; pat ~trivia:Reformat "ws" Redfa.Regex.(plus (singleton_char ' '))
+    ]
+  in
+  let pairs =
+    [ ( "Head"
+      , prod "Head" [ child_req "word" (Token "word") ]
+        |> with_delimited ~open_tok:"lparen" ~close_tok:"rparen" )
+    ; ( "Cond"
+      , prod "Cond" [ child_rep "word" (Token "word") ]
+        |> with_delimited ~open_tok:"lparen" ~close_tok:"rparen" )
+    ; ( "Last"
+      , prod "Last" [ child_opt "word" (Token "word") ]
+        |> with_delimited ~open_tok:"lparen" ~close_tok:"rparen" )
+    ; ( "Body"
+      , prod "Body" [ child_rep "word" (Token "word") ]
+        |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace" )
+    ]
+  in
+  let keyword (text : string) : string * symbol =
+    let width = String.length text in
+    if width > 0 && text.[width - 1] = '?'
+    then (
+      let text = String.sub text 0 (width - 1) in
+      text ^ "_kw?", Token text)
+    else text ^ "_kw", Token text
+  in
+  let pair (name : string) (rule : string) : string * symbol = name, Rule rule in
+  let includes (patterns : Yojson.Basic.t list) : string list =
+    List.filter_map
+      (fun pattern ->
+         match field "include" pattern with
+         | Some (`String key) when key <> "#trivia" && key <> "#tokens" -> Some key
+         | _ -> None)
+      patterns
+  in
+  let patterns_of (json : Yojson.Basic.t) : Yojson.Basic.t list =
+    match field "patterns" json with
+    | Some (`List patterns) -> patterns
+    | _ -> []
+  in
+  let text_of (key : string) (json : Yojson.Basic.t) : string =
+    match field key json with
+    | Some (`String text) -> text
+    | _ -> ""
+  in
+  (* A child whose name ends in [?] may be absent. *)
+  let child_of (index : int) ((name, symbol) : string * symbol) : child =
+    let width = String.length name in
+    if width > 0 && name.[width - 1] = '?'
+    then child_opt (Printf.sprintf "%s_%d" (String.sub name 0 (width - 1)) index) symbol
+    else child_req (Printf.sprintf "%s_%d" name index) symbol
+  in
+  let type_name : Yojson.Basic.t = `String "entity.name.type.witness" in
+  let ties (patterns : Yojson.Basic.t list) : bool =
+    List.exists (fun pattern -> field "name" pattern = Some type_name) patterns
+  in
+  let check
+        ?(overrides = [])
+        (what : string)
+        (children : (string * symbol) list)
+        (expected : cut)
+    : unit
+    =
+    let used (rule : string) : bool =
+      List.exists
+        (fun (_, symbol) ->
+           match symbol with
+           | Rule name -> String.equal name rule
+           | Token _ -> false)
+        children
+    in
+    let rule = prod "Stmt" (List.mapi child_of children) |> with_committed in
+    let grammar =
+      create
+        ~tokens
+        ~roots:[ "File" ]
+        (prod "File" [ child_rep "stmt" (Rule "Stmt") ]
+         :: rule
+         :: List.filter_map
+              (fun (name, pair) -> if used name then Some pair else None)
+              pairs)
+    in
+    let scopes =
+      match Scopes.of_facts (facts_of grammar) ~overrides with
+      | Ok scopes -> scopes
+      | Error findings ->
+        failwith (String.concat ", " (List.map Scopes.finding_to_string findings))
+    in
+    match Textmate.generate scopes ~language:"witness" (), expected with
+    | Error problems, Refused (_, owed) ->
+      if not (List.exists owed problems)
+      then
+        Law.fail
+          "(r) %s: refused, and for %s"
+          what
+          (String.concat ", " (List.map Textmate.Check.problem_to_string problems))
+    | Error problems, Cut _ ->
+      Law.fail
+        "(r) %s: refused for %s"
+        what
+        (String.concat ", " (List.map Textmate.Check.problem_to_string problems))
+    | Ok _, Refused (why, _) -> Law.fail "(r) %s: accepted, and %s" what why
+    | Ok text, Cut { first_end; first; rest; named } ->
+      let entry =
+        match field "repository" (Yojson.Basic.from_string text) with
+        | Some repository -> Option.value (field "stmt" repository) ~default:`Null
+        | None -> `Null
+      in
+      (match patterns_of entry with
+       | part :: outer ->
+         let opens = text_of "begin" part in
+         if not (String.equal (text_of "begin" entry) ("(?=" ^ opens ^ ")"))
+         then
+           Law.fail
+             "(r) %s: the region opens on %S and its first part on %S"
+             what
+             (text_of "begin" entry)
+             opens;
+         let guard = {|(?!\G)(?<=|} in
+         let ends = text_of "end" entry in
+         if
+           not
+             (String.length ends >= String.length guard
+              && String.equal (String.sub ends 0 (String.length guard)) guard)
+         then
+           Law.fail
+             "(r) %s: the region ends on %S, which it can do where it opened"
+             what
+             ends;
+         if not (String.equal (text_of "end" part) first_end)
+         then
+           Law.fail
+             "(r) %s: the first part ends on %S and not %S"
+             what
+             (text_of "end" part)
+             first_end;
+         if includes (patterns_of part) <> first
+         then
+           Law.fail
+             "(r) %s: the first part holds %s"
+             what
+             (String.concat " " (includes (patterns_of part)));
+         if includes outer <> rest
+         then
+           Law.fail
+             "(r) %s: what follows holds %s"
+             what
+             (String.concat " " (includes outer));
+         if (ties (patterns_of part), ties outer) <> named
+         then
+           Law.fail
+             "(r) %s: a type is scoped in the first part's list (%b) and in what follows \
+              (%b)"
+             what
+             (ties (patterns_of part))
+             (ties outer);
+         (* A literal the first part ends by taking keeps the scope it has. *)
+         if
+           String.length first_end > 0
+           && first_end.[0] <> '('
+           && field "endCaptures" part = None
+         then Law.fail "(r) %s: the literal that ends the first part has no scope" what
+       | [] -> Law.fail "(r) %s: the region has no patterns" what)
+  in
+  let closes_early : string * (Textmate.Check.problem -> bool) =
+    ( "its region ends behind an earlier child"
+    , function
+      | Textmate.Check.Early_close _ -> true
+      | _ -> false )
+  in
+  let shares : string * (Textmate.Check.problem -> bool) =
+    ( "two of its pairs share a list"
+    , function
+      | Textmate.Check.Shared_opener _ -> true
+      | _ -> false )
+  in
+  let refused ((why, owed) : string * (Textmate.Check.problem -> bool)) : cut =
+    Refused (why, owed)
+  in
+  (* The three shapes the engine was run on. A cut is taken at the first child
+     that can carry one, so [do] is cut behind its body and not at [while]. *)
+  check
+    "do (head) { } while (cond)"
+    [ keyword "do"
+    ; pair "head" "Head"
+    ; pair "body" "Body"
+    ; keyword "while"
+    ; pair "cond" "Cond"
+    ]
+    (Cut
+       { first_end = {|(?<=\})|}
+       ; first = [ "#head"; "#body" ]
+       ; rest = [ "#cond" ]
+       ; named = false, false
+       });
+  check
+    "while (head) (cond) { }"
+    [ keyword "while"; pair "head" "Head"; pair "cond" "Cond"; pair "body" "Body" ]
+    (Cut
+       { first_end = {|(?<=\))|}
+       ; first = [ "#head" ]
+       ; rest = [ "#cond"; "#body" ]
+       ; named = false, false
+       });
+  check
+    "try { } catch (e) { }"
+    [ keyword "try"
+    ; pair "body" "Body"
+    ; keyword "catch"
+    ; pair "param" "Head"
+    ; pair "handler" "Body"
+    ]
+    (Cut
+       { first_end = {|\bcatch\b|}
+       ; first = [ "#body" ]
+       ; rest = [ "#head"; "#body" ]
+       ; named = false, false
+       });
+  (* Behind a pair: the outer region must not end where the first part does. *)
+  check
+    "two of one pair with nothing between"
+    [ keyword "go"; pair "one" "Head"; pair "two" "Head" ]
+    (refused closes_early);
+  (* Behind a pair: the first part must have nothing to tell apart itself,
+     and neither must what follows. Three pairs on one bracket take two
+     cuts. *)
+  check
+    "three pairs on one bracket"
+    [ keyword "go"
+    ; pair "one" "Head"
+    ; pair "two" "Cond"
+    ; pair "three" "Last"
+    ; pair "body" "Body"
+    ]
+    (refused shares);
+  (* At a literal: only in front of a pair. A token beside it may be tied to
+     it, and the first part's end would take the literal first. *)
+  check
+    "a literal with a token after it"
+    [ keyword "go"
+    ; pair "body" "Body"
+    ; keyword "then"
+    ; "name", Token "word"
+    ; pair "last" "Body"
+    ]
+    (refused closes_early);
+  (* At a literal: the first part ends at the first place the literal stands,
+     so a second one is no cut of its own. *)
+  check
+    "a literal that stands twice"
+    [ keyword "go"
+    ; pair "body" "Body"
+    ; keyword "sep"
+    ; "name", Token "word"
+    ; keyword "sep"
+    ; pair "last" "Body"
+    ]
+    (refused closes_early);
+  (* At a literal: one the region's own end looks behind for would end the
+     region with the first part. *)
+  check
+    "a literal the region ends behind"
+    [ keyword "go"; pair "body" "Body"; keyword "end"; pair "more" "Body"; keyword "end" ]
+    (refused closes_early);
+  (* At a literal: the first part must have nothing to tell apart itself. *)
+  check
+    "two pairs on one bracket in front of a literal"
+    [ keyword "go"
+    ; pair "one" "Head"
+    ; pair "two" "Cond"
+    ; keyword "then"
+    ; pair "body" "Body"
+    ; pair "last" "Last"
+    ]
+    (refused shares);
+  (* At a literal: what follows must have nothing to tell apart, so this one
+     is passed over for the pair after it. *)
+  check
+    "a literal with two pairs on one bracket after it"
+    [ keyword "go"
+    ; pair "body" "Body"
+    ; keyword "then"
+    ; pair "one" "Head"
+    ; pair "two" "Cond"
+    ; pair "last" "Body"
+    ]
+    (Cut
+       { first_end = {|(?<=\))|}
+       ; first = [ "#body"; "#head" ]
+       ; rest = [ "#cond"; "#body" ]
+       ; named = false, false
+       });
+  (* A child that may be absent carries no cut: with it absent the first part
+     would run on to whatever closes next. So the cut is passed on to the pair
+     after it. *)
+  check
+    "a literal that may be absent"
+    [ keyword "go"
+    ; pair "body" "Body"
+    ; keyword "sep?"
+    ; pair "head" "Head"
+    ; pair "last" "Body"
+    ]
+    (Cut
+       { first_end = {|(?<=\))|}
+       ; first = [ "#body"; "#head" ]
+       ; rest = [ "#body" ]
+       ; named = false, false
+       });
+  (* A token scoped where it stands is tried on its own side of the cut and
+     nowhere else. [name] is a type here and a variable in the token list. *)
+  let type_scopes (name : string) : Scopes.override list =
+    [ Scopes.Token
+        { token = Core.Grammar.Name.Token.of_string "word"
+        ; scope = Scopes.Scope.Variable_other
+        }
+    ; Scopes.Child
+        { rule = Core.Grammar.Name.Rule.of_string "Stmt"
+        ; child = Core.Grammar.Name.Child.of_string name
+        ; scope = Scopes.Scope.Entity_name_type None
+        }
+    ]
+  in
+  check
+    ~overrides:(type_scopes "name_2")
+    "a scoped token in the first part"
+    [ keyword "go"
+    ; pair "head" "Head"
+    ; "name", Token "word"
+    ; keyword "then"
+    ; pair "cond" "Cond"
+    ]
+    (Cut
+       { first_end = {|\bthen\b|}
+       ; first = [ "#head" ]
+       ; rest = [ "#cond" ]
+       ; named = true, false
+       });
+  check
+    ~overrides:(type_scopes "name_4")
+    "a scoped token in what follows"
+    [ keyword "go"
+    ; pair "head" "Head"
+    ; keyword "then"
+    ; pair "cond" "Cond"
+    ; "name", Token "word"
+    ; keyword "end"
+    ]
+    (Cut
+       { first_end = {|(?<=\))|}
+       ; first = [ "#head" ]
+       ; rest = [ "#cond" ]
+       ; named = false, true
+       });
+  (* A position tied to the literal beside it goes at the front of both lists.
+     [name] and [other] hold the same token in two scopes, so [name] is tied to
+     the [sep] after it, and a pair is tried wherever the region is. *)
+  check
+    ~overrides:(type_scopes "name_1")
+    "a position tied to a literal"
+    [ keyword "go"
+    ; "name", Token "word"
+    ; keyword "sep"
+    ; "other", Token "word"
+    ; pair "head" "Head"
+    ; keyword "then"
+    ; pair "cond" "Cond"
+    ]
+    (Cut
+       { first_end = {|\bthen\b|}
+       ; first = [ "#head" ]
+       ; rest = [ "#cond" ]
+       ; named = true, true
+       });
+  if Law.failures () = before
+  then
+    Law.pass
+      "(r) a region is cut where a cut parts its children, and refused where none does"
 ;;
 
 let () = Law.summarise "law_textmate"

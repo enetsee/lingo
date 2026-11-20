@@ -11,13 +11,13 @@ module.exports = grammar({
   word: $ => $.ident,
 
   rules: {
-    source_file: $ => choice($.file, $.sig),
+    source_file: $ => optional(choice($.file, $.sig)),
 
-    file: $ => repeat(field('item', $.decl)),
+    file: $ => repeat1(field('item', $.decl)),
 
     decl: $ => field('kind', choice($.import, $.type_decl, $.data_decl, $.let_decl)),
 
-    sig: $ => repeat(field('item', $.sig_item)),
+    sig: $ => repeat1(field('item', $.sig_item)),
 
     sig_item: $ => field('kind', choice($.type_decl, $.val_decl)),
 
@@ -155,7 +155,7 @@ module.exports = grammar({
 
     int: $ => /[0-9]+/,
 
-    comment: $ => /\(\*(?:(?!\*\))[^\n])*\*\)/
+    comment: $ => /\(\*(?:[^*\n]|\*+[^*)\n])*\*+\)/
   }
 });
 

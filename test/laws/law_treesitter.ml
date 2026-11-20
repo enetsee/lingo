@@ -9,7 +9,8 @@
       (f) A grammar emits the same bytes every time.
       (g) Every scope outside the two escape hatches translates to a capture,
           and every capture it translates to is carried.
-      (h) Every regex is balanced and has no capturing group.
+      (h) Every regex is balanced, has no capturing group, and looks neither
+          ahead nor behind.
       (i) The keyword-extraction directive names the token whose language
           holds every keyword. It is written only where exactly one token
           holds them all.
@@ -19,6 +20,8 @@
           [locals.scm], and nothing else in that file claims to be one.
       (m) In [highlights.scm], a capture on one child position comes after
           the capture on the token itself.
+      (n) No rule matches the empty string but the one tree-sitter starts at,
+          and that one only where nothing refers to it.
 
       Mechanism. The law reads the emitted text back and walks it. tree-sitter
       is handed four files, and a walk over the emitter's own values would
@@ -69,6 +72,21 @@
       pattern tokens, and writes no intersection to reduce. Parts (c), (i) and
       (k) are about those three, so the corpus cannot reach any of them and
       each has a witness instead.
+
+      Part (n) carries one as well. tree-sitter's generator refuses a rule that
+      matches nothing, and the corpus held only two that could: ml's roots,
+      under the rule made up to choose between them. Its witness has a rule of
+      two optional children, a separated list that may be empty with and
+      without a leading separator, a rule that is empty because its one child
+      is, and a root that may be empty and that another rule refers to. The
+      part reads emptiness off the emitted text, so it holds for whatever the
+      emitter wrote and not for what the facts say it should have.
+
+      (h) and (n) are two of the generator's own complaints, found by running
+      tree-sitter 0.26.9 over the corpus on 2026-11-20. Twelve of the thirteen
+      grammars generate. ml stops at a conflict between its two roots, which
+      both begin with a type declaration, and that is the kind of finding the
+      paragraph below leaves to the generator.
 
       A law may not build what it expects from the value it is checking. Part
       (l) reads the grammar rather than [Rule.def.binders], because a law that
@@ -752,6 +770,29 @@ let unbalanced (regex : string) : bool =
   !bad || !depth <> 0 || !in_class
 ;;
 
+(* The second engine has no look-around, and the generator stops at one. ml's
+   comment carried a lookahead in the spelling its author wrote by hand, which
+   the emitter passes through as it stands. *)
+let looks_around (regex : string) : bool =
+  let width = String.length regex in
+  let found = ref false in
+  let in_class = ref false in
+  let at = ref 0 in
+  while !at < width do
+    (match regex.[!at] with
+     | '\\' -> incr at
+     | '[' when not !in_class -> in_class := true
+     | ']' when !in_class -> in_class := false
+     | '(' when (not !in_class) && !at + 2 < width && regex.[!at + 1] = '?' ->
+       (match regex.[!at + 2] with
+        | '=' | '!' | '<' -> found := true
+        | _ -> ())
+     | _ -> ());
+    incr at
+  done;
+  !found
+;;
+
 let () =
   let before = Law.failures () in
   let checked = ref 0 in
@@ -764,11 +805,16 @@ let () =
              | 0 -> ()
              | n -> Law.fail "(h) %s: the regex %S has %d capturing groups" e.name regex n);
             if unbalanced regex
-            then Law.fail "(h) %s: the regex %S does not balance" e.name regex)
+            then Law.fail "(h) %s: the regex %S does not balance" e.name regex;
+            if looks_around regex
+            then Law.fail "(h) %s: the regex %S looks ahead or behind" e.name regex)
          (regexes e.out.grammar_js))
     emitted;
   if Law.failures () = before
-  then Law.pass "(h) every regex is groupless and balanced, over %d of them" !checked
+  then
+    Law.pass
+      "(h) every regex is groupless, balanced and without look-around, over %d of them"
+      !checked
 ;;
 
 (* -- (i) the keyword-extraction token ------------------------------------ *)
@@ -972,6 +1018,264 @@ let () =
       | [] -> Law.fail "(c) a root declared second: no rules were emitted"));
   if Law.failures () = before
   then Law.pass "(c) the root is the rule tree-sitter starts at, wherever it was declared"
+;;
+
+(* -- (n) no rule matches the empty string but the first ------------------- *)
+
+(* A rule body as a term. The emitter writes calls, strings, references and
+   the numbers a precedence takes, and a regex only as a whole token rule. *)
+type term =
+  | Call of string * term list
+  | Ref of string
+  | Text (* A string or a regex, which always takes a character. *)
+  | Number
+
+let term_of (body : string) : term =
+  let width = String.length body in
+  let at = ref 0 in
+  let skip () =
+    while
+      !at < width
+      &&
+      match body.[!at] with
+      | ' ' | '\n' | ',' -> true
+      | _ -> false
+    do
+      incr at
+    done
+  in
+  let rec term () : term =
+    skip ();
+    if !at >= width
+    then failwith "law_treesitter: a rule body ends inside a call"
+    else (
+      match body.[!at] with
+      | '\'' ->
+        incr at;
+        while !at < width && body.[!at] <> '\'' do
+          if body.[!at] = '\\' then incr at;
+          incr at
+        done;
+        incr at;
+        Text
+      | '/' ->
+        at := width;
+        Text
+      | '$' ->
+        let name = name_at body (!at + 2) in
+        at := !at + 2 + String.length name;
+        Ref name
+      | '0' .. '9' ->
+        while !at < width && is_name_char body.[!at] do
+          incr at
+        done;
+        Number
+      | _ ->
+        let from = !at in
+        while !at < width && (is_name_char body.[!at] || body.[!at] = '.') do
+          incr at
+        done;
+        let name = String.sub body from (!at - from) in
+        if !at >= width || body.[!at] <> '('
+        then failwith (Printf.sprintf "law_treesitter: %S is not a call" name)
+        else (
+          incr at;
+          let args = ref [] in
+          skip ();
+          while !at < width && body.[!at] <> ')' do
+            args := term () :: !args;
+            skip ()
+          done;
+          incr at;
+          Call (name, List.rev !args)))
+  in
+  term ()
+;;
+
+(* Whether a rule can match nothing, read off its body. A rule met again on
+   the way down is taken not to: a cycle through nothing but empty positions
+   is left recursion, which the grammar's own checks reject. *)
+let matches_empty (bodies : (string * string) list) : string -> bool =
+  let terms =
+    List.map
+      (fun (name, body) ->
+         let arrow = "$ => " in
+         let from =
+           match occurrences ~needle:arrow body with
+           | first :: _ -> first
+           | [] -> 0
+         in
+         name, term_of (String.sub body from (String.length body - from)))
+      bodies
+  in
+  let rec empty (seen : string list) (term : term) : bool =
+    match term with
+    | Text | Number -> false
+    | Ref name ->
+      (not (List.mem name seen))
+      &&
+        (match List.assoc_opt name terms with
+        | Some body -> empty (name :: seen) body
+        | None -> false)
+    | Call (("optional" | "repeat"), _) -> true
+    | Call ("seq", parts) -> List.for_all (empty seen) parts
+    | Call ("choice", parts) -> List.exists (empty seen) parts
+    | Call ("repeat1", [ inner ]) -> empty seen inner
+    | Call (("field" | "prec.left" | "prec.right" | "sepBy1"), [ _; inner ]) ->
+      empty seen inner
+    | Call (name, _) -> failwith (Printf.sprintf "law_treesitter: no reading of %S" name)
+  in
+  fun name ->
+    match List.assoc_opt name terms with
+    | Some body -> empty [ name ] body
+    | None -> false
+;;
+
+(* What the generator refuses, for one emitted grammar: a rule after the first
+   that matches nothing, and a first rule that does so and is referred to. *)
+let empty_rules (grammar_js : string) : string list =
+  let bodies = rule_bodies grammar_js in
+  let empty = matches_empty bodies in
+  match bodies with
+  | [] -> []
+  | (first, _) :: rest ->
+    let referred =
+      List.exists (fun (_, body) -> List.mem first (references body)) bodies
+    in
+    (if empty first && referred then [ first ] else [])
+    @ List.filter_map (fun (name, _) -> if empty name then Some name else None) rest
+;;
+
+(* A body with its layout taken out, and the comma that parts it from the next
+   rule. *)
+let squashed (text : string) : string =
+  let joined =
+    String.concat "" (String.split_on_char ' ' (String.concat "" (lines text)))
+  in
+  let width = String.length joined in
+  if width > 0 && joined.[width - 1] = ','
+  then String.sub joined 0 (width - 1)
+  else joined
+;;
+
+let () =
+  let before = Law.failures () in
+  let rules = ref 0 in
+  List.iter
+    (fun (e : emitted) ->
+       rules := !rules + List.length (rule_bodies e.out.grammar_js);
+       List.iter
+         (fun name -> Law.fail "(n) %s: the rule %S matches the empty string" e.name name)
+         (empty_rules e.out.grammar_js))
+    emitted;
+  (* The witness. [FieldList] is two optional children. [Tags] and [Alts] are
+     separated lists that may be empty, the second with a leading separator.
+     [Wrap] is empty because [Tags] is. [Items] is the root, may be empty, and
+     [Group] refers to it. *)
+  let grammar =
+    let open Core.Grammar in
+    create
+      ~tokens:
+        [ kw "use"
+        ; kw "wrap"
+        ; punct_tight ~name:"lparen" "("
+        ; punct_tight ~name:"rparen" ")"
+        ; punct_tight ~name:"lbrace" "{"
+        ; punct_tight ~name:"rbrace" "}"
+        ; punct_tight ~name:"comma" ","
+        ; punct_tight ~name:"semi" ";"
+        ; punct_tight ~name:"bar" "|"
+        ; pat "word" Redfa.Regex.(plus (range_char ~lo:'a' ~hi:'z'))
+        ; pat ~trivia:Reformat "ws" Redfa.Regex.(plus (singleton_char ' '))
+        ]
+      ~roots:[ "Items" ]
+      [ prod "Items" [ child_rep "item" (Rule "Item") ]
+      ; prod
+          "Item"
+          [ child_alt_rules
+              ~modifier:Exactly_one
+              "kind"
+              [ "Fields"; "Use"; "Wrapped"; "Group" ]
+          ]
+      ; prod "Group" [ child_req "items" (Rule "Items") ]
+        |> with_delimited ~open_tok:"lbrace" ~close_tok:"rbrace"
+      ; prod "Fields" [ child_req "list" (Rule "FieldList") ]
+        |> with_delimited ~open_tok:"lparen" ~close_tok:"rparen"
+      ; prod
+          "FieldList"
+          [ child_opt "first" (Rule "Names"); child_opt "rest" (Rule "Rest") ]
+      ; prod "Rest" [ child_req "semi" (Token "semi"); child_req "alts" (Rule "Alts") ]
+      ; prod "Names" [ child_rep1 "name" (Token "word") ] |> with_separator ~sep:"comma"
+      ; prod "Alts" [ child_rep "alt" (Token "word") ]
+        |> with_separator ~sep:"bar" ~leading_sep:On_break
+      ; prod "Tags" [ child_rep "tag" (Token "word") ] |> with_separator ~sep:"comma"
+      ; prod
+          "Use"
+          [ child_req "kw" (Token "use")
+          ; child_req "tags" (Rule "Tags")
+          ; child_req "semi" (Token "semi")
+          ]
+      ; prod "Wrap" [ child_req "tags" (Rule "Tags") ]
+      ; prod
+          "Wrapped"
+          [ child_req "kw" (Token "wrap")
+          ; child_req "inner" (Rule "Wrap")
+          ; child_req "semi" (Token "semi")
+          ]
+      ]
+  in
+  (match Treesitter.generate (scopes_of (facts_of grammar)) ~language:"witness" () with
+   | Error problems ->
+     List.iter
+       (fun p -> Law.fail "(n) the witness: %a" Treesitter.Check.pp_problem p)
+       problems
+   | Ok out ->
+     let bodies = rule_bodies out.grammar_js in
+     List.iter
+       (fun name -> Law.fail "(n) the witness: the rule %S matches the empty string" name)
+       (empty_rules out.grammar_js);
+     (* The language has to stay what it was, so each rule is held to the one
+        form that takes a token and gives nothing else up. *)
+     List.iter
+       (fun (name, expected) ->
+          match List.assoc_opt name bodies with
+          | None -> Law.fail "(n) the witness: no rule %S" name
+          | Some body ->
+            let got = squashed body in
+            let expected = squashed (Printf.sprintf "%s: $ => %s" name expected) in
+            if not (String.equal got expected)
+            then
+              Law.fail
+                "(n) the witness: %S is written\n  %s\nand not\n  %s"
+                name
+                got
+                expected)
+       [ Treesitter.Node.start, "optional($.items)"
+       ; "items", "repeat1(field('item', $.item))"
+       ; "group", "seq('{', optional(field('items', $.items)), '}')"
+       ; "fields", "seq('(', optional(field('list', $.field_list)), ')')"
+       ; ( "field_list"
+         , "choice(seq(field('first', $.names), optional(field('rest', $.rest))), \
+            field('rest', $.rest))" )
+       ; "rest", "seq(field('semi', ';'), optional(field('alts', $.alts)))"
+       ; "names", "sepBy1(',', field('name', $.word))"
+       ; ( "alts"
+         , "choice(seq('|', optional(sepBy1('|', field('alt', $.word)))), sepBy1('|', \
+            field('alt', $.word)))" )
+       ; "tags", "sepBy1(',', field('tag', $.word))"
+       ; ( "use"
+         , "seq(field('kw', 'use'), optional(field('tags', $.tags)), field('semi', ';'))"
+         )
+       ; "wrap", "field('tags', $.tags)"
+       ; ( "wrapped"
+         , "seq(field('kw', 'wrap'), optional(field('inner', $.wrap)), field('semi', \
+            ';'))" )
+       ]);
+  if Law.failures () = before
+  then
+    Law.pass
+      "(n) no rule but the first matches the empty string, over %d rules and a witness"
+      !rules
 ;;
 
 let negated_class = "[^*" ^ "\\" ^ "/]+"

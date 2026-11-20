@@ -31,9 +31,23 @@ type problem =
       ; token : Core.Grammar.Name.Token.t
       ; children : Core.Grammar.Name.Child.t list
       }
-  (** Two children of one rule point at matched pairs that open on the
-        same token. A pattern list is tried in order, so every occurrence of
-        that token fires the first, and the rest are unreachable. *)
+  (** Two children of one rule hold different matched pairs that open on the
+        same token, and no cut of the rule's region parts them. A pattern list
+        is tried in order, so every occurrence of that token fires the first,
+        and the rest are unreachable.
+
+        Two children that hold the same pair are one pattern, and each
+        occurrence reaches it. [children] names one child for each pair. See
+        {!Shape.conflict}. *)
+  | Early_close of
+      { rule : Core.Grammar.Name.Rule.t
+      ; child : Core.Grammar.Name.Child.t
+      ; text : string
+      }
+  (** A region ends behind [text], an earlier child of it ends on [text]
+        too, and no cut of the region parts the two. The region would end
+        behind the earlier child, and what follows would be coloured by
+        whatever list the region sat in. *)
   | Shared_postfix_lead of
       { block : Core.Grammar.Name.Rule.t
       ; token : Core.Grammar.Name.Token.t

@@ -14,6 +14,11 @@ type problem =
       ; token : Core.Grammar.Name.Token.t
       ; children : Core.Grammar.Name.Child.t list
       }
+  | Early_close of
+      { rule : Core.Grammar.Name.Rule.t
+      ; child : Core.Grammar.Name.Child.t
+      ; text : string
+      }
   | Shared_postfix_lead of
       { block : Core.Grammar.Name.Rule.t
       ; token : Core.Grammar.Name.Token.t
@@ -57,6 +62,12 @@ let problem_to_string (problem : problem) : string =
          (List.map children ~f:(fun child ->
             Printf.sprintf "%S" (Core.Grammar.Name.Child.to_string child))))
       (Core.Grammar.Name.Token.to_string token)
+  | Early_close { rule; child; text } ->
+    Printf.sprintf
+      "production %S ends behind %S, and its child %S ends on that first"
+      (Core.Grammar.Name.Rule.to_string rule)
+      text
+      (Core.Grammar.Name.Child.to_string child)
   | Shared_postfix_lead { block; token } ->
     Printf.sprintf
       "expression block %S has more than one postfix operator leading on %S"
@@ -308,41 +319,25 @@ let check_keys (facts : Core.Facts.t) : problem list =
     []
 ;;
 
-let opener (facts : Core.Facts.t) (child : Core.Rule.child) : Core.Kind.t option =
-  match Shape.rule_of_child facts child with
-  | None -> None
-  | Some target ->
-    (match target.frame with
-     | Core.Rule.Delimited { open_; _ } -> Some open_
-     | Core.Rule.Plain | Core.Rule.Committed _ | Core.Rule.Separated _ -> None)
-;;
-
-let check_openers (facts : Core.Facts.t) : problem list =
+(* What a rule's pattern list cannot tell apart, as {!Shape.conflicts} finds
+   it. A region the backend could cut in two has nothing left to report. *)
+let check_children (facts : Core.Facts.t) (scopes : Scopes.t) : problem list =
   Array.to_list Core.Facts.(facts.rules)
   |> List.filter ~f:is_emitted
   |> List.concat_map ~f:(fun (rule : Core.Rule.def) ->
-    let groups = Hashtbl.create 4 in
-    Array.iter rule.children ~f:(fun (child : Core.Rule.child) ->
-      match opener facts child with
-      | None -> ()
-      | Some kind ->
-        let key = Core.Kind.to_int kind in
-        let children =
-          match Hashtbl.find_opt groups key with
-          | Some (_, children) -> children
-          | None -> []
-        in
-        Hashtbl.replace groups key (kind, child.child_name :: children));
-    Hashtbl.fold
-      (fun _ (kind, children) acc ->
-         match children, Core.Facts.token_of_kind facts kind with
-         | _ :: _ :: _, Some token ->
-           Shared_opener
-             { rule = rule.name; token = token.name; children = List.rev children }
-           :: acc
-         | _ -> acc)
-      groups
-      [])
+    let name_of (index : int) : Core.Grammar.Name.Child.t =
+      rule.children.(index).child_name
+    in
+    List.map (Shape.conflicts facts scopes rule) ~f:(fun (conflict : Shape.conflict) ->
+      match conflict with
+      | Shape.Shares { token; children } ->
+        Shared_opener
+          { rule = rule.name
+          ; token = token.name
+          ; children = List.map children ~f:name_of
+          }
+      | Shape.Closes { child; text } ->
+        Early_close { rule = rule.name; child = name_of child; text }))
 ;;
 
 let check_postfix_leads (facts : Core.Facts.t) : problem list =
@@ -532,7 +527,7 @@ let run
        else [])
      @ check_oniguruma facts
      @ check_keys facts
-     @ check_openers facts
+     @ check_children facts scopes
      @ check_postfix_leads facts
      @ check_attachable facts scopes ~raw:has_raw
      @ check_forwarding facts scopes ~raw:has_raw
