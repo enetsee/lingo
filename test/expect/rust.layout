@@ -1,0 +1,352 @@
+; 0 N_FILE
+; 1 N_ITEM
+; 2 N_STRUCT
+; 3 N_STRUCTBODY
+; 4 N_FIELD
+; 5 N_ENUM
+; 6 N_ENUMBODY
+; 7 N_VARIANT
+; 8 N_VARIANTPAYLOAD
+; 9 N_TUPLEPAYLOAD
+; 10 N_STRUCTPAYLOAD
+; 11 N_TRAIT
+; 12 N_TRAITBODY
+; 13 N_METHODSIG
+; 14 N_FN
+; 15 N_WHERE
+; 16 N_BOUNDS
+; 17 N_BOUND
+; 18 N_PARAMLIST
+; 19 N_PARAM
+; 20 N_TYPE
+; 21 N_BLOCK
+; 22 N_STMT
+; 23 N_LET
+; 24 N_EXPRSTMT
+; 25 N_MATCH
+; 26 N_MATCHBODY
+; 27 N_MATCHARM
+; 28 T_STRUCT
+; 29 T_ENUM
+; 30 T_TRAIT
+; 31 T_FN
+; 32 T_WHERE
+; 33 T_LET
+; 34 T_MATCH
+; 35 T_LBRACE
+; 36 T_RBRACE
+; 37 T_LPAREN
+; 38 T_RPAREN
+; 39 T_LBRACKET
+; 40 T_RBRACKET
+; 41 T_COMMA
+; 42 T_SEMI
+; 43 T_COLON
+; 44 T_DOT
+; 45 T_QUESTION
+; 46 T_ARROW
+; 47 T_FAT_ARROW
+; 48 T_EQ
+; 49 T_PLUS
+; 50 T_MINUS
+; 51 T_STAR
+; 52 T_SLASH
+; 53 T_EQEQ
+; 54 T_BANGEQ
+; 55 T_BANG
+; 56 T_IDENT
+; 57 T_INT
+; 58 T_WS
+; 59 T_LINE
+; 60 N_EXPR
+; 61 N_EXPR_BIN
+; 62 N_EXPR_PREFIX
+; 63 N_EXPR_POSTFIX_TRY
+; 64 N_EXPR_POSTFIX_FIELD
+; 65 N_EXPR_POSTFIX_INDEX
+; 66 N_EXPR_POSTFIX_CALL
+; 67 N_FILE_HOLE
+; 68 N_ITEM_HOLE
+; 69 N_STRUCT_HOLE
+; 70 N_STRUCTBODY_HOLE
+; 71 N_FIELD_HOLE
+; 72 N_ENUM_HOLE
+; 73 N_ENUMBODY_HOLE
+; 74 N_VARIANT_HOLE
+; 75 N_VARIANTPAYLOAD_HOLE
+; 76 N_TUPLEPAYLOAD_HOLE
+; 77 N_STRUCTPAYLOAD_HOLE
+; 78 N_TRAIT_HOLE
+; 79 N_TRAITBODY_HOLE
+; 80 N_METHODSIG_HOLE
+; 81 N_FN_HOLE
+; 82 N_WHERE_HOLE
+; 83 N_BOUNDS_HOLE
+; 84 N_BOUND_HOLE
+; 85 N_PARAMLIST_HOLE
+; 86 N_PARAM_HOLE
+; 87 N_BLOCK_HOLE
+; 88 N_STMT_HOLE
+; 89 N_LET_HOLE
+; 90 N_EXPRSTMT_HOLE
+; 91 N_MATCH_HOLE
+; 92 N_MATCHBODY_HOLE
+; 93 N_MATCHARM_HOLE
+; 94 N_EXPR_HOLE
+; 95 T_ERROR
+; 96 N_ERROR
+; 97 N_MISSING
+; 98 T_UNTERMINATED
+(layout
+  (token 28 before after)
+  (token 29 before after)
+  (token 30 before after)
+  (token 31 before after)
+  (token 32 before after)
+  (token 33 before after)
+  (token 34 before after)
+  (token 35 space-before after)
+  (token 36 before after)
+  (token 37 before)
+  (token 38 after)
+  (token 39 before)
+  (token 40 after)
+  (token 41 after)
+  (token 42 after)
+  (token 43 after)
+  (token 44)
+  (token 45)
+  (token 46 before after)
+  (token 47 before after)
+  (token 48 before after)
+  (token 49 before after)
+  (token 50 before after)
+  (token 51 before after)
+  (token 52 before after)
+  (token 53 before after)
+  (token 54 before after)
+  (token 55 before)
+  (token 56 before after)
+  (token 57 before after)
+  (token 58 before after reformat)
+  (token 59 before after preserve)
+  (token 95)
+  (token 98)
+  (rule 0 File 0
+    (frame plain)
+    (body (hard 1)) (inner (hard 1)) (indent 0)
+    (slot (kinds 1) repeats (before flat) (between (hard 2)))
+  )
+  (rule 1 Item 1
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 2 5 11 14) (before flat) (between flat))
+  )
+  (rule 2 Struct 2
+    (frame plain)
+    (body fit) (inner fit) (indent 0)
+    (slot (kinds 28) (before flat) (between flat))
+    (slot (kinds 56) (before flat) (between flat))
+    (slot (kinds 3) (before flat) (between flat))
+  )
+  (rule 3 StructBody 3
+    (frame delimited 35 36 pad (sep 41 never on-break))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 4) repeats (before flat) (between fit))
+  )
+  (rule 4 Field 4
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 56) (before flat) (between flat))
+    (slot (kinds 43) (before fit) (between fit))
+    (slot (kinds 20) (before fit) (between fit))
+  )
+  (rule 5 Enum 5
+    (frame plain)
+    (body fit) (inner fit) (indent 0)
+    (slot (kinds 29) (before flat) (between flat))
+    (slot (kinds 56) (before flat) (between flat))
+    (slot (kinds 6) (before flat) (between flat))
+  )
+  (rule 6 EnumBody 6
+    (frame delimited 35 36 pad (sep 41 never on-break))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 7) repeats (before flat) (between fit))
+  )
+  (rule 7 Variant 7
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 56) (before flat) (between flat))
+    (slot (kinds 8) (before fit) (between fit) tight)
+  )
+  (rule 8 VariantPayload 8
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 9 10) (before flat) (between flat))
+  )
+  (rule 9 TuplePayload 9
+    (frame delimited 37 38 (sep 41 never never))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 20) repeats (before flat) (between fit))
+  )
+  (rule 10 StructPayload 10
+    (frame delimited 35 36 pad (sep 41 never on-break))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 4) repeats (before flat) (between fit))
+  )
+  (rule 11 Trait 11
+    (frame plain)
+    (body fit) (inner fit) (indent 0)
+    (slot (kinds 30) (before flat) (between flat))
+    (slot (kinds 56) (before flat) (between flat))
+    (slot (kinds 12) (before flat) (between flat))
+  )
+  (rule 12 TraitBody 12
+    (frame delimited 35 36 pad)
+    (body (hard 1)) (inner (hard 1)) (indent 2)
+    (slot (kinds 13) repeats (before flat) (between (hard 1)))
+  )
+  (rule 13 MethodSig 13
+    (frame plain)
+    (body fit) (inner fit) (indent 0)
+    (slot (kinds 31) (before flat) (between flat))
+    (slot (kinds 56) (before flat) (between flat))
+    (slot (kinds 18) (before flat) (between flat) tight)
+    (slot (kinds 46) (before flat) (between flat))
+    (slot (kinds 20) (before flat) (between flat))
+    (slot (kinds 42) (before flat) (between flat))
+  )
+  (rule 14 Fn 14
+    (frame plain)
+    (body fit) (inner fit) (indent 0)
+    (slot (kinds 31) (before flat) (between flat))
+    (slot (kinds 56) (before flat) (between flat))
+    (slot (kinds 18) (before flat) (between flat) tight)
+    (slot (kinds 46) (before flat) (between flat))
+    (slot (kinds 20) (before flat) (between flat))
+    (slot (kinds 15) (before (hard 1)) (between (hard 1)) (after (hard 1)))
+    (slot (kinds 21) (before flat) (between flat))
+  )
+  (rule 15 Where 15
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 32) (before flat) (between flat))
+    (slot (kinds 16) (before (hard 1)) (between (hard 1)) nests)
+  )
+  (rule 16 Bounds 16
+    (frame separated (sep 41 never never))
+    (body fit) (inner fit) (indent 0)
+    (slot (kinds 17) repeats (before flat) (between (hard 1)))
+  )
+  (rule 17 Bound 17
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 56) (before flat) (between flat))
+    (slot (kinds 43) (before fit) (between fit))
+    (slot (kinds 20) (before fit) (between fit))
+  )
+  (rule 18 ParamList 18
+    (frame delimited 37 38 (sep 41 never on-break))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 19) repeats (before flat) (between fit))
+  )
+  (rule 19 Param 19
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 56) (before flat) (between flat))
+    (slot (kinds 43) (before fit) (between fit))
+    (slot (kinds 20) (before fit) (between fit))
+  )
+  (rule 20 Type 20
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 56) (before flat) (between flat))
+  )
+  (rule 21 Block 21
+    (frame delimited 35 36 pad)
+    (body (hard 1)) (inner (hard 1)) (indent 2)
+    (slot (kinds 22) repeats (before flat) (between (hard 1)))
+  )
+  (rule 22 Stmt 22
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 23 24) (before flat) (between flat))
+  )
+  (rule 23 Let 23
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 33) (before flat) (between flat))
+    (slot (kinds 56) (before flat) (between flat))
+    (slot (kinds 48) (before flat) (between flat))
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before fit) (between fit))
+    (slot (kinds 42) (before flat) (between flat))
+  )
+  (rule 24 ExprStmt 24
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before flat) (between flat))
+    (slot (kinds 42) (before flat) (between flat))
+  )
+  (rule 25 Match 25
+    (frame plain)
+    (body fit) (inner fit) (indent 0)
+    (slot (kinds 34) (before flat) (between flat))
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before flat) (between flat))
+    (slot (kinds 26) (before flat) (between flat))
+  )
+  (rule 26 MatchBody 26
+    (frame delimited 35 36 pad (sep 41 never on-break))
+    (body (hard 1)) (inner (hard 1)) (indent 2)
+    (slot (kinds 27) repeats (before flat) (between (hard 1)))
+  )
+  (rule 27 MatchArm 27
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 56 57) (before flat) (between flat))
+    (slot (kinds 47) (before fit) (between fit))
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before fit) (between fit))
+  )
+  (rule 28 Expr 60
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 56 57) (before flat) (between flat))
+  )
+  (rule 29 ExprBin 61
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before flat) (between flat))
+    (slot (kinds 48 49 50 51 52 53 54) (before flat) (between flat))
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before fit) (between fit))
+  )
+  (rule 30 ExprPrefix 62
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 55) (before flat) (between flat))
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before flat) (between flat) tight)
+  )
+  (rule 31 ExprPostfixTry 63
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before flat) (between flat))
+    (slot (kinds 45) (before flat) (between flat) tight)
+  )
+  (rule 32 ExprPostfixField 64
+    (frame plain)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before flat) (between flat))
+    (slot (kinds 44) (before flat) (between flat) tight)
+    (slot (kinds 56) (before flat) (between flat) tight)
+  )
+  (rule 33 ExprPostfixIndex 65
+    (frame delimited 39 40)
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before flat) (between flat))
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before flat) (between flat))
+  )
+  (rule 34 ExprPostfixCall 66
+    (frame delimited 37 38 (sep 41 never on-break))
+    (body fit) (inner fit) (indent 2)
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) (before flat) (between flat))
+    (slot (kinds 21 25 60 61 62 63 64 65 66 94) repeats (before flat) (between fit))
+  )
+)

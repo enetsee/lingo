@@ -220,6 +220,8 @@ let check_table (c : case) (lowered : Ir.Layout.t) : unit =
           differs (at "repeats") es.repeats s.repeats;
           differs (at "before") es.before s.before;
           differs (at "between") es.between s.between;
+          differs (at "after") es.after s.after;
+          differs (at "nests") es.nests s.nests;
           differs (at "space") es.space s.space));
   differs "of_kind" emitted.of_kind lowered.of_kind;
   if Array.length emitted.tokens <> Array.length lowered.tokens

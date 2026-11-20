@@ -106,6 +106,16 @@ type slot =
   ; repeats : bool (** Whether it takes more than one child. *)
   ; before : break (** At the boundary in front of the slot's first child. *)
   ; between : break (** At the boundary between two children of the slot. *)
+  ; after : break
+    (** At the boundary behind the slot's last child, where a child of a
+          later slot follows it. That boundary takes the stronger of this and
+          the later slot's [before]. *)
+  ; nests : bool
+    (** Whether a line that a [Hard] break starts in front of one of the
+          slot's children continues the rule, which indents it by
+          {!rule.indent}. Under [false] the line starts at the rule's own
+          column. A delimited or separated rule indents its whole body, and
+          the value is unread there. *)
   ; space : bool
     (** Whether a space goes in front of the slot's children. Just inside a
           delimiter the frame sets it instead, and no space goes there. *)

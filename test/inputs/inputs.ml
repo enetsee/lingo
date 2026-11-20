@@ -211,9 +211,10 @@ let comments : t =
 ;;
 
 (* Rust. The items one apiece, then the statement and expression forms inside a
-   function, then the two places a comment sits. The broken half is one per
-   committed production and one per postfix operator, because a commit is what
-   decides whether a failure stays inside the item or unwinds the file. *)
+   function, then the two places a comment sits, then a [where] clause with and
+   without one. The broken half is one per committed production and one per
+   postfix operator, because a commit is what decides whether a failure stays
+   inside the item or unwinds the file. *)
 let rust : t =
   { good =
       [ ""
@@ -238,6 +239,9 @@ let rust : t =
       ; "struct P { x: int } // after"
       ; "fn f() -> int { // first\n  let x = 1; }"
       ; "struct P { x: int }\n\nfn f() -> int {}"
+      ; "fn f() -> int where T: A {}"
+      ; "fn f(a: T) -> U where T: A, U: B { let x = 1; }"
+      ; "fn f() -> int\nwhere\n  // first\n  T: A // after\n{}"
       ]
   ; broken =
       [ "struct"
@@ -257,6 +261,8 @@ let rust : t =
       ; "fn f() -> int { match x { 0 => }; }"
       ; "}"
       ; "struct P {} junk"
+      ; "fn f() -> int where {}"
+      ; "fn f() -> int where T: A"
       ]
   }
 ;;

@@ -17,6 +17,9 @@
     <li><a href="#rule-TraitBody"><code>TraitBody</code></a></li>
     <li><a href="#rule-MethodSig"><code>MethodSig</code></a></li>
     <li><a href="#rule-Fn"><code>Fn</code></a></li>
+    <li><a href="#rule-Where"><code>Where</code></a></li>
+    <li><a href="#rule-Bounds"><code>Bounds</code></a></li>
+    <li><a href="#rule-Bound"><code>Bound</code></a></li>
     <li><a href="#rule-ParamList"><code>ParamList</code></a></li>
     <li><a href="#rule-Param"><code>Param</code></a></li>
     <li><a href="#rule-Type"><code>Type</code></a></li>
@@ -535,8 +538,15 @@
   </section>
   <section id="rule-Fn">
   <h3>Fn</h3>
-  <pre class="lg-listing"><span class="lg-rule">Fn</span> <span class="lg-notation">=</span> <span class="lg-child">kw</span><span class="lg-notation">:</span><a href="#token-fn"><span class="lg-literal">&#39;fn&#39;</span></a> <span class="lg-child">name</span><span class="lg-notation">:</span><a href="#token-ident"><span class="lg-token">ident</span></a> <span class="lg-child">params</span><span class="lg-notation">:</span><a href="#rule-ParamList"><span class="lg-ref">ParamList</span></a> <span class="lg-child">arrow</span><span class="lg-notation">:</span><a href="#token-arrow"><span class="lg-literal">&#39;-&gt;&#39;</span></a> <span class="lg-child">ret_ty</span><span class="lg-notation">:</span><a href="#rule-Type"><span class="lg-ref">Type</span></a> <span class="lg-child">body</span><span class="lg-notation">:</span><a href="#rule-Block"><span class="lg-ref">Block</span></a></pre>
-  <svg class="lg-diagram" role="img" viewBox="0 0 432 56" width="432" height="56" xmlns="http://www.w3.org/2000/svg">
+  <pre class="lg-listing"><span class="lg-rule">Fn</span> <span class="lg-notation">=</span>
+  <span class="lg-child">kw</span><span class="lg-notation">:</span><a href="#token-fn"><span class="lg-literal">&#39;fn&#39;</span></a>
+  <span class="lg-child">name</span><span class="lg-notation">:</span><a href="#token-ident"><span class="lg-token">ident</span></a>
+  <span class="lg-child">params</span><span class="lg-notation">:</span><a href="#rule-ParamList"><span class="lg-ref">ParamList</span></a>
+  <span class="lg-child">arrow</span><span class="lg-notation">:</span><a href="#token-arrow"><span class="lg-literal">&#39;-&gt;&#39;</span></a>
+  <span class="lg-child">ret_ty</span><span class="lg-notation">:</span><a href="#rule-Type"><span class="lg-ref">Type</span></a>
+  <span class="lg-child">where</span><span class="lg-notation">:</span><a href="#rule-Where"><span class="lg-ref">Where</span></a><span class="lg-notation">?</span>
+  <span class="lg-child">body</span><span class="lg-notation">:</span><a href="#rule-Block"><span class="lg-ref">Block</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 552 94" width="552" height="94" xmlns="http://www.w3.org/2000/svg">
     <title>Fn</title>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
@@ -571,13 +581,105 @@
     <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="318" y="39">Type</text>
     </a>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="344,35 356,35" />
-    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="356" y="18">body</text>
-    <a href="#rule-Block">
-    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="356" y="22" width="60" height="26" rx="3" />
-    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="386" y="39">Block</text>
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="356" y="18">where</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="356,35 410,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 388 35 L 378 31 L 378 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="410,35 410,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="410,35 464,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 442 35 L 432 31 L 432 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="356,35 368,35 368,73 380,73" />
+    <a href="#rule-Where">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="380" y="60" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="410" y="77">Where</text>
     </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="416,35 430,35" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="430,28 430,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="440,73 452,73 452,35 464,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="464,35 476,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="476" y="18">body</text>
+    <a href="#rule-Block">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="476" y="22" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="506" y="39">Block</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="536,35 550,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="550,28 550,42" />
+  </svg>
+  </section>
+  <section id="rule-Where">
+  <h3>Where</h3>
+  <pre class="lg-listing"><span class="lg-rule">Where</span> <span class="lg-notation">=</span> <span class="lg-child">kw</span><span class="lg-notation">:</span><a href="#token-where"><span class="lg-literal">&#39;where&#39;</span></a> <span class="lg-child">bounds</span><span class="lg-notation">:</span><a href="#rule-Bounds"><span class="lg-ref">Bounds</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 172 56" width="172" height="56" xmlns="http://www.w3.org/2000/svg">
+    <title>Where</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">kw</text>
+    <a href="#token-where">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="60" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="46" y="39">where</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="76,35 88,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="88" y="18">bounds</text>
+    <a href="#rule-Bounds">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="88" y="22" width="68" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="122" y="39">Bounds</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="156,35 170,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="170,28 170,42" />
+  </svg>
+  </section>
+  <section id="rule-Bounds">
+  <h3>Bounds</h3>
+  <pre class="lg-listing"><span class="lg-rule">Bounds</span> <span class="lg-notation">=</span> <span class="lg-child">bound</span><span class="lg-notation">:</span><a href="#rule-Bound"><span class="lg-ref">Bound</span></a><span class="lg-notation">+</span> <span class="lg-notation">sep</span> <a href="#token-comma"><span class="lg-literal">&#39;,&#39;</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 140 94" width="140" height="94" xmlns="http://www.w3.org/2000/svg">
+    <title>Bounds</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">bound</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 40,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 33 35 L 23 31 L 23 39 Z" />
+    <a href="#rule-Bound">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="40" y="22" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="70" y="39">Bound</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="100,35 124,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 117 35 L 107 31 L 107 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 28,35 28,73 56,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 37 73 L 47 69 L 47 77 Z" />
+    <a href="#token-comma">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="56" y="60" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="70" y="77">,</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="84,73 112,73 112,35 124,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 93 73 L 103 69 L 103 77 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="124,35 138,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="138,28 138,42" />
+  </svg>
+  </section>
+  <section id="rule-Bound">
+  <h3>Bound</h3>
+  <pre class="lg-listing"><span class="lg-rule">Bound</span> <span class="lg-notation">=</span> <span class="lg-child">name</span><span class="lg-notation">:</span><a href="#token-ident"><span class="lg-token">ident</span></a> <span class="lg-child">colon</span><span class="lg-notation">:</span><a href="#token-colon"><span class="lg-literal">&#39;:&#39;</span></a> <span class="lg-child">ty</span><span class="lg-notation">:</span><a href="#rule-Type"><span class="lg-ref">Type</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 208 56" width="208" height="56" xmlns="http://www.w3.org/2000/svg">
+    <title>Bound</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">name</text>
+    <a href="#token-ident">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="46" y="39">ident</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="76,35 88,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="88" y="18">colon</text>
+    <a href="#token-colon">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="88" y="22" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="102" y="39">:</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="116,35 128,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="128,35 140,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="140" y="18">ty</text>
+    <a href="#rule-Type">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="140" y="22" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="166" y="39">Type</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="192,35 206,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="206,28 206,42" />
   </svg>
   </section>
   <section id="rule-ParamList">
@@ -1062,6 +1164,7 @@
     <tr id="token-enum"><td><code>enum</code></td><td>keyword</td><td><code>enum</code></td></tr>
     <tr id="token-trait"><td><code>trait</code></td><td>keyword</td><td><code>trait</code></td></tr>
     <tr id="token-fn"><td><code>fn</code></td><td>keyword</td><td><code>fn</code></td></tr>
+    <tr id="token-where"><td><code>where</code></td><td>keyword</td><td><code>where</code></td></tr>
     <tr id="token-let"><td><code>let</code></td><td>keyword</td><td><code>let</code></td></tr>
     <tr id="token-match"><td><code>match</code></td><td>keyword</td><td><code>match</code></td></tr>
     <tr id="token-lbrace"><td><code>lbrace</code></td><td>punctuation</td><td><code>{</code></td></tr>
@@ -1108,9 +1211,12 @@
     <tr><td><a href="#rule-TraitBody"><code>TraitBody</code></a></td><td><code>{</code></td><td><code>struct</code> <code>enum</code> <code>trait</code> <code>fn</code></td><td></td></tr>
     <tr><td><a href="#rule-MethodSig"><code>MethodSig</code></a></td><td><code>fn</code></td><td><code>fn</code> <code>}</code></td><td></td></tr>
     <tr><td><a href="#rule-Fn"><code>Fn</code></a></td><td><code>fn</code></td><td><code>struct</code> <code>enum</code> <code>trait</code> <code>fn</code></td><td></td></tr>
+    <tr><td><a href="#rule-Where"><code>Where</code></a></td><td><code>where</code></td><td><code>{</code></td><td></td></tr>
+    <tr><td><a href="#rule-Bounds"><code>Bounds</code></a></td><td><code>ident</code></td><td><code>{</code></td><td></td></tr>
+    <tr><td><a href="#rule-Bound"><code>Bound</code></a></td><td><code>ident</code></td><td><code>{</code> <code>,</code></td><td></td></tr>
     <tr><td><a href="#rule-ParamList"><code>ParamList</code></a></td><td><code>(</code></td><td><code>-&gt;</code></td><td></td></tr>
     <tr><td><a href="#rule-Param"><code>Param</code></a></td><td><code>ident</code></td><td><code>)</code> <code>,</code></td><td></td></tr>
-    <tr><td><a href="#rule-Type"><code>Type</code></a></td><td><code>ident</code></td><td><code>{</code> <code>}</code> <code>)</code> <code>,</code> <code>;</code></td><td></td></tr>
+    <tr><td><a href="#rule-Type"><code>Type</code></a></td><td><code>ident</code></td><td><code>where</code> <code>{</code> <code>}</code> <code>)</code> <code>,</code> <code>;</code></td><td></td></tr>
     <tr><td><a href="#rule-Block"><code>Block</code></a></td><td><code>{</code></td><td><code>struct</code> <code>enum</code> <code>trait</code> <code>fn</code> <code>{</code> <code>}</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>,</code> <code>;</code> <code>.</code> <code>?</code> <code>=</code> <code>+</code> <code>-</code> <code>*</code> <code>/</code> <code>==</code> <code>!=</code></td><td></td></tr>
     <tr><td><a href="#rule-Stmt"><code>Stmt</code></a></td><td><code>let</code> <code>match</code> <code>{</code> <code>!</code> <code>ident</code> <code>int</code></td><td><code>let</code> <code>match</code> <code>{</code> <code>}</code> <code>!</code> <code>ident</code> <code>int</code></td><td></td></tr>
     <tr><td><a href="#rule-Let"><code>Let</code></a></td><td><code>let</code></td><td><code>let</code> <code>match</code> <code>{</code> <code>}</code> <code>!</code> <code>ident</code> <code>int</code></td><td></td></tr>

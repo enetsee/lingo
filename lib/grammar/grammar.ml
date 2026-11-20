@@ -27,6 +27,8 @@ type child_parse = { recover_to : Name.Token.t list option }
 type child =
   { name : Name.Child.t
   ; c_break : break_style
+  ; c_after : break_style
+  ; c_indent : bool
   ; c_space : bool
   ; head : symbol
   ; rest : symbol list
@@ -353,6 +355,8 @@ let recover_to_names = Option.map (List.map Name.Token.of_string)
 let child
       ?recover_to
       ?(break = Fit)
+      ?(after = (Never : break_style))
+      ?(indent = false)
       ?(space = true)
       ~(modifier : modifier)
       (name : string)
@@ -361,6 +365,8 @@ let child
   =
   { name = Name.Child.of_string name
   ; c_break = break
+  ; c_after = after
+  ; c_indent = indent
   ; c_space = space
   ; head = sym
   ; rest = []
@@ -369,29 +375,49 @@ let child
   }
 ;;
 
-let child_req ?recover_to ?break ?space name sym =
-  child ?recover_to ?break ?space ~modifier:Exactly_one name sym
+let child_req ?recover_to ?break ?after ?indent ?space name sym =
+  child ?recover_to ?break ?after ?indent ?space ~modifier:Exactly_one name sym
 ;;
 
-let child_opt ?recover_to ?break ?space (name : string) (sym : symbol) : child =
-  child ?recover_to ?break ?space ~modifier:Zero_or_one name sym
-;;
-
-let child_rep ?recover_to ?break ?space ?(between = Fit) (name : string) (sym : symbol)
+let child_opt ?recover_to ?break ?after ?indent ?space (name : string) (sym : symbol)
   : child
   =
-  child ?recover_to ?break ?space ~modifier:(Zero_or_more between) name sym
+  child ?recover_to ?break ?after ?indent ?space ~modifier:Zero_or_one name sym
 ;;
 
-let child_rep1 ?recover_to ?break ?space ?(between = Fit) (name : string) (sym : symbol)
+let child_rep
+      ?recover_to
+      ?break
+      ?after
+      ?indent
+      ?space
+      ?(between = Fit)
+      (name : string)
+      (sym : symbol)
   : child
   =
-  child ?recover_to ?break ?space ~modifier:(One_or_more between) name sym
+  child ?recover_to ?break ?after ?indent ?space ~modifier:(Zero_or_more between) name sym
+;;
+
+let child_rep1
+      ?recover_to
+      ?break
+      ?after
+      ?indent
+      ?space
+      ?(between = Fit)
+      (name : string)
+      (sym : symbol)
+  : child
+  =
+  child ?recover_to ?break ?after ?indent ?space ~modifier:(One_or_more between) name sym
 ;;
 
 let child_alt
       ?recover_to
       ?(break = Fit)
+      ?(after = (Never : break_style))
+      ?(indent = false)
       ?(space = true)
       ~(modifier : modifier)
       (name : string)
@@ -403,6 +429,8 @@ let child_alt
   | head :: rest ->
     { name = Name.Child.of_string name
     ; c_break = break
+    ; c_after = after
+    ; c_indent = indent
     ; c_space = space
     ; head
     ; rest
@@ -414,6 +442,8 @@ let child_alt
 let child_alt_rules
       ?recover_to
       ?break
+      ?after
+      ?indent
       ?space
       ~(modifier : modifier)
       (name : string)
@@ -423,6 +453,8 @@ let child_alt_rules
   child_alt
     ?recover_to
     ?break
+    ?after
+    ?indent
     ?space
     ~modifier
     name

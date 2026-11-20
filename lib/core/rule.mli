@@ -69,6 +69,11 @@ type child =
   ; c_break : Grammar.break_style
     (** The boundary in front of this child. On the first child it is the
           boundary against whatever encloses the children. *)
+  ; c_after : Grammar.break_style
+    (** The boundary behind this child, where a later child follows it. *)
+  ; c_indent : bool
+    (** Whether a line an [Always] break starts in front of this child is
+          indented by the rule's [indent_width]. *)
   ; c_space : bool (** Whether a space goes in front of this child. *)
   ; recover_to : Kind.Set.t option
     (** Replaces the recovery set computed at this position. [None] leaves

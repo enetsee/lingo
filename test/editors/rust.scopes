@@ -3,6 +3,7 @@ tokens
   enum                 storage.type.enum
   trait                storage.type.trait
   fn                   storage.type.fn
+  where                keyword.other.where
   let                  keyword.control.let
   match                keyword.control.match
   lbrace               punctuation.section.braces.begin
@@ -48,6 +49,9 @@ rules
   TraitBody            -
   MethodSig            - identity=entity.name.function
   Fn                   - identity=entity.name.function
+  Where                -
+  Bounds               -
+  Bound                -
   ParamList            -
   Param                -
     name               variable.parameter

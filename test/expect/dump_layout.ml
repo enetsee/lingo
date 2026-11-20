@@ -17,6 +17,7 @@ let grammars =
   ; "unicode", Lingo_grammars.Unicode_grammar.grammar
   ; "recovery", Lingo_grammars.Recovery_grammar.grammar
   ; "comments", Lingo_grammars.Comments_grammar.grammar
+  ; "rust", Lingo_grammars.Rust_grammar.grammar
   ]
 ;;
 

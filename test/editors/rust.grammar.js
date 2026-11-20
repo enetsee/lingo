@@ -68,8 +68,15 @@ module.exports = grammar({
       field('params', $.param_list),
       field('arrow', '->'),
       field('ret_ty', $.type),
+      optional(field('where', $.where)),
       field('body', $.block)
     ),
+
+    where: $ => seq(field('kw', 'where'), field('bounds', $.bounds)),
+
+    bounds: $ => sepBy1(',', field('bound', $.bound)),
+
+    bound: $ => seq(field('name', $.ident), field('colon', ':'), field('ty', $.type)),
 
     param_list: $ => seq(
       '(',

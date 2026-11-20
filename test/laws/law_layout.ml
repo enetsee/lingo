@@ -312,6 +312,8 @@ let steps =
   ; "break-back"
   ; "split"
   ; "new-line"
+  ; "hard-nested"
+  ; "break-after"
   ; "blank-kept"
   ; "lead-sep"
   ; "lead-sep-owned"
@@ -812,6 +814,11 @@ let variants (l : Ir.Layout.t)
               (at ^ " between break")
               (map_rule l i ~f:(fun r ->
                  map_slot r j ~f:(fun s -> { s with between = Ir.Layout.Hard 0 })))
+              is_empty_break;
+            add
+              (at ^ " after break")
+              (map_rule l i ~f:(fun r ->
+                 map_slot r j ~f:(fun s -> { s with after = Ir.Layout.Hard 0 })))
               is_empty_break;
             if j = 0 && s.before = Ir.Layout.Flat
             then

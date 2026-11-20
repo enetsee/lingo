@@ -90,7 +90,7 @@
       "patterns": [
         {
           "name": "variable.other.enummember.rust",
-          "match": "(?!(?:enum|fn|let|match|struct|trait)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
+          "match": "(?!(?:enum|fn|let|match|struct|trait|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
         },
         { "include": "#variant_payload" }
       ]
@@ -189,10 +189,13 @@
         { "include": "#param_list" },
         { "include": "#block" },
         { "include": "#type" },
+        { "include": "#where" },
         { "include": "#trivia" },
         { "include": "#tokens" }
       ]
     },
+    "where": { "patterns": [ { "include": "#bounds" } ] },
+    "bounds": { "patterns": [ { "include": "#type" } ] },
     "param_list": {
       "name": "meta.param.list.rust",
       "begin": "\\(",
@@ -222,7 +225,7 @@
       "patterns": [
         {
           "name": "entity.name.type.rust",
-          "match": "(?!(?:enum|fn|let|match|struct|trait)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
+          "match": "(?!(?:enum|fn|let|match|struct|trait|where)\\b)[A-Z_a-z][0-9A-Z_a-z]*"
         }
       ]
     },
@@ -332,6 +335,7 @@
       "patterns": [
         { "name": "storage.type.struct.rust", "match": "\\bstruct\\b" },
         { "name": "storage.type.trait.rust", "match": "\\btrait\\b" },
+        { "name": "keyword.other.where.rust", "match": "\\bwhere\\b" },
         { "name": "keyword.control.match.rust", "match": "\\bmatch\\b" },
         { "name": "storage.type.enum.rust", "match": "\\benum\\b" },
         { "name": "keyword.control.let.rust", "match": "\\blet\\b" },

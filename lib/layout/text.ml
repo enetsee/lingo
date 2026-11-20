@@ -66,10 +66,16 @@ let token (ppf : Format.formatter) (k : int) (t : Ir.Layout.token) : unit =
   Format.pp_print_string ppf ")\n"
 ;;
 
+let after (ppf : Format.formatter) (b : Ir.Layout.break) : unit =
+  match b with
+  | Flat -> ()
+  | Fit | Hard _ -> Format.fprintf ppf " (after %a)" break b
+;;
+
 let slot (ppf : Format.formatter) (s : Ir.Layout.slot) : unit =
   Format.fprintf
     ppf
-    "    (slot (kinds%a)%s (before %a) (between %a)%s)\n"
+    "    (slot (kinds%a)%s (before %a) (between %a)%a%s%s)\n"
     ints
     s.kinds
     (if s.repeats then " repeats" else "")
@@ -77,6 +83,9 @@ let slot (ppf : Format.formatter) (s : Ir.Layout.slot) : unit =
     s.before
     break
     s.between
+    after
+    s.after
+    (if s.nests then " nests" else "")
     (if s.space then "" else " tight")
 ;;
 

@@ -165,6 +165,8 @@ let slots (expand : (Ir.Kind.t, Ir.Kind.t list) Hashtbl.t) (r : Core.Rule.def)
         (match c.modifier with
          | Grammar.Zero_or_more b | Grammar.One_or_more b -> break b
          | Grammar.Exactly_one | Grammar.Zero_or_one -> before)
+    ; after = break c.c_after
+    ; nests = c.c_indent
     ; space = c.c_space
     })
 ;;

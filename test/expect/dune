@@ -458,6 +458,16 @@
 
 (rule
  (with-stdout-to
+  rust.layout.actual
+  (run ./dump_layout.exe rust)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rust.layout rust.layout.actual)))
+
+(rule
+ (with-stdout-to
   sexp.format.actual
   (run ./dump_format.exe sexp)))
 
@@ -545,6 +555,16 @@
  (alias runtest)
  (action
   (diff comments.format comments.format.actual)))
+
+(rule
+ (with-stdout-to
+  rust.format.actual
+  (run ./dump_format.exe rust)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff rust.format rust.format.actual)))
 
 (rule
  (with-stdout-to

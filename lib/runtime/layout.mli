@@ -100,6 +100,8 @@ type slot = Ir.Layout.slot =
   ; repeats : bool
   ; before : break
   ; between : break
+  ; after : break
+  ; nests : bool
   ; space : bool
   }
 

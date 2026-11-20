@@ -97,6 +97,14 @@ type child =
           boundary against whatever encloses the children: the opener of a
           frame, and the one a child recovery put where no slot admits it
           takes. *)
+  ; c_after : break_style
+    (** The boundary behind this child, where a later child of the production
+          follows it. That boundary takes the stronger of this and the later
+          child's [c_break]. *)
+  ; c_indent : bool
+    (** Whether a line an [Always] break starts in front of this child, or
+          between two of its elements, is indented by the production's
+          [indent_width]. *)
   ; c_space : bool
     (** Whether a space goes in front of this child, and between two of its
           elements. On the first child there is nothing of this production in
@@ -513,6 +521,23 @@ val postfix_call
     [between], on the repeating builders, is the boundary between two of its
     elements and defaults to the same.
 
+    [after] is the boundary behind the child and defaults to [Never]. The
+    boundary between two children takes the stronger of the first one's
+    [after] and the second one's [break], where [Always] is stronger than
+    [Fit] and [Fit] than [Never]. An optional child sets it only where it is
+    present. rust's [fn] gives its [where] clause [~after:(always 1)]: the
+    body's brace opens a line of its own under a [where] clause, and stays on
+    the signature's line without one. Behind a production's last child the
+    boundary belongs to whatever encloses the production, and the value is
+    unread.
+
+    [indent] is whether a line an [Always] break starts, in front of the child
+    or between two of its elements, is indented by the production's
+    [indent_width]. It defaults to [false], and the line then starts at the
+    production's own column. rust's [where] puts its bounds on the lines below
+    it, one step in. The body of a delimited or separated production is
+    indented already, and the value is unread there.
+
     [space] is whether a space goes in front of the child and between its
     elements, and defaults to [true]. Two children of a production are
     separated by a space unless the grammar says otherwise. effekt's [def f(x)]
@@ -521,6 +546,8 @@ val postfix_call
 val child
   :  ?recover_to:string list
   -> ?break:break_style
+  -> ?after:break_style
+  -> ?indent:bool
   -> ?space:bool
   -> modifier:modifier
   -> string
@@ -530,6 +557,8 @@ val child
 val child_req
   :  ?recover_to:string list
   -> ?break:break_style
+  -> ?after:break_style
+  -> ?indent:bool
   -> ?space:bool
   -> string
   -> symbol
@@ -538,6 +567,8 @@ val child_req
 val child_opt
   :  ?recover_to:string list
   -> ?break:break_style
+  -> ?after:break_style
+  -> ?indent:bool
   -> ?space:bool
   -> string
   -> symbol
@@ -546,6 +577,8 @@ val child_opt
 val child_rep
   :  ?recover_to:string list
   -> ?break:break_style
+  -> ?after:break_style
+  -> ?indent:bool
   -> ?space:bool
   -> ?between:break_style
   -> string
@@ -557,6 +590,8 @@ val child_rep
 val child_rep1
   :  ?recover_to:string list
   -> ?break:break_style
+  -> ?after:break_style
+  -> ?indent:bool
   -> ?space:bool
   -> ?between:break_style
   -> string
@@ -568,6 +603,8 @@ val child_rep1
 val child_alt
   :  ?recover_to:string list
   -> ?break:break_style
+  -> ?after:break_style
+  -> ?indent:bool
   -> ?space:bool
   -> modifier:modifier
   -> string
@@ -578,6 +615,8 @@ val child_alt
 val child_alt_rules
   :  ?recover_to:string list
   -> ?break:break_style
+  -> ?after:break_style
+  -> ?indent:bool
   -> ?space:bool
   -> modifier:modifier
   -> string

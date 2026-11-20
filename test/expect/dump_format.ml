@@ -20,6 +20,7 @@ let grammars =
   ; "unicode", Lingo_grammars.Unicode_grammar.grammar, Inputs.unicode
   ; "recovery", Lingo_grammars.Recovery_grammar.grammar, Inputs.recovery
   ; "comments", Lingo_grammars.Comments_grammar.grammar, Inputs.comments
+  ; "rust", Lingo_grammars.Rust_grammar.grammar, Inputs.rust
   ; "effekt", Lingo_grammars.Effekt_grammar.grammar, Inputs.effekt
   ; "ml", Lingo_grammars.Ml_grammar.grammar, Inputs.ml
   ]

@@ -8,6 +8,7 @@
 "enum" @keyword
 "trait" @keyword
 "fn" @keyword
+"where" @keyword
 "let" @keyword
 "match" @keyword
 "{" @punctuation.bracket

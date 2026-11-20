@@ -101,6 +101,7 @@ let run (l : Ir.Layout.t) =
       if not ordered then report (Kinds_unordered { at; kinds = Array.to_list s.kinds });
       brk ~at s.before;
       brk ~at s.between;
+      brk ~at s.after;
       if j = 0 && s.before <> Flat then report (Lead_slot_breaks { at });
       if (not s.repeats) && s.between <> s.before then report (Single_slot_between { at })));
   match List.rev !found with

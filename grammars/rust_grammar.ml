@@ -1,7 +1,7 @@
 (* -- Rust ---------------------------------------------------------------------
 
    The first grammar here big enough that a corpus does not reach all of it by
-   accident: twenty-five productions, seven binding powers, four postfix
+   accident: twenty-eight productions, seven binding powers, four postfix
    operators.
 
    What it carries that the smaller grammars do not:
@@ -13,7 +13,10 @@
      others;
    - [Block] is an atom of the expression block and the body of a function, so
      the rule graph recurses through the block rather than around it;
-   - [Fn] and [Block] take [Lookahead 3], which nothing else here does.
+   - [Fn] and [Block] take [Lookahead 3], which nothing else here does;
+   - [Fn] ends the line behind its [where] clause and [Where] indents the line
+     its bounds start, which are the two child settings no other grammar here
+     uses.
 
    The line comment is [Preserve] trivia, so the sampler draws comments into a
    grammar with a deep tree. grammars/comments_grammar.ml has them in a flat
@@ -32,6 +35,13 @@
        let x = 1 + 2 * 3;
        let p = compute(1).field?;
        match x { 0 => 1, n => n * 2 };
+     }
+
+     fn show(a: T) -> int
+     where
+       T: Display
+     {
+       a.len;
      }
    v}
    -------------------------------------------------------------------------- *)
@@ -52,6 +62,7 @@ let grammar : t =
     ; kw "enum"
     ; kw "trait"
     ; kw "fn"
+    ; kw "where"
     ; kw "let"
     ; kw "match"
     ; punct ~space_before:Space ~name:"lbrace" "{"
@@ -235,6 +246,34 @@ let grammar : t =
     |> with_binder "name"
     |> with_scope
   in
+  (* -- where --
+
+     The bounds sit under [where], one to a line and one step in. [Where]
+     indents the line its hard break starts, and [Bounds] has no indent of its
+     own to add to that. *)
+  let bound =
+    prod
+      "Bound"
+      [ child_req "name" (Token "ident")
+      ; child_req "colon" (Token "colon")
+      ; child_req "ty" (Rule "Type")
+      ]
+  in
+  let bounds =
+    prod
+      ~indent_width:0
+      "Bounds"
+      [ child_rep1 ~between:(always 1) "bound" (Rule "Bound") ]
+    |> with_separator ~sep:"comma"
+  in
+  let where =
+    prod
+      "Where"
+      [ child_req "kw" (Token "where")
+      ; child_req ~break:(always 1) ~indent:true "bounds" (Rule "Bounds")
+      ]
+    |> with_committed
+  in
   (* -- fn --
 
      [Lookahead 3] is here and on [Block] and on nothing else in grammars/. A
@@ -253,6 +292,10 @@ let grammar : t =
       ; child_req ~break:Never ~space:false "params" (Rule "ParamList")
       ; child_req ~break:Never "arrow" (Token "arrow")
       ; child_req ~break:Never "ret_ty" (Rule "Type")
+        (* A [where] clause takes lines of its own, so the body's brace opens
+           the line after it. With no clause the brace stays on the
+           signature's line. *)
+      ; child_opt ~break:(always 1) ~after:(always 1) "where" (Rule "Where")
       ; child_req ~break:Never "body" (Rule "Block")
       ]
     |> with_committed
@@ -394,6 +437,9 @@ let grammar : t =
     ; trait_body
     ; method_sig
     ; fn_
+    ; where
+    ; bounds
+    ; bound
     ; param_list
     ; param
     ; type_

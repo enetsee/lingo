@@ -41,6 +41,8 @@ type slot = Ir.Layout.slot =
   ; repeats : bool
   ; before : break
   ; between : break
+  ; after : break
+  ; nests : bool
   ; space : bool
   }
 
@@ -365,8 +367,8 @@ type entry =
   ; before : Ir.Layout.break
   ; gap : bool option (* [None] on the first child, which has no gap in this rule. *)
   ; starts_line : bool
-    (* The grammar breaks hard in front of this child, so its line is a new one
-       rather than a continuation of the rule. *)
+    (* The grammar breaks hard in front of this child and its slot does not
+       nest, so its line is a new one at the rule's own column. *)
   ; head :
       head
         option (* Set on the first element of a body that owns its leading separator. *)
@@ -495,6 +497,8 @@ let entries
   (* How many line breaks the whitespace dropped in front of a child held. *)
   let nls = ref 0 in
   let prev_slot = ref (-1) in
+  (* The [after] of the slot the last filled child sat in. *)
+  let after = ref Ir.Layout.Flat in
   let body_started = ref false in
   let seen_open = ref false in
   let elements = ref 0 in
@@ -595,7 +599,11 @@ let entries
           then r.inner
           else if !again
           then r.slots.(!prev_slot).between
-          else r.slots.(!prev_slot).before
+          else (
+            (match !after with
+             | Flat -> ()
+             | Fit | Hard _ -> say e "break-after");
+            stronger r.slots.(!prev_slot).before !after)
       in
       let before : Ir.Layout.break =
         keep_blank
@@ -630,7 +638,9 @@ let entries
              | (Closer | Filled | Stray), Filled -> r.slots.(!prev_slot).space)
       in
       (match role with
-       | Filled -> body_started := true
+       | Filled ->
+         body_started := true;
+         after := r.slots.(!prev_slot).after
        | Opener | Closer | Separator | Stray -> ());
       nls := 0;
       let starts_line =
@@ -638,6 +648,9 @@ let entries
         && role = Filled
         &&
         match declared with
+        | Hard _ when r.slots.(!prev_slot).nests ->
+          say e "hard-nested";
+          false
         | Hard _ -> true
         | Flat | Fit -> false
       in
@@ -790,9 +803,10 @@ let rec walk (e : env) (es : entry array) (i : int) (stop : int) (st : state) =
    the gap in front of the child closes the groups so far, and the gaps after it
    are decided from the child's last line on.
 
-   Where the grammar breaks hard in front of a child, the line is a new one
-   rather than a continuation, so that gap takes no [nest]: effekt's
-   definition after its doc comment starts where the comment does.
+   Where the grammar breaks hard in front of a child, the line is a new one,
+   so that gap takes no [nest]: effekt's definition after its doc comment
+   starts where the comment does. A slot that nests keeps the gap a
+   continuation, and rust's bounds step in from their [where].
 
    A delimited or separated body keeps one group, so a list breaks all its
    separators or none. *)

@@ -41,6 +41,8 @@ type child =
   ; kinds : Kind.Set.t
   ; modifier : Grammar.modifier
   ; c_break : Grammar.break_style
+  ; c_after : Grammar.break_style
+  ; c_indent : bool
   ; c_space : bool
   ; recover_to : Kind.Set.t option
   }
