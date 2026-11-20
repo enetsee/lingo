@@ -536,6 +536,13 @@ let entries
         if i = o
         then (
           seen_open := true;
+          (* The body starts behind the opener. An operator that encloses its
+             operand has the operand in front of its opener, and that is a
+             filled child too. Counted as the body's first, it left the first
+             argument of [f(a, b)] with no break in front of it: a call that
+             did not fit kept [a] on the line of its bracket, and only the
+             closer went to a line of its own. *)
+          body_started := false;
           Opener)
         else if i = c
         then Closer

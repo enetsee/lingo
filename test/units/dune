@@ -23,9 +23,11 @@
 
 ; yields and together bring their own grammars: no grammar in grammars/ has a
 ; body that lies on one line behind a list, or two of them in one production.
+; enclosed brings one for a call that does not fit, which the format goldens
+; reach only where a trailing block stands behind it.
 
 (tests
- (names yields together)
+ (names yields together enclosed)
  (package lingo)
  (libraries
   handsome
