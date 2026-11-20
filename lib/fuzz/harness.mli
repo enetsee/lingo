@@ -42,7 +42,7 @@ type t = private
   ; system : Bolts.system
   ; map : Sample.map
   ; lex : string -> Lingo_runtime.Token.t array
-  ; boundary : string -> int -> bool
+  ; boundary : string -> int -> Lingo_runtime.Token.boundary
   ; window : int * int (** The sizes {!draw} keeps an input inside. *)
   ; separators : string list
     (** The separator texts a body's policy may add. These are the only bytes
@@ -69,6 +69,7 @@ type t = private
     admits. *)
 val make
   :  lex:(string -> Lingo_runtime.Token.t array)
+  -> boundary:(string -> int -> Lingo_runtime.Token.boundary)
   -> ?comments:float
   -> ?engine:engine
   -> ?mean:int

@@ -51,6 +51,17 @@ type problem =
       }
   (** A rule's kind also carries a token entry. A node and a token cannot
           share a kind, and the fold would read the wrong one at a boundary. *)
+  | Handed_by_a_list of { at : string }
+  (** A slot is {!Ir.Layout.slot.handed}, and its rule is a separated list or
+          a pair with a separator of its own. Those hold elements, and an
+          element decides for itself. *)
+  | Handed_a_pair of
+      { at : string
+      ; kind : int
+      }
+  (** A slot that is {!Ir.Layout.slot.handed} admits a matched pair. The
+          fold gives a handed child no group, and a pair with none opens only
+          where whatever is around it does. *)
 
 val pp_problem : Format.formatter -> problem -> unit
 

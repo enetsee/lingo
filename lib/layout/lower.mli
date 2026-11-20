@@ -18,6 +18,22 @@
     An infix role's [operator_position] is not a mode the fold has to read
     about. It is two boundaries: the one before the operator and the one after
     it, and the position settles which of them may end the line. So it lowers to
-    the slots like everything else. *)
+    the slots like everything else.
+
+    {1 A list between brackets}
+
+    A pair that owns its separator is one decision: where it opens, its
+    elements go one to a line. A pair around a list that is a rule of its own
+    is two rules, and was two decisions. {!Ir.Layout.slot.handed} makes it
+    one. It is set on what a pair with no separator of its own may hold, where
+    that is nothing but tokens and lists with no brackets of their own.
+
+    Such a list is a separated rule, or a plain rule that may hold nothing but
+    tokens and such rules, with one of them at least. [f(a, b; k)] holds two
+    lists and a semicolon, and the rule for all three is one. A rule that may
+    hold itself, a matched pair or an expression is none.
+
+    A plain rule of that kind passes the decision on to the lists it holds, so
+    its slots are marked as well, wherever a marked slot may hold it. *)
 
 val of_facts : Core.Facts.t -> Ir.Layout.t

@@ -3,3 +3,4 @@
 ; A rule framed by a matched pair is a fold region.
 
 (block) @fold
+(tuple) @fold

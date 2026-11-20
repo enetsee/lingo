@@ -719,7 +719,18 @@ val with_delimited_sep
 (** A [sep]-separated list with nothing around it. The child's modifier says
     whether it can be empty, and {!child_rep1} is usually what one of these
     takes: an empty list with nothing around it is no syntax at all. The
-    separator arguments are {!with_delimited_sep}'s. *)
+    separator arguments are {!with_delimited_sep}'s.
+
+    Where such a list is all a {!with_delimited} pair holds, the formatter
+    breaks it with the pair: one element to a line where the pair opens, as
+    {!with_delimited_sep} lays its elements out. A plain production between
+    the two changes nothing, where it holds only tokens and lists:
+    [f(a, b; k)] has two lists and a semicolon between its brackets. The pair
+    indents what it holds, and the list's own [indent_width] is not added to
+    that.
+
+    One difference stays. The formatter never adds a trailing separator to a
+    list with nothing around it, whatever [trailing_sep] says. *)
 val with_separator
   :  sep:string
   -> ?leading_sep:optional_sep

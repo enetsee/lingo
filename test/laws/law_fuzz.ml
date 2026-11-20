@@ -456,7 +456,15 @@ let formattable (f : Core.Facts.t) : bool =
 let unformattable = ref []
 
 let build (label : string) (facts : Core.Facts.t) (comments : float) : corpus option =
-  match Fuzz.Harness.make ~lex:(Lex.run facts) ~comments ~engine ~name:label facts with
+  match
+    Fuzz.Harness.make
+      ~lex:(Lex.run facts)
+      ~boundary:(Lex.boundary facts)
+      ~comments
+      ~engine
+      ~name:label
+      facts
+  with
   | h -> Some { label; h; mut = Fuzz.Mutate.create h; cover = Fuzz.Coverage.create () }
   | exception e ->
     Law.fail "%s: no harness (%s)" label (Printexc.to_string e);

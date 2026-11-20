@@ -2,6 +2,8 @@ tokens
   let                  keyword.other.let
   lbrace               punctuation.section.braces.begin
   rbrace               punctuation.section.braces.end
+  lparen               punctuation.section.parens.begin
+  rparen               punctuation.section.parens.end
   semi                 punctuation.separator
   comma                punctuation.separator
   equals               punctuation.separator
@@ -16,3 +18,4 @@ rules
   Init                 -
   Names                -
   Block                -
+  Tuple                -

@@ -12,8 +12,8 @@
       (a) is the whole of what generation has to get right. Whether the table
       itself is right is test/laws/law_layout, which holds every law over the
       fold. (b) covers the one thing a comparison of tables does not reach:
-      the wiring, where the emitted module builds its boundary from the lexer it
-      is handed.
+      the wiring, where the emitted module passes the fold its own table and
+      the boundary it is handed.
 
       The generated modules link [lingo_runtime] and nothing else, which the
       library stanza beside this enforces: one reaching for lingo.layout would
@@ -26,10 +26,9 @@
       A rule's name is for a dump and a diagnostic. The fold reads none of it,
       so (a) is the only part that reaches it and (b) cannot.
 
-      What (b) does not cover. Both sides build their boundary from the same
-      helper, so a defect in [Lingo_runtime.Layout.boundary] moves the two
-      together. Answering [true] at every byte there reads zero here and reddens
-      test/laws/law_layout by 34.
+      What (b) does not cover. Both sides are handed one boundary, test/lex's,
+      so a defect in it moves the two together. test/lex_emit part (g) is
+      what holds an emitted lexer's own boundary to it.
    -------------------------------------------------------------------------- *)
 
 (* The record below is generated. assay derives a mutation from the emitter's
@@ -57,7 +56,7 @@ type case =
   ; grammar : Core.Grammar.t
   ; emitted : Lingo_runtime.Layout.t
   ; format :
-      lex:(string -> Lingo_runtime.Token.t array)
+      boundary:(string -> int -> Lingo_runtime.Token.boundary)
       -> width:int
       -> Siesta.Green.node
       -> string
@@ -69,95 +68,104 @@ let corpus =
     ; grammar = Lingo_grammars.Sexp_grammar.grammar
     ; emitted = Emitted_formatters.Sexp_layout.layout
     ; format =
-        (fun ~lex ~width root -> Emitted_formatters.Sexp_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Sexp_layout.format ~boundary ~width root)
     ; inputs = Inputs.sexp
     }
   ; { name = "json"
     ; grammar = Lingo_grammars.Json_grammar.grammar
     ; emitted = Emitted_formatters.Json_layout.layout
     ; format =
-        (fun ~lex ~width root -> Emitted_formatters.Json_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Json_layout.format ~boundary ~width root)
     ; inputs = Inputs.json
     }
   ; { name = "calc"
     ; grammar = Lingo_grammars.Calc_grammar.grammar
     ; emitted = Emitted_formatters.Calc_layout.layout
     ; format =
-        (fun ~lex ~width root -> Emitted_formatters.Calc_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Calc_layout.format ~boundary ~width root)
     ; inputs = Inputs.calc
     }
   ; { name = "rassoc"
     ; grammar = Lingo_grammars.Rassoc_grammar.grammar
     ; emitted = Emitted_formatters.Rassoc_layout.layout
     ; format =
-        (fun ~lex ~width root -> Emitted_formatters.Rassoc_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Rassoc_layout.format ~boundary ~width root)
     ; inputs = Inputs.rassoc
     }
   ; { name = "postfix"
     ; grammar = Lingo_grammars.Postfix_grammar.grammar
     ; emitted = Emitted_formatters.Postfix_layout.layout
     ; format =
-        (fun ~lex ~width root ->
-          Emitted_formatters.Postfix_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Postfix_layout.format ~boundary ~width root)
     ; inputs = Inputs.postfix
     }
   ; { name = "shapes"
     ; grammar = Lingo_grammars.Shapes_grammar.grammar
     ; emitted = Emitted_formatters.Shapes_layout.layout
     ; format =
-        (fun ~lex ~width root -> Emitted_formatters.Shapes_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Shapes_layout.format ~boundary ~width root)
     ; inputs = Inputs.shapes
     }
   ; { name = "unicode"
     ; grammar = Lingo_grammars.Unicode_grammar.grammar
     ; emitted = Emitted_formatters.Unicode_layout.layout
     ; format =
-        (fun ~lex ~width root ->
-          Emitted_formatters.Unicode_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Unicode_layout.format ~boundary ~width root)
     ; inputs = Inputs.unicode
     }
   ; { name = "recovery"
     ; grammar = Lingo_grammars.Recovery_grammar.grammar
     ; emitted = Emitted_formatters.Recovery_layout.layout
     ; format =
-        (fun ~lex ~width root ->
-          Emitted_formatters.Recovery_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Recovery_layout.format ~boundary ~width root)
     ; inputs = Inputs.recovery
     }
   ; { name = "comments"
     ; grammar = Lingo_grammars.Comments_grammar.grammar
     ; emitted = Emitted_formatters.Comments_layout.layout
     ; format =
-        (fun ~lex ~width root ->
-          Emitted_formatters.Comments_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Comments_layout.format ~boundary ~width root)
     ; inputs = Inputs.comments
     }
   ; { name = "rust"
     ; grammar = Lingo_grammars.Rust_grammar.grammar
     ; emitted = Emitted_formatters.Rust_layout.layout
     ; format =
-        (fun ~lex ~width root -> Emitted_formatters.Rust_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Rust_layout.format ~boundary ~width root)
     ; inputs = Inputs.rust
     }
   ; { name = "effekt"
     ; grammar = Lingo_grammars.Effekt_grammar.grammar
     ; emitted = Emitted_formatters.Effekt_layout.layout
     ; format =
-        (fun ~lex ~width root -> Emitted_formatters.Effekt_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Effekt_layout.format ~boundary ~width root)
     ; inputs = Inputs.effekt
     }
   ; { name = "wide"
     ; grammar = Lingo_grammars.Wide_grammar.grammar
     ; emitted = Emitted_formatters.Wide_layout.layout
     ; format =
-        (fun ~lex ~width root -> Emitted_formatters.Wide_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Wide_layout.format ~boundary ~width root)
     ; inputs = Inputs.wide
     }
   ; { name = "ml"
     ; grammar = Lingo_grammars.Ml_grammar.grammar
     ; emitted = Emitted_formatters.Ml_layout.layout
     ; format =
-        (fun ~lex ~width root -> Emitted_formatters.Ml_layout.format ~lex ~width root)
+        (fun ~boundary ~width root ->
+          Emitted_formatters.Ml_layout.format ~boundary ~width root)
     ; inputs = Inputs.ml
     }
   ]
@@ -223,6 +231,7 @@ let check_table (c : case) (lowered : Ir.Layout.t) : unit =
           differs (at "after") es.after s.after;
           differs (at "nests") es.nests s.nests;
           differs (at "together") es.together s.together;
+          differs (at "handed") es.handed s.handed;
           differs (at "space") es.space s.space));
   differs "of_kind" emitted.of_kind lowered.of_kind;
   if Array.length emitted.tokens <> Array.length lowered.tokens
@@ -262,7 +271,7 @@ let check_bytes (c : case) (facts : Core.Facts.t) (lowered : Ir.Layout.t) : unit
       List.iter widths ~f:(fun width ->
         incr formats;
         let folded = Lingo_runtime.Layout.format lowered ~boundary ~width tree in
-        let generated = c.format ~lex ~width tree in
+        let generated = c.format ~boundary ~width tree in
         if not (String.equal folded generated)
         then wrong_bytes := (c.name, src, width, generated, folded) :: !wrong_bytes))
   in

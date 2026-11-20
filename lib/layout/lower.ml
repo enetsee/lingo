@@ -168,6 +168,7 @@ let slots (expand : (Ir.Kind.t, Ir.Kind.t list) Hashtbl.t) (r : Core.Rule.def)
     ; after = break c.c_after
     ; nests = c.c_indent
     ; together = c.c_together
+    ; handed = false
     ; space = c.c_space
     })
 ;;
@@ -257,10 +258,112 @@ let tokens (f : Core.Facts.t) =
   out
 ;;
 
+(* Whether everything [slots] may hold from [from] on is a token or a list,
+   with one list at least. *)
+let made_of_lists
+      (is_list : int -> bool)
+      (of_kind : int array)
+      (slots : Ir.Layout.slot array)
+      ~(from : int)
+  : bool
+  =
+  let lists = ref 0 in
+  let others = ref 0 in
+  Array.iteri slots ~f:(fun i (s : Ir.Layout.slot) ->
+    if i >= from
+    then
+      Array.iter s.kinds ~f:(fun (k : Ir.Kind.t) ->
+        let held = of_kind.(k) in
+        if held >= 0 then if is_list held then incr lists else incr others));
+  !others = 0 && !lists > 0
+;;
+
+(* Which rules are a list with no brackets of its own: a separated rule, and
+   a plain rule that may hold nothing but tokens and such rules, with one of
+   them at least. [f(a, b; k)] holds two lists and a semicolon between its
+   brackets, and the rule for all three is one of these.
+
+   A rule that may hold itself is none. Neither is one that may hold a
+   matched pair or an expression: what those do when the line does not fit is
+   theirs to settle. *)
+let lists (rules : Ir.Layout.rule array) (of_kind : int array) : bool array =
+  let known : bool option array = Array.make (Array.length rules) None in
+  let rec is_list (seen : int list) (ri : int) : bool =
+    match known.(ri) with
+    | Some found -> found
+    | None ->
+      let r = rules.(ri) in
+      let found =
+        match r.frame with
+        | Separated _ -> true
+        | Delimited _ -> false
+        | Plain ->
+          (not (List.mem ri ~set:seen))
+          && made_of_lists (is_list (ri :: seen)) of_kind r.slots ~from:0
+      in
+      known.(ri) <- Some found;
+      found
+  in
+  Array.mapi rules ~f:(fun ri (_ : Ir.Layout.rule) -> is_list [] ri)
+;;
+
+(* The slots a rule hands its decision through, which is
+   {!Ir.Layout.slot.handed}.
+
+   A matched pair with no separator of its own hands it on where everything it
+   may hold is a token or a list. A pair with a separator holds elements, and
+   an element decides for itself.
+
+   An enclosed postfix has its operand in slot zero, in front of the opener.
+   That is no part of what the pair holds.
+
+   A plain list passes on what it was handed, so the slots of every one a
+   marked slot may hold are marked as well. *)
+let hand (f : Core.Facts.t) (rules : Ir.Layout.rule array) (of_kind : int array)
+  : Ir.Layout.rule array
+  =
+  let is_list = lists rules of_kind in
+  let marks =
+    Array.map rules ~f:(fun (r : Ir.Layout.rule) ->
+      Array.make (Array.length r.slots) false)
+  in
+  let rec mark (ri : int) ~(from : int) : unit =
+    Array.iteri rules.(ri).slots ~f:(fun i (s : Ir.Layout.slot) ->
+      if i >= from && not marks.(ri).(i)
+      then
+        Array.iter s.kinds ~f:(fun (k : Ir.Kind.t) ->
+          let held = of_kind.(k) in
+          if held >= 0
+          then (
+            marks.(ri).(i) <- true;
+            match rules.(held).frame with
+            | Plain -> mark held ~from:0
+            | Delimited _ | Separated _ -> ())))
+  in
+  Array.iteri rules ~f:(fun ri (r : Ir.Layout.rule) ->
+    match r.frame with
+    | Delimited { sep = None; _ } ->
+      let from =
+        match block_of f f.rules.(ri) with
+        | Some (_, Core.Role.Postfix _) -> 1
+        | Some (_, (Core.Role.Base | Core.Role.Bin | Core.Role.Prefix)) | None -> 0
+      in
+      if made_of_lists (fun (held : int) -> is_list.(held)) of_kind r.slots ~from
+      then mark ri ~from
+    | Delimited { sep = Some _; _ } | Plain | Separated _ -> ());
+  Array.mapi rules ~f:(fun ri (r : Ir.Layout.rule) ->
+    { r with
+      slots =
+        Array.mapi r.slots ~f:(fun i (s : Ir.Layout.slot) ->
+          { s with handed = marks.(ri).(i) })
+    })
+;;
+
 let of_facts (f : Core.Facts.t) : Ir.Layout.t =
   let expand = expansion f in
-  { rules = Array.map f.rules ~f:(rule f expand)
-  ; of_kind = Array.copy f.kind_rule
+  let of_kind = Array.copy f.kind_rule in
+  { rules = hand f (Array.map f.rules ~f:(rule f expand)) of_kind
+  ; of_kind
   ; tokens = tokens f
   }
 ;;

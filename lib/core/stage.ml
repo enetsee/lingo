@@ -507,8 +507,19 @@ let shape (names : names) : shape =
   { names; rules; blocks }
 ;;
 
+(* Minimised, for the states it drops: the ones no accepting state is
+   reachable from. A regex can match nothing without its normal form being
+   empty, and the state it leaves reads on to the end of the line or the input
+   with nothing to find. A comment built from a complement leaves one behind
+   its closer.
+
+   A scan in such a state looks like one still reading a token. The lexer's
+   rule for an unterminated token asks whether the input ran out inside a
+   lexeme, and {!Lingo_runtime.Token.boundary} asks whether a string did, so
+   both need a scan that is still running to be one a token can come of. *)
 let lexer (n : names) : Redfa.Dfa.t =
-  Redfa.Dfa.of_tokens
-    (Array.to_list
-       (Array.map ~f:(fun (t : Token.def) -> t.Token.id, t.Token.regex) n.tokens))
+  Redfa.Dfa.minimise
+    (Redfa.Dfa.of_tokens
+       (Array.to_list
+          (Array.map ~f:(fun (t : Token.def) -> t.Token.id, t.Token.regex) n.tokens)))
 ;;

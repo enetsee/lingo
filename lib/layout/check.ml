@@ -31,6 +31,11 @@ type problem =
       { at : string
       ; kind : int
       }
+  | Handed_by_a_list of { at : string }
+  | Handed_a_pair of
+      { at : string
+      ; kind : int
+      }
 
 let pp_problem (ppf : Format.formatter) (p : problem) : unit =
   match p with
@@ -53,6 +58,10 @@ let pp_problem (ppf : Format.formatter) (p : problem) : unit =
   | Negative_indent { at; indent } -> Format.fprintf ppf "%s: an indent of %d" at indent
   | Rule_kind_is_a_token { at; kind } ->
     Format.fprintf ppf "%s: kind %d is a token as well as a rule" at kind
+  | Handed_by_a_list { at } ->
+    Format.fprintf ppf "%s: a rule that holds elements hands its decision on" at
+  | Handed_a_pair { at; kind } ->
+    Format.fprintf ppf "%s: kind %d is a matched pair and is handed a decision" at kind
 ;;
 
 let run (l : Ir.Layout.t) =
@@ -103,7 +112,21 @@ let run (l : Ir.Layout.t) =
       brk ~at s.between;
       brk ~at s.after;
       if j = 0 && s.before <> Flat then report (Lead_slot_breaks { at });
-      if (not s.repeats) && s.between <> s.before then report (Single_slot_between { at })));
+      if (not s.repeats) && s.between <> s.before then report (Single_slot_between { at });
+      if s.handed
+      then (
+        (match r.frame with
+         | Plain | Delimited { sep = None; _ } -> ()
+         | Delimited { sep = Some _; _ } | Separated _ -> report (Handed_by_a_list { at }));
+        Array.iter s.kinds ~f:(fun (k : Ir.Kind.t) ->
+          if k >= 0 && k < Array.length l.of_kind
+          then (
+            let held = l.of_kind.(k) in
+            if held >= 0 && held < Array.length l.rules
+            then (
+              match l.rules.(held).frame with
+              | Delimited _ -> report (Handed_a_pair { at; kind = k })
+              | Plain | Separated _ -> ()))))));
   match List.rev !found with
   | [] -> Ok ()
   | ps -> Error ps

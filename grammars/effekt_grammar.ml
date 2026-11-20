@@ -22,7 +22,11 @@
      a [}] beside a [>], so a space has to sit between them for the output to
      read back, and the lexer settles that boundary;
    - [and] as an infix operator and as the keyword joining guards, so one token
-     is read two ways in two places.
+     is read two ways in two places;
+   - [TypeArgs] as brackets around a list that is a rule of its own, [Types].
+     Every other pair here owns its separator. This one holds a list and
+     nothing else, so the layout hands the pair's decision to the list and the
+     two break as one.
 
    Source it parses:
 
@@ -430,9 +434,13 @@ let grammar : t =
       ; child_opt ~space:false "args" (Rule "TypeArgs")
       ]
   in
+  (* The brackets are [TypeArgs]'s and the commas are [Types]'s. *)
   let type_args =
-    prod "TypeArgs" [ child_rep1 "arg" (Rule "Type") ]
-    |> with_delimited_sep ~open_tok:"lbracket" ~close_tok:"rbracket" ~sep:"comma"
+    prod "TypeArgs" [ child_req "args" (Rule "Types") ]
+    |> with_delimited ~open_tok:"lbracket" ~close_tok:"rbracket"
+  in
+  let types =
+    prod "Types" [ child_rep1 "arg" (Rule "Type") ] |> with_separator ~sep:"comma"
   in
   (* -- statements -- *)
   let block_body =
@@ -745,6 +753,7 @@ let grammar : t =
     ; capture_list
     ; atomic_type
     ; type_args
+    ; types
     ; block_body
     ; stmt
     ; expr_stmt

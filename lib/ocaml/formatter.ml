@@ -69,6 +69,7 @@ let slot (s : Ir.Layout.slot) : Emit.expr =
     ; "after", break s.after
     ; "nests", Emit.ebool s.nests
     ; "together", Emit.ebool s.together
+    ; "handed", Emit.ebool s.handed
     ; "space", Emit.ebool s.space
     ]
 ;;
@@ -121,7 +122,7 @@ let generate (lay : Ir.Layout.t) : Emit.item list =
   ; Emit.ilet
       ~args:
         [ Emit.Opt ("trace", None)
-        ; Emit.Named "lex"
+        ; Emit.Named "boundary"
         ; Emit.Named "width"
         ; Emit.Plain (Emit.pvar "root")
         ]
@@ -130,10 +131,7 @@ let generate (lay : Ir.Layout.t) : Emit.item list =
          (Emit.evar "Lingo_runtime.Layout.format")
          [ Ppxlib.Optional "trace", Emit.evar "trace"
          ; Ppxlib.Nolabel, Emit.evar "layout"
-         ; ( Ppxlib.Labelled "boundary"
-           , Emit.eapply_labelled
-               (Emit.evar "Lingo_runtime.Layout.boundary")
-               [ Ppxlib.Labelled "lex", Emit.evar "lex" ] )
+         ; Ppxlib.Labelled "boundary", Emit.evar "boundary"
          ; Ppxlib.Labelled "width", Emit.evar "width"
          ; Ppxlib.Nolabel, Emit.evar "root"
          ])
@@ -157,11 +155,14 @@ let signature : Emit.sig_item list =
                    ~codomain:(Emit.tcon "unit" [])))
          ~codomain:
            (Emit.tarrow_labelled
-              "lex"
+              "boundary"
               ~domain:
                 (Emit.tarrow
                    ~domain:(Emit.tcon "string" [])
-                   ~codomain:(Emit.tcon "array" [ Emit.tcon "Lingo_runtime.Token.t" [] ]))
+                   ~codomain:
+                     (Emit.tarrow
+                        ~domain:(Emit.tcon "int" [])
+                        ~codomain:(Emit.tcon "Lingo_runtime.Token.boundary" [])))
               ~codomain:
                 (Emit.tarrow_labelled
                    "width"

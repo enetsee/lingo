@@ -91,6 +91,7 @@ rules
   CaptureList          -
   AtomicType           -
   TypeArgs             -
+  Types                -
   Block                -
   Stmt                 -
   ExprStmt             -

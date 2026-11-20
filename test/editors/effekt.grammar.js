@@ -136,7 +136,9 @@ module.exports = grammar({
 
     atomic_type: $ => seq(field('name', $.ident), optional(field('args', $.type_args))),
 
-    type_args: $ => seq('[', sepBy1(',', field('arg', $.type)), ']'),
+    type_args: $ => seq('[', field('args', $.types), ']'),
+
+    types: $ => sepBy1(',', field('arg', $.type)),
 
     block: $ => seq('{', repeat(field('stmt', $.stmt)), '}'),
 

@@ -155,7 +155,9 @@ let drawn_per_grammar = 500
 let drawn_seed = [| 0x1EA5; 0x100 |]
 
 let drawn (name : string) (facts : Core.Facts.t) : string list =
-  match Fuzz.Harness.make ~lex:(Lex.run facts) ~name facts with
+  match
+    Fuzz.Harness.make ~lex:(Lex.run facts) ~boundary:(Lex.boundary facts) ~name facts
+  with
   | exception e ->
     Law.fail "%s: no harness to draw from (%s)" name (Printexc.to_string e);
     []

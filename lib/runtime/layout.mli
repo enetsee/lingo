@@ -33,19 +33,37 @@
 
     {1 The boundary}
 
-    [boundary s i] is [true] where lexing [s] puts a token boundary at byte [i].
-    The caller supplies it, because the automaton belongs to the grammar and
-    this library holds none.
+    [boundary s i] is what the grammar's lexer says of byte [i] of [s], where
+    [s] is the start of a longer text: {!Token.boundary}. The caller supplies
+    it, because the automaton belongs to the grammar and this library holds
+    none. A generated lexer has one, and test/lex has one over the facts.
 
-    A boundary between two tokens has to survive being read back. The fold tries
-    the joins in order, nothing then a space then a line break, and takes the
-    first that keeps the boundary. That is the whole of it. Where a space will not do,
-    and where nothing will, come from the lexer; no class of characters here
-    could stand in for it.
+    A boundary between two tokens has to survive being read back. The fold has
+    three things to put there: nothing, a space and a line break. It asks the
+    lexer about each one the gap may turn into, and writes only what the lexer
+    allows. Where a space will not do, and where nothing will, come from the
+    lexer; no class of characters here could stand in for it.
+
+    The tokens' spacing says whether a space or nothing is wanted, and where
+    the lexer refuses that it may allow the other. A gap that may end the line
+    is asked about the line break as well, and stays on its line where the
+    lexer refuses it. Where neither a space nor nothing will do, a line break
+    is all that is left.
 
     The left-hand side is every byte written since the last blank, rather than
     the token before the boundary. No pair of ["7"], ["."] and ["1"] joins into
     one lexeme; all three do.
+
+    Settled is against the bytes not yet written too. Where comments are
+    [(* ... *)], a [(] and a [*] side by side read as two tokens, and as the
+    start of a comment once its closer follows. So the fold lets two tokens touch
+    where the boundary between them is settled, or where a blank after them
+    settles it, and a blank is what ends a run.
+
+    A blank has a boundary on each side, and both have to be settled. Where a
+    backslash and a line break are one token, a line that ends behind a
+    backslash has made that token of the two. test/units/joins.ml holds all
+    of these.
 
     {1 What reaches the document}
 
@@ -103,6 +121,7 @@ type slot = Ir.Layout.slot =
   ; after : break
   ; nests : bool
   ; together : bool
+  ; handed : bool
   ; space : bool
   }
 
@@ -137,13 +156,6 @@ type t = Ir.Layout.t =
   ; tokens : token option array
   }
 
-(** [boundary ~lex s i] is [true] where lexing [s] puts a token boundary at
-    byte [i]. That is the predicate {!doc} takes, over a grammar's own lexer.
-
-    The fold calls it with a run of bytes since the last blank and the token
-    about to follow, so the cost is that run rather than the document. *)
-val boundary : lex:(string -> Token.t array) -> string -> int -> bool
-
 (** The rule a group decides by, which is [Handsome.Line]: a group measures
     what follows it on its last line as well as its own content.
 
@@ -169,7 +181,13 @@ val boundary : lex:(string -> Token.t array) -> string -> int -> bool
     its own, and so they all open or none does. A marked child whose own rule
     has marked slots hands the same decision on, which is what makes the
     blocks of an [if], and of the [if] after its [else], open together.
-    test/units/together.ml holds these. *)
+    test/units/together.ml holds these.
+
+    A list that is all a matched pair holds breaks with the pair. Where the
+    separator is the pair's own, the two are one group already. Where the list
+    is a rule of its own, the pair's slot is {!Ir.Layout.slot.handed}: the
+    list is laid out with no group of its own, and goes one element to a line
+    where the pair opens. test/units/enclosed.ml holds these. *)
 val fit : Handsome.fit
 
 (** The document, with each token's kind on it. A caller folding the rendered
@@ -182,11 +200,15 @@ val fit : Handsome.fit
 
     The kind is there for the counting. How many steps there are follows from
     this fold, so a count over steps alone stands still however far a corpus is
-    taken. How many steps a rule has follows from the grammar. *)
+    taken. How many steps a rule has follows from the grammar.
+
+    The fold calls [boundary] with the bytes written since the last blank and
+    the token about to follow, so the cost is that run and never the
+    document. *)
 val doc
   :  ?trace:(step:string -> kind:Ir.Kind.t -> unit)
   -> Ir.Layout.t
-  -> boundary:(string -> int -> bool)
+  -> boundary:(string -> int -> Token.boundary)
   -> Siesta.Green.node
   -> Ir.Kind.t Handsome.Utf8.t
 
@@ -194,7 +216,7 @@ val doc
 val format
   :  ?trace:(step:string -> kind:Ir.Kind.t -> unit)
   -> Ir.Layout.t
-  -> boundary:(string -> int -> bool)
+  -> boundary:(string -> int -> Token.boundary)
   -> width:int
   -> Siesta.Green.node
   -> string

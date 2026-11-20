@@ -10,7 +10,11 @@
   "repository": {
     "program": { "patterns": [ { "include": "#decl" } ] },
     "decl": {
-      "patterns": [ { "include": "#let" }, { "include": "#block" } ]
+      "patterns": [
+        { "include": "#let" },
+        { "include": "#block" },
+        { "include": "#tuple" }
+      ]
     },
     "let": {
       "patterns": [
@@ -30,6 +34,22 @@
       },
       "patterns": [
         { "include": "#decl" },
+        { "include": "#trivia" },
+        { "include": "#tokens" }
+      ]
+    },
+    "tuple": {
+      "name": "meta.tuple.shapes",
+      "begin": "\\(",
+      "end": "\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.section.parens.begin.shapes" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.section.parens.end.shapes" }
+      },
+      "patterns": [
+        { "include": "#names" },
         { "include": "#trivia" },
         { "include": "#tokens" }
       ]

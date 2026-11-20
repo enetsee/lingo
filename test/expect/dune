@@ -468,6 +468,16 @@
 
 (rule
  (with-stdout-to
+  effekt.layout.actual
+  (run ./dump_layout.exe effekt)))
+
+(rule
+ (alias runtest)
+ (action
+  (diff effekt.layout effekt.layout.actual)))
+
+(rule
+ (with-stdout-to
   sexp.format.actual
   (run ./dump_format.exe sexp)))
 

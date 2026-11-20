@@ -95,8 +95,28 @@ let run (f : Core.Facts.t) (s : string) : Lingo_runtime.Token.t array =
   Dynarray.to_array out
 ;;
 
-(* [Lingo_runtime.Layout.boundary] holds the walk over the tokens, because an
-   emitted formatter needs the same one over its own lexer. *)
-let boundary (f : Core.Facts.t) : string -> int -> bool =
-  Lingo_runtime.Layout.boundary ~lex:(run f)
+(* What the automaton says of byte [at] of [s], read as the start of a longer
+   text. The tokens in front of [at] are the ones {!run} gives. One whose scan
+   read to the end of [s] could have read further, and that leaves the
+   boundary open.
+
+   An emitted lexer has its own, written around the scan it lexes with.
+   test/lex_emit holds the two to each other. *)
+let boundary (f : Core.Facts.t) (s : string) (at : int) : Lingo_runtime.Token.boundary =
+  let n = String.length s in
+  let rec go (pos : int) (open_ : bool) : Lingo_runtime.Token.boundary =
+    if pos = at
+    then if open_ then Open else Settled
+    else if pos > at || pos >= n
+    then Absent
+    else (
+      let found, scan_end = longest f f.lexer s pos in
+      let stop =
+        match found with
+        | Some (_, stop) -> stop
+        | None -> if scan_end >= n then n else pos + snd (uchar_at s pos)
+      in
+      go stop (open_ || scan_end >= n))
+  in
+  go 0 false
 ;;

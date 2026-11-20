@@ -110,9 +110,9 @@ val nonterminal : map -> Core.Rule.id -> token list Bolts.nonterminal option
 (** The tokens as source text.
 
     The joiner between two of them is nothing, a space, or a newline,
-    whichever is the first of the three that leaves the lexer a boundary
-    where they meet. That is the rule the formatter's fold takes, over the
-    same automaton.
+    whichever is the first of the three the lexer allows where they meet: one
+    that leaves both reading back as they are, whatever is written later.
+    Those are the tests the formatter's fold takes, over the same automaton.
 
     The left-hand side of each test is every byte written since the last
     joiner, less the prefix of it that later bytes can no longer change. No

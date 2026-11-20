@@ -16,5 +16,10 @@ type shape =
 val generate : ?shape:shape -> Core.Facts.t -> Emit.item list
 
 (** The interface {!generate}'s module satisfies. Every grammar's is the
-    same. *)
+    same: [lex], and [boundary], which is what a formatter asks of the lexer
+    before it writes two tokens side by side. See
+    {!Lingo_runtime.Token.boundary}.
+
+    [boundary] runs the scan [lex] runs. It is written a second time around
+    it, so a module of the [Match] shape holds each state's function twice. *)
 val signature : Emit.sig_item list

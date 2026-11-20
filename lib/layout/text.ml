@@ -75,7 +75,7 @@ let after (ppf : Format.formatter) (b : Ir.Layout.break) : unit =
 let slot (ppf : Format.formatter) (s : Ir.Layout.slot) : unit =
   Format.fprintf
     ppf
-    "    (slot (kinds%a)%s (before %a) (between %a)%a%s%s%s)\n"
+    "    (slot (kinds%a)%s (before %a) (between %a)%a%s%s%s%s)\n"
     ints
     s.kinds
     (if s.repeats then " repeats" else "")
@@ -87,6 +87,7 @@ let slot (ppf : Format.formatter) (s : Ir.Layout.slot) : unit =
     s.after
     (if s.nests then " nests" else "")
     (if s.together then " together" else "")
+    (if s.handed then " handed" else "")
     (if s.space then "" else " tight")
 ;;
 

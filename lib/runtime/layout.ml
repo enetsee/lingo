@@ -44,6 +44,7 @@ type slot = Ir.Layout.slot =
   ; after : break
   ; nests : bool
   ; together : bool
+  ; handed : bool
   ; space : bool
   }
 
@@ -77,19 +78,6 @@ type t = Ir.Layout.t =
   ; of_kind : int array
   ; tokens : token option array
   }
-
-(* Byte zero is a boundary because every lexeme starts after it. *)
-let boundary ~(lex : string -> Token.t array) (s : string) (i : int) : bool =
-  if i = 0
-  then true
-  else (
-    let at = ref 0 in
-    let hit = ref false in
-    Array.iter (lex s) ~f:(fun (t : Token.t) ->
-      at := !at + String.length t.text;
-      if !at = i then hit := true);
-    !hit)
-;;
 
 (* Indentation is a count of spaces clamped at zero. handsome has no primitive
    for a line at column zero, so one comes from nesting down by more than any
@@ -213,42 +201,71 @@ let rec breaks (n : int) : Ir.Kind.t Handsome.Utf8.t =
   if n <= 1 then Handsome.Utf8.hardline else Handsome.Utf8.hardline ^^ breaks (n - 1)
 ;;
 
-(* What has to go between the bytes already written and the ones about to be,
-   for the pair to read back as two lexemes.
-
-   The candidates are tried cheapest first: nothing, then a space, then a line
-   break. The first that keeps the boundary wins.
+(* The fold has three things to put between the bytes already written and the
+   ones about to be: nothing, a space and a line break. {!touch} and {!apart}
+   say which of them leave the two reading back as the tokens they are.
 
    D9's two degenerate cases fall out rather than being named. A lexeme running
-   to the end of its line gives [Newline], and one running to the end of the
-   input gives [None_at_all]. Both come from the grammar's own automaton, and no
-   class of characters here could stand in for it. *)
-type join =
-  | Touching
-  | Blank
-  | Newline
-  | None_at_all
-
-let join ~(boundary : string -> int -> bool) ~(run : string) ~(next : string) : join =
-  if run = "" || next = ""
-  then Touching
-  else (
-    let at glue = boundary (run ^ glue ^ next) (String.length run + String.length glue) in
-    if at ""
-    then Touching
-    else if at " "
-    then Blank
-    else if at "\n"
-    then Newline
-    else None_at_all)
+   to the end of its line takes a line break and nothing less, and one running
+   to the end of the input takes none of the three. Both come from the
+   grammar's own automaton, and no class of characters here could stand in for
+   it. *)
+let settled ~(boundary : string -> int -> Token.boundary) (text : string) (at : int)
+  : bool
+  =
+  match boundary text at with
+  | Settled -> true
+  | Open | Absent -> false
 ;;
 
-let name_of (j : join) : string =
-  match j with
-  | Touching -> "join-touching"
-  | Blank -> "join-blank"
-  | Newline -> "join-newline"
-  | None_at_all -> "join-none"
+(* Whether the two may touch.
+
+   A boundary has to hold against the bytes not yet written, as well as the
+   ones in hand.
+
+   Where it is open, some token of the run was still being read at the end of
+   [next]. The fold ends a run with a blank, so the two tokens may still touch
+   where a blank of either kind settles it. [1] and [.] in front of a name are
+   that: [1.] could have gone on to be [1.5], and a blank ends that. Where a
+   blank does not, the two have opened a lexeme that bytes written later can
+   close, and every token in between is gone from the output. [(] and [*] are
+   that in a language whose comments are [(* ... *)]. *)
+let touch ~(boundary : string -> int -> Token.boundary) ~(run : string) ~(next : string)
+  : bool
+  =
+  run = ""
+  || next = ""
+  ||
+  let at = String.length run in
+  match boundary (run ^ next) at with
+  | Settled -> true
+  | Open ->
+    settled ~boundary (run ^ next ^ " ") at && settled ~boundary (run ^ next ^ "\n") at
+  | Absent -> false
+;;
+
+(* Whether [blank] may stand between the two.
+
+   A blank has to settle things outright. The run starts again behind it, so
+   nothing asked later looks back across it.
+
+   And a blank has two boundaries, one on each side of it. The one in front is
+   asked about with the run, and the one behind with the blank and [next]
+   alone, since a settled boundary is where the lexer starts afresh. Asking
+   only about the one behind lets the blank join the token in front of it:
+   where [\] and a line break together are one token, a boundary does stand
+   behind the line break, and the [\] is gone. *)
+let apart
+      ~(boundary : string -> int -> Token.boundary)
+      ~(run : string)
+      ~(next : string)
+      (blank : string)
+  : bool
+  =
+  run = ""
+  || next = ""
+  || (settled ~boundary (run ^ blank ^ next) (String.length run)
+      && settled ~boundary (blank ^ next) (String.length blank))
 ;;
 
 (* [boundary] is the grammar's own lexer. [trace] is how a law counts which of
@@ -256,7 +273,7 @@ let name_of (j : join) : string =
    law covers. *)
 type env =
   { lay : Ir.Layout.t
-  ; boundary : string -> int -> bool
+  ; boundary : string -> int -> Token.boundary
   ; trace : step:string -> kind:Ir.Kind.t -> unit
   ; kind : Ir.Kind.t (* The rule the fold is inside. *)
   ; alt :
@@ -276,19 +293,21 @@ let token (lay : Ir.Layout.t) (k : Ir.Kind.t) =
   | None -> Ir.Layout.not_a_token
 ;;
 
-let joins (e : env) (st : state) ~(next : string) : join =
-  let j = join ~boundary:e.boundary ~run:st.run ~next in
-  say e (name_of j);
-  j
-;;
-
 (* Every space, every line break and every byte of a token goes through here.
 
-   Three things meet at a boundary, and they rank. A join the lexer will not
-   close outranks the production's break style, because no break style is a
-   solution where the bytes fuse. The gap settles the rest, and it only ever adds
-   a blank the join had not already required. A token whose side is [false]
-   removes the gap's space. *)
+   Three things meet at a boundary, and they rank. What the lexer will read
+   back outranks the production's break style and the tokens' spacing, because
+   neither is a solution where the bytes fuse. So the fold asks about each
+   thing the gap may turn into, and writes only what the lexer allows.
+
+   The tokens' spacing says whether a space or nothing is wanted where the
+   line does not end, and the lexer may refuse that and allow the other. A
+   gap that may end the line is a line break as well when the group it is in
+   opens, so the line break is asked about too. Where the lexer refuses it,
+   the gap stays on its line. [\] in front of a line break is that, in a
+   language where the two together are one token. A break the grammar asks
+   for outright is refused the same way. Where the lexer refuses both the
+   space and nothing, a line break is all that is left. *)
 let glue (e : env) (st : state) (w : Written.t) : Ir.Kind.t Handsome.Utf8.t * state =
   let kind = Written.kind w
   and text = Written.text w in
@@ -326,12 +345,48 @@ let glue (e : env) (st : state) (w : Written.t) : Ir.Kind.t Handsome.Utf8.t * st
       | Space, _ | _, Space -> true
       | Free, Free -> Option.value st.gap ~default:true
     in
-    let j = joins e st ~next:text in
-    let blank = spaced || j = Blank in
-    let brk =
-      match j with
-      | Newline | None_at_all -> stronger st.brk (Hard 1)
-      | Touching | Blank -> st.brk
+    let touch () : bool = touch ~boundary:e.boundary ~run:st.run ~next:text in
+    let apart (blank : string) : bool =
+      apart ~boundary:e.boundary ~run:st.run ~next:text blank
+    in
+    (* What stands in the gap where the line does not end there: a space,
+       which is [true], or nothing. [None] where the lexer takes neither. *)
+    let flat () : bool option =
+      let found =
+        if spaced
+        then if apart " " then Some true else if touch () then Some false else None
+        else if touch ()
+        then Some false
+        else if apart " "
+        then Some true
+        else None
+      in
+      (match found with
+       | Some true -> say e "join-blank"
+       | Some false -> say e "join-touching"
+       | None -> ());
+      found
+    in
+    let brk, blank =
+      match st.brk with
+      | Hard _ when apart "\n" ->
+        say e "join-newline";
+        st.brk, false
+      | Hard _ ->
+        (match flat () with
+         | Some blank -> Flat, blank
+         | None ->
+           say e "join-none";
+           st.brk, false)
+      | Flat | Fit ->
+        (match flat () with
+         | Some blank ->
+           (match st.brk with
+            | Fit when apart "\n" -> Fit, blank
+            | Flat | Fit | Hard _ -> Flat, blank)
+         | None ->
+           say e (if apart "\n" then "join-newline" else "join-none");
+           Hard 1, false)
     in
     let d, clears, broke =
       match brk with
@@ -379,6 +434,10 @@ type entry =
     (* The child sits in a slot whose bodies open together, so the body it
        holds takes no group of its own and opens with the rule the fold is
        inside. *)
+  ; inside : bool
+    (* The child is a list in a slot that hands the rule's decision on. It
+       takes no group of its own either, so its separators break where the
+       pair around it opens. *)
   ; head :
       head
         option (* Set on the first element of a body that owns its leading separator. *)
@@ -477,9 +536,17 @@ let entries
       (r : Ir.Layout.rule)
       ~hold_all
       ~prev_held
+      ~(given : bool)
       (cs : Siesta.Green.child array)
   =
   let lay = e.lay in
+  (* A pair hands on its own decision. A plain rule has none, and passes on
+     one it was given. A separated rule has no slot marked. *)
+  let hands =
+    match r.frame with
+    | Plain -> given
+    | Delimited _ | Separated _ -> true
+  in
   let o, c = delimiters r cs in
   let sep_kind =
     match sep_of r with
@@ -560,10 +627,19 @@ let entries
             say e "stray";
             Stray)
       in
+      (* What the last child to write anything was. One that writes nothing
+         stands between no two tokens, so it is read through. Taken as the
+         last child, a missing operand behind a comment let the token after it
+         break where the rule said it may. The break then stood in the output
+         as a line break behind a comment, which the next pass keeps as the
+         source's own, and the two passes laid the rest out differently. *)
       let was_held =
-        match !kept with
-        | e :: _ -> e.held
-        | [] -> prev_held
+        let rec last (written : entry list) : bool =
+          match written with
+          | it :: before -> if silent it then last before else it.held
+          | [] -> prev_held
+        in
+        last !kept
       in
       (* A blank line the source has is kept, one at most, where the boundary
          breaks hard anyway: between two statements, two members, or in front
@@ -672,8 +748,18 @@ let entries
         | Flat | Fit -> false
       in
       let joins = role = Filled && r.slots.(!prev_slot).together in
+      let inside =
+        hands
+        && role = Filled
+        && r.slots.(!prev_slot).handed
+        &&
+        match ch with
+        | Siesta.Green.Node _ -> true
+        | Siesta.Green.Token _ -> false
+      in
       kept
-      := { child = ch; role; held; before; gap; starts_line; joins; head = None } :: !kept));
+      := { child = ch; role; held; before; gap; starts_line; joins; inside; head = None }
+         :: !kept));
   let es = Array.of_list (List.rev !kept) in
   let n = Array.length es in
   (* A comment on a line of its own belongs with the line after it: a new line
@@ -840,7 +926,8 @@ let rec walk (e : env) (es : entry array) (i : int) (stop : int) (st : state) =
    A child whose body opens together with others stays out of the gap groups
    the same way. The body has no group of its own, so its breaks belong to
    whichever group is next around it, and that has to be the rule that holds
-   all of them. A gap group around it would take them.
+   all of them. A gap group around it would take them. So does a list that
+   breaks with the brackets around it.
 
    A delimited or separated body keeps one group, so a list breaks all its
    separators or none. *)
@@ -888,7 +975,7 @@ and split
       in
       let broke = after.hard > st.hard in
       if broke then say e "split";
-      if broke || it.joins
+      if broke || it.joins || it.inside
       then
         go
           (i + 1)
@@ -914,7 +1001,7 @@ and split
     let before = st.hard in
     let lead, d, st = child e it ~stood ~stood_gap (enter it st) in
     let d, st =
-      if st.hard > before || it.joins
+      if st.hard > before || it.joins || it.inside
       then go (i + 1) ~out:(from_line d) ~yields:false empty st
       else go (i + 1) ~out:empty ~yields:st.yields (from_line d) st
     in
@@ -973,12 +1060,13 @@ and child
     let w = Written.of_token t in
     let lead, st = glue e st w in
     lead, Written.doc w, { st with held = it.held }
-  | Siesta.Green.Node n -> node e n ~join:it.joins ~stood ~stood_gap st
+  | Siesta.Green.Node n -> node e n ~join:it.joins ~inside:it.inside ~stood ~stood_gap st
 
 and node
       (e : env)
       (n : Siesta.Green.node)
       ~(join : bool)
+      ~(inside : bool)
       ~(stood : Ir.Layout.break)
       ~(stood_gap : bool option)
       (st : state)
@@ -1029,7 +1117,26 @@ and node
       | Delimited _ -> true
       | Plain | Separated _ -> false
     in
-    let es, o, c = entries e r ~hold_all:(not ruled) ~prev_held:st.held cs in
+    (* A list that is all a matched pair holds breaks with the pair: an
+       argument list that does not fit goes one to a line, and one that fits
+       lies flat. Where the separator is the pair's own that is one group
+       already. Where the list is a rule of its own between the brackets, the
+       pair hands it the decision, and the list takes no group. A plain rule
+       that holds such lists passes the decision on to each. Which slots do
+       that is the layout's to say, in {!Ir.Layout.slot.handed}.
+
+       A list in a slot marked to open together is another matter. It has no
+       brackets, and it keeps the group it had. *)
+    let es, o, c =
+      entries e r ~hold_all:(not ruled) ~prev_held:st.held ~given:inside cs
+    in
+    (* The pair indents what it holds, and a handed list is part of that one
+       decision. Its own indent on top would put its second element a step
+       further in than its first. *)
+    let nest = if inside then Fun.id else nest_of r in
+    (* A plain rule with a handed child was handed the decision itself, and is
+       laid out before this is read. So this is a pair. *)
+    let handing = Array.exists es ~f:(fun (it : entry) -> it.inside) in
     let last = Array.length es in
     (* What the body does about a separator after its last element.
 
@@ -1229,7 +1336,7 @@ and node
          truncate every run that crosses it. *)
       | `Plain ->
         (match r.frame with
-         | Plain -> split e es first stop ~nest:(nest_of r) st
+         | Plain -> split e es first stop ~nest st
          | Delimited _ | Separated _ -> walk e es first stop st)
       (* The separator is a child here, so the broken branch walks it and the
          flat branch steps over it. Nothing is written that the tree does not
@@ -1306,7 +1413,7 @@ and node
         let d =
           match r.frame with
           | Plain -> d
-          | Delimited _ | Separated _ -> nest_of r d
+          | Delimited _ | Separated _ -> nest d
         in
         lead, d, st)
       else (
@@ -1365,7 +1472,12 @@ and node
       say e "joined";
       let lead, d, st = build ~alt:around in
       lead, Handsome.Utf8.annotate k d, undo st)
-    else if holds
+    else if inside
+    then (
+      say e "handed";
+      let lead, d, st = build ~alt:around in
+      lead, Handsome.Utf8.annotate k d, undo st)
+    else if holds || handing
     then framed ~yields:true
     else (
       match tail_policy, head_turns with
@@ -1395,6 +1507,7 @@ let doc
       { lay; boundary; trace; kind; alt = (fun flat _ -> flat) }
       n
       ~join:false
+      ~inside:false
       ~stood:Ir.Layout.Flat
       ~stood_gap:None
       start
@@ -1405,7 +1518,7 @@ let doc
 let format
       ?trace
       (lay : Ir.Layout.t)
-      ~(boundary : string -> int -> bool)
+      ~(boundary : string -> int -> Token.boundary)
       ~(width : int)
       (n : Siesta.Green.node)
   : string

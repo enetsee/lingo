@@ -8,6 +8,7 @@
     <li><a href="#rule-Init"><code>Init</code></a></li>
     <li><a href="#rule-Names"><code>Names</code></a></li>
     <li><a href="#rule-Block"><code>Block</code></a></li>
+    <li><a href="#rule-Tuple"><code>Tuple</code></a></li>
   </ul>
   <section id="rule-Program">
   <h3>Program</h3>
@@ -36,8 +37,8 @@
   </section>
   <section id="rule-Decl">
   <h3>Decl</h3>
-  <pre class="lg-listing"><span class="lg-rule">Decl</span> <span class="lg-notation">=</span> <span class="lg-child">decl</span><span class="lg-notation">:</span><span class="lg-notation">(</span><a href="#rule-Let"><span class="lg-ref">Let</span></a> <span class="lg-notation">|</span> <a href="#rule-Block"><span class="lg-ref">Block</span></a><span class="lg-notation">)</span></pre>
-  <svg class="lg-diagram" role="img" viewBox="0 0 140 94" width="140" height="94" xmlns="http://www.w3.org/2000/svg">
+  <pre class="lg-listing"><span class="lg-rule">Decl</span> <span class="lg-notation">=</span> <span class="lg-child">decl</span><span class="lg-notation">:</span><span class="lg-notation">(</span><a href="#rule-Let"><span class="lg-ref">Let</span></a> <span class="lg-notation">|</span> <a href="#rule-Block"><span class="lg-ref">Block</span></a> <span class="lg-notation">|</span> <a href="#rule-Tuple"><span class="lg-ref">Tuple</span></a><span class="lg-notation">)</span></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 140 132" width="140" height="132" xmlns="http://www.w3.org/2000/svg">
     <title>Decl</title>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
@@ -56,6 +57,12 @@
     <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="70" y="77">Block</text>
     </a>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="100,73 112,73 112,35 124,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 28,35 28,111 40,111" />
+    <a href="#rule-Tuple">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="40" y="98" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="70" y="115">Tuple</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="100,111 112,111 112,35 124,35" />
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="124,35 138,35" />
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="138,28 138,42" />
   </svg>
@@ -203,12 +210,40 @@
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="258,28 258,42" />
   </svg>
   </section>
+  <section id="rule-Tuple">
+  <h3>Tuple</h3>
+  <pre class="lg-listing"><span class="lg-rule">Tuple</span> <span class="lg-notation">=</span> <a href="#token-lparen"><span class="lg-literal">&#39;(&#39;</span></a> <span class="lg-child">names</span><span class="lg-notation">:</span><a href="#rule-Names"><span class="lg-ref">Names</span></a> <a href="#token-rparen"><span class="lg-literal">&#39;)&#39;</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 172 56" width="172" height="56" xmlns="http://www.w3.org/2000/svg">
+    <title>Tuple</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <a href="#token-lparen">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="16" y="22" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="30" y="39">(</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="44,35 56,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="56" y="18">names</text>
+    <a href="#rule-Names">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="56" y="22" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="86" y="39">Names</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="116,35 128,35" />
+    <a href="#token-rparen">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="128" y="22" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="142" y="39">)</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="156,35 170,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="170,28 170,42" />
+  </svg>
+  </section>
   <h2 id="tokens">Tokens</h2>
   <table id="tokens">
     <tr><th>token</th><th>kind</th><th>matches</th></tr>
     <tr id="token-let"><td><code>let</code></td><td>keyword</td><td><code>let</code></td></tr>
     <tr id="token-lbrace"><td><code>lbrace</code></td><td>punctuation</td><td><code>{</code></td></tr>
     <tr id="token-rbrace"><td><code>rbrace</code></td><td>punctuation</td><td><code>}</code></td></tr>
+    <tr id="token-lparen"><td><code>lparen</code></td><td>punctuation</td><td><code>(</code></td></tr>
+    <tr id="token-rparen"><td><code>rparen</code></td><td>punctuation</td><td><code>)</code></td></tr>
     <tr id="token-semi"><td><code>semi</code></td><td>punctuation</td><td><code>;</code></td></tr>
     <tr id="token-comma"><td><code>comma</code></td><td>punctuation</td><td><code>,</code></td></tr>
     <tr id="token-equals"><td><code>equals</code></td><td>punctuation</td><td><code>=</code></td></tr>
@@ -220,12 +255,13 @@
   <h2 id="sets">What starts and follows a production</h2>
   <table id="first-follow">
     <tr><th>production</th><th>starts with</th><th>followed by</th><th>may be empty</th></tr>
-    <tr><td><a href="#rule-Program"><code>Program</code></a></td><td><code>let</code> <code>{</code></td><td><em>nothing</em></td><td>yes</td></tr>
-    <tr><td><a href="#rule-Decl"><code>Decl</code></a></td><td><code>let</code> <code>{</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>;</code></td><td></td></tr>
-    <tr><td><a href="#rule-Let"><code>Let</code></a></td><td><code>let</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>;</code></td><td></td></tr>
-    <tr><td><a href="#rule-Init"><code>Init</code></a></td><td><code>=</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>;</code></td><td></td></tr>
-    <tr><td><a href="#rule-Names"><code>Names</code></a></td><td><code>name</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>;</code></td><td></td></tr>
-    <tr><td><a href="#rule-Block"><code>Block</code></a></td><td><code>{</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>;</code></td><td></td></tr>
+    <tr><td><a href="#rule-Program"><code>Program</code></a></td><td><code>let</code> <code>{</code> <code>(</code></td><td><em>nothing</em></td><td>yes</td></tr>
+    <tr><td><a href="#rule-Decl"><code>Decl</code></a></td><td><code>let</code> <code>{</code> <code>(</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>(</code> <code>;</code></td><td></td></tr>
+    <tr><td><a href="#rule-Let"><code>Let</code></a></td><td><code>let</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>(</code> <code>;</code></td><td></td></tr>
+    <tr><td><a href="#rule-Init"><code>Init</code></a></td><td><code>=</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>(</code> <code>;</code></td><td></td></tr>
+    <tr><td><a href="#rule-Names"><code>Names</code></a></td><td><code>name</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>(</code> <code>)</code> <code>;</code></td><td></td></tr>
+    <tr><td><a href="#rule-Block"><code>Block</code></a></td><td><code>{</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>(</code> <code>;</code></td><td></td></tr>
+    <tr><td><a href="#rule-Tuple"><code>Tuple</code></a></td><td><code>(</code></td><td><code>let</code> <code>{</code> <code>}</code> <code>(</code> <code>;</code></td><td></td></tr>
   </table>
   <h2 id="examples">Examples</h2>
   <section>

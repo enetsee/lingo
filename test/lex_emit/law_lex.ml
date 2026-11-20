@@ -12,6 +12,10 @@
           spanning those bytes.
       (e) The emitted lexer and test/lex agree, token for token.
       (f) Every emitted module is what the emitter writes now, byte for byte.
+      (g) What an emitted lexer says of a byte offset is what test/lex says:
+          {!Lingo_runtime.Token.boundary}. It is absent exactly where lexing
+          the string puts no token end. And a boundary it calls settled in
+          the start of an input is a token end of the whole input.
 
       Mechanism. Seven grammars, and for each of them a list of inputs
       written here. The emitted lexers are compiled and run: dune runs the
@@ -28,6 +32,14 @@
       automaton in between. A regex raises on malformed UTF-8 where the
       lexers decode it to U+FFFD, so a candidate that is not valid UTF-8 is
       counted and skipped, and the count prints.
+
+      Part (g) asks at every offset of every prefix of every input, in both
+      shapes. Its last clause needs no second implementation to compare
+      with: the rest of the input is a continuation, and lexing the whole is
+      what says whether the boundary held. So it would catch all three
+      agreeing on a wrong answer. The formatter's fold lets two tokens touch
+      on the strength of that answer, and a wrong "settled" there is a token
+      gone from the output.
 
       Part (e) is the differential, and its three sides reach the same tokens
       three ways. test/lex searches a state's interval list on every
@@ -96,6 +108,8 @@ type case =
   ; lex : string -> Lingo_runtime.Token.t array (** The table shape. *)
   ; matched : string -> Lingo_runtime.Token.t array
     (** A function per state, dispatched by match. *)
+  ; boundary : string -> int -> Lingo_runtime.Token.boundary
+  ; matched_boundary : string -> int -> Lingo_runtime.Token.boundary
   ; inputs : string list
   }
 
@@ -104,6 +118,8 @@ let corpus : case list =
     ; grammar = Lingo_grammars.Sexp_grammar.grammar
     ; lex = Emitted.Sexp_lexer.lex
     ; matched = Emitted.Sexp_match.lex
+    ; boundary = Emitted.Sexp_lexer.boundary
+    ; matched_boundary = Emitted.Sexp_match.boundary
     ; inputs =
         [ ""
         ; "(a b)"
@@ -131,6 +147,8 @@ let corpus : case list =
     ; grammar = Lingo_grammars.Json_grammar.grammar
     ; lex = Emitted.Json_lexer.lex
     ; matched = Emitted.Json_match.lex
+    ; boundary = Emitted.Json_lexer.boundary
+    ; matched_boundary = Emitted.Json_match.boundary
     ; inputs =
         [ "{\"a\": 1}"
         ; "[1, 2]"
@@ -152,24 +170,32 @@ let corpus : case list =
     ; grammar = Lingo_grammars.Calc_grammar.grammar
     ; lex = Emitted.Calc_lexer.lex
     ; matched = Emitted.Calc_match.lex
+    ; boundary = Emitted.Calc_lexer.boundary
+    ; matched_boundary = Emitted.Calc_match.boundary
     ; inputs = [ "1+2*3"; "(1+2)*3"; "1 - 2"; "12/4"; "1+"; "$"; "1 2" ]
     }
   ; { name = "rassoc"
     ; grammar = Lingo_grammars.Rassoc_grammar.grammar
     ; lex = Emitted.Rassoc_lexer.lex
     ; matched = Emitted.Rassoc_match.lex
+    ; boundary = Emitted.Rassoc_lexer.boundary
+    ; matched_boundary = Emitted.Rassoc_match.boundary
     ; inputs = [ "1^2^3"; "1+2+3"; "-1^2"; "1++"; "^"; "1^" ]
     }
   ; { name = "postfix"
     ; grammar = Lingo_grammars.Postfix_grammar.grammar
     ; lex = Emitted.Postfix_lexer.lex
     ; matched = Emitted.Postfix_match.lex
+    ; boundary = Emitted.Postfix_lexer.boundary
+    ; matched_boundary = Emitted.Postfix_match.boundary
     ; inputs = [ "a.b[2]?+1"; "a(1, 2)"; "a{1}"; "a()"; "a."; "a[1"; "ab12"; "%" ]
     }
   ; { name = "shapes"
     ; grammar = Lingo_grammars.Shapes_grammar.grammar
     ; lex = Emitted.Shapes_lexer.lex
     ; matched = Emitted.Shapes_match.lex
+    ; boundary = Emitted.Shapes_lexer.boundary
+    ; matched_boundary = Emitted.Shapes_match.boundary
     ; inputs =
         [ "let a"
         ; "let a = b, c"
@@ -189,6 +215,8 @@ let corpus : case list =
     ; grammar = Lingo_grammars.Unicode_grammar.grammar
     ; lex = Emitted.Unicode_lexer.lex
     ; matched = Emitted.Unicode_match.lex
+    ; boundary = Emitted.Unicode_lexer.boundary
+    ; matched_boundary = Emitted.Unicode_match.boundary
     ; inputs =
         [ "\xc2\xabhello\xc2\xbb"
         ; "\xc2\xab\xc3\xa9t\xc3\xa9\xc2\xbb"
@@ -220,36 +248,48 @@ let corpus : case list =
     ; grammar = Lingo_grammars.Recovery_grammar.grammar
     ; lex = Emitted.Recovery_lexer.lex
     ; matched = Emitted.Recovery_match.lex
+    ; boundary = Emitted.Recovery_lexer.boundary
+    ; matched_boundary = Emitted.Recovery_match.boundary
     ; inputs = Inputs.all Inputs.recovery
     }
   ; { name = "comments"
     ; grammar = Lingo_grammars.Comments_grammar.grammar
     ; lex = Emitted.Comments_lexer.lex
     ; matched = Emitted.Comments_match.lex
+    ; boundary = Emitted.Comments_lexer.boundary
+    ; matched_boundary = Emitted.Comments_match.boundary
     ; inputs = Inputs.all Inputs.comments
     }
   ; { name = "rust"
     ; grammar = Lingo_grammars.Rust_grammar.grammar
     ; lex = Emitted.Rust_lexer.lex
     ; matched = Emitted.Rust_match.lex
+    ; boundary = Emitted.Rust_lexer.boundary
+    ; matched_boundary = Emitted.Rust_match.boundary
     ; inputs = Inputs.all Inputs.rust
     }
   ; { name = "effekt"
     ; grammar = Lingo_grammars.Effekt_grammar.grammar
     ; lex = Emitted.Effekt_lexer.lex
     ; matched = Emitted.Effekt_match.lex
+    ; boundary = Emitted.Effekt_lexer.boundary
+    ; matched_boundary = Emitted.Effekt_match.boundary
     ; inputs = Inputs.all Inputs.effekt
     }
   ; { name = "wide"
     ; grammar = Lingo_grammars.Wide_grammar.grammar
     ; lex = Emitted.Wide_lexer.lex
     ; matched = Emitted.Wide_match.lex
+    ; boundary = Emitted.Wide_lexer.boundary
+    ; matched_boundary = Emitted.Wide_match.boundary
     ; inputs = Inputs.all Inputs.wide
     }
   ; { name = "ml"
     ; grammar = Lingo_grammars.Ml_grammar.grammar
     ; lex = Emitted.Ml_lexer.lex
     ; matched = Emitted.Ml_match.lex
+    ; boundary = Emitted.Ml_lexer.boundary
+    ; matched_boundary = Emitted.Ml_match.boundary
     ; inputs = Inputs.all Inputs.ml
     }
   ]
@@ -452,6 +492,86 @@ let part_e
       (show_kinds walked)
 ;;
 
+(* -- (g) the boundary ------------------------------------------------------ *)
+
+let offsets = ref 0
+let absent = ref 0
+let open_ = ref 0
+let settled = ref 0
+
+let answer (b : Lingo_runtime.Token.boundary) : string =
+  match b with
+  | Absent -> "absent"
+  | Open -> "open"
+  | Settled -> "settled"
+;;
+
+(* Where the tokens of [s] end, by lexing it. Byte zero is where the first
+   starts. *)
+let ends_of (facts : Core.Facts.t) (s : string) : bool array =
+  let ends = Array.make (String.length s + 1) false in
+  ends.(0) <- true;
+  let at = ref 0 in
+  Array.iter
+    (fun (t : Lingo_runtime.Token.t) ->
+       at := !at + String.length t.text;
+       ends.(!at) <- true)
+    (Lex.run facts s);
+  ends
+;;
+
+let part_g (facts : Core.Facts.t) (case : case) (src : string) : unit =
+  let whole = ends_of facts src in
+  (* A start that ends inside a character is not the start of this text. Its
+     last bytes decode to U+FFFD, and the bytes behind them make them another
+     character. A formatter writes whole tokens, so it never asks about one. *)
+  let inside_a_character (cut : int) : bool =
+    cut < String.length src && Char.code src.[cut] land 0xC0 = 0x80
+  in
+  for cut = 0 to String.length src do
+    let start = String.sub src 0 cut in
+    let own = ends_of facts start in
+    for at = 0 to if inside_a_character cut then -1 else cut do
+      incr offsets;
+      let walked = Lex.boundary facts start at in
+      (match walked with
+       | Absent -> incr absent
+       | Open -> incr open_
+       | Settled -> incr settled);
+      let table = case.boundary start at
+      and matched = case.matched_boundary start at in
+      if table <> walked || matched <> walked
+      then
+        Law.fail
+          "(g) %s: byte %d of %S is %s in the table, %s in the match and %s over the \
+           automaton"
+          case.name
+          at
+          (show start)
+          (answer table)
+          (answer matched)
+          (answer walked);
+      if walked <> Absent <> own.(at)
+      then
+        Law.fail
+          "(g) %s: byte %d of %S is %s, and lexing it %s a token there"
+          case.name
+          at
+          (show start)
+          (answer walked)
+          (if own.(at) then "ends" else "does not end");
+      if walked = Settled && not whole.(at)
+      then
+        Law.fail
+          "(g) %s: byte %d of %S is settled, and no token of %S ends there"
+          case.name
+          at
+          (show start)
+          (show src)
+    done
+  done
+;;
+
 (* Part (f) reads the module dune compiled and asks the emitter for it again.
    Everything above runs the lexer that module holds, which is built before the
    law starts, so nothing above can see a change in the emitter itself. This
@@ -498,7 +618,8 @@ let () =
               part_c facts asts case.name src emitted;
               part_d facts case.name src emitted;
               part_e case.name "table" src emitted walked;
-              part_e case.name "match" src (case.matched src) walked)
+              part_e case.name "match" src (case.matched src) walked;
+              part_g facts case src)
            case.inputs;
          part_f (case.name ^ "_lexer.ml") (Ocaml.Emit.render (Ocaml.Lexer.generate facts));
          part_f
@@ -521,5 +642,14 @@ let () =
     !skipped;
   Law.pass "%d unterminated tokens, %d error tokens" !unterminated !errors;
   Law.pass "%d emitted modules are what the emitter writes now" !modules;
+  if !absent = 0 || !open_ = 0 || !settled = 0
+  then Law.fail "(g) one of the three answers was never given";
+  Law.pass
+    "(g) both shapes and the automaton agree at %d offsets: %d absent, %d open, %d \
+     settled"
+    !offsets
+    !absent
+    !open_
+    !settled;
   Law.exit_on_failure ()
 ;;

@@ -24,10 +24,11 @@
 ; yields and together bring their own grammars: no grammar in grammars/ has a
 ; body that lies on one line behind a list, or two of them in one production.
 ; enclosed brings one for a call that does not fit, which the format goldens
-; reach only where a trailing block stands behind it.
+; reach only where a trailing block stands behind it. joins brings one whose
+; tokens can make a comment of one another.
 
 (tests
- (names yields together enclosed)
+ (names yields together enclosed joins)
  (package lingo)
  (libraries
   handsome
@@ -37,6 +38,7 @@
   lingo.interp
   lingo.layout
   lingo.plan
+  lingo.sample
   lingo_runtime
   lingo_runtime.ir
   lex

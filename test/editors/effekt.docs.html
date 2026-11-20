@@ -31,6 +31,7 @@
     <li><a href="#rule-CaptureList"><code>CaptureList</code></a></li>
     <li><a href="#rule-AtomicType"><code>AtomicType</code></a></li>
     <li><a href="#rule-TypeArgs"><code>TypeArgs</code></a></li>
+    <li><a href="#rule-Types"><code>Types</code></a></li>
     <li><a href="#rule-Block"><code>Block</code></a></li>
     <li><a href="#rule-Stmt"><code>Stmt</code></a></li>
     <li><a href="#rule-ExprStmt"><code>ExprStmt</code></a></li>
@@ -1108,8 +1109,8 @@
   </section>
   <section id="rule-TypeArgs">
   <h3>TypeArgs</h3>
-  <pre class="lg-listing"><span class="lg-rule">TypeArgs</span> <span class="lg-notation">=</span> <a href="#token-lbracket"><span class="lg-literal">&#39;[&#39;</span></a> <span class="lg-child">arg</span><span class="lg-notation">:</span><a href="#rule-Type"><span class="lg-ref">Type</span></a><span class="lg-notation">+</span> <a href="#token-rbracket"><span class="lg-literal">&#39;]&#39;</span></a> <span class="lg-notation">sep</span> <a href="#token-comma"><span class="lg-literal">&#39;,&#39;</span></a></pre>
-  <svg class="lg-diagram" role="img" viewBox="0 0 212 94" width="212" height="94" xmlns="http://www.w3.org/2000/svg">
+  <pre class="lg-listing"><span class="lg-rule">TypeArgs</span> <span class="lg-notation">=</span> <a href="#token-lbracket"><span class="lg-literal">&#39;[&#39;</span></a> <span class="lg-child">args</span><span class="lg-notation">:</span><a href="#rule-Types"><span class="lg-ref">Types</span></a> <a href="#token-rbracket"><span class="lg-literal">&#39;]&#39;</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 172 56" width="172" height="56" xmlns="http://www.w3.org/2000/svg">
     <title>TypeArgs</title>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
@@ -1118,30 +1119,46 @@
     <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="30" y="39">[</text>
     </a>
     <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="44,35 56,35" />
-    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="56" y="18">arg</text>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 80,35" />
-    <path class="lg-arrow" fill="currentColor" d="M 73 35 L 63 31 L 63 39 Z" />
-    <a href="#rule-Type">
-    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="80" y="22" width="52" height="26" rx="3" />
-    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="106" y="39">Type</text>
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="56" y="18">args</text>
+    <a href="#rule-Types">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="56" y="22" width="60" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="86" y="39">Types</text>
     </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="132,35 156,35" />
-    <path class="lg-arrow" fill="currentColor" d="M 149 35 L 139 31 L 139 39 Z" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="56,35 68,35 68,73 92,73" />
-    <path class="lg-arrow" fill="currentColor" d="M 75 73 L 85 69 L 85 77 Z" />
-    <a href="#token-comma">
-    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="92" y="60" width="28" height="26" rx="13" />
-    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="106" y="77">,</text>
-    </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="120,73 144,73 144,35 156,35" />
-    <path class="lg-arrow" fill="currentColor" d="M 127 73 L 137 69 L 137 77 Z" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="156,35 168,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="116,35 128,35" />
     <a href="#token-rbracket">
-    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="168" y="22" width="28" height="26" rx="13" />
-    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="182" y="39">]</text>
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="128" y="22" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="142" y="39">]</text>
     </a>
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="196,35 210,35" />
-    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="210,28 210,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="156,35 170,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="170,28 170,42" />
+  </svg>
+  </section>
+  <section id="rule-Types">
+  <h3>Types</h3>
+  <pre class="lg-listing"><span class="lg-rule">Types</span> <span class="lg-notation">=</span> <span class="lg-child">arg</span><span class="lg-notation">:</span><a href="#rule-Type"><span class="lg-ref">Type</span></a><span class="lg-notation">+</span> <span class="lg-notation">sep</span> <a href="#token-comma"><span class="lg-literal">&#39;,&#39;</span></a></pre>
+  <svg class="lg-diagram" role="img" viewBox="0 0 132 94" width="132" height="94" xmlns="http://www.w3.org/2000/svg">
+    <title>Types</title>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,28 2,42" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="2,35 16,35" />
+    <text class="lg-slot" fill="currentColor" font-family="system-ui, sans-serif" font-size="10" x="16" y="18">arg</text>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 40,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 33 35 L 23 31 L 23 39 Z" />
+    <a href="#rule-Type">
+    <rect class="lg-nonterminal" fill="none" stroke="currentColor" stroke-width="1.2" x="40" y="22" width="52" height="26" rx="3" />
+    <text class="lg-nonterminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="66" y="39">Type</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="92,35 116,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 109 35 L 99 31 L 99 39 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="16,35 28,35 28,73 52,73" />
+    <path class="lg-arrow" fill="currentColor" d="M 35 73 L 45 69 L 45 77 Z" />
+    <a href="#token-comma">
+    <rect class="lg-terminal" fill="none" stroke="currentColor" stroke-width="1.2" x="52" y="60" width="28" height="26" rx="13" />
+    <text class="lg-terminal-text" fill="currentColor" font-family="ui-monospace, monospace" font-size="12" text-anchor="middle" x="66" y="77">,</text>
+    </a>
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="80,73 104,73 104,35 116,35" />
+    <path class="lg-arrow" fill="currentColor" d="M 87 73 L 97 69 L 97 77 Z" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="116,35 130,35" />
+    <polyline class="lg-track" fill="none" stroke="currentColor" stroke-width="1.4" points="130,28 130,42" />
   </svg>
   </section>
   <section id="rule-Block">
@@ -2419,6 +2436,7 @@
     <tr><td><a href="#rule-CaptureList"><code>CaptureList</code></a></td><td><code>{</code></td><td><code>def</code> <code>}</code> <code>)</code> <code>]</code> <code>,</code> <code>;</code> <code>-&gt;</code> <code>=</code> <code>doc_comment</code></td><td></td></tr>
     <tr><td><a href="#rule-AtomicType"><code>AtomicType</code></a></td><td><code>ident</code></td><td><code>def</code> <code>at</code> <code>}</code> <code>)</code> <code>]</code> <code>,</code> <code>;</code> <code>-&gt;</code> <code>=</code> <code>doc_comment</code></td><td></td></tr>
     <tr><td><a href="#rule-TypeArgs"><code>TypeArgs</code></a></td><td><code>[</code></td><td><code>def</code> <code>at</code> <code>}</code> <code>)</code> <code>]</code> <code>,</code> <code>;</code> <code>-&gt;</code> <code>=</code> <code>doc_comment</code></td><td></td></tr>
+    <tr><td><a href="#rule-Types"><code>Types</code></a></td><td><code>ident</code></td><td><code>]</code></td><td></td></tr>
     <tr><td><a href="#rule-Block"><code>Block</code></a></td><td><code>{</code></td><td><code>def</code> <code>else</code> <code>with</code> <code>case</code> <code>and</code> <code>{</code> <code>}</code> <code>(</code> <code>)</code> <code>[</code> <code>]</code> <code>,</code> <code>;</code> <code>.</code> <code>=&gt;</code> <code>==</code> <code>!=</code> <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code> <code>+</code> <code>-</code> <code>*</code> <code>/</code></td><td></td></tr>
     <tr><td><a href="#rule-Stmt"><code>Stmt</code></a></td><td><code>def</code> <code>val</code> <code>var</code> <code>if</code> <code>while</code> <code>try</code> <code>match</code> <code>do</code> <code>return</code> <code>box</code> <code>unbox</code> <code>fn</code> <code>resume</code> <code>true</code> <code>false</code> <code>{</code> <code>(</code> <code>&lt;{</code> <code>-</code> <code>!</code> <code>ident</code> <code>int</code> <code>string</code></td><td><code>def</code> <code>val</code> <code>var</code> <code>if</code> <code>while</code> <code>try</code> <code>match</code> <code>do</code> <code>return</code> <code>box</code> <code>unbox</code> <code>fn</code> <code>resume</code> <code>true</code> <code>false</code> <code>{</code> <code>}</code> <code>(</code> <code>&lt;{</code> <code>}&gt;</code> <code>-</code> <code>!</code> <code>ident</code> <code>int</code> <code>string</code></td><td></td></tr>
     <tr><td><a href="#rule-ExprStmt"><code>ExprStmt</code></a></td><td><code>if</code> <code>while</code> <code>try</code> <code>match</code> <code>do</code> <code>return</code> <code>box</code> <code>unbox</code> <code>fn</code> <code>resume</code> <code>true</code> <code>false</code> <code>{</code> <code>(</code> <code>&lt;{</code> <code>-</code> <code>!</code> <code>ident</code> <code>int</code> <code>string</code></td><td><code>def</code> <code>val</code> <code>var</code> <code>if</code> <code>while</code> <code>try</code> <code>match</code> <code>do</code> <code>return</code> <code>box</code> <code>unbox</code> <code>fn</code> <code>resume</code> <code>true</code> <code>false</code> <code>{</code> <code>}</code> <code>(</code> <code>&lt;{</code> <code>}&gt;</code> <code>-</code> <code>!</code> <code>ident</code> <code>int</code> <code>string</code></td><td></td></tr>

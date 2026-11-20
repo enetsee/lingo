@@ -316,6 +316,7 @@ let steps =
   ; "break-after"
   ; "yields"
   ; "joined"
+  ; "handed"
   ; "blank-kept"
   ; "lead-sep"
   ; "lead-sep-owned"
@@ -841,6 +842,40 @@ let variants (l : Ir.Layout.t)
                 (fun p ->
                    match p with
                    | Layout.Check.Single_slot_between _ -> true
+                   | _ -> false);
+            (* A rule that holds elements hands nothing on. *)
+            (match r.frame with
+             | Ir.Layout.Separated _ | Ir.Layout.Delimited { sep = Some _; _ } ->
+               add
+                 (at ^ " handed by a list")
+                 (map_rule l i ~f:(fun r ->
+                    map_slot r j ~f:(fun s -> { s with handed = true })))
+                 (fun p ->
+                    match p with
+                    | Layout.Check.Handed_by_a_list _ -> true
+                    | _ -> false)
+             | Ir.Layout.Plain | Ir.Layout.Delimited { sep = None; _ } -> ());
+            (* And no slot hands a decision to a matched pair. *)
+            let holds_a_pair =
+              Array.exists
+                (fun k ->
+                   let held = l.of_kind.(k) in
+                   held >= 0
+                   &&
+                   match l.rules.(held).frame with
+                   | Ir.Layout.Delimited _ -> true
+                   | Ir.Layout.Plain | Ir.Layout.Separated _ -> false)
+                s.kinds
+            in
+            if holds_a_pair
+            then
+              add
+                (at ^ " handed a pair")
+                (map_rule l i ~f:(fun r ->
+                   map_slot r j ~f:(fun s -> { s with handed = true })))
+                (fun p ->
+                   match p with
+                   | Layout.Check.Handed_a_pair _ -> true
                    | _ -> false))
          r.slots)
     l.rules;

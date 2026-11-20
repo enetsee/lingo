@@ -32,7 +32,7 @@ type t =
   ; system : Bolts.system
   ; map : Sample.map
   ; lex : string -> Lingo_runtime.Token.t array
-  ; boundary : string -> int -> bool
+  ; boundary : string -> int -> Lingo_runtime.Token.boundary
   ; window : int * int
   ; separators : string list
   ; respelt : bool array
@@ -108,6 +108,7 @@ let separators_of (l : Ir.Layout.t) : string list =
 
 let make
       ~(lex : string -> Lingo_runtime.Token.t array)
+      ~(boundary : string -> int -> Lingo_runtime.Token.boundary)
       ?(comments : float = 0.)
       ?(engine : engine = Tables)
       ?(mean : int = 40)
@@ -172,7 +173,7 @@ let make
   ; system
   ; map
   ; lex
-  ; boundary = Lingo_runtime.Layout.boundary ~lex
+  ; boundary
   ; window
   ; separators = separators_of layout
   ; respelt = respelt_of facts

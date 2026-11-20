@@ -12,7 +12,7 @@ module.exports = grammar({
   rules: {
     program: $ => repeat(field('decls', $.decl)),
 
-    decl: $ => field('decl', choice($.let, $.block)),
+    decl: $ => field('decl', choice($.let, $.block, $.tuple)),
 
     let: $ => seq(
       field('kw', 'let'),
@@ -26,6 +26,8 @@ module.exports = grammar({
     names: $ => sepBy1(',', field('items', $.name)),
 
     block: $ => seq('{', optional(seq(sepBy1(';', field('items', $.decl)), optional(';'))), '}'),
+
+    tuple: $ => seq('(', field('names', $.names), ')'),
 
     name: $ => /[a-z]+/
   }

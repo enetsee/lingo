@@ -319,6 +319,37 @@
 ----------------------------------------------------------------------
 "(* unterminated"   (recovered)
 @80
-  | (* unterminated
+  | ( * unterminated
 @16
-  | (* unterminated
+  | ( * unterminated
+----------------------------------------------------------------------
+"1 x : int  ( * a then if b then(* c *)c else d else e;"   (recovered)
+@80
+  | 1 x: int ( * a then if b then (* c *) c else d else e;
+@16
+  | 1 x: int ( * a then if b then (* c *) c else d else e;
+----------------------------------------------------------------------
+"let map(f : int -> int) (* : int) : int =\n  f(~by: 1, xs)) (* a note *){\n    ;.head;\n    !xs;\n  }xs"   (recovered)
+@80
+  | let map (f: int -> int) ( *: int): int = f(~by:1, xs)) (* a note *) {
+  | ;.head;
+  | !xs;
+  | } xs
+@16
+  | let map (f: int
+  |     -> int) ( *: int): int =
+  |   f(
+  |     ~by:1,
+  |     xs,
+  |   )) (* a note *) {
+  |   ;.head;
+  |   !xs;
+  |   } xs
+----------------------------------------------------------------------
+"type T = (-> (* a note *) ->"   (recovered)
+@80
+  | type T = (-> (* a note *) ->
+@16
+  | type T =
+  |   (
+  |       -> (* a note *) ->

@@ -326,11 +326,12 @@
         "0": { "name": "punctuation.section.brackets.end.effekt" }
       },
       "patterns": [
-        { "include": "#type" },
+        { "include": "#types" },
         { "include": "#trivia" },
         { "include": "#tokens" }
       ]
     },
+    "types": { "patterns": [ { "include": "#type" } ] },
     "block": {
       "name": "meta.block.effekt",
       "begin": "\\{",

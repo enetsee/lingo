@@ -139,20 +139,28 @@ let finish_body (facts : Core.Facts.t) : Emit.expr =
          ~else_:error)
 ;;
 
-(* [lex] around whichever cluster the shape gave. Everything outside the scan
-   is here, so the shapes differ only in the scan.
+(* A scan, as a shape writes it: the call that enters it at [pos], and the
+   functions it runs through. Each of them ends in a call to [finish], which
+   whoever wraps the scan supplies. *)
+type scan = Emit.expr * (string * Emit.arg list * Emit.expr) list
+
+(* [lex] around whichever scan the shape gave. Everything outside the scan is
+   here, so the shapes differ only in the scan.
 
    The buffer starts at a token per two bytes of source. Grown from empty, it
    doubles a dozen times on a file of a few thousand tokens, and every array
    it leaves behind is garbage. incr's source measured 1.5 to 5 bytes a
    token, so the guess rarely grows, and grows once where it does. *)
-let lex_item (facts : Core.Facts.t) (cluster : (string * Emit.arg list * Emit.expr) list)
-  : Emit.item
-  =
+let lex_item (facts : Core.Facts.t) ((enter, states) : scan) : Emit.item =
   let open Emit in
+  let start =
+    ( "start"
+    , [ arg_typed ~arg_name:"pos" ~type_path:"int" ]
+    , ewhen ~condition:(eless ~left:(evar "pos") ~right:(evar "n")) ~then_:enter )
+  in
   let body =
     elet_rec
-      (cluster @ [ "finish", finish_args, finish_body facts ])
+      ((start :: states) @ [ "finish", finish_args, finish_body facts ])
       (eseq [ ecall "start" [ eint 0 ]; ecall "Dynarray.to_array" [ evar "out" ] ])
   in
   ilet
@@ -172,6 +180,79 @@ let lex_item (facts : Core.Facts.t) (cluster : (string * Emit.arg list * Emit.ex
                      [ evar "out"; ecall "/" [ evar "n"; eint 2 ] ]
                  ; elet "emit" ~body:emit_binding ~rest:body
                  ])))
+;;
+
+(* [boundary src at] is {!Lingo_runtime.Token.boundary} for byte [at] of
+   [src].
+
+   It walks the tokens in front of [at] with the scan [lex] runs, so the two
+   cannot read a string differently. Its [finish] moves on to where the token
+   ends, by the three cases [lex]'s has, and writes nothing.
+
+   A scan that read to the end of [src] could have read further. One such
+   scan in front of [at] leaves the boundary open, so [finish] notes it. *)
+let boundary_item ((enter, states) : scan) : Emit.item =
+  let open Emit in
+  let answer (name : string) : Emit.expr =
+    econstruct ("Lingo_runtime.Token." ^ name) []
+  in
+  let ran_out = egreater_equal ~left:(evar "i") ~right:(evar "n") in
+  let width =
+    ecall
+      "Uchar.utf_decode_length"
+      [ ecall "String.get_utf_8_uchar" [ evar "src"; evar "pos" ] ]
+  in
+  let start =
+    ( "start"
+    , [ arg_typed ~arg_name:"pos" ~type_path:"int" ]
+    , eif
+        ~condition:(eequal ~left:(evar "pos") ~right:(evar "at"))
+        ~then_:
+          (eif
+             ~condition:(ecall "!" [ evar "open_" ])
+             ~then_:(answer "Open")
+             ~else_:(answer "Settled"))
+        ~else_:
+          (eif
+             ~condition:
+               (eand
+                  ~left:(eless ~left:(evar "pos") ~right:(evar "at"))
+                  ~right:(eless ~left:(evar "pos") ~right:(evar "n")))
+             ~then_:enter
+             ~else_:(answer "Absent")) )
+  in
+  let finish =
+    ( "finish"
+    , finish_args
+    , eseq
+        [ ewhen ~condition:ran_out ~then_:(ecall ":=" [ evar "open_"; ebool true ])
+        ; ecall
+            "start"
+            [ eif
+                ~condition:(egreater_equal ~left:(evar "kind") ~right:(eint 0))
+                ~then_:(evar "stop")
+                ~else_:
+                  (eif
+                     ~condition:ran_out
+                     ~then_:(evar "n")
+                     ~else_:(add (evar "pos") width))
+            ]
+        ] )
+  in
+  ilet
+    ~args:
+      [ arg_typed ~arg_name:"src" ~type_path:"string"
+      ; arg_typed ~arg_name:"at" ~type_path:"int"
+      ]
+    "boundary"
+    (elet
+       "n"
+       ~body:(ecall "String.length" [ evar "src" ])
+       ~rest:
+         (elet
+            "open_"
+            ~body:(ecall "ref" [ ebool false ])
+            ~rest:(elet_rec ((start :: states) @ [ finish ]) (ecall "start" [ eint 0 ]))))
 ;;
 
 (* -- the table shape ------------------------------------------------------- *)
@@ -373,26 +454,18 @@ let scan_body (table : Core.Lexer.t) (bits : int) : Emit.expr =
               ~else_:wide))
 ;;
 
-let table_cluster (table : Core.Lexer.t) (bits : int)
-  : (string * Emit.arg list * Emit.expr) list
-  =
+let table_scan (table : Core.Lexer.t) (bits : int) : scan =
   let open Emit in
-  [ ( "start"
-    , [ arg_typed ~arg_name:"pos" ~type_path:"int" ]
-    , ewhen
-        ~condition:(eless ~left:(evar "pos") ~right:(evar "n"))
-        ~then_:
-          (ecall
-             "scan"
-             ([ evar "pos"
-              ; eint (Core.Lexer.initial * table.Core.Lexer.num_classes)
-              ; evar "pos"
-              ; eint (-1)
-              ; evar "pos"
-              ]
-              @ List.map carried ~f:evar)) )
-  ; "scan", scan_args, scan_body table bits
-  ]
+  ( ecall
+      "scan"
+      ([ evar "pos"
+       ; eint (Core.Lexer.initial * table.Core.Lexer.num_classes)
+       ; evar "pos"
+       ; eint (-1)
+       ; evar "pos"
+       ]
+       @ List.map carried ~f:evar)
+  , [ "scan", scan_args, scan_body table bits ] )
 ;;
 
 (* -- a function per state, dispatched by pattern match ---------------------- *)
@@ -600,7 +673,7 @@ let state_body_match (facts : Core.Facts.t) (dfa : Redfa.Dfa.t) (state : int) : 
       ~rest:(elet "stop" ~body:(evar "i") ~rest:read)
 ;;
 
-let match_cluster (facts : Core.Facts.t) : (string * Emit.arg list * Emit.expr) list =
+let match_scan (facts : Core.Facts.t) : scan =
   let open Emit in
   let dfa = facts.Core.Facts.lexer in
   let states = ref [] in
@@ -609,15 +682,10 @@ let match_cluster (facts : Core.Facts.t) : (string * Emit.arg list * Emit.expr) 
      | Some binding -> states := binding :: !states
      | None -> ());
     states := (state_name state, state_args, state_body_match facts dfa state) :: !states);
-  ( "start"
-  , [ arg_typed ~arg_name:"pos" ~type_path:"int" ]
-  , ewhen
-      ~condition:(eless ~left:(evar "pos") ~right:(evar "n"))
-      ~then_:
-        (ecall
-           (state_name (Redfa.Dfa.initial dfa))
-           [ evar "pos"; evar "pos"; eint (-1); evar "pos" ]) )
-  :: List.rev !states
+  ( ecall
+      (state_name (Redfa.Dfa.initial dfa))
+      [ evar "pos"; evar "pos"; eint (-1); evar "pos" ]
+  , List.rev !states )
 ;;
 
 (* -- the module ------------------------------------------------------------ *)
@@ -628,6 +696,14 @@ let signature : Emit.sig_item list =
       (Emit.tarrow
          ~domain:(Emit.tcon "string" [])
          ~codomain:(Emit.tcon "array" [ Emit.tcon "Lingo_runtime.Token.t" [] ]))
+  ; Emit.sval
+      "boundary"
+      (Emit.tarrow
+         ~domain:(Emit.tcon "string" [])
+         ~codomain:
+           (Emit.tarrow
+              ~domain:(Emit.tcon "int" [])
+              ~codomain:(Emit.tcon "Lingo_runtime.Token.boundary" [])))
   ]
 ;;
 
@@ -638,9 +714,12 @@ let generate ?(shape : shape = Table) (facts : Core.Facts.t) : Emit.item list =
   | Table ->
     let t = Core.Lexer.of_facts facts in
     let bits = bits_for (Core.Facts.kind_count facts) in
+    let scan = table_scan t bits in
     table_items t bits
     @ [ intern_item facts ]
     @ class_items
-    @ [ lex_item facts (table_cluster t bits) ]
-  | Match -> [ intern_item facts; lex_item facts (match_cluster facts) ]
+    @ [ lex_item facts scan; boundary_item scan ]
+  | Match ->
+    let scan = match_scan facts in
+    [ intern_item facts; lex_item facts scan; boundary_item scan ]
 ;;

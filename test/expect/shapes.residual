@@ -1,13 +1,13 @@
 N_PROGRAM
   0 may-end
-    next T_LET T_LBRACE
+    next T_LET T_LBRACE T_LPAREN
     on N_DECL -> 0
     on N_ERROR -> 0
 
 N_DECL
   0
-    next T_LET T_LBRACE
-    on N_LET N_BLOCK N_DECL_HOLE -> 1
+    next T_LET T_LBRACE T_LPAREN
+    on N_LET N_BLOCK N_TUPLE N_DECL_HOLE -> 1
   1 may-end
 
 N_LET
@@ -67,13 +67,13 @@ N_BLOCK
     on N_ERROR -> 5
     on T_RBRACE -> 6
   1
-    next T_LET T_LBRACE T_RBRACE
+    next T_LET T_LBRACE T_RBRACE T_LPAREN
     on T_SEMI -> 2
     on N_DECL -> 3
     on N_ERROR -> 5
     on T_RBRACE -> 6
   2
-    next T_LET T_LBRACE T_RBRACE
+    next T_LET T_LBRACE T_RBRACE T_LPAREN
     on N_DECL -> 3
     on N_ERROR -> 5
     on T_RBRACE -> 6
@@ -83,14 +83,29 @@ N_BLOCK
     on N_ERROR -> 5
     on T_RBRACE -> 6
   4
-    next T_LET T_LBRACE T_RBRACE
+    next T_LET T_LBRACE T_RBRACE T_LPAREN
     on N_DECL -> 3
     on N_ERROR -> 5
     on T_RBRACE -> 6
   5
-    next T_LET T_LBRACE T_RBRACE
+    next T_LET T_LBRACE T_RBRACE T_LPAREN
     on N_DECL -> 3
     on N_ERROR -> 5
     on T_RBRACE -> 6
   6 may-end
+
+N_TUPLE
+  0
+    next T_LPAREN
+    on T_LPAREN -> 1
+    on N_NAMES N_TUPLE_HOLE -> 2
+    on T_RPAREN -> 3
+  1
+    next T_NAME
+    on N_NAMES N_TUPLE_HOLE -> 2
+    on T_RPAREN -> 3
+  2
+    next T_RPAREN
+    on T_RPAREN -> 3
+  3 may-end
 

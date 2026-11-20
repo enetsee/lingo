@@ -135,6 +135,10 @@ let shapes : t =
       ; "{ let a; let b }"
       ; "{ let a; }"
       ; "let a { let b }"
+      ; "(a, b)"
+        (* Too wide for the narrow ruler, so the pair opens and the list
+           inside it breaks with it. *)
+      ; "(alpha, beta, gamma)"
       ; "let a  "
       ; ""
       ]
@@ -148,6 +152,8 @@ let shapes : t =
       ; "let a ="
       ; "{ let a; ; }"
       ; "}"
+      ; "(a, b"
+      ; "()"
       ; "{ let a end"
       ; "{ let a end }"
         (* A root of repeated items recovers to the end of the input, so a stray
@@ -285,6 +291,9 @@ let effekt : t =
       ; "def f(x: Int): Int = x;"
       ; "def f(): Int at {a} = 1;"
       ; "def f(): List[Int] = 1;"
+        (* Two arguments, too wide for the narrow ruler. The brackets open
+           and the list inside them, a rule of its own, breaks with them. *)
+      ; "def f(): Map[String, Int] = 1;"
       ; "def f(): Int -> Int = 1;"
       ; "record Node(label: Int, kids: List)"
       ; "interface E { def emit(x: Int) }"
@@ -405,6 +414,21 @@ let ml : t =
       ; "data C { | | Red }"
       ; "let x : int = a +;"
       ; "(* unterminated"
+        (* A [(] and a [*] with no closer on their line are two tokens. Side
+           by side they open a comment, and the one further along the line
+           closes it over every token between. The second has the two on a
+           line of their own, which a formatter joins to the next. *)
+      ; "1 x : int  ( * a then if b then(* c *)c else d else e;"
+      ; "let map(f : int -> int) (* : int) : int =\n\
+        \  f(~by: 1, xs)) (* a note *){\n\
+        \    ;.head;\n\
+        \    !xs;\n\
+        \  }xs"
+        (* A comment, then a type with no left operand, then its arrow. The
+           arrow may start a line, and what follows a comment keeps the line
+           the source gave it. The second has to win, or the break the first
+           pass takes is one the second pass reads as the source's. *)
+      ; "type T = (-> (* a note *) ->"
       ]
   }
 ;;

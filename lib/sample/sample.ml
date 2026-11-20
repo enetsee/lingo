@@ -492,13 +492,28 @@ let token_end (lexer : Core.Lexer.t) (text : string) (from : int) : int * bool =
   ends, stopped >= len
 ;;
 
-(* Does lexing [text] put a token boundary at byte [at]? Every step moves the
-   scan on, so the walk ends. *)
-let boundary (lexer : Core.Lexer.t) (text : string) (at : int) : bool =
-  let rec walk (from : int) : bool =
-    from = at || (from < at && walk (fst (token_end lexer text from)))
+(* What lexing says of byte [at] of [text], where [text] is the start of a
+   longer one. It is the runtime's [Token.boundary], which this library does
+   not link: absent where no token ends there, open where one does and a token
+   in front of it was still being read as [text] ran out, and settled where
+   nothing behind [text] can move it. Every step moves the scan on, so the
+   walk ends. *)
+type boundary =
+  | Absent
+  | Open
+  | Settled
+
+let boundary (lexer : Core.Lexer.t) (text : string) (at : int) : boundary =
+  let rec walk (from : int) (open_ : bool) : boundary =
+    if from = at
+    then if open_ then Open else Settled
+    else if from > at || from >= String.length text
+    then Absent
+    else (
+      let ends, alive = token_end lexer text from in
+      walk ends (open_ || alive))
   in
-  walk 0
+  walk 0 false
 ;;
 
 (* The tail of the run that bytes still to come can change.
@@ -539,19 +554,33 @@ let decode (facts : Core.Facts.t) (map : map) (tokens : token list) : string =
       if Buffer.length out = 0
       then ""
       else (
-        let keeps (joiner : string) : bool =
-          boundary
-            map.lexer
-            (!run ^ joiner ^ tok.text)
-            (String.length !run + String.length joiner)
+        let settled (text : string) (at : int) : bool =
+          match boundary map.lexer text at with
+          | Settled -> true
+          | Open | Absent -> false
         in
-        (* Nothing, then a space, then a line break. The first that leaves the
-           lexer a boundary wins, which is the order the formatter's fold takes
-           over the same automaton. A grammar where none of the three works has
-           no way to write the two tokens side by side. *)
-        match List.find_opt ~f:keeps [ ""; " "; "\n" ] with
-        | Some joiner -> joiner
-        | None -> "\n")
+        (* The tests the formatter's fold takes, over the same automaton.
+
+           Two tokens touch where the boundary between them is settled, or
+           where it is open and a blank after them settles it, because a blank
+           is what ends a run. A blank has to settle the boundary in front of
+           it and the one behind it, or it joins a token on one side. *)
+        let at = String.length !run in
+        let touch =
+          match boundary map.lexer (!run ^ tok.text) at with
+          | Settled -> true
+          | Open ->
+            settled (!run ^ tok.text ^ " ") at && settled (!run ^ tok.text ^ "\n") at
+          | Absent -> false
+        in
+        let apart (blank : string) : bool =
+          settled (!run ^ blank ^ tok.text) at
+          && settled (blank ^ tok.text) (String.length blank)
+        in
+        (* Nothing, then a space, then a line break, and the first the lexer
+           allows wins. A grammar where none of the three works has no way to
+           write the two tokens side by side. *)
+        if touch then "" else if apart " " then " " else "\n")
     in
     Buffer.add_string out joiner;
     Buffer.add_string out tok.text;

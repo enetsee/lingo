@@ -16,7 +16,11 @@
    - [Let] has optional children, which are silent when absent where a
      required one reports;
    - [Block]'s separator allows a trailing one, where json's forbids it. The
-     two policies need two grammars, because the policy is per production.
+     two policies need two grammars, because the policy is per production;
+   - [Tuple] is delimited with no separator of its own, and all it holds is
+     [Names]. The list is one rule and the brackets around it are another, so
+     the layout has to hand the pair's decision to the list for the two to
+     break as one.
 
    There is no expression block. grammars/calc_grammar.ml, rassoc and postfix
    carry those, and a failure here should have one cause.
@@ -30,6 +34,8 @@ let grammar : t =
     [ kw "let"
     ; punct ~space_after:Hug ~name:"lbrace" "{"
     ; punct ~space_before:Hug ~name:"rbrace" "}"
+    ; punct ~space_after:Hug ~name:"lparen" "("
+    ; punct ~space_before:Hug ~name:"rparen" ")"
     ; punct_tight ~name:"semi" ";"
     ; punct_tight ~name:"comma" ","
     ; punct ~name:"equals" "="
@@ -46,7 +52,9 @@ let grammar : t =
      is on something no declaration starts with. *)
   let program = prod "Program" [ child_rep "decls" (Rule "Decl") ] in
   let decl =
-    prod "Decl" [ child_alt_rules ~modifier:Exactly_one "decl" [ "Let"; "Block" ] ]
+    prod
+      "Decl"
+      [ child_alt_rules ~modifier:Exactly_one "decl" [ "Let"; "Block"; "Tuple" ] ]
   in
   (* Both trailing children are optional, so their absence is silent.
 
@@ -93,5 +101,11 @@ let grammar : t =
          ~boundary:true
     |> with_resync_to [ "end" ]
   in
-  create ~tokens ~roots:[ "Program" ] [ program; decl; let_; init; names; block ]
+  (* The commas inside are [Names]'s. [Block] is the other way: its semicolons
+     are the pair's own. *)
+  let tuple =
+    prod "Tuple" [ child_req "names" (Rule "Names") ]
+    |> with_delimited ~open_tok:"lparen" ~close_tok:"rparen"
+  in
+  create ~tokens ~roots:[ "Program" ] [ program; decl; let_; init; names; block; tuple ]
 ;;

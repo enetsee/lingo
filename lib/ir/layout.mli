@@ -121,6 +121,18 @@ type slot =
           the rule's other slots marked so. A rule with a slot marked so is
           one decision for all of them, and a child in a marked slot whose own
           rule has marked slots joins that decision. *)
+  ; handed : bool
+    (** Whether a list a child of the slot holds breaks where the rule does,
+          with no decision of its own.
+
+          A matched pair has it on what it holds, where it has no separator
+          of its own and may hold nothing but tokens and lists with no
+          brackets of their own. Each of those lists then goes one element to
+          a line where the pair opens, as the arguments of a call do, and is
+          indented by the pair alone: its own {!rule.indent} is not added.
+
+          A plain rule such a pair may hold has it too. That rule passes on a
+          decision it was handed, and has none to hand on anywhere else. *)
   ; space : bool
     (** Whether a space goes in front of the slot's children. Just inside a
           delimiter the frame sets it instead, and no space goes there. *)
