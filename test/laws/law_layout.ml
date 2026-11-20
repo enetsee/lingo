@@ -315,6 +315,7 @@ let steps =
   ; "hard-nested"
   ; "break-after"
   ; "yields"
+  ; "joined"
   ; "blank-kept"
   ; "lead-sep"
   ; "lead-sep-owned"

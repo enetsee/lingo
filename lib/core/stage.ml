@@ -224,6 +224,7 @@ let shape (names : names) : shape =
         ?(break = Grammar.Fit)
         ?(after = (Grammar.Never : Grammar.break_style))
         ?(indent = false)
+        ?(together = false)
         ?(space = true)
         ?recover_to
         name
@@ -237,6 +238,7 @@ let shape (names : names) : shape =
     ; c_break = break
     ; c_after = after
     ; c_indent = indent
+    ; c_together = together
     ; c_space = space
     ; recover_to
     }
@@ -248,6 +250,7 @@ let shape (names : names) : shape =
       ~break:c.c_break
       ~after:c.c_after
       ~indent:c.c_indent
+      ~together:c.c_together
       ~space:c.c_space
       ?recover_to:
         (Option.map

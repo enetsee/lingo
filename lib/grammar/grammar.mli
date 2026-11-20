@@ -105,6 +105,9 @@ type child =
     (** Whether a line an [Always] break starts in front of this child, or
           between two of its elements, is indented by the production's
           [indent_width]. *)
+  ; c_together : bool
+    (** Whether the body this child holds opens with the production's other
+          children marked so. *)
   ; c_space : bool
     (** Whether a space goes in front of this child, and between two of its
           elements. On the first child there is nothing of this production in
@@ -538,6 +541,16 @@ val postfix_call
     it, one step in. The body of a delimited or separated production is
     indented already, and the value is unread there.
 
+    [together] is whether the body the child holds opens with the bodies of
+    the production's other children marked so, and defaults to [false]. Where
+    one of them breaks they all do, and where they all fit they lie on one
+    line. A marked child that holds a production with marked children of its
+    own joins them, so the blocks of [if (a) \{ \} else if (b) \{ \} else \{ \}]
+    are one decision: effekt marks the block of its [If], the [Else] after it,
+    and the block or the [If] the [Else] holds. A marked child that holds
+    anything but a delimited production or one with marked children is laid
+    out as if it were unmarked.
+
     [space] is whether a space goes in front of the child and between its
     elements, and defaults to [true]. Two children of a production are
     separated by a space unless the grammar says otherwise. effekt's [def f(x)]
@@ -548,6 +561,7 @@ val child
   -> ?break:break_style
   -> ?after:break_style
   -> ?indent:bool
+  -> ?together:bool
   -> ?space:bool
   -> modifier:modifier
   -> string
@@ -559,6 +573,7 @@ val child_req
   -> ?break:break_style
   -> ?after:break_style
   -> ?indent:bool
+  -> ?together:bool
   -> ?space:bool
   -> string
   -> symbol
@@ -569,6 +584,7 @@ val child_opt
   -> ?break:break_style
   -> ?after:break_style
   -> ?indent:bool
+  -> ?together:bool
   -> ?space:bool
   -> string
   -> symbol
@@ -579,6 +595,7 @@ val child_rep
   -> ?break:break_style
   -> ?after:break_style
   -> ?indent:bool
+  -> ?together:bool
   -> ?space:bool
   -> ?between:break_style
   -> string
@@ -592,6 +609,7 @@ val child_rep1
   -> ?break:break_style
   -> ?after:break_style
   -> ?indent:bool
+  -> ?together:bool
   -> ?space:bool
   -> ?between:break_style
   -> string
@@ -605,6 +623,7 @@ val child_alt
   -> ?break:break_style
   -> ?after:break_style
   -> ?indent:bool
+  -> ?together:bool
   -> ?space:bool
   -> modifier:modifier
   -> string
@@ -617,6 +636,7 @@ val child_alt_rules
   -> ?break:break_style
   -> ?after:break_style
   -> ?indent:bool
+  -> ?together:bool
   -> ?space:bool
   -> modifier:modifier
   -> string

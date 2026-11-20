@@ -463,9 +463,14 @@ let grammar : t =
       [ child_req "kw" (Token "if")
       ; child_req "cond" (Rule "Paren")
         (* Both branches are blocks. An [else] after a bare nested [if] could
-           belong to either [if], and the closing brace keeps it to one. *)
-      ; child_req "then_" (Rule "Block")
-      ; child_opt "else_" (Rule "Else")
+           belong to either [if], and the closing brace keeps it to one.
+
+           The blocks of one chain open together, through every [else if]. A
+           block here always breaks, so the marks change no line this grammar
+           writes, and they are what a grammar whose blocks may lie on one
+           line would write. *)
+      ; child_req ~together:true "then_" (Rule "Block")
+      ; child_opt ~together:true "else_" (Rule "Else")
       ]
     |> with_committed
   in
@@ -473,7 +478,7 @@ let grammar : t =
     prod
       "Else"
       [ child_req "kw" (Token "else")
-      ; child_alt_rules ~modifier:Exactly_one "body" [ "Block"; "If" ]
+      ; child_alt_rules ~together:true ~modifier:Exactly_one "body" [ "Block"; "If" ]
       ]
   in
   let while_ =

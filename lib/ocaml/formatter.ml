@@ -68,6 +68,7 @@ let slot (s : Ir.Layout.slot) : Emit.expr =
     ; "between", break s.between
     ; "after", break s.after
     ; "nests", Emit.ebool s.nests
+    ; "together", Emit.ebool s.together
     ; "space", Emit.ebool s.space
     ]
 ;;

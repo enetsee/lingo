@@ -38,6 +38,7 @@ type slot =
   ; between : break
   ; after : break
   ; nests : bool
+  ; together : bool
   ; space : bool
   }
 

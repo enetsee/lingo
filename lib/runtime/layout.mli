@@ -102,6 +102,7 @@ type slot = Ir.Layout.slot =
   ; between : break
   ; after : break
   ; nests : bool
+  ; together : bool
   ; space : bool
   }
 
@@ -161,7 +162,14 @@ val boundary : lex:(string -> Token.t array) -> string -> int -> bool
 
     A boundary that may break in front of a body is settled with the body
     flat, and opens before the body does. test/units/yields.ml holds each of
-    these at the width where it turns. *)
+    these at the width where it turns.
+
+    Bodies in slots marked {!Ir.Layout.slot.together} are one decision. The
+    rule that holds them is a frame, each body is laid out with no group of
+    its own, and so they all open or none does. A marked child whose own rule
+    has marked slots hands the same decision on, which is what makes the
+    blocks of an [if], and of the [if] after its [else], open together.
+    test/units/together.ml holds these. *)
 val fit : Handsome.fit
 
 (** The document, with each token's kind on it. A caller folding the rendered

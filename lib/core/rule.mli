@@ -74,6 +74,9 @@ type child =
   ; c_indent : bool
     (** Whether a line an [Always] break starts in front of this child is
           indented by the rule's [indent_width]. *)
+  ; c_together : bool
+    (** Whether the body this child holds opens with the rule's other children
+          marked so. *)
   ; c_space : bool (** Whether a space goes in front of this child. *)
   ; recover_to : Kind.Set.t option
     (** Replaces the recovery set computed at this position. [None] leaves

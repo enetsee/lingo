@@ -116,6 +116,11 @@ type slot =
           {!rule.indent}. Under [false] the line starts at the rule's own
           column. A delimited or separated rule indents its whole body, and
           the value is unread there. *)
+  ; together : bool
+    (** Whether the body a child of the slot holds opens with the bodies of
+          the rule's other slots marked so. A rule with a slot marked so is
+          one decision for all of them, and a child in a marked slot whose own
+          rule has marked slots joins that decision. *)
   ; space : bool
     (** Whether a space goes in front of the slot's children. Just inside a
           delimiter the frame sets it instead, and no space goes there. *)

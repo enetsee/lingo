@@ -43,6 +43,7 @@ type slot = Ir.Layout.slot =
   ; between : break
   ; after : break
   ; nests : bool
+  ; together : bool
   ; space : bool
   }
 
@@ -374,6 +375,10 @@ type entry =
   ; starts_line : bool
     (* The grammar breaks hard in front of this child and its slot does not
        nest, so its line is a new one at the rule's own column. *)
+  ; joins : bool
+    (* The child sits in a slot whose bodies open together, so the body it
+       holds takes no group of its own and opens with the rule the fold is
+       inside. *)
   ; head :
       head
         option (* Set on the first element of a body that owns its leading separator. *)
@@ -659,7 +664,9 @@ let entries
         | Hard _ -> true
         | Flat | Fit -> false
       in
-      kept := { child = ch; role; held; before; gap; starts_line; head = None } :: !kept));
+      let joins = role = Filled && r.slots.(!prev_slot).together in
+      kept
+      := { child = ch; role; held; before; gap; starts_line; joins; head = None } :: !kept));
   let es = Array.of_list (List.rev !kept) in
   let n = Array.length es in
   (* A comment on a line of its own belongs with the line after it: a new line
@@ -823,6 +830,11 @@ let rec walk (e : env) (es : entry array) (i : int) (stop : int) (st : state) =
    may break has to count flat: with it counted as a break, effekt's
    [def f() = if (x)] kept its line and the brace opened the next one.
 
+   A child whose body opens together with others stays out of the gap groups
+   the same way. The body has no group of its own, so its breaks belong to
+   whichever group is next around it, and that has to be the rule that holds
+   all of them. A gap group around it would take them.
+
    A delimited or separated body keeps one group, so a list breaks all its
    separators or none. *)
 and split
@@ -867,15 +879,16 @@ and split
           lead)
         else nest lead
       in
-      if after.hard > st.hard
-      then (
-        say e "split";
+      let broke = after.hard > st.hard in
+      if broke then say e "split";
+      if broke || it.joins
+      then
         go
           (i + 1)
           ~out:(out ^^ group ~yields (group ~yields acc ^^ gap) ^^ from_line d)
           ~yields:false
           empty
-          after)
+          after
       else
         go
           (i + 1)
@@ -894,7 +907,7 @@ and split
     let before = st.hard in
     let lead, d, st = child e it ~stood ~stood_gap (enter it st) in
     let d, st =
-      if st.hard > before
+      if st.hard > before || it.joins
       then go (i + 1) ~out:(from_line d) ~yields:false empty st
       else go (i + 1) ~out:empty ~yields:st.yields (from_line d) st
     in
@@ -953,11 +966,12 @@ and child
     let w = Written.of_token t in
     let lead, st = glue e st w in
     lead, Written.doc w, { st with held = it.held }
-  | Siesta.Green.Node n -> node e n ~stood ~stood_gap st
+  | Siesta.Green.Node n -> node e n ~join:it.joins ~stood ~stood_gap st
 
 and node
       (e : env)
       (n : Siesta.Green.node)
+      ~(join : bool)
       ~(stood : Ir.Layout.break)
       ~(stood_gap : bool option)
       (st : state)
@@ -973,6 +987,7 @@ and node
     else st
   in
   let k = Siesta.Green.kind n in
+  let around = e.alt in
   let e = { e with kind = k; alt = (fun flat _ -> flat) } in
   let cs = Siesta.Green.children_array n in
   (* A node with no children stands in for something the parse never read: a
@@ -992,6 +1007,21 @@ and node
     let ruled = ri >= 0 in
     let r = if ruled then e.lay.rules.(ri) else unruled in
     if not ruled then say e "unruled";
+    (* Bodies that open together are one decision, made by the rule that holds
+       them. A rule with a slot marked so is that rule, unless its own parent
+       handed it the decision of a rule further out, which is how the blocks of
+       [if] and of the [if] after its [else] come to be one. A delimited rule
+       handed the decision is one of the bodies. Neither has a group of its
+       own, so the breaks of every body are breaks of the one frame around
+       them all, and a trailing separator follows that frame's conditional. *)
+    let holds = Array.exists r.slots ~f:(fun (slot : Ir.Layout.slot) -> slot.together) in
+    let is_body =
+      join
+      &&
+      match r.frame with
+      | Delimited _ -> true
+      | Plain | Separated _ -> false
+    in
     let es, o, c = entries e r ~hold_all:(not ruled) ~prev_held:st.held cs in
     let last = Array.length es in
     (* What the body does about a separator after its last element.
@@ -1311,26 +1341,37 @@ and node
         if folded.yields then say e "yields";
         folded.yields
     in
-    match tail_policy, head_turns with
-    | (`Plain | `Present _ | `Add _), false ->
-      let lead, d, st = build ~alt:(fun flat _ -> flat) in
-      let yields = yields st in
-      ( lead
-      , Handsome.Utf8.group ~yields (Handsome.Utf8.annotate k d)
-      , { (undo st) with yields } )
-    | (`Plain | `Present _ | `Add _), true | (`Maybe _ | `Held _), _ ->
+    let framed ~(yields : bool) =
       let out = ref None in
       let d =
-        (* Only a rule with a separator comes here, and its frame settles
-           whether it yields before anything is folded. *)
-        Handsome.Utf8.framed ~yields:(yields st) (fun alt ->
+        Handsome.Utf8.framed ~yields (fun alt ->
           let lead, d, st = build ~alt in
           out := Some (lead, st);
           Handsome.Utf8.annotate k d)
       in
-      (match !out with
-       | Some (lead, st) -> lead, d, { (undo st) with yields = yields st }
-       | None -> invalid_arg "Layout.node: framed did not build its body"))
+      match !out with
+      | Some (lead, st) -> lead, d, { (undo st) with yields }
+      | None -> invalid_arg "Layout.node: framed did not build its body"
+    in
+    if is_body || (join && holds)
+    then (
+      say e "joined";
+      let lead, d, st = build ~alt:around in
+      lead, Handsome.Utf8.annotate k d, undo st)
+    else if holds
+    then framed ~yields:true
+    else (
+      match tail_policy, head_turns with
+      | (`Plain | `Present _ | `Add _), false ->
+        let lead, d, st = build ~alt:(fun flat _ -> flat) in
+        let yields = yields st in
+        ( lead
+        , Handsome.Utf8.group ~yields (Handsome.Utf8.annotate k d)
+        , { (undo st) with yields } )
+      | (`Plain | `Present _ | `Add _), true | (`Maybe _ | `Held _), _ ->
+        (* Only a rule with a separator comes here, and its frame settles
+         whether it yields before anything is folded. *)
+        framed ~yields:(yields st)))
 ;;
 
 let fit : Handsome.fit = Handsome.Line
@@ -1346,6 +1387,7 @@ let doc
     node
       { lay; boundary; trace; kind; alt = (fun flat _ -> flat) }
       n
+      ~join:false
       ~stood:Ir.Layout.Flat
       ~stood_gap:None
       start

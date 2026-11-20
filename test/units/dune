@@ -21,13 +21,14 @@
   lex
   siesta))
 
-; yields brings its own grammar: no grammar in grammars/ has a body that lies
-; on one line behind a list.
+; yields and together bring their own grammars: no grammar in grammars/ has a
+; body that lies on one line behind a list, or two of them in one production.
 
 (tests
- (names yields)
+ (names yields together)
  (package lingo)
  (libraries
+  handsome
   law
   lingo.core
   lingo.grammar

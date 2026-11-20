@@ -29,6 +29,7 @@ type child =
   ; c_break : break_style
   ; c_after : break_style
   ; c_indent : bool
+  ; c_together : bool
   ; c_space : bool
   ; head : symbol
   ; rest : symbol list
@@ -357,6 +358,7 @@ let child
       ?(break = Fit)
       ?(after = (Never : break_style))
       ?(indent = false)
+      ?(together = false)
       ?(space = true)
       ~(modifier : modifier)
       (name : string)
@@ -367,6 +369,7 @@ let child
   ; c_break = break
   ; c_after = after
   ; c_indent = indent
+  ; c_together = together
   ; c_space = space
   ; head = sym
   ; rest = []
@@ -375,14 +378,22 @@ let child
   }
 ;;
 
-let child_req ?recover_to ?break ?after ?indent ?space name sym =
-  child ?recover_to ?break ?after ?indent ?space ~modifier:Exactly_one name sym
+let child_req ?recover_to ?break ?after ?indent ?together ?space name sym =
+  child ?recover_to ?break ?after ?indent ?together ?space ~modifier:Exactly_one name sym
 ;;
 
-let child_opt ?recover_to ?break ?after ?indent ?space (name : string) (sym : symbol)
+let child_opt
+      ?recover_to
+      ?break
+      ?after
+      ?indent
+      ?together
+      ?space
+      (name : string)
+      (sym : symbol)
   : child
   =
-  child ?recover_to ?break ?after ?indent ?space ~modifier:Zero_or_one name sym
+  child ?recover_to ?break ?after ?indent ?together ?space ~modifier:Zero_or_one name sym
 ;;
 
 let child_rep
@@ -390,13 +401,23 @@ let child_rep
       ?break
       ?after
       ?indent
+      ?together
       ?space
       ?(between = Fit)
       (name : string)
       (sym : symbol)
   : child
   =
-  child ?recover_to ?break ?after ?indent ?space ~modifier:(Zero_or_more between) name sym
+  child
+    ?recover_to
+    ?break
+    ?after
+    ?indent
+    ?together
+    ?space
+    ~modifier:(Zero_or_more between)
+    name
+    sym
 ;;
 
 let child_rep1
@@ -404,13 +425,23 @@ let child_rep1
       ?break
       ?after
       ?indent
+      ?together
       ?space
       ?(between = Fit)
       (name : string)
       (sym : symbol)
   : child
   =
-  child ?recover_to ?break ?after ?indent ?space ~modifier:(One_or_more between) name sym
+  child
+    ?recover_to
+    ?break
+    ?after
+    ?indent
+    ?together
+    ?space
+    ~modifier:(One_or_more between)
+    name
+    sym
 ;;
 
 let child_alt
@@ -418,6 +449,7 @@ let child_alt
       ?(break = Fit)
       ?(after = (Never : break_style))
       ?(indent = false)
+      ?(together = false)
       ?(space = true)
       ~(modifier : modifier)
       (name : string)
@@ -431,6 +463,7 @@ let child_alt
     ; c_break = break
     ; c_after = after
     ; c_indent = indent
+    ; c_together = together
     ; c_space = space
     ; head
     ; rest
@@ -444,6 +477,7 @@ let child_alt_rules
       ?break
       ?after
       ?indent
+      ?together
       ?space
       ~(modifier : modifier)
       (name : string)
@@ -455,6 +489,7 @@ let child_alt_rules
     ?break
     ?after
     ?indent
+    ?together
     ?space
     ~modifier
     name
